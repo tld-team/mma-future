@@ -1,0 +1,30 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - main  # Pokreće se svaki put kada pushujete u 'main' granu
+
+jobs:
+  ftp-deploy:
+    name: Upload to cPanel via FTP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2  # Preuzima kod iz repozitorijuma
+
+      - name: Deploy files via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_DIRECTORY }}
+          exclude: |
+            **/.git*
+            **/.github*
+            **/README.md
+            **/node_modules/*
