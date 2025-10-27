@@ -181,4 +181,3 @@ if ( defined( 'JETPACK__VERSION' ) ) {
 	require get_template_directory() . '/inc/jetpack.php';
 }
 
-require_once get_template_directory() . '/update_fighters.php';
