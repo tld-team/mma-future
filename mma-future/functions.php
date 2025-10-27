@@ -150,6 +150,11 @@ function mma_future_scripts() {
 add_action( 'wp_enqueue_scripts', 'mma_future_scripts' );
 
 /**
+ * Include helper functions
+ */
+require_once get_template_directory() . '/inc/helper-function.php';
+
+/**
  * Implement the Custom Header feature.
  */
 require get_template_directory() . '/inc/custom-header.php';
