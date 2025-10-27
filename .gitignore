@@ -1,48 +1,101 @@
-# Wordpress - ignore core, configuration, examples, uploads and logs.
-# https://github.com/github/gitignore/blob/main/WordPress.gitignore
+# === WordPress Themes Directory .gitignore ===
+# Ovaj fajl se nalazi u wp-content/themes/.gitignore
 
-# Core
-#
-# Note: if you want to stage/commit WP core files
-# you can delete this whole section/until Configuration.
-/wp-admin/
-/wp-content/index.php
-/wp-content/languages
-/wp-content/plugins/index.php
-/wp-content/themes/index.php
-/wp-includes/
-/index.php
-/license.txt
-/readme.html
-/wp-*.php
-/xmlrpc.php
+# Ignoriši sve u svim temama podrazumevano
+*
 
-# Configuration
-wp-config.php
+# Ali NE ignoriši ovaj .gitignore fajl
+!.gitignore
 
-# Example themes
-/wp-content/themes/twenty*/
+# === Sada dozvoli bitne fajlove i foldere u temama ===
 
-# Example plugin
-/wp-content/plugins/hello.php
+# Dozvoli PHP fajlove
+!*.php
 
-# Uploads
-/wp-content/uploads/
+# Dozvoli CSS fajlove
+!*.css
 
-# Log files
+# Dozvoli JavaScript fajlove
+!*.js
+
+# Dozvoli slike
+!*.jpg
+!*.jpeg
+!*.png
+!*.gif
+!*.svg
+!*.webp
+!*.ico
+
+# Dozvoli fontove
+!*.woff
+!*.woff2
+!*.ttf
+!*.eot
+
+# Dozvoli tekstualne fajlove
+!*.txt
+!*.md
+!*.readme
+
+# Dozvoli JSON fajlove
+!*.json
+
+# Dozvoli XML fajlove
+!*.xml
+
+# Dozvoli sve foldere (da bi mogli da pristupimo podfolderima)
+!*/
+
+# === Sada ignoriši specifične stvari unutar tema ===
+
+# Ignore OS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Tt]humbs.db
+$RECYCLE.BIN/
+
+# Ignore development tool files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore dependency directories
+node_modules/
+vendor/
+
+# Ignore build artifacts
+/dist/
+/build/
+*.min.js
+*.min.css
+package-lock.json
+yarn.lock
+composer.lock
+
+# Ignore environment files
+.env
+.env.local
+.env.production
+
+# Ignore log files
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# htaccess
-/.htaccess
+# # Ignore cache directories
+# .sass-cache/
+# /wp-content/themes/*/assets/css/*.css
+# /wp-content/themes/*/assets/js/*.js
 
-# All plugins
-#
-# Note: If you wish to whitelist plugins,
-# uncomment the next line
-#/wp-content/plugins
-
-# All themes
-#
-# Note: If you wish to whitelist themes,
-# uncomment the next line
-#/wp-content/themes
+# # Dozvoli source CSS i JS fajlove, ali ignoriši built verzije
+# !/wp-content/themes/*/assets/css/*.css
+# !/wp-content/themes/*/assets/js/*.js
