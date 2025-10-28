@@ -4,10 +4,16 @@
   "private": true,
   "scripts": {
     "tw": "npx tailwindcss -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --watch",
-    "tw_build": "npx tailwindcss -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --minify"
+    "tw_build": "npx tailwindcss -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --minify",
+    "build": "mix",
+    "prod": "mix --production",
+    "watch": "mix watch",
+    "watch-poll": "mix watch -- --watch-options-poll=1000",
+    "production": "mix --production"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.0.0",
+    "laravel-mix": "^6.0.49",
     "tailwindcss": "^4.0.0"
   }
 }

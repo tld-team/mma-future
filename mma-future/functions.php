@@ -138,6 +138,17 @@ add_action( 'widgets_init', 'mma_future_widgets_init' );
  * Enqueue scripts and styles.
  */
 function mma_future_scripts() {
+	/** ==============================            custom styles and scripts            ============================== */
+	/**  */
+	wp_enqueue_script( 'mma-main', get_template_directory_uri() . '/assets/dist/js/main.js', array(), _S_VERSION, true );
+	wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css', array(), _S_VERSION, true );
+
+
+    /** ================================================================================================================ */
+
+
+	/** ==============================            default styles and scripts            ============================== */
+
 	wp_enqueue_style( 'mma-future-style', get_stylesheet_uri(), array(), _S_VERSION );
 	wp_style_add_data( 'mma-future-style', 'rtl', 'replace' );
 
@@ -173,6 +184,11 @@ require get_template_directory() . '/inc/template-functions.php';
  * Customizer additions.
  */
 require get_template_directory() . '/inc/customizer.php';
+
+/**
+ * Register blocks
+ */
+require get_template_directory() . '/inc/register-blocks.php';
 
 /**
  * Load Jetpack compatibility file.
