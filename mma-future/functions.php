@@ -11,6 +11,32 @@ if ( ! defined( '_S_VERSION' ) ) {
 	// Replace the version number of the theme on each release.
 	define( '_S_VERSION', '1.0.0' );
 }
+/** helper test functions */
+function dd($array): void {
+	echo "<pre>";
+	print_r($array);
+	echo "</pre>";
+}
+
+if ( ! function_exists( 'tld_log' ) ) {
+	function tld_log( $entry, $mode = 'a', $file = 'tld_log' ) {
+		// Get WordPress uploads directory.
+		$upload_dir = wp_upload_dir();
+
+		$upload_dir = $upload_dir['basedir'];
+		$upload_dir = dirname(__FILE__);
+		// If the entry is array, json_encode.
+		if ( is_array( $entry ) ) {
+			$entry = json_encode( $entry );
+		}
+		// Write the log file.
+		$file  = $upload_dir . '/' . $file . '.log';
+		$file  = fopen( $file, $mode );
+		$bytes = fwrite( $file, current_time( 'mysql' ) . "::" . $entry . "\n" );
+		fclose( $file );
+		return $bytes;
+	}
+}
 
 /**
  * Sets up theme defaults and registers support for various WordPress features.
@@ -140,8 +166,10 @@ add_action( 'widgets_init', 'mma_future_widgets_init' );
 function mma_future_scripts() {
 	/** ==============================            custom styles and scripts            ============================== */
 	/**  */
+	wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css' );
 	wp_enqueue_script( 'mma-main', get_template_directory_uri() . '/assets/dist/js/main.js', array(), _S_VERSION, true );
-	wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css', array(), _S_VERSION, true );
+	// wp_enqueue_script( 'tailwindcss', 'https://cdn.tailwindcss.com' );
+	wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css' );
 
 
     /** ================================================================================================================ */
@@ -159,6 +187,22 @@ function mma_future_scripts() {
 	}
 }
 add_action( 'wp_enqueue_scripts', 'mma_future_scripts' );
+
+
+/**
+ * Enqueue admin scripts
+ */
+function mma_future_admin_scripts($hook) {
+	global $screen_options;
+	dd($screen_options);
+	if ( 'post.php' === $hook ) {
+		wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css' );
+		wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css' );
+		wp_enqueue_script( 'mma-main', get_template_directory_uri() . '/assets/dist/js/main.js', array(), _S_VERSION, true );
+	}
+}
+add_action( 'admin_enqueue_scripts', 'mma_future_admin_scripts' );
+
 
 /**
  * Include helper functions

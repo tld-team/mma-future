@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "tw": "npx tailwindcss -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --watch",
-    "tw_build": "npx tailwindcss -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --minify",
+    "tw": "npx @tailwindcss/cli -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --watch",
+    "tw_build": "npx @tailwindcss/cli -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --minify",
     "build": "mix",
     "prod": "mix --production",
     "watch": "mix watch",
