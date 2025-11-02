@@ -1,5 +1,9 @@
-<!-- Sekcija za detalje -->
-<section class="py-16 bg-gray-800 single-fighter-detail">
+ <?php
+$blocks_id = $block['id'];
+$blocks_class = isset($block['class']) ? $block['class'] : '';
+$anchor = isset($block['anchor']) ? $block['anchor'] : $blocks_id;
+?>
+<section id="<?php echo $anchor; ?>" class="py-16 bg-gray-800 single-fighter-detail <?php echo $blocks_class; ?>">
     <div class="container mx-auto px-4">
         <h2 class="text-3xl font-bold mb-12 text-center">Detalji o Borcu</h2>
         
