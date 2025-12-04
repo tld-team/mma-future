@@ -1,0 +1,23 @@
+// Custom Components
+
+// Gradient Background
+.gradient-bg {
+    background: $gradient-bg;
+}
+
+// Stats Gradient
+.stats-gradient {
+    background: $gradient-stats;
+}
+
+// Fighter Image
+.fighter-image {
+    filter: $shadow-fighter;
+}
+
+// Section Divider
+.section-divider {
+    height: 2px;
+    background: $gradient-divider;
+}
+

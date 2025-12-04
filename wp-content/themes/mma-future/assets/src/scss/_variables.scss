@@ -1,0 +1,17 @@
+// Colors
+$primary-dark: #1a202c;
+$secondary-dark: #2d3748;
+$accent-red: #e53e3e;
+
+// Typography
+$font-inter: 'Inter', sans-serif;
+$font-oswald: 'Oswald', sans-serif;
+
+// Shadows
+$shadow-fighter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.5));
+
+// Gradients
+$gradient-bg: linear-gradient(135deg, $primary-dark 0%, $secondary-dark 100%);
+$gradient-stats: linear-gradient(90deg, rgba(26, 32, 44, 0.9) 0%, rgba(45, 55, 72, 0.7) 100%);
+$gradient-divider: linear-gradient(90deg, transparent 0%, $accent-red 50%, transparent 100%);
+

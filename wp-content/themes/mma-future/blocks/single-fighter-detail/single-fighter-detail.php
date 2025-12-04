@@ -1,12 +1,13 @@
- <?php
+<?php
 $blocks_id = $block['id'];
 $blocks_class = isset($block['class']) ? $block['class'] : '';
 $anchor = isset($block['anchor']) ? $block['anchor'] : $blocks_id;
 ?>
+
 <section id="<?php echo $anchor; ?>" class="py-16 bg-gray-800 single-fighter-detail <?php echo $blocks_class; ?>">
     <div class="container mx-auto px-4">
         <h2 class="text-3xl font-bold mb-12 text-center">Detalji o Borcu</h2>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <!-- Lični podaci -->
             <div class="bg-gray-700 p-6 rounded-lg">
@@ -36,7 +37,7 @@ $anchor = isset($block['anchor']) ? $block['anchor'] : $blocks_id;
                     </li>
                 </ul>
             </div>
-            
+
             <!-- Borilački stil -->
             <div class="bg-gray-700 p-6 rounded-lg">
                 <h3 class="text-xl font-bold mb-4 text-red-500 flex items-center">
@@ -65,7 +66,7 @@ $anchor = isset($block['anchor']) ? $block['anchor'] : $blocks_id;
                     </li>
                 </ul>
             </div>
-            
+
             <!-- Trenutni rekord -->
             <div class="bg-gray-700 p-6 rounded-lg">
                 <h3 class="text-xl font-bold mb-4 text-red-500 flex items-center">
@@ -101,7 +102,7 @@ $anchor = isset($block['anchor']) ? $block['anchor'] : $blocks_id;
                     </div>
                 </div>
             </div>
-            
+
             <!-- Nagrade i dostignuća -->
             <div class="bg-gray-700 p-6 rounded-lg">
                 <h3 class="text-xl font-bold mb-4 text-red-500 flex items-center">
