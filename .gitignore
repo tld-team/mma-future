@@ -1,100 +1,80 @@
-# === WordPress Themes Directory .gitignore ===
-# Ovaj fajl se nalazi u wp-content/themes/.gitignore
-
-# Ignoriši sve u svim temama podrazumevano
-*
-
-# Ali NE ignoriši ovaj .gitignore fajl
-!.gitignore
-
-# === Sada dozvoli bitne fajlove i foldere u temama ===
-
-# Dozvoli PHP fajlove
-!*.php
-
-# Dozvoli CSS fajlove
-!*.css
-
-# Dozvoli JavaScript fajlove
-!*.js
-
-# Dozvoli slike
-!*.jpg
-!*.jpeg
-!*.png
-!*.gif
-!*.svg
-!*.webp
-!*.ico
-
-# Dozvoli fontove
-!*.woff
-!*.woff2
-!*.ttf
-!*.eot
-
-# Dozvoli tekstualne fajlove
-!*.txt
-!*.md
-!*.readme
-
-# Dozvoli JSON fajlove
-!*.json
-
-# Dozvoli XML fajlove
-!*.xml
-
-# Dozvoli sve foldere (da bi mogli da pristupimo podfolderima)
-!*/
-
-# === Sada ignoriši specifične stvari unutar tema ===
-
-# Ignore OS system files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
+# ignore everything in the root except the "wp-content" directory.
+!wp-content/
+# ignore everything in the root except the "wp-content" directory.
+/*
+!wp-content/
+# ignore everything in the "wp-content" directory, except:
+# mu-plugins, plugins, and themes directories
+wp-content/*
+!wp-content/mu-plugins/
+!wp-content/plugins/
+!wp-content/themes/
+!wp-content/languages/
+# ignore all mu-plugins, plugins, and themes
+# unless explicitly whitelisted at the end of this file
+wp-content/mu-plugins/*
+wp-content/plugins/*
+wp-content/themes/*
+wp-content/languages/*
+#wp-content/plugins/intellrocket-product-configurator/vendor/*
+# ignore all files starting with . or ~
+.*
+~*
+# ignore node dependency directories
+node_modules/
+# ignore OS generated files
 ehthumbs.db
 Thumbs.db
-[Tt]humbs.db
-$RECYCLE.BIN/
-
-# Ignore development tool files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Ignore dependency directories
-node_modules/
-vendor/
-
-# Ignore build artifacts
-/build/
-*.min.js
-*.min.css
-package-lock.json
-yarn.lock
-composer.lock
-
-# Ignore environment files
-.env
-.env.local
-.env.production
-
-# Ignore log files
+# ignore Editor files
+*.sublime-project
+*.sublime-workspace
+*.komodoproject
+# ignore log files and databases
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# # Ignore cache directories
-# .sass-cache/
-# /wp-content/themes/*/assets/css/*.css
-# /wp-content/themes/*/assets/js/*.js
-
-# # Dozvoli source CSS i JS fajlove, ali ignoriši built verzije
-# !/wp-content/themes/*/assets/css/*.css
-# !/wp-content/themes/*/assets/js/*.js
+*.sql
+*.sqlite
+# ignore compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+# ignore packaged files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+# ignore json files
+*.json
+# -------------------------
+# BEGIN Whitelisted Files
+# -------------------------
+# track these files, if they exist
+!.gitignore
+!.editorconfig
+!.phpcs.xml.dist
+!README.md
+!CHANGELOG.md
+!composer.json
+# track favicon files, if they exist
+!android-chrome-*.png
+!apple-touch-icon*.png
+!browserconfig.xml
+!favicon*.png
+!favicon*.ico
+!manifest.json
+!mstile-*.png
+!safari-pinned-tab.svg
+!site.webmanifest
+# track these mu-plugins, plugins, and themes
+# add your own entries here
+!wp-content/themes/mma-future
+!wp-content/themes/mma-future/theme.json
+!wp-content/plugins/mma-manager
+!.github/
+!package.json
