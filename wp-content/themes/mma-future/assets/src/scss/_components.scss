@@ -124,12 +124,6 @@
         }
     }
     
-    // Special handling for dropdown button underline
-    .nav-link-dropdown-mobile::after {
-        // Exclude chevron icon from underline by limiting width
-        max-width: calc(100% - 1.75rem);
-    }
-    
     // Submenu link styling
     .nav-link-mobile-sub {
         position: relative;
@@ -137,38 +131,45 @@
         
         &:hover {
             text-decoration: none !important;
+            transform: translateX(2px);
         }
         
-        &::after {
+        // Small dot indicator on hover instead of underline
+        &::before {
             content: '';
             position: absolute;
-            bottom: 4px;
-            left: 1rem;
-            width: 0;
-            height: 2px;
+            left: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%) scale(0);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
             background-color: currentColor;
-            transition: width 0.3s ease;
+            transition: transform 0.2s ease;
         }
         
-        &:hover::after {
-            width: calc(100% - 2rem);
+        &:hover::before {
+            transform: translateY(-50%) scale(1);
         }
     }
     
-    // Dropdown button - reset button styles and align as link
+    // Dropdown button - primary color and full width layout
     .nav-link-dropdown-mobile {
         padding-left: 0 !important;
         padding-right: 0 !important;
         margin: 0;
-        width: auto !important;
-        justify-content: flex-start !important;
         
         .chevron-icon {
-            opacity: 0.7;
+            opacity: 0.8;
         }
         
         &:hover .chevron-icon {
             opacity: 1;
+        }
+        
+        // No underline effect for dropdown button
+        &::after {
+            display: none !important;
         }
     }
     
@@ -176,6 +177,18 @@
     #mobile-menu {
         .flex.h-16 {
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+    }
+    
+    // Mobile menu footer login button - ensure no underline
+    #mobile-menu .px-6.py-6 a {
+        text-decoration: none !important;
+        
+        &:hover,
+        &:focus,
+        &:active,
+        &:visited {
+            text-decoration: none !important;
         }
     }
     
@@ -218,6 +231,40 @@
         list-style: none;
         padding: 0;
         margin: 0;
+    }
+}
+
+// Footer Lists - Remove global ul margin
+footer ul {
+    margin-left: 0 !important;
+}
+
+// Footer Links Styling
+footer .footer-link {
+    display: inline-block;
+    text-decoration: none !important;
+    position: relative;
+    padding: 0.25rem 0;
+    transition: all 0.2s ease;
+}
+
+footer .footer-link::after {
+    display: none !important;
+}
+
+footer .footer-link:hover {
+    padding-left: 0.5rem;
+}
+
+// Footer Links - Mobile Styling
+@media (max-width: 767px) {
+    footer .footer-link {
+        font-weight: 500;
+        padding-left: 0;
+    }
+    
+    footer .footer-link:hover {
+        padding-left: 0.125rem;
     }
 }
 

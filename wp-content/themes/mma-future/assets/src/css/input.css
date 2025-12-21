@@ -156,6 +156,11 @@
     transform: scale(1.05);
 }
 
+/* Footer Lists - Remove global ul margin */
+footer ul {
+    margin-left: 0 !important;
+}
+
 /* Footer Links Styling */
 footer .footer-link {
     display: inline-block;
@@ -171,6 +176,25 @@ footer .footer-link::after {
 
 footer .footer-link:hover {
     padding-left: 0.5rem;
+}
+
+/* Footer Links - Mobile Styling */
+@media (max-width: 767px) {
+    footer .footer-link {
+        font-weight: 500;
+        padding-left: 0;
+    }
+    
+    footer .footer-link:hover {
+        padding-left: 0.125rem;
+    }
+}
+
+/* Footer Links - Desktop Styling */
+@media (min-width: 768px) {
+    footer .footer-link {
+        font-weight: 600;
+    }
 }
 
 /* Mobile Menu Styling */
@@ -285,11 +309,6 @@ footer .footer-link:hover {
         width: 100%;
     }
     
-    /* Special handling for dropdown button underline */
-    .nav-link-dropdown-mobile::after {
-        max-width: calc(100% - 1.75rem);
-    }
-    
     /* Submenu link styling */
     .nav-link-mobile-sub {
         position: relative;
@@ -298,43 +317,62 @@ footer .footer-link:hover {
     
     .nav-link-mobile-sub:hover {
         text-decoration: none !important;
+        transform: translateX(2px);
     }
     
-    .nav-link-mobile-sub::after {
+    /* Small dot indicator on hover instead of underline */
+    .nav-link-mobile-sub::before {
         content: '';
         position: absolute;
-        bottom: 4px;
-        left: 1rem;
-        width: 0;
-        height: 2px;
+        left: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%) scale(0);
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
         background-color: currentColor;
-        transition: width 0.3s ease;
+        transition: transform 0.2s ease;
     }
     
-    .nav-link-mobile-sub:hover::after {
-        width: calc(100% - 2rem);
+    .nav-link-mobile-sub:hover::before {
+        transform: translateY(-50%) scale(1);
     }
     
-    /* Dropdown button - reset button styles and align as link */
+    /* Dropdown button - primary color and full width layout */
     .nav-link-dropdown-mobile {
         padding-left: 0 !important;
         padding-right: 0 !important;
         margin: 0;
-        width: auto !important;
-        justify-content: flex-start !important;
     }
     
     .nav-link-dropdown-mobile .chevron-icon {
-        opacity: 0.7;
+        opacity: 0.8;
     }
     
     .nav-link-dropdown-mobile:hover .chevron-icon {
         opacity: 1;
     }
     
+    /* No underline effect for dropdown button */
+    .nav-link-dropdown-mobile::after {
+        display: none !important;
+    }
+    
     /* Mobile menu panel - subtle separator instead of border */
     #mobile-menu .flex.h-16 {
         border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Mobile menu footer login button - ensure no underline */
+    #mobile-menu .px-6.py-6 a {
+        text-decoration: none !important;
+    }
+    
+    #mobile-menu .px-6.py-6 a:hover,
+    #mobile-menu .px-6.py-6 a:focus,
+    #mobile-menu .px-6.py-6 a:active,
+    #mobile-menu .px-6.py-6 a:visited {
+        text-decoration: none !important;
     }
     
     /* Mobile Menu List Styling */

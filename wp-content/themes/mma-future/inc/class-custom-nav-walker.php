@@ -122,9 +122,9 @@ class MMA_Mobile_Nav_Walker extends Walker_Nav_Menu {
 
 	if ($has_children && $depth === 0) {
 		// Parent item with children - styled exactly as link but functional as button
-		$output .= '<button type="button" class="nav-link-mobile nav-link-dropdown-mobile text-sm font-heading font-semibold text-heading hover:text-primary no-underline transition-colors py-2 inline-flex items-center gap-1.5" data-toggle-submenu>';
+		$output .= '<button type="button" class="nav-link-mobile nav-link-dropdown-mobile text-sm font-heading font-semibold text-primary hover:text-primary-600 no-underline transition-colors py-2 flex items-center justify-between w-full" data-toggle-submenu>';
 		$output .= '<span>' . esc_html($item->title) . '</span>';
-		$output .= '<svg class="chevron-icon h-5 w-5 text-heading transition-transform duration-200 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">';
+		$output .= '<svg class="chevron-icon h-5 w-5 text-primary transition-transform duration-200 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">';
 		$output .= '<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />';
 		$output .= '</svg>';
 		$output .= '</button>';
@@ -132,7 +132,7 @@ class MMA_Mobile_Nav_Walker extends Walker_Nav_Menu {
 		// Regular menu item - identical to desktop style
 		$link_class = ($depth === 0) 
 			? 'nav-link-mobile text-sm font-heading font-semibold text-heading hover:text-primary no-underline transition-colors py-2 inline-block'
-			: 'nav-link-mobile-sub block pl-4 py-2 text-sm text-body hover:text-primary no-underline transition-colors';
+			: 'nav-link-mobile-sub block pl-4 py-2 text-sm font-medium text-body hover:text-primary no-underline transition-colors';
 		
 		$output .= '<a href="' . esc_url($item->url) . '" class="' . esc_attr($link_class) . '">';
 		$output .= esc_html($item->title);

@@ -1,6 +1,6 @@
 
     <footer class="bg-secondary-800 py-12 text-white">
-        <div class="container mx-auto px-4">
+        <div class="container mx-auto pl-2 pr-4 md:px-4">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <div>
                     <h3 class="text-xl font-heading font-bold mb-4 flex items-center">
@@ -11,9 +11,9 @@
                     </p>
                 </div>
                 
-                <div>
+                <div class="ml-3 md:ml-0">
                     <h4 class="text-lg font-heading font-bold mb-4">Brzi linkovi</h4>
-                    <ul class="space-y-2 list-none">
+                    <ul class="space-y-1 list-none ml-0">
                         <li><a href="#" class="footer-link text-muted hover:text-primary no-underline transition-colors duration-200">Početna</a></li>
                         <li><a href="#" class="footer-link text-muted hover:text-primary no-underline transition-colors duration-200">Borci</a></li>
                         <li><a href="#" class="footer-link text-muted hover:text-primary no-underline transition-colors duration-200">Turniri</a></li>
@@ -21,9 +21,9 @@
                     </ul>
                 </div>
                 
-                <div>
+                <div class="ml-3 md:ml-0">
                     <h4 class="text-lg font-heading font-bold mb-4">Organizacije</h4>
-                    <ul class="space-y-2 list-none">
+                    <ul class="space-y-1 list-none ml-0">
                         <li><a href="#" class="footer-link text-muted hover:text-primary no-underline transition-colors duration-200">UFC</a></li>
                         <li><a href="#" class="footer-link text-muted hover:text-primary no-underline transition-colors duration-200">Bellator</a></li>
                         <li><a href="#" class="footer-link text-muted hover:text-primary no-underline transition-colors duration-200">ONE Championship</a></li>

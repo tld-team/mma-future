@@ -30,6 +30,7 @@
     --text-4xl--line-height: calc(2.5 / 2.25);
     --text-6xl: 3.75rem;
     --text-6xl--line-height: 1;
+    --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --font-weight-bold: 700;
     --radius-lg: 0.5rem;
@@ -313,8 +314,14 @@
   .mb-12 {
     margin-bottom: calc(var(--spacing) * 12);
   }
+  .ml-0 {
+    margin-left: calc(var(--spacing) * 0);
+  }
   .ml-1\.5 {
     margin-left: calc(var(--spacing) * 1.5);
+  }
+  .ml-3 {
+    margin-left: calc(var(--spacing) * 3);
   }
   .block {
     display: block;
@@ -449,9 +456,6 @@
   }
   .justify-center {
     justify-content: center;
-  }
-  .gap-1\.5 {
-    gap: calc(var(--spacing) * 1.5);
   }
   .gap-4 {
     gap: calc(var(--spacing) * 4);
@@ -588,6 +592,12 @@
   .py-16 {
     padding-block: calc(var(--spacing) * 16);
   }
+  .pr-4 {
+    padding-right: calc(var(--spacing) * 4);
+  }
+  .pl-2 {
+    padding-left: calc(var(--spacing) * 2);
+  }
   .pl-4 {
     padding-left: calc(var(--spacing) * 4);
   }
@@ -635,6 +645,10 @@
   .font-bold {
     --tw-font-weight: var(--font-weight-bold);
     font-weight: var(--font-weight-bold);
+  }
+  .font-medium {
+    --tw-font-weight: var(--font-weight-medium);
+    font-weight: var(--font-weight-medium);
   }
   .font-semibold {
     --tw-font-weight: var(--font-weight-semibold);
@@ -822,6 +836,11 @@
       margin-bottom: calc(var(--spacing) * 0);
     }
   }
+  .md\:ml-0 {
+    @media (width >= 48rem) {
+      margin-left: calc(var(--spacing) * 0);
+    }
+  }
   .md\:w-2\/5 {
     @media (width >= 48rem) {
       width: calc(2/5 * 100%);
@@ -850,6 +869,11 @@
   .md\:flex-row {
     @media (width >= 48rem) {
       flex-direction: row;
+    }
+  }
+  .md\:px-4 {
+    @media (width >= 48rem) {
+      padding-inline: calc(var(--spacing) * 4);
     }
   }
   .md\:py-24 {
@@ -1029,6 +1053,9 @@
 .social-link:hover i {
   transform: scale(1.05);
 }
+footer ul {
+  margin-left: 0 !important;
+}
 footer .footer-link {
   display: inline-block;
   text-decoration: none !important;
@@ -1041,6 +1068,20 @@ footer .footer-link::after {
 }
 footer .footer-link:hover {
   padding-left: 0.5rem;
+}
+@media (max-width: 767px) {
+  footer .footer-link {
+    font-weight: 500;
+    padding-left: 0;
+  }
+  footer .footer-link:hover {
+    padding-left: 0.125rem;
+  }
+}
+@media (min-width: 768px) {
+  footer .footer-link {
+    font-weight: 600;
+  }
 }
 @media (max-width: 1023px) {
   .mobile-menu-toggle, .mobile-menu-close {
@@ -1110,44 +1151,51 @@ footer .footer-link:hover {
   .nav-link-mobile:hover::after, .nav-link-dropdown-mobile:hover::after {
     width: 100%;
   }
-  .nav-link-dropdown-mobile::after {
-    max-width: calc(100% - 1.75rem);
-  }
   .nav-link-mobile-sub {
     position: relative;
     text-decoration: none !important;
   }
   .nav-link-mobile-sub:hover {
     text-decoration: none !important;
+    transform: translateX(2px);
   }
-  .nav-link-mobile-sub::after {
+  .nav-link-mobile-sub::before {
     content: '';
     position: absolute;
-    bottom: 4px;
-    left: 1rem;
-    width: 0;
-    height: 2px;
+    left: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%) scale(0);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
     background-color: currentColor;
-    transition: width 0.3s ease;
+    transition: transform 0.2s ease;
   }
-  .nav-link-mobile-sub:hover::after {
-    width: calc(100% - 2rem);
+  .nav-link-mobile-sub:hover::before {
+    transform: translateY(-50%) scale(1);
   }
   .nav-link-dropdown-mobile {
     padding-left: 0 !important;
     padding-right: 0 !important;
     margin: 0;
-    width: auto !important;
-    justify-content: flex-start !important;
   }
   .nav-link-dropdown-mobile .chevron-icon {
-    opacity: 0.7;
+    opacity: 0.8;
   }
   .nav-link-dropdown-mobile:hover .chevron-icon {
     opacity: 1;
   }
+  .nav-link-dropdown-mobile::after {
+    display: none !important;
+  }
   #mobile-menu .flex.h-16 {
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  #mobile-menu .px-6.py-6 a {
+    text-decoration: none !important;
+  }
+  #mobile-menu .px-6.py-6 a:hover, #mobile-menu .px-6.py-6 a:focus, #mobile-menu .px-6.py-6 a:active, #mobile-menu .px-6.py-6 a:visited {
+    text-decoration: none !important;
   }
   #mobile-primary-menu {
     list-style: none;
