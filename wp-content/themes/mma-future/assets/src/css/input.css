@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Oswald:wght@200;300;400;500;600;700&display=swap');
-/* Minimal custom CSS */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Sora:wght@100;200;300;400;500;600;700;800&display=swap');
+/* Minimal custom CSS - ažurirano prema style guide-u */
 .gradient-bg {
-    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    background: linear-gradient(135deg, #0B1220 0%, #1f2937 100%);
 }
 
 .stats-gradient {
-    background: linear-gradient(90deg, rgba(26, 32, 44, 0.9) 0%, rgba(45, 55, 72, 0.7) 100%);
+    background: linear-gradient(90deg, rgba(11, 18, 32, 0.9) 0%, rgba(31, 41, 55, 0.7) 100%);
 }
 
 .fighter-image {
@@ -16,5 +16,365 @@
 
 .section-divider {
     height: 2px;
-    background: linear-gradient(90deg, transparent 0%, #e53e3e 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, #0047A8 50%, transparent 100%);
+}
+
+/* Header Styling */
+.site-header {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.site-header.scrolled {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.site-header .header-content {
+    min-height: 5rem; /* h-20 */
+}
+
+.site-header.scrolled .header-content {
+    min-height: 4rem; /* h-16 */
+}
+
+.site-header .header-logo {
+    height: 5rem; /* h-20 */
+    transition: height 0.3s ease;
+}
+
+.site-header.scrolled .header-logo {
+    height: 4rem; /* h-16 */
+}
+
+.site-header .header-logo-img {
+    max-height: 5rem; /* max-h-20 */
+    transition: max-height 0.3s ease;
+}
+
+.site-header.scrolled .header-logo-img {
+    max-height: 4rem; /* max-h-16 */
+}
+
+/* Navigation Menu Styling */
+#primary-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#primary-menu li {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#primary-menu a {
+    text-decoration: none;
+    position: relative;
+    display: inline-block;
+}
+
+#primary-menu a.nav-link-dropdown {
+    text-decoration: none;
+    position: relative;
+}
+
+/* Subtle underline on hover for navigation links */
+#primary-menu a.nav-link::after,
+#primary-menu a.nav-link-dropdown::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: currentColor;
+    transition: width 0.3s ease;
+}
+
+#primary-menu a.nav-link:hover::after,
+#primary-menu a.nav-link-dropdown:hover::after {
+    width: 100%;
+}
+
+/* Dropdown menu styling */
+#primary-menu [data-dropdown] {
+    list-style: none;
+    padding: 0.5rem 0;
+    margin: 0;
+    min-width: 12rem;
+}
+
+#primary-menu [data-dropdown] li {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#primary-menu [data-dropdown] a {
+    display: block;
+    padding: 0.625rem 1rem;
+    color: #1F2937;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border-radius: 0;
+}
+
+#primary-menu [data-dropdown] a:hover {
+    background-color: #f3f4f6;
+    color: #0047A8;
+}
+
+#primary-menu [data-dropdown] a:first-child {
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+
+#primary-menu [data-dropdown] a:last-child {
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+}
+
+/* Social Links Styling */
+.social-link {
+    text-decoration: none !important;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.social-link::after {
+    display: none !important;
+}
+
+.social-link i {
+    transition: transform 0.3s ease;
+}
+
+.social-link:hover i {
+    transform: scale(1.05);
+}
+
+/* Footer Links Styling */
+footer .footer-link {
+    display: inline-block;
+    text-decoration: none !important;
+    position: relative;
+    padding: 0.25rem 0;
+    transition: all 0.2s ease;
+}
+
+footer .footer-link::after {
+    display: none !important;
+}
+
+footer .footer-link:hover {
+    padding-left: 0.5rem;
+}
+
+/* Mobile Menu Styling */
+@media (max-width: 1023px) {
+    /* Burger Menu Toggle and Close Button Styling */
+    .mobile-menu-toggle,
+    .mobile-menu-close {
+        position: relative;
+        overflow: visible;
+        background: transparent !important;
+        border: none !important;
+        padding: 0;
+    }
+    
+    /* No background or border on any state */
+    .mobile-menu-toggle:hover,
+    .mobile-menu-toggle:active,
+    .mobile-menu-toggle:focus,
+    .mobile-menu-close:hover,
+    .mobile-menu-close:active,
+    .mobile-menu-close:focus {
+        background: transparent !important;
+        border: none !important;
+    }
+    
+    /* Discrete scale effect on click */
+    .mobile-menu-toggle:active,
+    .mobile-menu-close:active {
+        transform: scale(0.92);
+    }
+    
+    /* Focus styling - minimal */
+    .mobile-menu-toggle:focus-visible,
+    .mobile-menu-close:focus-visible {
+        outline: 2px solid currentColor;
+        outline-offset: 2px;
+    }
+    
+    /* Burger Icon Container - no rotation, just smooth transitions */
+    .mobile-menu-toggle .burger-icon {
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-origin: center;
+    }
+    
+    /* Individual Burger Line Animations - discrete and smooth */
+    .mobile-menu-toggle .burger-line-top,
+    .mobile-menu-toggle .burger-line-middle,
+    .mobile-menu-toggle .burger-line-bottom {
+        transform-origin: center;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.25s ease-in-out;
+    }
+    
+    /* Active state - transform lines to X (discrete animation) */
+    .mobile-menu-toggle.is-active .burger-line-top {
+        transform: translateY(5.25px) rotate(45deg);
+    }
+    
+    .mobile-menu-toggle.is-active .burger-line-middle {
+        opacity: 0;
+        transform: scaleX(0);
+    }
+    
+    .mobile-menu-toggle.is-active .burger-line-bottom {
+        transform: translateY(-5.25px) rotate(-45deg);
+    }
+    
+    /* Smooth transition for all states */
+    .mobile-menu-toggle {
+        will-change: transform;
+    }
+    
+    .mobile-menu-toggle.is-active {
+        will-change: auto;
+    }
+    
+    /* Mobile Navigation Links - match desktop style */
+    .nav-link-mobile,
+    .nav-link-dropdown-mobile {
+        position: relative;
+        background: transparent !important;
+        border: none !important;
+        text-align: left;
+        cursor: pointer;
+        text-decoration: none !important;
+    }
+    
+    /* Remove any background on hover/focus */
+    .nav-link-mobile:hover,
+    .nav-link-mobile:focus,
+    .nav-link-dropdown-mobile:hover,
+    .nav-link-dropdown-mobile:focus {
+        background: transparent !important;
+        text-decoration: none !important;
+    }
+    
+    /* Underline effect like desktop */
+    .nav-link-mobile::after,
+    .nav-link-dropdown-mobile::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background-color: currentColor;
+        transition: width 0.3s ease;
+    }
+    
+    .nav-link-mobile:hover::after,
+    .nav-link-dropdown-mobile:hover::after {
+        width: 100%;
+    }
+    
+    /* Special handling for dropdown button underline */
+    .nav-link-dropdown-mobile::after {
+        max-width: calc(100% - 1.75rem);
+    }
+    
+    /* Submenu link styling */
+    .nav-link-mobile-sub {
+        position: relative;
+        text-decoration: none !important;
+    }
+    
+    .nav-link-mobile-sub:hover {
+        text-decoration: none !important;
+    }
+    
+    .nav-link-mobile-sub::after {
+        content: '';
+        position: absolute;
+        bottom: 4px;
+        left: 1rem;
+        width: 0;
+        height: 2px;
+        background-color: currentColor;
+        transition: width 0.3s ease;
+    }
+    
+    .nav-link-mobile-sub:hover::after {
+        width: calc(100% - 2rem);
+    }
+    
+    /* Dropdown button - reset button styles and align as link */
+    .nav-link-dropdown-mobile {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin: 0;
+        width: auto !important;
+        justify-content: flex-start !important;
+    }
+    
+    .nav-link-dropdown-mobile .chevron-icon {
+        opacity: 0.7;
+    }
+    
+    .nav-link-dropdown-mobile:hover .chevron-icon {
+        opacity: 1;
+    }
+    
+    /* Mobile menu panel - subtle separator instead of border */
+    #mobile-menu .flex.h-16 {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Mobile Menu List Styling */
+    #mobile-primary-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    #mobile-primary-menu > li {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    /* Submenu styling */
+    #mobile-primary-menu [data-submenu] {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0 0;
+        max-height: 0;
+        transition: max-height 0.3s ease-out, opacity 0.2s ease-out 0.1s;
+        opacity: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    #mobile-primary-menu [data-submenu]:not(.hidden) {
+        opacity: 1;
+        transition: max-height 0.3s ease-out, opacity 0.2s ease-out 0.1s;
+    }
+    
+    #mobile-primary-menu [data-submenu] li {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
 }

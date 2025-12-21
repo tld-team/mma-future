@@ -9,73 +9,82 @@ module.exports = {
   ],
   theme: {
     extend: {
-      // Boje
+      // Boje (prema style guide-u)
       colors: {
         primary: {
-          50: '#fef2f2',
-          100: '#fee2e2',
-          200: '#fecaca',
-          300: '#fca5a5',
-          400: '#f87171',
-          500: '#ef4444', // Osnovna crvena
-          600: '#dc2626', // Tamnija crvena
-          700: '#b91c1c',
-          800: '#991b1b',
-          900: '#7f1d1d',
+          50: '#e6f0ff',
+          100: '#cce0ff',
+          200: '#99c2ff',
+          300: '#66a3ff',
+          400: '#3385ff',
+          500: '#0047A8', // Osnovna plava (button bg)
+          600: '#003d8f',
+          700: '#003376',
+          800: '#00295d',
+          900: '#001f44',
+          DEFAULT: '#0047A8',
         },
         secondary: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b', // Siva
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a', // Tamno siva
+          50: '#f9fafb',
+          100: '#f3f4f6',
+          200: '#e5e7eb',
+          300: '#d1d5db',
+          400: '#9ca3af',
+          500: '#647488', // Muted iz style guide-a
+          600: '#4b5563',
+          700: '#374151',
+          800: '#1f2937', // Body text boja
+          900: '#0B1220', // Heading boja
+          DEFAULT: '#1f2937',
         },
         accent: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b', // Zlatna
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
+          50: '#fef8f3',
+          100: '#fdf1e7',
+          200: '#fbe3cf',
+          300: '#f9d5b7',
+          400: '#f7c79f',
+          500: '#DC2626', // 2nd neutral (bakarna/narandžasta)
+          600: '#c32020',
+          700: '#aa1b1b',
+          800: '#911616',
+          900: '#781111',
+          DEFAULT: '#DC2626',
         },
-        success: '#10b981',
-        warning: '#f59e0b',
-        danger: '#ef4444',
+        success: '#16A34A',
+        warning: '#F59E0B',
+        danger: '#DC2626',
+        muted: '#647488',
+        heading: '#0B1220',
+        body: '#1F2937',
+        'button-text': '#F7FAFC',
+        border: '#E5E7EB',
       },
 
-      // Tipografija
+      // Tipografija (prema style guide-u)
       fontFamily: {
         'sans': ['Inter', 'ui-sans-serif', 'system-ui'],
         'serif': ['ui-serif', 'Georgia'],
         'mono': ['ui-monospace', 'SFMono-Regular'],
-        'display': ['Oswald', 'ui-sans-serif'],
-        'body': ['Inter', 'ui-sans-serif'],
+        'display': ['Sora', 'ui-sans-serif'], // Heading font
+        'body': ['Inter', 'ui-sans-serif'], // Body font
+        'heading': ['Sora', 'ui-sans-serif'],
       },
 
-      // Veličine fontova
+      // Veličine fontova (base 18px prema style guide-u)
       fontSize: {
         'xs': ['0.75rem', { lineHeight: '1rem' }],
         'sm': ['0.875rem', { lineHeight: '1.25rem' }],
-        'base': ['1rem', { lineHeight: '1.5rem' }],
-        'lg': ['1.125rem', { lineHeight: '1.75rem' }],
-        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
-        '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
-        '5xl': ['3rem', { lineHeight: '1' }],
-        '6xl': ['3.75rem', { lineHeight: '1' }],
-        '7xl': ['4.5rem', { lineHeight: '1' }],
-        '8xl': ['6rem', { lineHeight: '1' }],
-        '9xl': ['8rem', { lineHeight: '1' }],
+        'base': ['1.125rem', { lineHeight: '1.75rem' }], // 18px za body text
+        'lg': ['1.25rem', { lineHeight: '1.75rem' }],
+        'xl': ['1.5rem', { lineHeight: '2rem' }],
+        '2xl': ['1.875rem', { lineHeight: '2.25rem' }],
+        '3xl': ['2.25rem', { lineHeight: '2.5rem' }],
+        '4xl': ['3rem', { lineHeight: '1' }],
+        '5xl': ['3.75rem', { lineHeight: '1' }],
+        '6xl': ['4.5rem', { lineHeight: '1' }],
+        '7xl': ['6rem', { lineHeight: '1' }],
+        '8xl': ['8rem', { lineHeight: '1' }],
+        '9xl': ['10rem', { lineHeight: '1' }],
       },
 
       // Font weight
@@ -112,12 +121,12 @@ module.exports = {
         'pulse-slow': 'pulse 3s infinite',
       },
       backgroundImage: {
-        'gradient-mma': 'linear-gradient(135deg, #1a202c 0%, #2d3748 100%)',
-        'gradient-mma-light': 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-        'gradient-stats': 'linear-gradient(90deg, rgba(26, 32, 44, 0.9) 0%, rgba(45, 55, 72, 0.7) 100%)',
-        'gradient-stats-light': 'linear-gradient(90deg, rgba(248, 250, 252, 0.9) 0%, rgba(226, 232, 240, 0.7) 100%)',
-        'section-divider': 'linear-gradient(90deg, transparent 0%, #e53e3e 50%, transparent 100%)',
-        'section-divider-light': 'linear-gradient(90deg, transparent 0%, #dc2626 50%, transparent 100%)',
+        'gradient-mma': 'linear-gradient(135deg, #0B1220 0%, #1f2937 100%)',
+        'gradient-mma-light': 'linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%)',
+        'gradient-stats': 'linear-gradient(90deg, rgba(11, 18, 32, 0.9) 0%, rgba(31, 41, 55, 0.7) 100%)',
+        'gradient-stats-light': 'linear-gradient(90deg, rgba(249, 250, 251, 0.9) 0%, rgba(229, 231, 235, 0.7) 100%)',
+        'section-divider': 'linear-gradient(90deg, transparent 0%, #0047A8 50%, transparent 100%)',
+        'section-divider-light': 'linear-gradient(90deg, transparent 0%, #0047A8 50%, transparent 100%)',
       },
       boxShadow: {
         'fighter': '0 10px 15px rgba(0, 0, 0, 0.5)',

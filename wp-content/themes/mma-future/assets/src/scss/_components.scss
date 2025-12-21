@@ -21,3 +21,203 @@
     background: $gradient-divider;
 }
 
+// Mobile Menu Styling
+@media (max-width: 1023px) {
+    // Burger Menu Toggle and Close Button Styling
+    .mobile-menu-toggle,
+    .mobile-menu-close {
+        position: relative;
+        overflow: visible;
+        background: transparent !important;
+        border: none !important;
+        padding: 0;
+        
+        // No background or border on any state
+        &:hover,
+        &:active,
+        &:focus {
+            background: transparent !important;
+            border: none !important;
+        }
+        
+        // Discrete scale effect on click
+        &:active {
+            transform: scale(0.92);
+        }
+        
+        // Focus styling - minimal
+        &:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 2px;
+        }
+    }
+    
+    // Burger Icon Container - no rotation, just smooth transitions
+    .mobile-menu-toggle .burger-icon {
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-origin: center;
+    }
+    
+    // Individual Burger Line Animations - discrete and smooth
+    .mobile-menu-toggle .burger-line-top,
+    .mobile-menu-toggle .burger-line-middle,
+    .mobile-menu-toggle .burger-line-bottom {
+        transform-origin: center;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.25s ease-in-out;
+    }
+    
+    // Active state - transform lines to X (discrete animation)
+    .mobile-menu-toggle.is-active .burger-line-top {
+        transform: translateY(5.25px) rotate(45deg);
+    }
+    
+    .mobile-menu-toggle.is-active .burger-line-middle {
+        opacity: 0;
+        transform: scaleX(0);
+    }
+    
+    .mobile-menu-toggle.is-active .burger-line-bottom {
+        transform: translateY(-5.25px) rotate(-45deg);
+    }
+    
+    // Smooth transition for all states
+    .mobile-menu-toggle {
+        will-change: transform;
+    }
+    
+    .mobile-menu-toggle.is-active {
+        will-change: auto;
+    }
+    
+    // Mobile Navigation Links - match desktop style
+    .nav-link-mobile,
+    .nav-link-dropdown-mobile {
+        position: relative;
+        background: transparent !important;
+        border: none !important;
+        text-align: left;
+        cursor: pointer;
+        text-decoration: none !important;
+        
+        // Remove any background on hover/focus
+        &:hover,
+        &:focus {
+            background: transparent !important;
+            text-decoration: none !important;
+        }
+        
+        // Underline effect like desktop
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: currentColor;
+            transition: width 0.3s ease;
+        }
+        
+        &:hover::after {
+            width: 100%;
+        }
+    }
+    
+    // Special handling for dropdown button underline
+    .nav-link-dropdown-mobile::after {
+        // Exclude chevron icon from underline by limiting width
+        max-width: calc(100% - 1.75rem);
+    }
+    
+    // Submenu link styling
+    .nav-link-mobile-sub {
+        position: relative;
+        text-decoration: none !important;
+        
+        &:hover {
+            text-decoration: none !important;
+        }
+        
+        &::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            left: 1rem;
+            width: 0;
+            height: 2px;
+            background-color: currentColor;
+            transition: width 0.3s ease;
+        }
+        
+        &:hover::after {
+            width: calc(100% - 2rem);
+        }
+    }
+    
+    // Dropdown button - reset button styles and align as link
+    .nav-link-dropdown-mobile {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin: 0;
+        width: auto !important;
+        justify-content: flex-start !important;
+        
+        .chevron-icon {
+            opacity: 0.7;
+        }
+        
+        &:hover .chevron-icon {
+            opacity: 1;
+        }
+    }
+    
+    // Mobile menu panel - subtle separator instead of border
+    #mobile-menu {
+        .flex.h-16 {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+    }
+    
+    // Mobile Menu List Styling
+    #mobile-primary-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    #mobile-primary-menu > li {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    // Submenu styling
+    #mobile-primary-menu [data-submenu] {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0 0;
+        max-height: 0;
+        transition: max-height 0.3s ease-out, opacity 0.2s ease-out 0.1s;
+        opacity: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    #mobile-primary-menu [data-submenu]:not(.hidden) {
+        opacity: 1;
+        transition: max-height 0.3s ease-out, opacity 0.2s ease-out 0.1s;
+    }
+    
+    #mobile-primary-menu [data-submenu] li {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+}
+

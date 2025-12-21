@@ -235,6 +235,11 @@ require get_template_directory() . '/inc/customizer.php';
 require get_template_directory() . '/inc/register-blocks.php';
 
 /**
+ * Custom navigation walker classes
+ */
+require get_template_directory() . '/inc/class-custom-nav-walker.php';
+
+/**
  * Load Jetpack compatibility file.
  */
 if ( defined( 'JETPACK__VERSION' ) ) {
