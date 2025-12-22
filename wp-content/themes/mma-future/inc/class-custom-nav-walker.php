@@ -49,20 +49,20 @@ class MMA_Desktop_Nav_Walker extends Walker_Nav_Menu {
 			// Top level menu items
 			if ($has_children) {
 				$output .= '<div class="relative group">';
-				$output .= '<a href="' . esc_url($item->url) . '" class="nav-link nav-link-dropdown text-sm font-heading font-semibold text-heading hover:text-primary no-underline transition-colors py-2 inline-block" aria-expanded="false">';
+				$output .= '<a href="' . esc_url($item->url) . '" class="nav-link nav-link-dropdown text-base font-heading font-semibold text-heading hover:text-primary no-underline transition-colors py-2 inline-block" aria-expanded="false">';
 				$output .= esc_html($item->title);
 				$output .= '<svg class="inline-block h-4 w-4 ml-1.5 text-muted group-hover:text-primary transition-all align-middle" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">';
 				$output .= '<path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />';
 				$output .= '</svg>';
 				$output .= '</a>';
 			} else {
-				$output .= '<a href="' . esc_url($item->url) . '" class="nav-link text-sm font-heading font-semibold text-heading hover:text-primary no-underline transition-colors py-2 inline-block">';
+				$output .= '<a href="' . esc_url($item->url) . '" class="nav-link text-base font-heading font-semibold text-heading hover:text-primary no-underline transition-colors py-2 inline-block">';
 				$output .= esc_html($item->title);
 				$output .= '</a>';
 			}
 		} else {
 			// Dropdown menu items
-			$output .= '<a href="' . esc_url($item->url) . '" class="block px-4 py-2.5 text-sm text-body hover:bg-secondary-50 hover:text-primary no-underline transition-colors first:rounded-t-lg last:rounded-b-lg">';
+			$output .= '<a href="' . esc_url($item->url) . '" class="block px-4 py-2.5 text-sm text-body font-normal hover:bg-secondary-50 hover:text-primary no-underline transition-colors first:rounded-t-lg last:rounded-b-lg">';
 			$output .= esc_html($item->title);
 			$output .= '</a>';
 		}

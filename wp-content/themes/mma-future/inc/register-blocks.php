@@ -59,4 +59,24 @@ if (function_exists('acf_register_block_type')) {
 		),
 		'render_template' => 'blocks/single-fighter-last-fights/single-fighter-last-fights.php',
 	));
+
+	/**
+	 * ==============================
+	 * HOME: Hero Section Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'hp-hero-section',
+		'title' => 'Hero Section Block',
+		'description' => 'Hero Section Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/hp-hero-section/hp-hero-section.php',
+	));
 }

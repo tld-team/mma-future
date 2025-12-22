@@ -1,6 +1,118 @@
 @import "tailwindcss";
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Sora:wght@100;200;300;400;500;600;700;800&display=swap');
+
+/* Brand Color Variables */
+:root {
+    --brand: #0047A8;
+    --brand-hover: #003d8f;
+    --brand-rgb: 0, 71, 168;
+}
+
+/* Header Login Button Styles */
+.header-login-btn {
+    background: white !important;
+    color: var(--brand) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.header-login-btn:hover {
+    background: rgba(var(--brand-rgb), 0.06) !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(var(--brand-rgb), 0.28);
+    transform: translateY(-1px);
+}
+
+.header-login-btn:active {
+    background: rgba(var(--brand-rgb), 0.08) !important;
+    transform: translateY(0);
+}
+
+.header-login-btn:visited {
+    color: var(--brand) !important;
+}
+
+.header-login-btn:focus-visible {
+    outline: 2px solid rgba(var(--brand-rgb), 0.45);
+    outline-offset: 2px;
+}
+
+/* Hero CTA Button Styles */
+.hero-cta-primary {
+    position: relative;
+    background: var(--brand) !important;
+    color: white !important;
+    box-shadow: 0 16px 45px rgba(var(--brand-rgb), 0.3);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.hero-cta-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at top, rgba(255, 255, 255, 0.22) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.hero-cta-primary > span,
+.hero-cta-primary > svg {
+    position: relative;
+    z-index: 2;
+}
+
+.hero-cta-primary:hover {
+    background: var(--brand) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 18px 50px rgba(var(--brand-rgb), 0.38);
+}
+
+.hero-cta-primary:active {
+    transform: translateY(0);
+}
+
+.hero-cta-primary:visited {
+    color: white !important;
+}
+
+.hero-cta-primary:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
+.hero-cta-primary .arrow-icon {
+    transition: transform 0.2s ease;
+}
+
+.hero-cta-primary:hover .arrow-icon {
+    transform: translateX(2px);
+}
+
+.hero-cta-secondary {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-cta-secondary:hover {
+    background: rgba(255, 255, 255, 0.18) !important;
+    transform: translateY(-2px);
+}
+
+.hero-cta-secondary:active {
+    transform: translateY(0);
+}
+
+.hero-cta-secondary:visited {
+    color: white !important;
+}
+
+.hero-cta-secondary:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
 /* Minimal custom CSS - ažurirano prema style guide-u */
 .gradient-bg {
     background: linear-gradient(135deg, #0B1220 0%, #1f2937 100%);
@@ -19,10 +131,22 @@
     background: linear-gradient(90deg, transparent 0%, #0047A8 50%, transparent 100%);
 }
 
+/* Hero Section - Full Width */
+.hp-hero-section {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    padding-top: 5rem; /* Spacing from header */
+}
+
 /* Header Styling */
 .site-header {
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
 }
 
 .site-header.scrolled {
@@ -30,29 +154,30 @@
 }
 
 .site-header .header-content {
-    min-height: 5rem; /* h-20 */
+    height: 5rem !important; /* h-20 */
+    transition: height 0.3s ease;
 }
 
 .site-header.scrolled .header-content {
-    min-height: 4rem; /* h-16 */
+    height: 4rem !important; /* h-16 */
 }
 
 .site-header .header-logo {
-    height: 5rem; /* h-20 */
+    height: 4rem; /* h-16 */
     transition: height 0.3s ease;
 }
 
 .site-header.scrolled .header-logo {
-    height: 4rem; /* h-16 */
+    height: 3rem; /* h-12 */
 }
 
 .site-header .header-logo-img {
-    max-height: 5rem; /* max-h-20 */
+    max-height: 4rem; /* max-h-16 */
     transition: max-height 0.3s ease;
 }
 
 .site-header.scrolled .header-logo-img {
-    max-height: 4rem; /* max-h-16 */
+    max-height: 3rem; /* max-h-12 */
 }
 
 /* Navigation Menu Styling */

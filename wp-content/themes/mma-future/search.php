@@ -14,14 +14,9 @@ get_header();
 
 		<?php if ( have_posts() ) : ?>
 
-			<header class="page-header">
-				<h1 class="page-title">
-					<?php
-					/* translators: %s: search query. */
-					printf( esc_html__( 'Search Results for: %s', 'mma-future' ), '<span>' . get_search_query() . '</span>' );
-					?>
-				</h1>
-			</header><!-- .page-header -->
+		<header class="page-header">
+			<?php // Search results title removed - using blocks for page titles ?>
+		</header><!-- .page-header -->
 
 			<?php
 			/* Start the Loop */

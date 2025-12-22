@@ -23,7 +23,7 @@
 		
 		<!-- Main Navigation Bar -->
 		<nav aria-label="<?php esc_attr_e('Main Navigation', 'mma-future'); ?>" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-			<div class="flex h-20 items-center justify-between transition-all duration-300 header-content">
+			<div class="flex items-center justify-between transition-all duration-300 header-content">
 				
 				<!-- ============================================================
 				     LOGO / BRANDING (Left Side)
@@ -109,8 +109,9 @@
 				     ============================================================ -->
 				<div class="hidden lg:flex lg:flex-1 lg:items-center lg:justify-end">
 					<a 
-						href="#" 
-						class="inline-flex items-center gap-x-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-heading font-semibold text-button-text no-underline shadow-sm hover:bg-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all duration-200"
+						href="/wp-admin" 
+						class="header-login-btn inline-flex items-center gap-2 h-10 px-4 md:px-5 rounded-xl text-base font-heading font-semibold no-underline ring-1 ring-black/10 shadow-sm visited:text-[--brand]"
+						style="text-decoration: none !important;"
 					>
 						<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 							<path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
@@ -204,10 +205,11 @@
 			<!-- Mobile Menu Footer (Login Button) -->
 			<div class="px-6 py-6">
 					<a 
-						href="#" 
-						class="flex w-full items-center justify-center gap-x-2 rounded-lg bg-primary px-5 py-3 text-base font-heading font-semibold text-button-text no-underline shadow-sm hover:bg-primary-600 transition-colors"
+						href="/wp-admin" 
+						class="header-login-btn flex w-full items-center justify-center gap-2 h-12 px-5 rounded-xl text-base font-heading font-semibold no-underline ring-1 ring-black/10 shadow-sm visited:text-[--brand]"
+						style="text-decoration: none !important;"
 					>
-						<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+						<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 							<path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
 						</svg>
 						<?php esc_html_e('Prijava', 'mma-future'); ?>
