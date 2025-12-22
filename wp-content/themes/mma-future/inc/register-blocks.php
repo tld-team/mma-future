@@ -79,4 +79,24 @@ if (function_exists('acf_register_block_type')) {
 		),
 		'render_template' => 'blocks/hp-hero-section/hp-hero-section.php',
 	));
+
+	/**
+	 * ==============================
+	 * HOME: Highlights Section Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'highlights-section',
+		'title' => 'Highlights Section Block',
+		'description' => 'Highlights Section Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/highlights-section/highlights-section.php',
+	));
 }

@@ -534,12 +534,8 @@ table {
 
 /* Links
 --------------------------------------------- */
-a {
+a , a:visited{
 	color: #4169e1;
-}
-
-a:visited {
-	color: #800080;
 }
 
 a:hover,

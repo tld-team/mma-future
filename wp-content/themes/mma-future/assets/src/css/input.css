@@ -9,6 +9,12 @@
     --brand-rgb: 0, 71, 168;
 }
 
+/* Global Heading Styles */
+h2 {
+    font-size: clamp(1.875rem, 2.5vw, 2.5rem); /* ~30px to 40px */
+    font-weight: 800;
+}
+
 /* Header Login Button Styles */
 .header-login-btn {
     background: white !important;
@@ -111,6 +117,61 @@
 .hero-cta-secondary:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.8);
     outline-offset: 2px;
+}
+
+/* Highlights Section Styles */
+.highlights-section h2 {
+    font-size: 44px;
+    font-weight: 700;
+    margin-bottom: 26px;
+    vertical-align: middle;
+}
+
+.highlights-section > div > div:first-child p {
+    font-weight: 400;
+}
+
+.highlights-section h3 {
+    font-weight: 500;
+}
+
+.highlights-section article p {
+    font-weight: 400;
+}
+
+/* Highlight Cards - Very Subtle Hover State */
+.highlights-section article {
+    transition: box-shadow 0.25s ease, background-color 0.25s ease;
+}
+
+.highlights-section article:hover {
+    /* Include ring border + original shadow-sm + subtle extra shadow */
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.04);
+    background-color: rgba(248, 250, 252, 0.6);
+}
+
+/* CTA Button Styles */
+.highlights-section a {
+    text-decoration: none !important;
+    transition: box-shadow 0.25s ease;
+}
+
+.highlights-section a span {
+    line-height: 26px;
+}
+
+.highlights-section a svg {
+    transition: transform 0.2s ease;
+    line-height: 30px;
+}
+
+.highlights-section a:hover {
+    /* Include ring border + original shadow-sm + subtle extra shadow */
+    box-shadow: 0 0 0 1px rgba(71, 85, 105, 0.2), 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 4px 12px rgba(71, 85, 105, 0.06);
+}
+
+.highlights-section a:hover svg {
+    transform: translateX(2px);
 }
 
 /* Minimal custom CSS - ažurirano prema style guide-u */
