@@ -99,4 +99,24 @@ if (function_exists('acf_register_block_type')) {
 		),
 		'render_template' => 'blocks/highlights-section/highlights-section.php',
 	));
+
+	/**
+	 * ==============================
+	 * HOME: Short Ranking Overview Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'short-ranking-overview',
+		'title' => 'Short Ranking Overview Block',
+		'description' => 'Short Ranking Overview Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/short-ranking-overview/short-ranking-overview.php',
+	));
 }

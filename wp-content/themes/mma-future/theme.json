@@ -677,6 +677,9 @@
 				"color": {
 					"text": "currentColor"
 				},
+				"typography": {
+					"textDecoration": "none"
+				},
 				":hover": {
 					"typography": {
 						"textDecoration": "none"
