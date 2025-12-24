@@ -1,6 +1,200 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Sora:wght@100;200;300;400;500;600;700;800&display=swap');
+/* Google Fonts fallback for Inter regular weights (local files are italic only) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+/* =============================================================================
+   TAILWIND V4 THEME - Font Family Overrides
+   ============================================================================= */
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: 'Sora', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* =============================================================================
+   LOCAL FONT FACE DECLARATIONS
+   Sora (headlines) & Inter italic variants (body text italics)
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   SORA FONT FAMILY - Headlines (h1-h6)
+   ----------------------------------------------------------------------------- */
+
+@font-face {
+    font-family: 'Sora';
+    src: url('../fonts/sora/Sora-Thin.woff2') format('woff2'),
+         url('../fonts/sora/Sora-Thin.woff') format('woff'),
+         url('../fonts/sora/Sora-Thin.ttf') format('truetype');
+    font-weight: 100;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Sora';
+    src: url('../fonts/sora/Sora-ExtraLight.woff2') format('woff2'),
+         url('../fonts/sora/Sora-ExtraLight.woff') format('woff'),
+         url('../fonts/sora/Sora-ExtraLight.ttf') format('truetype');
+    font-weight: 200;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Sora';
+    src: url('../fonts/sora/Sora-Light.woff2') format('woff2'),
+         url('../fonts/sora/Sora-Light.woff') format('woff'),
+         url('../fonts/sora/Sora-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Sora';
+    src: url('../fonts/sora/Sora-Regular.woff2') format('woff2'),
+         url('../fonts/sora/Sora-Regular.woff') format('woff'),
+         url('../fonts/sora/Sora-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Sora';
+    src: url('../fonts/sora/Sora-Medium.woff2') format('woff2'),
+         url('../fonts/sora/Sora-Medium.woff') format('woff'),
+         url('../fonts/sora/Sora-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Sora';
+    src: url('../fonts/sora/Sora-SemiBold.woff2') format('woff2'),
+         url('../fonts/sora/Sora-SemiBold.woff') format('woff'),
+         url('../fonts/sora/Sora-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Sora';
+    src: url('../fonts/sora/Sora-Bold.woff2') format('woff2'),
+         url('../fonts/sora/Sora-Bold.woff') format('woff'),
+         url('../fonts/sora/Sora-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Sora';
+    src: url('../fonts/sora/Sora-ExtraBold.woff2') format('woff2'),
+         url('../fonts/sora/Sora-ExtraBold.woff') format('woff'),
+         url('../fonts/sora/Sora-ExtraBold.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* -----------------------------------------------------------------------------
+   INTER FONT FAMILY
+   Regular weights loaded via Google Fonts import above.
+   Local italic variants are available but not loaded by default to prevent
+   browser from using italic fonts for regular text.
+   ----------------------------------------------------------------------------- */
+
+/* =============================================================================
+   BASE TYPOGRAPHY
+   Sora for headlines, buttons, header links
+   Inter for body text (everything else)
+   ============================================================================= */
+
+/* Body: Inter font family (default for everything) */
+html, body {
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
+    font-style: normal !important;
+}
+
+/* Headlines h1-h6: Sora font family */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* All buttons across the site: Sora font family */
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+.btn,
+.button,
+.wp-block-button__link,
+.wp-element-button,
+[class*="cta"],
+[class*="btn-"],
+.hero-cta-primary,
+.hero-cta-secondary,
+.header-login-btn {
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Header navigation links: Sora font family */
+.site-header a,
+.site-header nav a,
+#primary-menu a,
+#mobile-primary-menu a,
+.nav-link,
+.nav-link-dropdown,
+.nav-link-mobile,
+.nav-link-dropdown-mobile,
+.nav-link-mobile-sub {
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Footer headings: Sora font family */
+footer h1, footer h2, footer h3, footer h4, footer h5, footer h6 {
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+/* Footer links and text: Inter font family, normal style */
+footer a,
+footer p,
+footer span,
+footer li,
+.footer-link {
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
+    font-style: normal !important;
+}
+
+/* Body text elements: Inter font family (inherit from body) */
+/* Ensure font-style is normal (not italic) by default */
+p, span, div, li, td, th, label, input, textarea, select,
+b, strong, small, mark, del, ins, sub, sup, blockquote, cite, q {
+    font-family: inherit;
+    font-style: normal;
+}
+
+/* Italic elements - keep italic only for em and i */
+em, i {
+    font-style: italic;
+}
+
+/* =============================================================================
+   GLOBAL FONT STYLE RESET
+   Ensure all text is normal (not italic) by default across the site
+   ============================================================================= */
+* {
+    font-style: normal;
+}
+
+em, i, cite, dfn, var {
+    font-style: italic;
+}
 
 /* Brand Color Variables */
 :root {
@@ -606,4 +800,9 @@ footer .footer-link:hover {
         padding: 0;
         margin: 0;
     }
+}
+
+/* Rankings Snapshot Section Styles */
+#rankings-snapshot h3 {
+    font-weight: 500;
 }

@@ -13,5 +13,8 @@ mix.sass('assets/src/scss/main.scss', 'assets/dist/css/output.css')
         processCssUrls: false,
     })
 
+// Copy fonts to dist folder
+mix.copyDirectory('assets/src/fonts', 'assets/dist/fonts');
+
 // Disable notifications
 mix.disableNotifications();

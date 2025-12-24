@@ -5,7 +5,9 @@ $accent-red: #e53e3e;
 
 // Typography
 $font-inter: 'Inter', sans-serif;
-$font-oswald: 'Oswald', sans-serif;
+$font-sora: 'Sora', sans-serif;
+// Legacy alias (was Oswald, now Sora for headlines)
+$font-oswald: 'Sora', sans-serif;
 
 // Shadows
 $shadow-fighter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.5));

@@ -10,8 +10,9 @@
     "build": "mix --production",
     "prod": "mix --production",
     "production": "mix --production",
-    "tw": "npx @tailwindcss/cli -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --watch",
-    "tw_build": "npx @tailwindcss/cli -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --minify"
+    "copy-fonts": "node copy-fonts.js",
+    "tw": "npm run copy-fonts && npx @tailwindcss/cli -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --watch",
+    "tw_build": "npm run copy-fonts && npx @tailwindcss/cli -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --minify"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.0.0",
