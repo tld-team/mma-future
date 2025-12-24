@@ -119,4 +119,24 @@ if (function_exists('acf_register_block_type')) {
 		),
 		'render_template' => 'blocks/short-ranking-overview/short-ranking-overview.php',
 	));
+	
+		/**
+	 * ==============================
+	 * HOME: Newsletter Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'newsletter-block',
+		'title' => 'Newsletter Block',
+		'description' => 'Newsletter Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/newsletter-block/newsletter-block.php',
+	));
 }

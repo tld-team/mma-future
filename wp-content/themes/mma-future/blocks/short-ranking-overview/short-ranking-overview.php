@@ -117,9 +117,9 @@ $top_five = [
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
         <!-- Top Movers Section -->
-        <div class="mb-12">
+        <div class="mb-20">
             <!-- Header Row -->
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex justify-between items-center mb-10">
                 <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">Top Movers</h2>
                 <a href="#rankings"
                     class="group inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 shadow-sm text-slate-700 font-semibold text-sm transition-all duration-200 hover:bg-slate-50 hover:ring-black/15 hover:shadow-md hover:text-[#0B3AA4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/35 focus-visible:ring-offset-2 visited:text-slate-700 no-underline">
@@ -185,6 +185,9 @@ $top_five = [
                 <?php endforeach; ?>
             </div>
         </div>
+
+        <!-- Subtle divider that fades at edges -->
+        <div class="h-px w-full mb-8" style="background: linear-gradient(to right, transparent, rgba(0,0,0,0.08) 20%, rgba(0,0,0,0.08) 80%, transparent);"></div>
 
         <!-- Current Top 5 Section -->
         <div class="mt-12">

@@ -806,3 +806,19 @@ footer .footer-link:hover {
 #rankings-snapshot h3 {
     font-weight: 500;
 }
+
+/* =============================================================================
+   NEWSLETTER BLOCK OVERRIDES
+   Override global WordPress base styles to allow Tailwind utilities to work
+   ============================================================================= */
+
+/* Override global h2 font-size for newsletter heading */
+#newsletter h2 {
+    font-size: 38px;
+}
+
+/* Override global input styles for newsletter email input */
+#newsletter #email-address {
+    border-radius: 8px; /* rounded-lg */
+    padding-left: 12px; /* pl-3 */
+}

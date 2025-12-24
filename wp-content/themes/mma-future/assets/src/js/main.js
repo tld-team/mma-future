@@ -4,6 +4,79 @@ test('test');
 
 /**
  * ============================================================
+ * NEWSLETTER SPOTLIGHT EFFECT
+ * Subtle cursor-following glow on the newsletter panel.
+ * Desktop only (pointer: fine), respects prefers-reduced-motion.
+ * ============================================================
+ */
+(function() {
+	// Early exit: reduced motion or non-fine pointer
+	const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const hasFinePointer = window.matchMedia('(pointer: fine) and (hover: hover)').matches;
+	
+	if (prefersReducedMotion || !hasFinePointer) return;
+
+	const panel = document.querySelector('.js-newsletter-panel');
+	if (!panel) return;
+
+	const spotlight = panel.querySelector('.newsletter-spotlight');
+	if (!spotlight) return;
+
+	// Lerp state
+	let targetX = 50;
+	let targetY = 50;
+	let displayedX = 50;
+	let displayedY = 50;
+	let rafId = null;
+	let isHovering = false;
+
+	const LERP_FACTOR = 0.12;
+
+	function animate() {
+		// Lerp toward target
+		displayedX += (targetX - displayedX) * LERP_FACTOR;
+		displayedY += (targetY - displayedY) * LERP_FACTOR;
+
+		panel.style.setProperty('--mx', displayedX + '%');
+		panel.style.setProperty('--my', displayedY + '%');
+
+		// Continue animation while hovering or still moving
+		const dx = Math.abs(targetX - displayedX);
+		const dy = Math.abs(targetY - displayedY);
+
+		if (isHovering || dx > 0.1 || dy > 0.1) {
+			rafId = requestAnimationFrame(animate);
+		} else {
+			rafId = null;
+		}
+	}
+
+	function startAnimation() {
+		if (!rafId) {
+			rafId = requestAnimationFrame(animate);
+		}
+	}
+
+	panel.addEventListener('mouseenter', function() {
+		isHovering = true;
+		startAnimation();
+	});
+
+	panel.addEventListener('mousemove', function(e) {
+		const rect = panel.getBoundingClientRect();
+		targetX = ((e.clientX - rect.left) / rect.width) * 100;
+		targetY = ((e.clientY - rect.top) / rect.height) * 100;
+		startAnimation();
+	});
+
+	panel.addEventListener('mouseleave', function() {
+		isHovering = false;
+		// Keep spotlight at last cursor position (no reset)
+	});
+})();
+
+/**
+ * ============================================================
  * HEADER SCROLL EFFECT
  * ============================================================
  */

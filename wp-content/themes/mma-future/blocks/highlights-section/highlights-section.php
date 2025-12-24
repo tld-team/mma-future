@@ -40,7 +40,7 @@ if ($has_cta) {
 // Dynamic desktop layout class
 $lg_basis_class = ($count >= 4) ? 'lg:basis-[calc(25%-18px)]' : 'lg:basis-[calc(33.333%-16px)]';
 ?>
-<section id="highlights-section" class="highlights-section py-20 bg-white">
+<section id="highlights-section" class="highlights-section py-20 mt-20 mb-10 bg-white">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <!-- Section Header -->
@@ -65,19 +65,19 @@ $lg_basis_class = ($count >= 4) ? 'lg:basis-[calc(25%-18px)]' : 'lg:basis-[calc(
                     $card_title = get_sub_field('title');
                     $card_desc = get_sub_field('description');
                     
-                    // Icon wrapper style
-                    $icon_wrapper_style = 'background: rgba(var(--brand-rgb), 0.08); box-shadow: 0 0 0 2px var(--brand);';
+                    // Icon wrapper style - soft brand tint with subtle ring (no hard border)
+                    $icon_wrapper_style = '';
                     $svg_style = 'color: var(--brand);';
                     
                     if (!empty($icon) && is_array($icon) && !empty($icon['url'])) {
                         $icon_url = esc_url($icon['url']);
-                        $icon_wrapper_style .= ' background-image: url(' . $icon_url . '); background-repeat: no-repeat; background-position: center; background-size: 24px 24px;';
+                        $icon_wrapper_style = 'background-image: url(' . $icon_url . '); background-repeat: no-repeat; background-position: center; background-size: 24px 24px;';
                         $svg_style .= ' display: none;';
                     }
                     ?>
-            <article class="w-full sm:basis-[calc(50%-12px)] <?php echo esc_attr($lg_basis_class); ?> bg-white rounded-2xl ring-1 ring-black/10 shadow-sm p-6 flex flex-col h-full">
+            <article class="w-full sm:basis-[calc(50%-12px)] <?php echo esc_attr($lg_basis_class); ?> bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-6 flex flex-col h-full hover:shadow-md hover:ring-black/10 transition duration-200">
                 <div class="mb-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="<?php echo esc_attr($icon_wrapper_style); ?>">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center bg-[rgba(var(--brand-rgb),0.08)] ring-1 ring-[rgba(var(--brand-rgb),0.18)]" style="<?php echo esc_attr($icon_wrapper_style); ?>">
                         <svg class="w-6 h-6" style="<?php echo esc_attr($svg_style); ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                         </svg>
