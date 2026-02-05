@@ -26,9 +26,9 @@ if (function_exists('acf_register_block_type')) {
 	 * ==============================
 	 */
 	acf_register_block_type(array(
-		'name' => 'single-fighter-hero',
-		'title' => 'Single Fighter Hero',
-		'description' => 'Single Fighter Hero',
+		'name' => 'single-fighter-hero-section',
+		'title' => 'Single Fighter Hero Section',
+		'description' => 'Single Fighter Hero Section',
 		'category' => 'custom_theme',
 		'mode' => 'preview',
 		'supports' => array(
@@ -37,7 +37,7 @@ if (function_exists('acf_register_block_type')) {
 			'jsx' => true,
 			'anchor' => true,
 		),
-		'render_template' => 'blocks/single-fighter-hero/single-fighter-hero.php',
+		'render_template' => 'blocks/single-fighter-hero-section/single-fighter-hero-section.php',
 	));
 
 	/**
@@ -119,8 +119,8 @@ if (function_exists('acf_register_block_type')) {
 		),
 		'render_template' => 'blocks/short-ranking-overview/short-ranking-overview.php',
 	));
-	
-		/**
+
+	/**
 	 * ==============================
 	 * HOME: Newsletter Block
 	 * ==============================
@@ -139,4 +139,69 @@ if (function_exists('acf_register_block_type')) {
 		),
 		'render_template' => 'blocks/newsletter-block/newsletter-block.php',
 	));
+
+
+
+	/**
+	 * ==============================
+	 * Single Fighter Page: single-fighter-latest-fights-section Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'single-fighter-latest-fights-section-block',
+		'title' => 'Single Fighter Latest Fights Section Block',
+		'description' => 'Single Fighter Latest Fights Section Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/single-fighter-latest-fights-section/single-fighter-latest-fights-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * Single Fighter Page: single-fighter-quick-stats-section Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'single-fighter-quick-stats-section-block',
+		'title' => 'Single Fighter Quick Stats Section Block',
+		'description' => 'Single Fighter Quick Stats Section Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/single-fighter-quick-stats-section/single-fighter-quick-stats-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * Single Fighter Page: single-fighter-quick-stats-section Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'single-fighter-hero-section-block',
+		'title' => 'Single Fighter Hero Section Block',
+		'description' => 'Single Fighter Hero Section Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/single-fighter-hero-section/single-fighter-hero-section.php',
+	));
+
 }
+
+
