@@ -134,7 +134,7 @@
     <div class="container mx-auto px-4">
         
         <!-- Section Title -->
-        <h2 class="font-heading font-bold text-2xl md:text-3xl text-heading uppercase tracking-wide mb-8 lg:mb-10">
+        <h2 class="font-heading font-bold text-xl md:text-2xl text-heading uppercase tracking-wide mb-8 lg:mb-10">
             Nedavne Borbe
         </h2>
 

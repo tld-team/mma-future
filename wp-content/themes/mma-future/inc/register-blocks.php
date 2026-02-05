@@ -202,6 +202,66 @@ if (function_exists('acf_register_block_type')) {
 		'render_template' => 'blocks/single-fighter-hero-section/single-fighter-hero-section.php',
 	));
 
+	
+	/**
+	 * ==============================
+	 * Single Fighter Page: single-fighter-quick-stats-section Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'single-fighter-hero-section-block',
+		'title' => 'Single Fighter Hero Section Block',
+		'description' => 'Single Fighter Hero Section Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/single-fighter-hero-section/single-fighter-hero-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * Single Fighter Page: single-fighter-full-fight-history-section Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'single-fighter-full-fight-history-section-block',
+		'title' => 'Single Fighter Full Fight History Section Block',
+		'description' => 'Single Fighter Full Fight History Section Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/single-fighter-full-fight-history-section/single-fighter-full-fight-history-section.php',
+	));
+	/**
+	 * ==============================
+	 * Single Fighter Page: single-fighter-bio-section Block
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'single-fighter-bio-section-block',
+		'title' => 'Single Fighter Bio Section Block',
+		'description' => 'Single Fighter Bio Section Block',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/single-fighter-bio-section/single-fighter-bio-section.php',
+	));
+
 }
 
 

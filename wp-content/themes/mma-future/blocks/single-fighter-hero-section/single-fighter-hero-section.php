@@ -1,10 +1,18 @@
 <!-- Fighter Hero Section -->
+<style>
+    .opp-score-badge:hover {
+        background-color: rgba(59, 130, 246, 0.15) !important;
+        border-color: rgba(59, 130, 246, 0.45) !important;
+        box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25), 0 8px 32px rgba(59, 130, 246, 0.18) !important;
+        color: rgba(255, 255, 255, 0.95) !important;
+    }
+</style>
 <section class="fighter-hero-section relative min-h-[75vh] flex items-center py-12 lg:py-20 overflow-hidden">
     <!-- Parallax Background -->
-    <div class="absolute inset-0 w-full h-full z-0" 
-         style="background-image: url('http://mma-future-dev.tldteam.com/wp-content/uploads/2026/02/background-image-scaled.png'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; transform: translateZ(0); will-change: transform;">
+    <div class="absolute inset-0 w-full h-full z-0"
+        style="background-image: url('http://mma-future-dev.tldteam.com/wp-content/uploads/2026/02/background-image-scaled.png'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed; transform: translateZ(0); will-change: transform;">
     </div>
-    
+
     <!-- Dark Overlay -->
     <div class="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 z-0"></div>
 
@@ -16,12 +24,15 @@
             <div class="flex justify-center lg:justify-start lg:w-80">
                 <div class="group relative w-full max-w-xs lg:max-w-none aspect-square cursor-pointer">
                     <!-- Multi-layer border frame -->
-                    <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary-500/30 to-accent/30 group-hover:from-primary-400/50 group-hover:to-accent/50 p-1 transition-all duration-500 group-hover:shadow-lg group-hover:shadow-primary-500/30">
+                    <div
+                        class="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary-500/30 to-accent/30 group-hover:from-primary-400/50 group-hover:to-accent/50 p-1 transition-all duration-500 group-hover:shadow-lg group-hover:shadow-primary-500/30">
                         <div
                             class="w-full h-full rounded-2xl bg-gradient-to-br from-secondary-900/90 to-secondary-800/90 p-2">
-                            <div class="w-full h-full rounded-xl overflow-hidden shadow-fighter group-hover:shadow-xl transition-shadow duration-500">
+                            <div
+                                class="w-full h-full rounded-xl overflow-hidden shadow-fighter group-hover:shadow-xl transition-shadow duration-500">
                                 <img src="http://mma-future-dev.tldteam.com/wp-content/uploads/2025/10/Abdulgadzhi_Gaziev-Hero-1200x1165-1-600x583_cropped.jpg"
-                                    alt="Fighter portrait" class="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-110" />
+                                    alt="Fighter portrait"
+                                    class="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 group-hover:brightness-110" />
                             </div>
                         </div>
                     </div>
@@ -32,8 +43,8 @@
             <div class="space-y-6 lg:space-y-8 text-center lg:text-left">
 
                 <!-- Fighter Name -->
-                <h1
-                    class="font-heading font-black text-4xl md:text-5xl xl:text-6xl text-white leading-tight tracking-tight" style="font-weight: 950;">
+                <h1 class="font-heading font-black text-4xl md:text-5xl xl:text-6xl text-white leading-tight tracking-tight"
+                    style="font-weight: 950;">
                     Abdulgadzhi Gaziev
                 </h1>
 
@@ -90,34 +101,95 @@
                 </div>
 
                 <!-- Stats Row -->
-                <div class="grid grid-cols-3 gap-6 md:gap-8 max-w-full lg:max-w-[80%]">
+                <div class="grid grid-cols-3 gap-6 md:gap-8 max-w-full lg:max-w-[65%]">
 
                     <!-- Record (W-L) - Largest -->
                     <div class="text-center lg:text-left">
-                        <div class="text-xs md:text-sm text-white/60 font-medium uppercase tracking-wide mb-3">Record
+                        <div
+                            class="text-xs md:text-sm text-white/60 font-medium uppercase tracking-wide mb-3 flex items-center gap-1.5 justify-center lg:justify-start">
+                            Record
+                            <!-- Tooltip -->
+                            <div class="group relative inline-flex">
+                                <div class="tooltip-trigger inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/5 hover:bg-white/10 border border-white/20 transition-all duration-200 cursor-pointer"
+                                    role="img" aria-label="Record information">
+                                    <svg class="w-3.5 h-3.5 text-white/60" width="16" height="16" fill="currentColor"
+                                        viewBox="0 0 20 20" aria-hidden="true">
+                                        <path fill-rule="evenodd"
+                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black/50 text-white/90 text-xs rounded-lg shadow-2xl border border-white/10 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus:opacity-100 group-focus:visible transition-all duration-200 pointer-events-none z-50"
+                                    style="backdrop-filter: blur(12px);">
+                                    Ukupan broj pobeda i poraza u karijeri
+                                    <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-black/50 border-r border-b border-white/10 rotate-45"
+                                        style="backdrop-filter: blur(12px);"></div>
+                                </div>
+                            </div>
                         </div>
                         <div
-                            class="text-3xl md:text-4xl xl:text-5xl font-heading font-black text-white tracking-tight leading-none">
+                            class="text-4xl md:text-5xl xl:text-6xl font-heading font-black text-white tracking-tight leading-none mt-3">
                             37–10</div>
                     </div>
 
                     <!-- Finishes - Medium -->
                     <div class="text-center lg:text-left">
-                        <div class="text-xs md:text-sm text-white/60 font-medium uppercase tracking-wide mb-3">Finishes
+                        <div
+                            class="text-xs md:text-sm text-white/60 font-medium uppercase tracking-wide mb-3 flex items-center gap-1.5 justify-center lg:justify-start">
+                            Finishes
+                            <!-- Tooltip -->
+                            <div class="group relative inline-flex">
+                                <div class="tooltip-trigger inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/5 hover:bg-white/10 border border-white/20 transition-all duration-200 cursor-pointer"
+                                    role="img" aria-label="Finishes information">
+                                    <svg class="w-3.5 h-3.5 text-white/60" width="16" height="16" fill="currentColor"
+                                        viewBox="0 0 20 20" aria-hidden="true">
+                                        <path fill-rule="evenodd"
+                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black/50 text-white/90 text-xs rounded-lg shadow-2xl border border-white/10 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus:opacity-100 group-focus:visible transition-all duration-200 pointer-events-none z-50"
+                                    style="backdrop-filter: blur(12px);">
+                                    Broj borbi završenih pre vremenske granice (KO, TKO, submission)
+                                    <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-black/50 border-r border-b border-white/10 rotate-45"
+                                        style="backdrop-filter: blur(12px);"></div>
+                                </div>
+                            </div>
                         </div>
                         <div
-                            class="text-2xl md:text-3xl xl:text-4xl font-heading font-bold text-white tracking-tight leading-none">
+                            class="text-3xl md:text-4xl xl:text-5xl font-heading font-bold text-white tracking-tight leading-none mt-3">
                             24</div>
                     </div>
 
                     <!-- Opponent Strength Score - Highlighted -->
                     <div class="text-center lg:text-left">
-                        <div class="text-xs md:text-sm text-white/60 font-medium uppercase tracking-wide mb-3">Opp.
-                            Score</div>
                         <div
-                            class="text-2xl md:text-3xl xl:text-4xl font-heading font-bold tracking-tight leading-none">
+                            class="text-xs md:text-sm text-white/60 font-medium uppercase tracking-wide mb-3 flex items-center gap-1.5 justify-center lg:justify-start">
+                            Opp. Score
+                            <!-- Tooltip -->
+                            <div class="group relative inline-flex">
+                                <div class="tooltip-trigger inline-flex items-center justify-center w-4 h-4 rounded-full bg-white/5 hover:bg-white/10 border border-white/20 transition-all duration-200 cursor-pointer"
+                                    role="img" aria-label="Opponent Strength Score information">
+                                    <svg class="w-3.5 h-3.5 text-white/60" width="16" height="16" fill="currentColor"
+                                        viewBox="0 0 20 20" aria-hidden="true">
+                                        <path fill-rule="evenodd"
+                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black/50 text-white/90 text-xs rounded-lg shadow-2xl border border-white/10 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus:opacity-100 group-focus:visible transition-all duration-200 pointer-events-none z-50"
+                                    style="backdrop-filter: blur(12px);">
+                                    Agregatna ocena snage protivnika sa kojima se borac suočio
+                                    <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-black/50 border-r border-b border-white/10 rotate-45"
+                                        style="backdrop-filter: blur(12px);"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="text-3xl md:text-4xl xl:text-5xl font-heading font-bold tracking-tight leading-none mt-4">
                             <span
-                                class="inline-block px-3 py-1 rounded-lg bg-primary-500/30 border border-primary-400/40 text-primary-300 backdrop-blur-sm">87.4</span>
+                                class="opp-score-badge inline-block px-3 py-1 rounded-lg text-white/90 cursor-pointer transition-all duration-300"
+                                style="background-color: rgba(59,130,246,0.10); border: 1px solid rgba(59,130,246,0.35); box-shadow: 0 0 0 1px rgba(59,130,246,0.18), 0 8px 24px rgba(59,130,246,0.10);">87.4</span>
                         </div>
                     </div>
 
@@ -169,7 +241,7 @@
                                     class="group-hover:fill-white transition-all duration-300" />
                             </svg>
                         </a>
-                   
+
                     </div>
                 </div>
 

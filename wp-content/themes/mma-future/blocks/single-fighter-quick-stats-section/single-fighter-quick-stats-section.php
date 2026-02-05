@@ -2,7 +2,7 @@
 /* Section Title */
 .quick-stats-section-title {
     font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.025em;
@@ -10,14 +10,26 @@
     margin: 0 0 2rem 0;
 }
 
+@media (min-width: 768px) {
+    .quick-stats-section-title {
+        font-size: 1.5rem;
+    }
+}
+
 .quick-stats-subheading {
     font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
-    font-size: 1.125rem;
+    font-size: 1rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.025em;
     color: #1F2937;
     margin: 0 0 1rem 0;
+}
+
+@media (min-width: 768px) {
+    .quick-stats-subheading {
+        font-size: 1.125rem;
+    }
 }
 
 /* Quick Stats Card Specific Styles */

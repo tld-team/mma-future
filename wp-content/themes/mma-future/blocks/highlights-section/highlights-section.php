@@ -46,7 +46,7 @@ $lg_basis_class = ($count >= 4) ? 'lg:basis-[calc(25%-18px)]' : 'lg:basis-[calc(
         <!-- Section Header -->
         <?php if ($has_header_content) : ?>
         <div class="text-center mb-16">
-            <h2 class="text-4xl sm:text-5xl font-extrabold text-slate-900 mb-4">
+            <h2 class="text-xl md:text-2xl font-extrabold text-slate-900 mb-4">
                 <?php echo esc_html($section_title); ?>
             </h2>
             <p class="text-xl text-slate-600 max-w-2xl mx-auto">
@@ -83,7 +83,7 @@ $lg_basis_class = ($count >= 4) ? 'lg:basis-[calc(25%-18px)]' : 'lg:basis-[calc(
                         </svg>
                     </div>
                 </div>
-                <h3 class="text-xl font-semibold text-slate-900 mb-3">
+                <h3 class="text-base md:text-lg font-semibold text-slate-900 mb-3">
                     <?php echo esc_html($card_title); ?>
                 </h3>
                 <p class="text-slate-600 leading-relaxed flex-grow">

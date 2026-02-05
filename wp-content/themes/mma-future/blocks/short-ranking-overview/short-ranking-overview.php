@@ -120,7 +120,7 @@ $top_five = [
         <div class="mb-20">
             <!-- Header Row -->
             <div class="flex justify-between items-center mb-10">
-                <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">Top Movers</h2>
+                <h2 class="text-xl md:text-2xl font-extrabold text-slate-900 leading-tight">Top Movers</h2>
                 <a href="#rankings"
                     class="group inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 shadow-sm text-slate-700 font-semibold text-sm transition-all duration-200 hover:bg-slate-50 hover:ring-black/15 hover:shadow-md hover:text-[#0B3AA4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/35 focus-visible:ring-offset-2 visited:text-slate-700 no-underline">
                     <span>View All Rankings</span>
@@ -167,7 +167,7 @@ $top_five = [
 
                                 <!-- Content -->
                                 <div class="flex-grow min-w-0">
-                                    <h3 class="text-lg font-semibold text-slate-900 mb-1.5 truncate group-hover:text-[var(--brand)] transition-colors duration-200">
+                                    <h3 class="text-base md:text-lg font-semibold text-slate-900 mb-1.5 truncate group-hover:text-[var(--brand)] transition-colors duration-200">
                                         <?php echo esc_html($mover['name']); ?>
                                     </h3>
                                     
@@ -191,7 +191,7 @@ $top_five = [
 
         <!-- Current Top 5 Section -->
         <div class="mt-12">
-            <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight mb-6">Current Top 5</h2>
+            <h2 class="text-xl md:text-2xl font-extrabold text-slate-900 leading-tight mb-6">Current Top 5</h2>
 
             <!-- Top 5 List -->
             <div class="flex flex-col gap-4">
@@ -239,7 +239,7 @@ $top_five = [
 
                                     <!-- Fighter Info -->
                                     <div class="flex-grow min-w-0 flex flex-col justify-center gap-1.5">
-                                        <h3 class="font-semibold text-slate-900 text-base leading-tight truncate group-hover:text-[var(--brand)] transition-colors duration-200">
+                                        <h3 class="font-semibold text-slate-900 text-base md:text-lg leading-tight truncate group-hover:text-[var(--brand)] transition-colors duration-200">
                                             <?php echo esc_html($fighter['name']); ?>
                                         </h3>
                                         

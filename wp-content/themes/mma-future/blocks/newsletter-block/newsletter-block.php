@@ -16,7 +16,7 @@
             ></div>
             
             <div class="relative z-10 text-center">
-                <h2 class="text-[38px] sm:text-4xl font-extrabold text-slate-900 leading-tight mb-4">
+                <h2 class="text-xl md:text-2xl font-extrabold text-slate-900 leading-tight mb-4">
                     Get weekly ranking updates
                 </h2>
                 <p class="text-slate-600 text-base sm:text-lg max-w-2xl mx-auto mt-3 font-normal">
