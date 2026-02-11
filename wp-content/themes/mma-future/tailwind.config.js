@@ -9,6 +9,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // Screen breakpoints
+      screens: {
+        'xs': '480px',
+      },
       // Boje (prema style guide-u)
       colors: {
         primary: {
