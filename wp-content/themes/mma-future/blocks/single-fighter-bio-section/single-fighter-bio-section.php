@@ -210,6 +210,7 @@
     gap: 0.375rem;
     margin-top: 0.75rem;
     padding: 0.4rem 0.875rem;
+    border: none;
     border-radius: 0.375rem;
     background-color: #3B82F6;
     color: white;

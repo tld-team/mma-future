@@ -25,8 +25,8 @@
 @font-face {
     font-family: 'Sora';
     src: url('../fonts/sora/Sora-Thin.woff2') format('woff2'),
-         url('../fonts/sora/Sora-Thin.woff') format('woff'),
-         url('../fonts/sora/Sora-Thin.ttf') format('truetype');
+        url('../fonts/sora/Sora-Thin.woff') format('woff'),
+        url('../fonts/sora/Sora-Thin.ttf') format('truetype');
     font-weight: 100;
     font-style: normal;
     font-display: swap;
@@ -35,8 +35,8 @@
 @font-face {
     font-family: 'Sora';
     src: url('../fonts/sora/Sora-ExtraLight.woff2') format('woff2'),
-         url('../fonts/sora/Sora-ExtraLight.woff') format('woff'),
-         url('../fonts/sora/Sora-ExtraLight.ttf') format('truetype');
+        url('../fonts/sora/Sora-ExtraLight.woff') format('woff'),
+        url('../fonts/sora/Sora-ExtraLight.ttf') format('truetype');
     font-weight: 200;
     font-style: normal;
     font-display: swap;
@@ -45,8 +45,8 @@
 @font-face {
     font-family: 'Sora';
     src: url('../fonts/sora/Sora-Light.woff2') format('woff2'),
-         url('../fonts/sora/Sora-Light.woff') format('woff'),
-         url('../fonts/sora/Sora-Light.ttf') format('truetype');
+        url('../fonts/sora/Sora-Light.woff') format('woff'),
+        url('../fonts/sora/Sora-Light.ttf') format('truetype');
     font-weight: 300;
     font-style: normal;
     font-display: swap;
@@ -55,8 +55,8 @@
 @font-face {
     font-family: 'Sora';
     src: url('../fonts/sora/Sora-Regular.woff2') format('woff2'),
-         url('../fonts/sora/Sora-Regular.woff') format('woff'),
-         url('../fonts/sora/Sora-Regular.ttf') format('truetype');
+        url('../fonts/sora/Sora-Regular.woff') format('woff'),
+        url('../fonts/sora/Sora-Regular.ttf') format('truetype');
     font-weight: 400;
     font-style: normal;
     font-display: swap;
@@ -65,8 +65,8 @@
 @font-face {
     font-family: 'Sora';
     src: url('../fonts/sora/Sora-Medium.woff2') format('woff2'),
-         url('../fonts/sora/Sora-Medium.woff') format('woff'),
-         url('../fonts/sora/Sora-Medium.ttf') format('truetype');
+        url('../fonts/sora/Sora-Medium.woff') format('woff'),
+        url('../fonts/sora/Sora-Medium.ttf') format('truetype');
     font-weight: 500;
     font-style: normal;
     font-display: swap;
@@ -75,8 +75,8 @@
 @font-face {
     font-family: 'Sora';
     src: url('../fonts/sora/Sora-SemiBold.woff2') format('woff2'),
-         url('../fonts/sora/Sora-SemiBold.woff') format('woff'),
-         url('../fonts/sora/Sora-SemiBold.ttf') format('truetype');
+        url('../fonts/sora/Sora-SemiBold.woff') format('woff'),
+        url('../fonts/sora/Sora-SemiBold.ttf') format('truetype');
     font-weight: 600;
     font-style: normal;
     font-display: swap;
@@ -85,8 +85,8 @@
 @font-face {
     font-family: 'Sora';
     src: url('../fonts/sora/Sora-Bold.woff2') format('woff2'),
-         url('../fonts/sora/Sora-Bold.woff') format('woff'),
-         url('../fonts/sora/Sora-Bold.ttf') format('truetype');
+        url('../fonts/sora/Sora-Bold.woff') format('woff'),
+        url('../fonts/sora/Sora-Bold.ttf') format('truetype');
     font-weight: 700;
     font-style: normal;
     font-display: swap;
@@ -95,8 +95,8 @@
 @font-face {
     font-family: 'Sora';
     src: url('../fonts/sora/Sora-ExtraBold.woff2') format('woff2'),
-         url('../fonts/sora/Sora-ExtraBold.woff') format('woff'),
-         url('../fonts/sora/Sora-ExtraBold.ttf') format('truetype');
+        url('../fonts/sora/Sora-ExtraBold.woff') format('woff'),
+        url('../fonts/sora/Sora-ExtraBold.ttf') format('truetype');
     font-weight: 800;
     font-style: normal;
     font-display: swap;
@@ -116,13 +116,19 @@
    ============================================================================= */
 
 /* Body: Inter font family (default for everything) */
-html, body {
+html,
+body {
     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif !important;
     font-style: normal !important;
 }
 
 /* Headlines h1-h6: Sora font family */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-family: 'Sora', ui-sans-serif, system-ui, sans-serif !important;
 }
 
@@ -157,7 +163,12 @@ input[type="reset"],
 }
 
 /* Footer headings: Sora font family */
-footer h1, footer h2, footer h3, footer h4, footer h5, footer h6 {
+footer h1,
+footer h2,
+footer h3,
+footer h4,
+footer h5,
+footer h6 {
     font-family: 'Sora', ui-sans-serif, system-ui, sans-serif !important;
 }
 
@@ -173,14 +184,34 @@ footer li,
 
 /* Body text elements: Inter font family (inherit from body) */
 /* Ensure font-style is normal (not italic) by default */
-p, span, div, li, td, th, label, input, textarea, select,
-b, strong, small, mark, del, ins, sub, sup, blockquote, cite, q {
+p,
+span,
+div,
+li,
+td,
+th,
+label,
+input,
+textarea,
+select,
+b,
+strong,
+small,
+mark,
+del,
+ins,
+sub,
+sup,
+blockquote,
+cite,
+q {
     font-family: inherit;
     font-style: normal;
 }
 
 /* Italic elements - keep italic only for em and i */
-em, i {
+em,
+i {
     font-style: italic;
 }
 
@@ -192,8 +223,37 @@ em, i {
     font-style: normal;
 }
 
-em, i, cite, dfn, var {
+em,
+i,
+cite,
+dfn,
+var {
     font-style: italic;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Thin subtle scrollbar */
+.thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225 / 0.7) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+    height: 4px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(203 213 225 / 0.7);
+    border-radius: 9999px;
 }
 
 /* Brand Color Variables */
@@ -209,9 +269,40 @@ a:where(:not(.wp-element-button)) {
 }
 
 /* Global Heading Styles */
+h1 {
+    font-size: clamp(2.25rem, 3.5vw, 4rem);
+    /* ~36px to  px */
+    font-weight: 600;
+}
+
 h2 {
-    font-size: clamp(1.875rem, 2.5vw, 2.5rem); /* ~30px to 40px */
-    font-weight: 700;
+    font-size: clamp(2rem, 2vw, 2.7rem);
+    /* ~32px to 44px */
+    font-weight: 600;
+}
+
+h3 {
+    font-size: clamp(1.2rem, 1vw, 1.5rem);
+    /* ~24px to 32px */
+    font-weight: 600;
+}
+
+h4 {
+    font-size: clamp(1.25rem, 1.5vw, 1.5rem);
+    /* ~20px to 24px */
+    font-weight: 600;
+}
+
+h5 {
+    font-size: clamp(1.125rem, 1.25vw, 1.25rem);
+    /* ~18px to 20px */
+    font-weight: 600;
+}
+
+h6 {
+    font-size: clamp(1rem, 1vw, 1.125rem);
+    /* ~16px to 18px */
+    font-weight: 600;
 }
 
 /* Header Login Button Styles */
@@ -236,9 +327,10 @@ h2 {
     color: var(--brand) !important;
 }
 
+.header-login-btn:focus,
 .header-login-btn:focus-visible {
-    outline: 2px solid rgba(var(--brand-rgb), 0.45);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: none;
 }
 
 /* Hero CTA Button Styles */
@@ -260,8 +352,8 @@ h2 {
     z-index: 1;
 }
 
-.hero-cta-primary > span,
-.hero-cta-primary > svg {
+.hero-cta-primary>span,
+.hero-cta-primary>svg {
     position: relative;
     z-index: 2;
 }
@@ -280,9 +372,10 @@ h2 {
     color: white !important;
 }
 
+.hero-cta-primary:focus,
 .hero-cta-primary:focus-visible {
-    outline: 2px solid rgba(255, 255, 255, 0.8);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: none;
 }
 
 .hero-cta-primary .arrow-icon {
@@ -313,9 +406,10 @@ h2 {
     color: white !important;
 }
 
+.hero-cta-secondary:focus,
 .hero-cta-secondary:focus-visible {
-    outline: 2px solid rgba(255, 255, 255, 0.8);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: none;
 }
 
 /* Highlights Section Styles */
@@ -326,7 +420,7 @@ h2 {
     vertical-align: middle;
 }
 
-.highlights-section > div > div:first-child p {
+.highlights-section>div>div:first-child p {
     font-weight: 400;
 }
 
@@ -399,7 +493,8 @@ h2 {
     right: 50%;
     margin-left: -50vw;
     margin-right: -50vw;
-    padding-top: 5rem; /* Spacing from header */
+    padding-top: 5rem;
+    /* Spacing from header */
 }
 
 /* Header Styling */
@@ -414,30 +509,36 @@ h2 {
 }
 
 .site-header .header-content {
-    height: 5rem !important; /* h-20 */
+    height: 5rem !important;
+    /* h-20 */
     transition: height 0.3s ease;
 }
 
 .site-header.scrolled .header-content {
-    height: 4rem !important; /* h-16 */
+    height: 4rem !important;
+    /* h-16 */
 }
 
 .site-header .header-logo {
-    height: 4rem; /* h-16 */
+    height: 4rem;
+    /* h-16 */
     transition: height 0.3s ease;
 }
 
 .site-header.scrolled .header-logo {
-    height: 3rem; /* h-12 */
+    height: 3rem;
+    /* h-12 */
 }
 
 .site-header .header-logo-img {
-    max-height: 4rem; /* max-h-16 */
+    max-height: 4rem;
+    /* max-h-16 */
     transition: max-height 0.3s ease;
 }
 
 .site-header.scrolled .header-logo-img {
-    max-height: 3rem; /* max-h-12 */
+    max-height: 3rem;
+    /* max-h-12 */
 }
 
 /* Navigation Menu Styling */
@@ -569,7 +670,7 @@ footer .footer-link:hover {
         font-weight: 500;
         padding-left: 0;
     }
-    
+
     footer .footer-link:hover {
         padding-left: 0.125rem;
     }
@@ -584,6 +685,7 @@ footer .footer-link:hover {
 
 /* Mobile Menu Styling */
 @media (max-width: 1023px) {
+
     /* Burger Menu Toggle and Close Button Styling */
     .mobile-menu-toggle,
     .mobile-menu-close {
@@ -593,7 +695,7 @@ footer .footer-link:hover {
         border: none !important;
         padding: 0;
     }
-    
+
     /* No background or border on any state */
     .mobile-menu-toggle:hover,
     .mobile-menu-toggle:active,
@@ -604,58 +706,60 @@ footer .footer-link:hover {
         background: transparent !important;
         border: none !important;
     }
-    
+
     /* Discrete scale effect on click */
     .mobile-menu-toggle:active,
     .mobile-menu-close:active {
         transform: scale(0.92);
     }
-    
-    /* Focus styling - minimal */
+
+    /* No focus ring on click */
+    .mobile-menu-toggle:focus,
     .mobile-menu-toggle:focus-visible,
+    .mobile-menu-close:focus,
     .mobile-menu-close:focus-visible {
-        outline: 2px solid currentColor;
-        outline-offset: 2px;
+        outline: none;
+        box-shadow: none;
     }
-    
+
     /* Burger Icon Container - no rotation, just smooth transitions */
     .mobile-menu-toggle .burger-icon {
         transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         transform-origin: center;
     }
-    
+
     /* Individual Burger Line Animations - discrete and smooth */
     .mobile-menu-toggle .burger-line-top,
     .mobile-menu-toggle .burger-line-middle,
     .mobile-menu-toggle .burger-line-bottom {
         transform-origin: center;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                    opacity 0.25s ease-in-out;
+            opacity 0.25s ease-in-out;
     }
-    
+
     /* Active state - transform lines to X (discrete animation) */
     .mobile-menu-toggle.is-active .burger-line-top {
         transform: translateY(5.25px) rotate(45deg);
     }
-    
+
     .mobile-menu-toggle.is-active .burger-line-middle {
         opacity: 0;
         transform: scaleX(0);
     }
-    
+
     .mobile-menu-toggle.is-active .burger-line-bottom {
         transform: translateY(-5.25px) rotate(-45deg);
     }
-    
+
     /* Smooth transition for all states */
     .mobile-menu-toggle {
         will-change: transform;
     }
-    
+
     .mobile-menu-toggle.is-active {
         will-change: auto;
     }
-    
+
     /* Mobile Navigation Links - match desktop style */
     .nav-link-mobile,
     .nav-link-dropdown-mobile {
@@ -666,7 +770,7 @@ footer .footer-link:hover {
         cursor: pointer;
         text-decoration: none !important;
     }
-    
+
     /* Remove any background on hover/focus */
     .nav-link-mobile:hover,
     .nav-link-mobile:focus,
@@ -675,7 +779,7 @@ footer .footer-link:hover {
         background: transparent !important;
         text-decoration: none !important;
     }
-    
+
     /* Underline effect like desktop */
     .nav-link-mobile::after,
     .nav-link-dropdown-mobile::after {
@@ -688,23 +792,23 @@ footer .footer-link:hover {
         background-color: currentColor;
         transition: width 0.3s ease;
     }
-    
+
     .nav-link-mobile:hover::after,
     .nav-link-dropdown-mobile:hover::after {
         width: 100%;
     }
-    
+
     /* Submenu link styling */
     .nav-link-mobile-sub {
         position: relative;
         text-decoration: none !important;
     }
-    
+
     .nav-link-mobile-sub:hover {
         text-decoration: none !important;
         transform: translateX(2px);
     }
-    
+
     /* Small dot indicator on hover instead of underline */
     .nav-link-mobile-sub::before {
         content: '';
@@ -718,48 +822,48 @@ footer .footer-link:hover {
         background-color: currentColor;
         transition: transform 0.2s ease;
     }
-    
+
     .nav-link-mobile-sub:hover::before {
         transform: translateY(-50%) scale(1);
     }
-    
+
     /* Dropdown button - primary color and full width layout */
     .nav-link-dropdown-mobile {
         padding-left: 0 !important;
         padding-right: 0 !important;
         margin: 0;
     }
-    
+
     .nav-link-dropdown-mobile .chevron-icon {
         opacity: 0.8;
     }
-    
+
     .nav-link-dropdown-mobile:hover .chevron-icon {
         opacity: 1;
     }
-    
+
     /* No underline effect for dropdown button */
     .nav-link-dropdown-mobile::after {
         display: none !important;
     }
-    
+
     /* Mobile menu panel - subtle separator instead of border */
     #mobile-menu .flex.h-16 {
         border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     }
-    
+
     /* Mobile menu footer login button - ensure no underline */
     #mobile-menu .px-6.py-6 a {
         text-decoration: none !important;
     }
-    
+
     #mobile-menu .px-6.py-6 a:hover,
     #mobile-menu .px-6.py-6 a:focus,
     #mobile-menu .px-6.py-6 a:active,
     #mobile-menu .px-6.py-6 a:visited {
         text-decoration: none !important;
     }
-    
+
     /* Mobile Menu List Styling */
     #mobile-primary-menu {
         list-style: none;
@@ -769,13 +873,13 @@ footer .footer-link:hover {
         flex-direction: column;
         gap: 0.5rem;
     }
-    
-    #mobile-primary-menu > li {
+
+    #mobile-primary-menu>li {
         list-style: none;
         padding: 0;
         margin: 0;
     }
-    
+
     /* Submenu styling */
     #mobile-primary-menu [data-submenu] {
         list-style: none;
@@ -789,12 +893,12 @@ footer .footer-link:hover {
         flex-direction: column;
         gap: 0.25rem;
     }
-    
+
     #mobile-primary-menu [data-submenu]:not(.hidden) {
         opacity: 1;
         transition: max-height 0.3s ease-out, opacity 0.2s ease-out 0.1s;
     }
-    
+
     #mobile-primary-menu [data-submenu] li {
         list-style: none;
         padding: 0;
@@ -819,6 +923,133 @@ footer .footer-link:hover {
 
 /* Override global input styles for newsletter email input */
 #newsletter #email-address {
-    border-radius: 8px; /* rounded-lg */
-    padding-left: 12px; /* pl-3 */
+    border-radius: 8px;
+    /* rounded-lg */
+    padding-left: 12px;
+    /* pl-3 */
+}
+
+/* =============================================================================
+   PAGINATION
+   ============================================================================= */
+
+.pg__list {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Shared base for every pagination item */
+.pg__num,
+.pg__btn,
+.pg__dots {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 40px !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    border-radius: 10px !important;
+    text-decoration: none !important;
+    cursor: pointer;
+    transition: all 0.2s ease !important;
+    box-sizing: border-box !important;
+}
+
+/* Number links */
+.pg__num {
+    min-width: 40px !important;
+    padding: 0 12px !important;
+    color: #475569 !important;
+    background: #fff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+.pg__num:hover {
+    color: #0f172a !important;
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Active number */
+.pg__num--active,
+.pg__num--active:hover {
+    color: #fff !important;
+    background: var(--brand, #0047A8) !important;
+    border-color: var(--brand, #0047A8) !important;
+    box-shadow: 0 2px 6px rgba(0, 71, 168, 0.35) !important;
+    cursor: default;
+}
+
+/* Dots */
+.pg__dots {
+    min-width: 32px !important;
+    padding: 0 4px !important;
+    color: #94a3b8 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    cursor: default;
+    letter-spacing: 2px;
+}
+
+/* Prev / Next buttons */
+.pg__btn {
+    padding: 0 18px !important;
+    gap: 6px !important;
+    color: #1e293b !important;
+    background: #fff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    font-weight: 600 !important;
+}
+
+.pg__btn:hover {
+    color: #fff !important;
+    background: var(--brand, #0047A8) !important;
+    border-color: var(--brand, #0047A8) !important;
+    box-shadow: 0 4px 10px rgba(0, 71, 168, 0.3) !important;
+    transform: translateY(-1px);
+}
+
+.pg__btn svg {
+    display: inline-block !important;
+    width: 16px !important;
+    height: 16px !important;
+    flex-shrink: 0 !important;
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 2 !important;
+    vertical-align: middle !important;
+}
+
+.pg__btn span {
+    line-height: 1 !important;
+    vertical-align: middle !important;
+}
+
+/* Responsive: hide text labels on small screens, keep arrows */
+@media (max-width: 480px) {
+    .pg__btn span {
+        display: none !important;
+    }
+
+    .pg__btn {
+        padding: 0 12px !important;
+        min-width: 40px !important;
+    }
+
+    .pg__list {
+        gap: 4px;
+    }
+
+    .pg__num {
+        min-width: 36px !important;
+        padding: 0 8px !important;
+        font-size: 13px !important;
+    }
 }

@@ -45,10 +45,11 @@
             transform: scale(0.92);
         }
         
-        // Focus styling - minimal
+        // No focus ring on click
+        &:focus,
         &:focus-visible {
-            outline: 2px solid currentColor;
-            outline-offset: 2px;
+            outline: none;
+            box-shadow: none;
         }
     }
     

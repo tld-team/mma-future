@@ -42,8 +42,7 @@
 }
 
 .mf-hero .opp-score-badge:focus {
-    outline: 2px solid rgba(59, 130, 246, 0.60);
-    outline-offset: 3px;
+    outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -123,6 +122,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    white-space: nowrap;
     padding: 0.625rem 1.25rem;
     font-size: 0.875rem;
     font-weight: 600;
@@ -148,6 +148,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    white-space: nowrap;
     padding: 0.625rem 1.25rem;
     font-size: 0.875rem;
     font-weight: 600;
@@ -388,7 +389,7 @@
                         <div
                             class="text-2xl xs:text-3xl md:text-4xl lg:text-2xl xl:text-3xl 2xl:text-5xl font-heading font-bold tracking-tight leading-none mt-4">
                             <span
-                                class="opp-score-badge inline-block px-2 xs:px-3 py-1 rounded-lg text-white/90 cursor-pointer transition-all duration-300 text-[0.9em]"
+                                class="opp-score-badge inline-block px-3 xs:px-4 py-1.5 rounded-lg text-white/90 cursor-pointer transition-all duration-300 text-[0.9em]"
                                 tabindex="0"
                                 role="button"
                                 aria-label="Opponent Strength Score: 87.4">87.4</span>

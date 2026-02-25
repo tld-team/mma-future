@@ -202,7 +202,7 @@ if (function_exists('acf_register_block_type')) {
 		'render_template' => 'blocks/single-fighter-hero-section/single-fighter-hero-section.php',
 	));
 
-	
+
 	/**
 	 * ==============================
 	 * Single Fighter Page: single-fighter-quick-stats-section Block
@@ -260,6 +260,26 @@ if (function_exists('acf_register_block_type')) {
 			'anchor' => true,
 		),
 		'render_template' => 'blocks/single-fighter-bio-section/single-fighter-bio-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * All Rankings Page: all-rankings-table-section
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'all-rankings-table-section',
+		'title' => 'All Rankings Table Section',
+		'description' => 'All Rankings Table Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/all-rankings-table-section/all-rankings-table-section.php',
 	));
 
 }

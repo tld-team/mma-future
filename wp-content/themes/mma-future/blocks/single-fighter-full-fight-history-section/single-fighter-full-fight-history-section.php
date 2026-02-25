@@ -249,19 +249,6 @@
             <!-- Filter Controls -->
             <div class="mf-fight-history__controls flex flex-wrap items-center gap-3">
                 
-                <!-- Competition Filter -->
-                <div class="mf-fight-history__control flex-1 min-w-[180px]">
-                    <select class="mf-fight-history__select w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-body font-medium"
-                            data-filter="competition">
-                        <option value="all">Sve Organizacije</option>
-                        <option value="ufc">UFC</option>
-                        <option value="bellator">Bellator</option>
-                        <option value="pfl">PFL</option>
-                        <option value="one">ONE Championship</option>
-                        <option value="other">Ostale</option>
-                    </select>
-                </div>
-
                 <!-- Outcome Filter -->
                 <div class="mf-fight-history__control flex-1 min-w-[180px]">
                     <select class="mf-fight-history__select w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-body font-medium"
@@ -274,17 +261,15 @@
                     </select>
                 </div>
 
-                <!-- Year Filter -->
+                <!-- Method Filter -->
                 <div class="mf-fight-history__control flex-1 min-w-[180px]">
                     <select class="mf-fight-history__select w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-body font-medium"
-                            data-filter="year">
-                        <option value="all">Sve Godine</option>
-                        <option value="2025">2025</option>
-                        <option value="2024">2024</option>
-                        <option value="2023">2023</option>
-                        <option value="2022">2022</option>
-                        <option value="2021">2021</option>
-                        <option value="older">Pre 2021</option>
+                            data-filter="method">
+                        <option value="all">Svi Načini</option>
+                        <option value="ko">KO / TKO</option>
+                        <option value="sub">Submision</option>
+                        <option value="dec">Odluka (DEC)</option>
+                        <option value="nc">Bez Rezultata (NC)</option>
                     </select>
                 </div>
 
@@ -776,9 +761,8 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const filters = {
-        competition: document.querySelector('[data-filter="competition"]'),
         outcome: document.querySelector('[data-filter="outcome"]'),
-        year: document.querySelector('[data-filter="year"]'),
+        method: document.querySelector('[data-filter="method"]'),
         sort: document.querySelector('[data-filter="sort"]')
     };
     
@@ -786,9 +770,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const summary = document.querySelector('.mf-fight-history__summary');
     
     function updateDisplay() {
-        const competitionValue = filters.competition.value;
         const outcomeValue = filters.outcome.value;
-        const yearValue = filters.year.value;
+        const methodValue = filters.method.value;
         const sortValue = filters.sort.value;
         
         let visibleCount = 0;
@@ -796,24 +779,23 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Filter items
         itemsArray.forEach(item => {
-            const itemCompetition = item.dataset.competition;
             const itemOutcome = item.dataset.outcome;
-            const itemYear = item.dataset.year;
+            const itemMethod = (item.dataset.method || '').toLowerCase();
             
             let visible = true;
-            
-            if (competitionValue !== 'all' && itemCompetition !== competitionValue) {
-                visible = false;
-            }
             
             if (outcomeValue !== 'all' && itemOutcome !== outcomeValue) {
                 visible = false;
             }
             
-            if (yearValue !== 'all') {
-                if (yearValue === 'older' && parseInt(itemYear) >= 2021) {
+            if (methodValue !== 'all') {
+                if (methodValue === 'ko' && itemMethod !== 'ko/tko') {
                     visible = false;
-                } else if (yearValue !== 'older' && itemYear !== yearValue) {
+                } else if (methodValue === 'sub' && itemMethod !== 'sub') {
+                    visible = false;
+                } else if (methodValue === 'dec' && itemMethod !== 'dec') {
+                    visible = false;
+                } else if (methodValue === 'nc' && itemMethod !== 'nc') {
                     visible = false;
                 }
             }
