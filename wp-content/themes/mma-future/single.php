@@ -56,8 +56,8 @@ if (is_singular('post')):
 		<!-- ============================================================
 	 B) READING PROGRESS BAR
 	 ============================================================ -->
-		<div id="js-progress-bar" class="fixed top-0 left-0 h-[3px] z-[100] transition-[width] duration-150 ease-out"
-			style="width:0;background:var(--brand,#0047A8);"></div>
+		<div id="js-progress-bar" class="fixed top-0 left-0 h-[3px] z-[100]"
+			style="width:0;background:var(--brand,#0047A8);will-change:width;"></div>
 
 		<main id="primary" class="site-main bg-white">
 
@@ -730,15 +730,19 @@ if (is_singular('post')):
 				var bar = document.getElementById('js-progress-bar');
 				var article = document.querySelector('.js-post-content');
 				if (bar && article) {
-					var onScroll = function () {
-						var rect = article.getBoundingClientRect();
-						var total = article.scrollHeight;
-						var scrolled = -rect.top;
-						var pct = Math.min(100, Math.max(0, (scrolled / (total - window.innerHeight)) * 100));
+					var ticking = false;
+					var update = function () {
+						var scrollY = window.scrollY;
+						var articleBottom = article.getBoundingClientRect().bottom + scrollY;
+						var target = Math.max(1, articleBottom - window.innerHeight);
+						var pct = Math.min(100, Math.max(0, (scrollY / target) * 100));
 						bar.style.width = pct + '%';
+						ticking = false;
 					};
-					window.addEventListener('scroll', onScroll, { passive: true });
-					onScroll();
+					window.addEventListener('scroll', function () {
+						if (!ticking) { ticking = true; requestAnimationFrame(update); }
+					}, { passive: true });
+					update();
 				}
 
 				/* --- Copy link button --- */

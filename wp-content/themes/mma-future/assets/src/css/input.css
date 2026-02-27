@@ -236,6 +236,7 @@ var {
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
+
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
@@ -245,12 +246,15 @@ var {
     scrollbar-width: thin;
     scrollbar-color: rgb(203 213 225 / 0.7) transparent;
 }
+
 .thin-scrollbar::-webkit-scrollbar {
     height: 4px;
 }
+
 .thin-scrollbar::-webkit-scrollbar-track {
     background: transparent;
 }
+
 .thin-scrollbar::-webkit-scrollbar-thumb {
     background-color: rgb(203 213 225 / 0.7);
     border-radius: 9999px;
@@ -270,8 +274,8 @@ a:where(:not(.wp-element-button)) {
 
 /* Global Heading Styles */
 h1 {
-    font-size: clamp(2.25rem, 3.5vw, 4rem);
-    /* ~36px to  px */
+    font-size: clamp(3rem, 5vw, 4.5rem);
+    /* 48px → fluid → 72px */
     font-weight: 600;
 }
 
@@ -1051,5 +1055,153 @@ footer .footer-link:hover {
         min-width: 36px !important;
         padding: 0 8px !important;
         font-size: 13px !important;
+    }
+}
+
+/* =============================================================================
+   HOW IT WORKS SECTION - Flow Card Hover & Progression
+   ============================================================================= */
+
+.how-it-works-section .how-it-works-section__flow-card {
+    cursor: pointer;
+    transition: transform 0.2s ease-out,
+                box-shadow 0.2s ease-out,
+                border-color 0.2s ease-out,
+                background-color 0.2s ease-out;
+    will-change: transform, box-shadow;
+}
+
+.how-it-works-section .how-it-works-section__flow-card-title {
+    transition: color 0.2s ease-out;
+}
+
+.how-it-works-section .how-it-works-section__flow-arrow {
+    transition: color 0.25s ease-out, opacity 0.25s ease-out, transform 0.25s ease-out;
+}
+
+.how-it-works-section .how-it-works-section__flow-card:focus,
+.how-it-works-section .how-it-works-section__flow-card:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.how-it-works-section .how-it-works-section__flow-card.is-active {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 71, 168, 0.10), 0 1px 3px rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 71, 168, 0.40) !important;
+    background-color: rgba(0, 71, 168, 0.04) !important;
+}
+
+.how-it-works-section .how-it-works-section__flow-card.is-active .how-it-works-section__flow-card-title {
+    color: #1e293b !important; /* slate-800 */
+}
+
+.how-it-works-section .how-it-works-section__flow-card--final.is-active {
+    border-color: rgba(0, 71, 168, 0.70) !important;
+    background-color: rgba(0, 71, 168, 0.08) !important;
+}
+
+.how-it-works-section .how-it-works-section__flow-card--final.is-active .how-it-works-section__flow-card-title {
+    color: #0047A8 !important;
+}
+
+.how-it-works-section .how-it-works-section__flow-card.is-next-active {
+    border-color: rgba(0, 71, 168, 0.25) !important;
+    background-color: rgba(0, 71, 168, 0.03) !important;
+    box-shadow: 0 2px 8px rgba(0, 71, 168, 0.06);
+}
+
+.how-it-works-section .how-it-works-section__flow-card.is-next-active .how-it-works-section__flow-card-title {
+    color: #475569 !important; /* slate-600 */
+}
+
+.how-it-works-section .how-it-works-section__flow-arrow.is-arrow-active {
+    color: #0047A8 !important;
+    opacity: 1;
+}
+
+.how-it-works-section .how-it-works-section__flow-arrow.is-arrow-active svg {
+    animation: hiw-arrow-nudge 0.6s ease-in-out 1;
+}
+
+@keyframes hiw-arrow-nudge {
+    0%   { transform: translateX(0); opacity: 0.5; }
+    60%  { transform: translateX(4px); opacity: 1; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+/* Mobile arrows animate vertically */
+.how-it-works-section .how-it-works-section__flow-arrow[data-flow-arrow$="-mobile"].is-arrow-active svg {
+    animation: hiw-arrow-nudge-down 0.6s ease-in-out 1;
+}
+
+@keyframes hiw-arrow-nudge-down {
+    0%   { transform: translateY(0); opacity: 0.5; }
+    60%  { transform: translateY(4px); opacity: 1; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+
+.how-it-works-section .how-it-works-section__final-strip {
+    transition: box-shadow 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .how-it-works-section .how-it-works-section__flow-card {
+        transition: border-color 0.2s ease-out, background-color 0.2s ease-out;
+    }
+
+    .how-it-works-section .how-it-works-section__flow-card.is-active {
+        transform: none;
+    }
+
+    .how-it-works-section .how-it-works-section__flow-arrow.is-arrow-active svg {
+        animation: none;
+    }
+
+    .how-it-works-section .how-it-works-section__flow-card-title {
+        transition: none;
+    }
+}
+
+/* =============================================================================
+   PARTNERS SECTION - Infinite Marquee
+   ============================================================================= */
+
+@keyframes partners-marquee {
+    0%   { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(var(--marquee-offset, -50%), 0, 0); }
+}
+
+.about-partners-section__track {
+    --marquee-offset: -50%;
+    gap: 2.5rem;
+    animation: partners-marquee 40s linear infinite;
+    will-change: transform;
+    backface-visibility: hidden;
+}
+
+@media (min-width: 640px) {
+    .about-partners-section__track {
+        gap: 3.5rem;
+    }
+}
+
+.about-partners-section__marquee:hover .about-partners-section__track {
+    animation-play-state: paused;
+}
+
+.about-partners-section__logo {
+    opacity: 0.55;
+    transition: opacity 0.3s ease;
+}
+
+.about-partners-section__item:hover .about-partners-section__logo {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .about-partners-section__track {
+        animation: none;
+        overflow-x: auto;
     }
 }

@@ -282,6 +282,251 @@ if (function_exists('acf_register_block_type')) {
 		'render_template' => 'blocks/all-rankings-table-section/all-rankings-table-section.php',
 	));
 
+	/**
+	 * ==============================
+	 * About Page: Hero section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-hero-section',
+		'title' => 'About Hero Section',
+		'description' => 'About Hero Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-hero-section/about-hero-section.php',
+	));
+
+
+	/**
+	 * ==============================
+	 * About Page: Featured section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-featured-section',
+		'title' => 'About Featured Section',
+		'description' => 'About Featured Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-featured-section/about-featured-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * About Page: Featured section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-featured-section',
+		'title' => 'About Featured Section',
+		'description' => 'About Featured Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-featured-section/about-featured-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * About Page: How it works section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-how-it-works-section',
+		'title' => 'About How It Works Section',
+		'description' => 'About How It Works Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-how-it-works-section/about-how-it-works-section.php',
+	));
+
+
+	/**
+	 * ==============================
+	 * About Page: Highlighted data section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-highlighted-data-section',
+		'title' => 'About Highlighted Data Section',
+		'description' => 'About Highlighted Data Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-highlighted-data-section/about-highlighted-data-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * About Page: FAQ section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-faq-section',
+		'title' => 'About FAQ Section',
+		'description' => 'About FAQ Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-faq-section/about-faq-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * About Page: Founder Bio Section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-founder-bio-section',
+		'title' => 'About Founder Bio Section',
+		'description' => 'About Founder Bio Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-founder-bio-section/about-founder-bio-section.php',
+	));
+
+	/**
+	 * ==============================
+	 * About Page: CTA Section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-cta-section',
+		'title' => 'About CTA Section',
+		'description' => 'About CTA Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-cta-section/about-cta-section.php',
+	));
+
+
+	/**
+	 * ==============================
+	 * About Page: Partners Logos Section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-partners-logos-section',
+		'title' => 'About Partners Logos Section',
+		'description' => 'About Partners Logos Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-partners-logos-section/about-partners-logos-section.php',
+	));
+
+
+	/**
+	 * ==============================
+	 * About Page: Our Team Section (about)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'about-our-team-section',
+		'title' => 'About Our Team Section',
+		'description' => 'About Our Team Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/about-our-team-section/about-our-team-section.php',
+	));
+
+
+	/**
+	 * ==============================
+	 * Contact Page: Main Section (contact)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'contact-main-section',
+		'title' => 'Contact Main Section',
+		'description' => 'Contact Main Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/contact-main-section/contact-main-section.php',
+	));
+
+
+	/**
+	 * ==============================
+	 * Universal Page: Blog Latest Posts Section (universal)
+	 * ==============================
+	 */
+	acf_register_block_type(array(
+		'name' => 'blog-latest-posts-section',
+		'title' => 'Blog Latest Posts Section',
+		'description' => 'Blog Latest Posts Section',
+		'category' => 'custom_theme',
+		'mode' => 'preview',
+		'supports' => array(
+			'align' => true,
+			'mode' => true,
+			'jsx' => true,
+			'anchor' => true,
+		),
+		'render_template' => 'blocks/blog-latest-posts-section/blog-latest-posts-section.php',
+	));
 }
 
 
