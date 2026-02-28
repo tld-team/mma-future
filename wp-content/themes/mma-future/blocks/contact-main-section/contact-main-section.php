@@ -1,5 +1,5 @@
 <section class="contact-main-section py-10 sm:py-14">
-    <div class="contact-main-section__container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="contact-main-section__container max-w-6xl mx-auto px-2">
 
         <!-- Top header -->
         <div class="contact-main-section__top">
@@ -109,22 +109,22 @@
                     <div class="contact-main-section__fields mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="contact-main-section__field">
                             <label for="contact_name" class="contact-main-section__label block mb-2 text-sm font-medium !text-slate-700">Full name *</label>
-                            <input type="text" id="contact_name" name="contact_name" required placeholder="Your full name" class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white px-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
+                            <input type="text" id="contact_name" name="contact_name" required placeholder="Your full name" class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white pl-3 pr-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
                         </div>
 
                         <div class="contact-main-section__field">
                             <label for="contact_email" class="contact-main-section__label block mb-2 text-sm font-medium !text-slate-700">Email *</label>
-                            <input type="email" id="contact_email" name="contact_email" required placeholder="you@example.com" class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white px-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
+                            <input type="email" id="contact_email" name="contact_email" required placeholder="you@example.com" class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white pl-3 pr-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
                         </div>
 
                         <div class="contact-main-section__field">
                             <label for="contact_org" class="contact-main-section__label block mb-2 text-sm font-medium !text-slate-700">Organization</label>
-                            <input type="text" id="contact_org" name="contact_org" placeholder="Company or team name" class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white px-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
+                            <input type="text" id="contact_org" name="contact_org" placeholder="Company or team name" class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white pl-3 pr-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
                         </div>
 
                         <div class="contact-main-section__field">
                             <label for="contact_website" class="contact-main-section__label block mb-2 text-sm font-medium !text-slate-700">Website / LinkedIn</label>
-                            <input type="url" id="contact_website" name="contact_website" placeholder="https://" class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white px-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
+                            <input type="url" id="contact_website" name="contact_website" placeholder="https://" class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white pl-3 pr-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
                         </div>
                     </div>
                 </div>
@@ -132,7 +132,7 @@
                 <!-- Message -->
                 <div class="mt-6">
                     <label for="contact_message" class="contact-main-section__label block mb-2 text-sm font-medium !text-slate-700">Message *</label>
-                    <textarea id="contact_message" name="contact_message" required placeholder="Write your message here…" class="contact-main-section__textarea w-full !rounded-lg !border !border-slate-300/70 !bg-white px-3 py-3 text-sm !text-slate-900 placeholder:!text-slate-400 min-h-[140px] resize-y focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"></textarea>
+                    <textarea id="contact_message" name="contact_message" required placeholder="Write your message here…" class="contact-main-section__textarea w-full !rounded-lg !border !border-slate-300/70 !bg-white pl-3 pr-3 py-3 text-sm !text-slate-900 placeholder:!text-slate-400 min-h-[140px] resize-y focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"></textarea>
                 </div>
 
                 <!-- Privacy -->
