@@ -12,7 +12,7 @@ $primary_cta_button = get_field('primary_cta_button');
 $secondary_cta_button = get_field('secondary_cta_button');
 ?>
 
-<section id="<?php echo esc_attr($anchor); ?>" class="hp-hero-section relative min-h-screen flex items-center justify-center <?php echo esc_attr($blocks_class); ?>" <?php if (!empty($bg_image_url)) : ?>style="background-image: url('<?php echo esc_url($bg_image_url); ?>'); background-size: auto; background-position: center; background-repeat: no-repeat;"<?php endif; ?>>
+<section id="<?php echo esc_attr($anchor); ?>" class="hp-hero-section relative min-h-0 flex items-center justify-center md:min-h-screen <?php echo esc_attr($blocks_class); ?>" <?php if (!empty($bg_image_url)) : ?>style="background-image: url('<?php echo esc_url($bg_image_url); ?>'); background-size: auto; background-position: center; background-repeat: no-repeat;"<?php endif; ?>>
     
     <!-- Dark Overlay -->
     <div class="absolute inset-0 bg-black/50 z-0"></div>

@@ -40,7 +40,7 @@
                 </div>
 
                 <!-- Unified Form Control -->
-                <form class="mx-auto mt-8 max-w-xl rounded-2xl p-1 transition-all duration-200 focus-within:ring-2 focus-within:ring-[rgba(var(--brand-rgb),0.35)] focus-within:ring-offset-2">
+                <form class="mx-auto mt-8 max-w-xl rounded-2xl p-1 transition-all duration-200">
                     <div class="flex flex-col sm:flex-row items-stretch gap-2">
                         <div class="flex-1 min-w-0">
                             <label for="email-address" class="sr-only">Email address</label>
@@ -51,12 +51,12 @@
                                 required 
                                 autocomplete="email" 
                                 placeholder="Enter your email"
-                                class="w-full h-12 pl-[12px] pr-4 bg-white rounded-[8px] border-0 ring-0 shadow-none outline-none text-slate-900 placeholder:text-slate-400"
+                                class="w-full h-12 pl-[12px] pr-4 bg-white rounded-[8px] border-0 ring-0 shadow-none outline-none focus:ring-0 focus:outline-none text-slate-900 placeholder:text-slate-400"
                             >
                         </div>
                         <button 
                             type="submit"
-                            class="h-12 px-6 rounded-[8px] font-semibold bg-[var(--brand)] text-white shadow-sm hover:bg-[var(--brand-hover)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(var(--brand-rgb),0.45)] focus-visible:ring-offset-2 visited:text-white mb-3"
+                            class="h-12 px-6 rounded-[8px] font-semibold bg-[var(--brand)] text-white shadow-sm hover:bg-[var(--brand-hover)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-0 visited:text-white mb-3"
                         >
                             Subscribe
                         </button>

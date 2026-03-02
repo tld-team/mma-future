@@ -309,32 +309,36 @@ h6 {
     font-weight: 600;
 }
 
-/* Header Login Button Styles */
+/* Header Login Button — clean outline, premium editorial */
 .header-login-btn {
-    background: white !important;
-    color: var(--brand) !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #fff !important;
+    border: 1px solid #E2E8F0;
+    color: #0F172A !important;
+    box-shadow: none;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.header-login-btn .header-login-btn-icon {
+    color: inherit;
 }
 
 .header-login-btn:hover {
-    background: rgba(var(--brand-rgb), 0.06) !important;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(var(--brand-rgb), 0.28);
-    transform: translateY(-1px);
+    background: #F1F5F9 !important;
+    border-color: #94A3B8;
 }
 
 .header-login-btn:active {
-    background: rgba(var(--brand-rgb), 0.08) !important;
-    transform: translateY(0);
+    background: #E2E8F0 !important;
+    border-color: #94A3B8;
 }
 
 .header-login-btn:visited {
-    color: var(--brand) !important;
+    color: #0F172A !important;
 }
 
 .header-login-btn:focus,
 .header-login-btn:focus-visible {
     outline: none;
-    box-shadow: none;
 }
 
 /* Hero CTA Button Styles */
@@ -501,6 +505,13 @@ h6 {
     /* Spacing from header */
 }
 
+@media (max-width: 767.98px) {
+    .hp-hero-section {
+        padding-top: 8rem;
+        padding-bottom: 10rem;
+    }
+}
+
 /* Header Styling */
 .site-header {
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
@@ -580,6 +591,11 @@ h6 {
     height: 2px;
     background-color: currentColor;
     transition: width 0.3s ease;
+}
+
+#primary-menu a.nav-link:hover,
+#primary-menu a.nav-link-dropdown:hover {
+    color: var(--brand);
 }
 
 #primary-menu a.nav-link:hover::after,
@@ -775,12 +791,13 @@ footer .footer-link:hover {
         text-decoration: none !important;
     }
 
-    /* Remove any background on hover/focus */
+    /* Remove any background on hover/focus; use brand blue for hover */
     .nav-link-mobile:hover,
     .nav-link-mobile:focus,
     .nav-link-dropdown-mobile:hover,
     .nav-link-dropdown-mobile:focus {
         background: transparent !important;
+        color: var(--brand);
         text-decoration: none !important;
     }
 
