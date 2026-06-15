@@ -75,6 +75,10 @@ Thumbs.db
 # add your own entries here
 !wp-content/themes/mma-future
 !wp-content/themes/mma-future/theme.json
-!wp-content/plugins/mma-manager
+!wp-content/plugins/mma-future-data-engine/
+!wp-content/plugins/mma-future-data-engine/**
+wp-content/plugins/mma-future-data-engine/*.md
+wp-content/plugins/mma-future-data-engine/**/*.md
+!.gitattributes
 !.github/
 !package.json

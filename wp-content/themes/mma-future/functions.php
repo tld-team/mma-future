@@ -11,13 +11,6 @@ if ( ! defined( '_S_VERSION' ) ) {
 	// Replace the version number of the theme on each release.
 	define( '_S_VERSION', '1.0.0' );
 }
-/** helper test functions */
-function dd($array): void {
-	echo "<pre>";
-	print_r($array);
-	echo "</pre>";
-}
-
 if ( ! function_exists( 'tld_log' ) ) {
 	function tld_log( $entry, $mode = 'a', $file = 'tld_log' ) {
 		// Get WordPress uploads directory.
@@ -193,8 +186,6 @@ add_action( 'wp_enqueue_scripts', 'mma_future_scripts' );
  * Enqueue admin scripts
  */
 function mma_future_admin_scripts($hook) {
-	global $screen_options;
-	dd($screen_options);
 	if ( 'post.php' === $hook ) {
 		wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css' );
 		wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css' );
@@ -245,4 +236,3 @@ require get_template_directory() . '/inc/class-custom-nav-walker.php';
 if ( defined( 'JETPACK__VERSION' ) ) {
 	require get_template_directory() . '/inc/jetpack.php';
 }
-
