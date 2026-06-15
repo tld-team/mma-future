@@ -1,9 +1,10 @@
 <?php
 /**
  * Plugin Name: MMA Future Data Engine
- * Description: Canonical sports data engine for MMA Future fighters, events, bouts, imports, stats, and rankings.
- * Version: 0.1.0
- * Author: MMA Future
+ * Description: Canonical sports data engine for MMA Future fighters, events, bouts, imports, stats, and rankings. Produced by TLD Team.
+ * Version: 2.0.0
+ * Author: Luka Mutic
+ * Author URI: https://tldteam.com
  * Text Domain: mma-future-data-engine
  */
 
@@ -13,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'MMAF_PLUGIN_FILE', __FILE__ );
 define( 'MMAF_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
-define( 'MMAF_PLUGIN_VERSION', '0.1.0' );
+define( 'MMAF_PLUGIN_VERSION', '2.0.0' );
 define( 'MMAF_DB_VERSION', '1.4.2' );
 
 require_once MMAF_PLUGIN_DIR . 'includes/Support/Capabilities.php';
