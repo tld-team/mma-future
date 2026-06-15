@@ -77,6 +77,7 @@ Thumbs.db
 !wp-content/themes/mma-future/theme.json
 !wp-content/plugins/mma-future-data-engine/
 !wp-content/plugins/mma-future-data-engine/**
+wp-content/plugins/mma-future-data-engine/tools/
 wp-content/plugins/mma-future-data-engine/*.md
 wp-content/plugins/mma-future-data-engine/**/*.md
 !.gitattributes
