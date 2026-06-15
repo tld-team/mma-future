@@ -365,7 +365,7 @@ final class ImportPage {
 		}
 
 		if ( $size > self::MAX_SNAPSHOT_FILE_SIZE ) {
-			throw new \RuntimeException( 'System snapshot JSON exceeds the 200 MB import limit.' );
+			throw new \RuntimeException( 'System snapshot JSON exceeds the 1 GB import limit.' );
 		}
 
 		if ( function_exists( 'finfo_open' ) ) {
@@ -375,7 +375,18 @@ final class ImportPage {
 				finfo_close( $finfo );
 			}
 
-			$allowed = array( 'application/json', 'application/x-ndjson', 'text/plain', 'application/octet-stream', 'text/x-json' );
+			$allowed = array(
+				'application/json',
+				'application/jsonl',
+				'application/x-jsonlines',
+				'application/x-ndjason',
+				'application/x-ndjson',
+				'text/plain',
+				'text/x-json',
+				'text/x-jsonl',
+				'text/x-ndjson',
+				'application/octet-stream',
+			);
 			if ( is_string( $mime ) && '' !== $mime && ! in_array( $mime, $allowed, true ) ) {
 				throw new \RuntimeException( 'File MIME type is not accepted for system snapshot import: ' . $mime );
 			}
