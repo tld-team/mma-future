@@ -114,39 +114,48 @@ final class EventsPage {
 		$events_repository = new EventRepository();
 		$sources           = new EventSourceRepository();
 		$search            = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
+		$orderby           = self::current_orderby();
+		$order             = self::current_order();
 		$per_page          = self::current_per_page();
 		$paged             = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
 		$total             = $events_repository->count( $search );
 		$total_pages       = max( 1, (int) ceil( $total / $per_page ) );
 		$paged             = min( $paged, $total_pages );
 		$offset            = ( $paged - 1 ) * $per_page;
-		$events            = $events_repository->list( $search, $per_page, $offset );
+		$events            = $events_repository->list( $search, $per_page, $offset, $orderby, $order );
+		$query_filters     = array(
+			's'        => $search,
+			'per_page' => $per_page,
+			'orderby' => $orderby,
+			'order'   => $order,
+		);
 		?>
 		<form method="get" style="margin: 16px 0;">
 			<input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE_SLUG ); ?>">
 			<label class="screen-reader-text" for="mmaf-event-search"><?php echo esc_html__( 'Search events', 'mma-future-data-engine' ); ?></label>
 			<input id="mmaf-event-search" type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php echo esc_attr__( 'Search event or promotion', 'mma-future-data-engine' ); ?>">
 			<?php self::render_per_page_select( $per_page ); ?>
+			<?php self::render_sort_controls( $orderby, $order ); ?>
 			<?php submit_button( __( 'Search', 'mma-future-data-engine' ), 'secondary', '', false ); ?>
 		</form>
 
-		<?php self::render_pagination( $total, $paged, $per_page, array( 's' => $search ) ); ?>
+		<?php self::render_pagination( $total, $paged, $per_page, $query_filters ); ?>
 
 		<table class="widefat striped">
 			<thead>
 				<tr>
-					<th><?php echo esc_html__( 'ID', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Event name', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Event date', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Promotion', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Venue', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Location', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'City', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Country', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Status', 'mma-future-data-engine' ); ?></th>
+					<?php self::sortable_header( 'id', __( 'ID', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'event_name', __( 'Event name', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'event_date', __( 'Event date', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'promotion_name', __( 'Promotion', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'venue', __( 'Venue', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'location', __( 'Location', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'city', __( 'City', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'country', __( 'Country', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'status', __( 'Status', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
 					<th><?php echo esc_html__( 'Source profile', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Created at', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Updated at', 'mma-future-data-engine' ); ?></th>
+					<?php self::sortable_header( 'created_at', __( 'Created at', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
+					<?php self::sortable_header( 'updated_at', __( 'Updated at', 'mma-future-data-engine' ), $orderby, $order, $query_filters ); ?>
 					<th><?php echo esc_html__( 'Actions', 'mma-future-data-engine' ); ?></th>
 				</tr>
 			</thead>
@@ -174,7 +183,7 @@ final class EventsPage {
 				<?php endforeach; ?>
 			</tbody>
 		</table>
-		<?php self::render_pagination( $total, $paged, $per_page, array( 's' => $search ) ); ?>
+		<?php self::render_pagination( $total, $paged, $per_page, $query_filters ); ?>
 		<?php
 	}
 
@@ -350,6 +359,18 @@ final class EventsPage {
 		return in_array( $per_page, array( 25, 50, 100 ), true ) ? $per_page : 50;
 	}
 
+	private static function current_orderby(): string {
+		$orderby = isset( $_GET['orderby'] ) ? sanitize_key( wp_unslash( $_GET['orderby'] ) ) : 'event_date';
+
+		return array_key_exists( $orderby, EventRepository::sortable_columns() ) ? $orderby : 'event_date';
+	}
+
+	private static function current_order(): string {
+		$order = isset( $_GET['order'] ) ? strtolower( sanitize_key( wp_unslash( $_GET['order'] ) ) ) : 'desc';
+
+		return in_array( $order, array( 'asc', 'desc' ), true ) ? $order : 'desc';
+	}
+
 	private static function render_per_page_select( int $per_page ): void {
 		?>
 		<label for="mmaf-per-page" style="margin-left: 8px;"><?php echo esc_html__( 'Per page', 'mma-future-data-engine' ); ?></label>
@@ -359,6 +380,68 @@ final class EventsPage {
 			<?php endforeach; ?>
 		</select>
 		<?php
+	}
+
+	private static function render_sort_controls( string $orderby, string $order ): void {
+		?>
+		<label for="mmaf-orderby" style="margin-left: 8px;"><?php echo esc_html__( 'Sort by', 'mma-future-data-engine' ); ?></label>
+		<select id="mmaf-orderby" name="orderby">
+			<?php foreach ( self::sort_labels() as $key => $label ) : ?>
+				<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $orderby, $key ); ?>><?php echo esc_html( $label ); ?></option>
+			<?php endforeach; ?>
+		</select>
+		<label for="mmaf-order" style="margin-left: 8px;"><?php echo esc_html__( 'Order', 'mma-future-data-engine' ); ?></label>
+		<select id="mmaf-order" name="order">
+			<option value="desc" <?php selected( $order, 'desc' ); ?>><?php echo esc_html__( 'Descending', 'mma-future-data-engine' ); ?></option>
+			<option value="asc" <?php selected( $order, 'asc' ); ?>><?php echo esc_html__( 'Ascending', 'mma-future-data-engine' ); ?></option>
+		</select>
+		<?php
+	}
+
+	private static function sortable_header( string $key, string $label, string $current_orderby, string $current_order, array $filters ): void {
+		$is_current = $key === $current_orderby;
+		$default_order = self::default_sort_order( $key );
+		$next_order = $is_current && $default_order === $current_order ? self::opposite_order( $current_order ) : $default_order;
+		$class = $is_current ? 'sorted ' . $current_order : 'sortable ' . $default_order;
+		$args = array_merge(
+			$filters,
+			array(
+				'orderby' => $key,
+				'order'   => $next_order,
+			)
+		);
+		?>
+		<th class="<?php echo esc_attr( $class ); ?>">
+			<a href="<?php echo esc_url( self::page_url( $args ) ); ?>">
+				<span><?php echo esc_html( $label ); ?></span>
+				<span class="sorting-indicator"></span>
+			</a>
+		</th>
+		<?php
+	}
+
+	private static function default_sort_order( string $key ): string {
+		return in_array( $key, array( 'id', 'event_date', 'created_at', 'updated_at' ), true ) ? 'desc' : 'asc';
+	}
+
+	private static function opposite_order( string $order ): string {
+		return 'asc' === $order ? 'desc' : 'asc';
+	}
+
+	private static function sort_labels(): array {
+		return array(
+			'event_date'     => __( 'Event date', 'mma-future-data-engine' ),
+			'created_at'     => __( 'Created at', 'mma-future-data-engine' ),
+			'updated_at'     => __( 'Updated at', 'mma-future-data-engine' ),
+			'id'             => __( 'ID', 'mma-future-data-engine' ),
+			'event_name'     => __( 'Event name', 'mma-future-data-engine' ),
+			'promotion_name' => __( 'Promotion', 'mma-future-data-engine' ),
+			'venue'          => __( 'Venue', 'mma-future-data-engine' ),
+			'location'       => __( 'Location', 'mma-future-data-engine' ),
+			'city'           => __( 'City', 'mma-future-data-engine' ),
+			'country'        => __( 'Country', 'mma-future-data-engine' ),
+			'status'         => __( 'Status', 'mma-future-data-engine' ),
+		);
 	}
 
 	private static function render_pagination( int $total, int $paged, int $per_page, array $filters ): void {

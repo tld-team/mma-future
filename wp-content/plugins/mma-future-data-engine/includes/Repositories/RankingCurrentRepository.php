@@ -207,10 +207,11 @@ final class RankingCurrentRepository {
 		}
 	}
 
-	public function latest_preview( int $ranking_run_id, int $limit = 25, ?string $board_key = null ): array {
+	public function latest_preview( int $ranking_run_id, int $limit = 25, ?string $board_key = null, int $offset = 0 ): array {
 		global $wpdb;
 
 		$limit = max( 1, min( 100, $limit ) );
+		$offset = max( 0, $offset );
 		$where = 'WHERE r.ranking_run_id = %d';
 		$args  = array( $ranking_run_id );
 		if ( null !== $board_key && '' !== $board_key ) {
@@ -218,6 +219,7 @@ final class RankingCurrentRepository {
 			$args[] = $board_key;
 		}
 		$args[] = $limit;
+		$args[] = $offset;
 
 		return $wpdb->get_results(
 			$wpdb->prepare(
@@ -235,7 +237,7 @@ final class RankingCurrentRepository {
 				LEFT JOIN {$this->fighters_table} f ON f.id = r.fighter_id
 				{$where}
 				ORDER BY r.board_key ASC, r.rank_position ASC
-				LIMIT %d
+				LIMIT %d OFFSET %d
 				", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$args
 			),

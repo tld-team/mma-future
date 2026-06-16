@@ -42,7 +42,12 @@ final class RankingsPage {
 		$selected_board = self::selected_board( $available_boards );
 		$selected_board_rows_count = $latest_run_id > 0 && '' !== $selected_board ? $rankings->snapshot_count_for_run_board( $latest_run_id, $selected_board ) : 0;
 		$selected_board_unique_fighters = $latest_run_id > 0 && '' !== $selected_board ? $rankings->snapshot_unique_fighter_count_for_run_board( $latest_run_id, $selected_board ) : 0;
-		$preview_rows     = $latest_run_id > 0 ? $rankings->latest_preview( $latest_run_id, 25, $selected_board ) : array();
+		$preview_per_page = self::current_preview_per_page();
+		$preview_paged    = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+		$preview_total_pages = max( 1, (int) ceil( $selected_board_rows_count / $preview_per_page ) );
+		$preview_paged    = min( $preview_paged, $preview_total_pages );
+		$preview_offset   = ( $preview_paged - 1 ) * $preview_per_page;
+		$preview_rows     = $latest_run_id > 0 ? $rankings->latest_preview( $latest_run_id, $preview_per_page, $selected_board, $preview_offset ) : array();
 		$latest_summary   = $latest_run ? ( self::summary_from_run( $latest_run ) ?: $summary ) : $summary;
 		$latest_warnings  = $latest_run_id > 0 ? $rankings->snapshot_warning_diagnostics( $latest_run_id ) : null;
 		$active_warnings  = $active_run_id > 0 ? $rankings->current_warning_diagnostics( $active_run_id ) : null;
@@ -218,6 +223,7 @@ final class RankingsPage {
 							</option>
 						<?php endforeach; ?>
 					</select>
+					<?php self::render_preview_per_page_select( $preview_per_page ); ?>
 					<?php submit_button( __( 'Filter', 'mma-future-data-engine' ), 'secondary small', 'submit', false ); ?>
 				</form>
 				<p class="description">
@@ -240,6 +246,7 @@ final class RankingsPage {
 			<?php endif; ?>
 
 			<?php if ( ! empty( $preview_rows ) ) : ?>
+				<?php self::render_preview_pagination( $selected_board_rows_count, $preview_paged, $preview_per_page, $selected_board ); ?>
 				<table class="widefat striped">
 					<thead>
 						<tr>
@@ -270,6 +277,7 @@ final class RankingsPage {
 						<?php endforeach; ?>
 					</tbody>
 				</table>
+				<?php self::render_preview_pagination( $selected_board_rows_count, $preview_paged, $preview_per_page, $selected_board ); ?>
 			<?php endif; ?>
 		</div>
 		<?php
@@ -291,6 +299,56 @@ final class RankingsPage {
 		}
 
 		return in_array( 'overall', $available, true ) ? 'overall' : (string) $available[0];
+	}
+
+	private static function current_preview_per_page(): int {
+		$per_page = isset( $_GET['per_page'] ) ? absint( $_GET['per_page'] ) : 25;
+
+		return in_array( $per_page, array( 25, 50, 100 ), true ) ? $per_page : 25;
+	}
+
+	private static function render_preview_per_page_select( int $per_page ): void {
+		?>
+		<label for="mmaf-rankings-per-page" style="margin-left: 8px;"><?php echo esc_html__( 'Per page', 'mma-future-data-engine' ); ?></label>
+		<select id="mmaf-rankings-per-page" name="per_page">
+			<?php foreach ( array( 25, 50, 100 ) as $option ) : ?>
+				<option value="<?php echo esc_attr( (string) $option ); ?>" <?php selected( $per_page, $option ); ?>><?php echo esc_html( (string) $option ); ?></option>
+			<?php endforeach; ?>
+		</select>
+		<?php
+	}
+
+	private static function render_preview_pagination( int $total, int $paged, int $per_page, string $board ): void {
+		$total_pages = max( 1, (int) ceil( $total / $per_page ) );
+		$args        = array(
+			'page'     => self::PAGE_SLUG,
+			'per_page' => $per_page,
+		);
+
+		if ( '' !== $board ) {
+			$args['mmaf_board'] = $board;
+		}
+
+		echo '<div class="tablenav top" style="margin: 10px 0;">';
+		echo '<div class="alignleft actions"><span class="displaying-num">' . esc_html( sprintf( _n( '%s ranked row', '%s ranked rows', $total, 'mma-future-data-engine' ), number_format_i18n( $total ) ) ) . '</span></div>';
+
+		if ( $total_pages > 1 ) {
+			$base = add_query_arg( array_merge( $args, array( 'paged' => '%#%' ) ), admin_url( 'admin.php' ) );
+			echo '<div class="tablenav-pages">' . wp_kses_post(
+				paginate_links(
+					array(
+						'base'      => $base,
+						'format'    => '',
+						'current'   => $paged,
+						'total'     => $total_pages,
+						'prev_text' => __( '&laquo;', 'mma-future-data-engine' ),
+						'next_text' => __( '&raquo;', 'mma-future-data-engine' ),
+					)
+				)
+			) . '</div>';
+		}
+
+		echo '<br class="clear"></div>';
 	}
 
 	private static function render_activation_guidance( ?array $latest_run, int $draft_rows_count, ?array $summary ): void {

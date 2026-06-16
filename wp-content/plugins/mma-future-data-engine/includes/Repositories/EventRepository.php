@@ -27,18 +27,19 @@ final class EventRepository {
 		return $row ?: null;
 	}
 
-	public function list( string $search = '', int $limit = 50, int $offset = 0 ): array {
+	public function list( string $search = '', int $limit = 50, int $offset = 0, string $orderby = 'event_date', string $order = 'desc' ): array {
 		global $wpdb;
 
 		$limit = max( 1, min( 100, $limit ) );
 		$offset = max( 0, $offset );
+		$order_by_sql = $this->order_by_sql( $orderby, $order );
 
 		if ( '' !== $search ) {
 			$like = '%' . $wpdb->esc_like( $search ) . '%';
 
 			return $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT * FROM {$this->table} WHERE event_name LIKE %s OR normalized_event_name LIKE %s OR promotion_name LIKE %s ORDER BY event_date DESC, id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					"SELECT * FROM {$this->table} WHERE event_name LIKE %s OR normalized_event_name LIKE %s OR promotion_name LIKE %s {$order_by_sql} LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					$like,
 					$like,
 					$like,
@@ -50,9 +51,33 @@ final class EventRepository {
 		}
 
 		return $wpdb->get_results(
-			$wpdb->prepare( "SELECT * FROM {$this->table} ORDER BY event_date DESC, id DESC LIMIT %d OFFSET %d", $limit, $offset ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT * FROM {$this->table} {$order_by_sql} LIMIT %d OFFSET %d", $limit, $offset ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			ARRAY_A
 		);
+	}
+
+	public static function sortable_columns(): array {
+		return array(
+			'id'             => 'id',
+			'event_name'     => 'event_name',
+			'event_date'     => 'event_date',
+			'promotion_name' => 'promotion_name',
+			'venue'          => 'venue',
+			'location'       => 'location',
+			'city'           => 'city',
+			'country'        => 'country',
+			'status'         => 'status',
+			'created_at'     => 'created_at',
+			'updated_at'     => 'updated_at',
+		);
+	}
+
+	private function order_by_sql( string $orderby, string $order ): string {
+		$columns = self::sortable_columns();
+		$column  = $columns[ $orderby ] ?? $columns['event_date'];
+		$direction = 'asc' === strtolower( $order ) ? 'ASC' : 'DESC';
+
+		return "ORDER BY {$column} {$direction}, id {$direction}";
 	}
 
 	public function list_for_select( int $limit = 300 ): array {
