@@ -3,7 +3,7 @@ namespace MMAF\DataEngine\Services;
 
 use MMAF\DataEngine\Repositories\RankingCurrentRepository;
 use MMAF\DataEngine\Repositories\RankingRunRepository;
-use MMAF\DataEngine\Services\Formula\FormulaV12;
+use MMAF\DataEngine\Services\Formula\FormulaV13;
 use MMAF\DataEngine\Support\DateTime;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -128,12 +128,12 @@ final class RankingActivationService {
 			throw new \RuntimeException( __( 'Only completed ranking runs can be activated.', 'mma-future-data-engine' ) );
 		}
 
-		if ( FormulaV12::VERSION !== (string) $run['formula_version'] ) {
+		if ( FormulaV13::VERSION !== (string) $run['formula_version'] ) {
 			throw new \RuntimeException(
 				sprintf(
 					/* translators: %s: formula version. */
 					__( 'Only Formula %s ranking runs can be activated in this phase.', 'mma-future-data-engine' ),
-					FormulaV12::VERSION
+					FormulaV13::VERSION
 				)
 			);
 		}
@@ -153,6 +153,8 @@ final class RankingActivationService {
 
 		$board_fighters = array();
 		$board_ranks    = array();
+		$config         = FormulaV13::config();
+		$min_sample     = (int) ( $config['eligibility']['min_scoring_bouts'] ?? 3 );
 
 		foreach ( $snapshots as $snapshot ) {
 			$board_key = (string) $snapshot['board_key'];
@@ -175,6 +177,37 @@ final class RankingActivationService {
 				throw new \RuntimeException( __( 'Snapshot row has a non-numeric total score.', 'mma-future-data-engine' ) );
 			}
 
+			foreach ( array( 'raw_score', 'normalized_score', 'confidence_score' ) as $score_field ) {
+				if ( ! is_numeric( $snapshot[ $score_field ] ?? null ) ) {
+					throw new \RuntimeException(
+						sprintf(
+							/* translators: %s: score field name. */
+							__( 'Snapshot row has a non-numeric %s field.', 'mma-future-data-engine' ),
+							$score_field
+						)
+					);
+				}
+			}
+
+			$total_score      = (float) $snapshot['total_score'];
+			$normalized_score = (float) $snapshot['normalized_score'];
+			$confidence_score = (float) $snapshot['confidence_score'];
+			if ( $normalized_score < 0.0 || $normalized_score > 100.0 || $total_score < 0.0 || $total_score > 100.0 ) {
+				throw new \RuntimeException( __( 'Snapshot row has a normalized score outside the 0-100 range.', 'mma-future-data-engine' ) );
+			}
+
+			if ( $confidence_score < 0.0 || $confidence_score > 100.0 ) {
+				throw new \RuntimeException( __( 'Snapshot row has a confidence score outside the 0-100 range.', 'mma-future-data-engine' ) );
+			}
+
+			if ( abs( $total_score - $normalized_score ) > 0.001 ) {
+				throw new \RuntimeException( __( 'Snapshot total_score must match normalized_score for Formula v1.3.', 'mma-future-data-engine' ) );
+			}
+
+			if ( (int) ( $snapshot['sample_size'] ?? 0 ) < $min_sample ) {
+				throw new \RuntimeException( __( 'Snapshot row does not meet the minimum scoring sample size.', 'mma-future-data-engine' ) );
+			}
+
 			$board_fighter_key = $board_key . ':' . $fighter_id;
 			if ( isset( $board_fighters[ $board_fighter_key ] ) ) {
 				throw new \RuntimeException( __( 'Snapshot rows contain duplicate board/fighter pairs.', 'mma-future-data-engine' ) );
@@ -190,7 +223,7 @@ final class RankingActivationService {
 			}
 			$board_ranks[ $board_key ][ $rank_position ] = true;
 
-			foreach ( array( 'breakdown_json', 'eligibility_json', 'warnings_json', 'source_summary_json' ) as $json_field ) {
+			foreach ( array( 'breakdown_json', 'eligibility_json', 'warnings_json', 'source_summary_json', 'quality_flags_json' ) as $json_field ) {
 				if ( null !== $snapshot[ $json_field ] && '' !== (string) $snapshot[ $json_field ] && null === json_decode( (string) $snapshot[ $json_field ], true ) ) {
 					throw new \RuntimeException(
 						sprintf(

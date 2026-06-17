@@ -62,6 +62,48 @@ final class RestReadRepository {
 		return null === $value || '' === $value ? null : (int) $value;
 	}
 
+	public function latest_completed_ranking_run(): ?array {
+		global $wpdb;
+
+		$row = $wpdb->get_row(
+			"
+			SELECT *
+			FROM {$this->ranking_runs_table}
+			WHERE status = 'completed'
+			ORDER BY calculated_at DESC, id DESC
+			LIMIT 1
+			", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			ARRAY_A
+		);
+
+		return $row ?: null;
+	}
+
+	public function ranking_state_summary(): array {
+		$active = $this->active_ranking_run();
+		$latest = $this->latest_completed_ranking_run();
+
+		$active_id = $active ? (int) $active['id'] : null;
+		$latest_id = $latest ? (int) $latest['id'] : null;
+		$has_newer_completed_draft = false;
+
+		if ( null !== $active_id && null !== $latest_id && $latest_id !== $active_id ) {
+			$active_calculated_at = (string) ( $active['calculated_at'] ?? '' );
+			$latest_calculated_at = (string) ( $latest['calculated_at'] ?? '' );
+			$has_newer_completed_draft = $latest_calculated_at > $active_calculated_at || $latest_id > $active_id;
+		}
+
+		return array(
+			'active_ranking_run_id'       => $active_id,
+			'latest_completed_run_id'     => $latest_id,
+			'has_newer_completed_draft'   => $has_newer_completed_draft,
+			'active_calculated_at'        => $active['calculated_at'] ?? null,
+			'latest_completed_calculated_at' => $latest['calculated_at'] ?? null,
+			'active_formula_version'      => $active['formula_version'] ?? null,
+			'latest_completed_formula_version' => $latest['formula_version'] ?? null,
+		);
+	}
+
 	public function ranking_rows( string $board, int $page, int $per_page, bool $include_non_public ): array {
 		global $wpdb;
 
@@ -184,7 +226,7 @@ final class RestReadRepository {
 		return $wpdb->get_results(
 			$wpdb->prepare(
 				"
-				SELECT board_key, rank_position, total_score, ranking_run_id
+				SELECT board_key, rank_position, total_score, raw_score, normalized_score, confidence_score, sample_size, quality_flags_json, ranking_run_id
 				FROM {$this->ranking_current_table}
 				WHERE fighter_id = %d
 				ORDER BY board_key ASC, rank_position ASC
@@ -278,11 +320,16 @@ final class RestReadRepository {
 		$ranking_summary     = $this->system_state_json( 'last_ranking_calculation_summary' );
 		$activation_summary  = $this->system_state_json( 'last_ranking_activation_summary' );
 		$active_ranking_run  = $this->active_ranking_run();
+		$ranking_state       = $this->ranking_state_summary();
 
 		return array(
 			'plugin_version'                 => defined( 'MMAF_PLUGIN_VERSION' ) ? MMAF_PLUGIN_VERSION : '',
 			'db_version'                     => (string) get_option( 'mmaf_db_version', '' ),
 			'active_ranking_run_id'          => $this->active_ranking_run_id(),
+			'latest_completed_ranking_run_id'=> $ranking_state['latest_completed_run_id'],
+			'has_newer_completed_draft'      => $ranking_state['has_newer_completed_draft'],
+			'active_ranking_calculated_at'   => $ranking_state['active_calculated_at'],
+			'latest_completed_calculated_at' => $ranking_state['latest_completed_calculated_at'],
 			'active_ranking_formula_version' => $active_ranking_run['formula_version'] ?? null,
 			'current_ranking_rows_count'     => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->ranking_current_table}" ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			'fighters_count'                 => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->fighters_table} WHERE deleted_soft = 0" ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -300,12 +347,18 @@ final class RestReadRepository {
 
 		$activation_summary = $this->system_state_json( 'last_ranking_activation_summary' );
 		$active_ranking_run = $this->active_ranking_run();
+		$ranking_state = $this->ranking_state_summary();
 		$current_ranking_rows_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->ranking_current_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rankings_available = null !== $active_ranking_run && $current_ranking_rows_count > 0;
 
 		return array(
 			'status' => $rankings_available ? 'ok' : 'degraded',
 			'rankings_available' => $rankings_available,
+			'active_ranking_run_id' => $ranking_state['active_ranking_run_id'],
+			'latest_completed_ranking_run_id' => $ranking_state['latest_completed_run_id'],
+			'has_newer_completed_draft' => $ranking_state['has_newer_completed_draft'],
+			'active_ranking_calculated_at' => $ranking_state['active_calculated_at'],
+			'latest_completed_calculated_at' => $ranking_state['latest_completed_calculated_at'],
 			'latest_public_ranking_update' => $activation_summary['activated_at'] ?? ( $active_ranking_run['calculated_at'] ?? null ),
 			'checked_at' => current_time( 'mysql' ),
 		);

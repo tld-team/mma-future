@@ -3,6 +3,7 @@ namespace MMAF\DataEngine\Services\System;
 
 use MMAF\DataEngine\Migrations\Schema;
 use MMAF\DataEngine\REST\RestServiceProvider;
+use MMAF\DataEngine\Services\Formula\FormulaV13;
 use MMAF\DataEngine\Support\DateTime;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -352,13 +353,14 @@ final class SystemCheckService {
 			$this->add_check( 'current_rows_without_active_run', 0 === $current_rows ? 'pass' : 'fail', 'Current ranking rows require an active run', $current_rows, '0 when no active ranking run is set' );
 		} else {
 			$active_run = $wpdb->get_row(
-				$wpdb->prepare( "SELECT id, is_active, status FROM {$tables['ranking_runs']} WHERE id = %d LIMIT 1", $active_run_id ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->prepare( "SELECT id, is_active, status, formula_version FROM {$tables['ranking_runs']} WHERE id = %d LIMIT 1", $active_run_id ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				ARRAY_A
 			);
 
 			$this->add_check( 'active_ranking_run_exists', $active_run ? 'pass' : 'fail', 'Active ranking run exists', $active_run ? $active_run_id : 'missing', 'existing ranking run' );
 			if ( $active_run ) {
 				$this->add_check( 'active_ranking_run_marked_active', 1 === (int) $active_run['is_active'] ? 'pass' : 'fail', 'Active ranking run is marked active', (int) $active_run['is_active'], '1' );
+				$this->add_check( 'active_ranking_formula_current', FormulaV13::VERSION === (string) $active_run['formula_version'] ? 'pass' : 'warning', 'Active ranking formula version', (string) $active_run['formula_version'], FormulaV13::VERSION );
 			}
 		}
 
@@ -446,16 +448,33 @@ final class SystemCheckService {
 		$this->add_zero_check(
 			'current_ranking_invalid_json_fields',
 			'Invalid JSON in current ranking JSON fields',
-			$this->invalid_json_rows_count( $tables['ranking_current'], array( 'breakdown_json', 'eligibility_json', 'warnings_json', 'source_summary_json' ) )
+			$this->invalid_json_rows_count( $tables['ranking_current'], array( 'breakdown_json', 'eligibility_json', 'warnings_json', 'source_summary_json', 'quality_flags_json' ) )
 		);
 
 		$this->add_zero_check(
 			'ranking_snapshot_invalid_json_fields',
 			'Invalid JSON in snapshot JSON fields',
-			$this->invalid_json_rows_count( $tables['ranking_snapshots'], array( 'breakdown_json', 'eligibility_json', 'warnings_json', 'source_summary_json' ) )
+			$this->invalid_json_rows_count( $tables['ranking_snapshots'], array( 'breakdown_json', 'eligibility_json', 'warnings_json', 'source_summary_json', 'quality_flags_json' ) )
 		);
 
 		$this->add_zero_check( 'invalid_total_score', 'Invalid total_score', $this->count_where( $tables['ranking_current'], 'total_score IS NULL' ) );
+		$active_formula_version = null === $active_run_id ? null : $wpdb->get_var( $wpdb->prepare( "SELECT formula_version FROM {$tables['ranking_runs']} WHERE id = %d LIMIT 1", $active_run_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$active_v13 = FormulaV13::VERSION === (string) $active_formula_version;
+		$formula_config = FormulaV13::config();
+		$min_scoring_bouts = (int) ( $formula_config['eligibility']['min_scoring_bouts'] ?? 1 );
+
+		if ( $active_v13 && $this->column_exists( $tables['ranking_current'], 'normalized_score' ) ) {
+			$this->add_zero_check( 'invalid_normalized_score', 'Invalid normalized_score', $this->count_where( $tables['ranking_current'], 'normalized_score IS NULL OR normalized_score < 0 OR normalized_score > 100 OR ABS(total_score - normalized_score) > 0.001' ) );
+		}
+		if ( $active_v13 && $this->column_exists( $tables['ranking_current'], 'raw_score' ) ) {
+			$this->add_zero_check( 'invalid_raw_score', 'Invalid raw_score', $this->count_where( $tables['ranking_current'], 'raw_score IS NULL' ) );
+		}
+		if ( $active_v13 && $this->column_exists( $tables['ranking_current'], 'confidence_score' ) ) {
+			$this->add_zero_check( 'invalid_confidence_score', 'Invalid confidence_score', $this->count_where( $tables['ranking_current'], 'confidence_score IS NULL OR confidence_score < 0 OR confidence_score > 100' ) );
+		}
+		if ( $active_v13 && $this->column_exists( $tables['ranking_current'], 'sample_size' ) ) {
+			$this->add_zero_check( 'invalid_sample_size', 'Invalid trusted ranking sample size', $this->count_where( $tables['ranking_current'], 'sample_size < ' . $min_scoring_bouts ) );
+		}
 
 		$calculation = $this->system_state_json( 'last_ranking_calculation_summary' );
 		$activation  = $this->system_state_json( 'last_ranking_activation_summary' );
@@ -647,6 +666,19 @@ final class SystemCheckService {
 
 	private function invalid_json_rows_count( string $table, array $fields ): int {
 		global $wpdb;
+
+		$fields = array_values(
+			array_filter(
+				$fields,
+				function ( string $field ) use ( $table ): bool {
+					return $this->column_exists( $table, $field );
+				}
+			)
+		);
+
+		if ( empty( $fields ) ) {
+			return 0;
+		}
 
 		$select = implode( ', ', array_map( 'strval', $fields ) );
 		$rows = $wpdb->get_results(

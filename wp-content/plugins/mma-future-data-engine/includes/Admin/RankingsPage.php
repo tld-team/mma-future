@@ -254,6 +254,9 @@ final class RankingsPage {
 							<th scope="col"><?php echo esc_html__( 'Fighter', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Board', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Total score', 'mma-future-data-engine' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Raw', 'mma-future-data-engine' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Confidence', 'mma-future-data-engine' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Sample', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Score breakdown', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Eligibility', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Warnings', 'mma-future-data-engine' ); ?></th>
@@ -270,6 +273,9 @@ final class RankingsPage {
 								<td><?php echo esc_html( (string) ( $row['display_name'] ?? ( 'Fighter #' . $row['fighter_id'] ) ) ); ?></td>
 								<td><?php echo esc_html( (string) $row['board_key'] ); ?></td>
 								<td><?php echo esc_html( (string) $row['total_score'] ); ?></td>
+								<td><?php echo esc_html( (string) ( $row['raw_score'] ?? '' ) ); ?></td>
+								<td><?php echo esc_html( (string) ( $row['confidence_score'] ?? '' ) ); ?></td>
+								<td><?php echo esc_html( (string) ( $row['sample_size'] ?? '' ) ); ?></td>
 								<td><?php echo esc_html( self::format_score_breakdown( (string) ( $row['breakdown_json'] ?? '' ) ) ); ?></td>
 								<td><?php echo esc_html( ! empty( $eligibility['eligible'] ) ? __( 'Eligible', 'mma-future-data-engine' ) : __( 'Ineligible', 'mma-future-data-engine' ) ); ?></td>
 								<td><?php echo esc_html( (string) count( is_array( $warnings['warnings'] ?? null ) ? $warnings['warnings'] : array() ) ); ?></td>
@@ -657,12 +663,15 @@ final class RankingsPage {
 		}
 
 		return sprintf(
-			'base=%s, finish=%s, age=%s, OD=%s, loss quality=%s',
+			'base=%s, finish=%s, age=%s, OD=%s, loss quality=%s, confidence=%s, raw=%s, norm=%s',
 			self::format_score_part( $breakdown['base_record_points'] ?? null ),
 			self::format_score_part( $breakdown['finishes_points'] ?? null ),
 			self::format_score_part( $breakdown['age_adjustment_points'] ?? null ),
 			self::format_score_part( $breakdown['opponent_differential_points'] ?? null ),
-			self::format_score_part( $breakdown['loss_quality_penalty_points'] ?? null )
+			self::format_score_part( $breakdown['loss_quality_penalty_points'] ?? null ),
+			self::format_score_part( $breakdown['confidence_adjustment_points'] ?? null ),
+			self::format_score_part( $breakdown['raw_score'] ?? null ),
+			self::format_score_part( $breakdown['normalized_score'] ?? null )
 		);
 	}
 

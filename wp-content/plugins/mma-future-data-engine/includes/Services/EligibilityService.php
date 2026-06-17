@@ -1,7 +1,7 @@
 <?php
 namespace MMAF\DataEngine\Services;
 
-use MMAF\DataEngine\Services\Formula\FormulaV12;
+use MMAF\DataEngine\Services\Formula\FormulaV13;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -12,7 +12,7 @@ final class EligibilityService {
 		$reasons  = array();
 		$warnings = array();
 		$gates    = array();
-		$config   = FormulaV12::config();
+		$config   = FormulaV13::config();
 		$rules    = $config['eligibility'];
 
 		$this->gate(
@@ -134,6 +134,7 @@ final class EligibilityService {
 		$wins             = is_array( $stats ) ? (int) ( $stats['wins'] ?? 0 ) : 0;
 		$losses           = is_array( $stats ) ? (int) ( $stats['losses'] ?? 0 ) : 0;
 		$pro_fights_count = is_array( $stats ) ? (int) ( $stats['pro_fights_count'] ?? 0 ) : 0;
+		$scoring_bouts_count = $wins + $losses;
 
 		if ( ! is_array( $stats ) ) {
 			$warnings[] = 'missing_stats_row';
@@ -148,6 +149,18 @@ final class EligibilityService {
 			array(
 				'pro_fights_count' => $pro_fights_count,
 				'max'              => (int) $rules['max_pro_fights_count'],
+			)
+		);
+
+		$this->gate(
+			$gates,
+			'min_scoring_bouts',
+			$scoring_bouts_count >= (int) $rules['min_scoring_bouts'],
+			'insufficient_sample_size',
+			$reasons,
+			array(
+				'scoring_bouts_count' => $scoring_bouts_count,
+				'min'                 => (int) $rules['min_scoring_bouts'],
 			)
 		);
 
@@ -166,11 +179,16 @@ final class EligibilityService {
 			)
 		);
 
-		$eligible = empty( $reasons );
+		$eligible_for_current_ranking = empty( $reasons );
+		$calculation_blocking_reasons = array_values( array_diff( $reasons, array( 'insufficient_sample_size' ) ) );
+		$eligible_for_calculation     = empty( $calculation_blocking_reasons );
 
 		return array(
-			'eligible'          => $eligible,
+			'eligible'          => $eligible_for_current_ranking,
+			'eligible_for_calculation' => $eligible_for_calculation,
+			'eligible_for_current_ranking' => $eligible_for_current_ranking,
 			'reasons'           => array_values( array_unique( $reasons ) ),
+			'calculation_blocking_reasons' => array_values( array_unique( $calculation_blocking_reasons ) ),
 			'gates'             => $gates,
 			'reference_date'    => $reference_date,
 			'age'               => $age_info['age'],
@@ -183,6 +201,7 @@ final class EligibilityService {
 				'passes'         => $passes_loss_limit,
 			),
 			'pro_fights_count'  => $pro_fights_count,
+			'scoring_bouts_count' => $scoring_bouts_count,
 			'in_ufc'            => $in_ufc,
 			'source_flags'      => array(
 				'is_rankable'        => (int) ( $fighter['is_rankable'] ?? 0 ),

@@ -67,7 +67,34 @@ final class MigrationRunner {
 			$wpdb->query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN is_primary TINYINT(1) NOT NULL DEFAULT 0 AFTER is_verified" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
+		self::add_ranking_score_columns( $tables['ranking_current'] );
+		self::add_ranking_score_columns( $tables['ranking_snapshots'] );
+
 		self::run_safe_unique_indexes( $tables );
+	}
+
+	private static function add_ranking_score_columns( string $table ): void {
+		global $wpdb;
+
+		if ( ! self::column_exists( $table, 'raw_score' ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN raw_score DECIMAL(10,3) NULL AFTER total_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		if ( ! self::column_exists( $table, 'normalized_score' ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN normalized_score DECIMAL(10,3) NULL AFTER raw_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		if ( ! self::column_exists( $table, 'confidence_score' ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN confidence_score DECIMAL(6,3) NULL AFTER normalized_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		if ( ! self::column_exists( $table, 'sample_size' ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN sample_size INT NOT NULL DEFAULT 0 AFTER confidence_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		if ( ! self::column_exists( $table, 'quality_flags_json' ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN quality_flags_json LONGTEXT NULL AFTER sample_size" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
 	}
 
 	private static function run_safe_unique_indexes( array $tables ): void {

@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'MMAF_PLUGIN_FILE', __FILE__ );
 define( 'MMAF_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MMAF_PLUGIN_VERSION', '2.0.0' );
-define( 'MMAF_DB_VERSION', '1.4.2' );
+define( 'MMAF_DB_VERSION', '1.4.3' );
 
 require_once MMAF_PLUGIN_DIR . 'includes/Support/Capabilities.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Support/DateTime.php';
@@ -41,6 +41,7 @@ require_once MMAF_PLUGIN_DIR . 'includes/Repositories/RestReadRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Repositories/SourceImportRunRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Repositories/SourceImportItemRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV12.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV13.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/FighterPostSyncService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/FieldProvenanceService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/AuditLogService.php';

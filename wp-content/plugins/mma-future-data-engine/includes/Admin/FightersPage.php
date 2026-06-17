@@ -67,6 +67,10 @@ final class FightersPage {
 				'message' => sanitize_text_field( wp_unslash( $_GET['mmaf_notice'] ) ),
 			);
 		}
+		if ( isset( $notice['redirect_fallback'] ) && is_array( $notice['redirect_fallback'] ) ) {
+			$action     = isset( $notice['redirect_fallback']['action'] ) ? sanitize_key( $notice['redirect_fallback']['action'] ) : $action;
+			$fighter_id = isset( $notice['redirect_fallback']['fighter_id'] ) ? absint( $notice['redirect_fallback']['fighter_id'] ) : $fighter_id;
+		}
 
 		echo '<div class="wrap">';
 		echo '<h1 class="wp-heading-inline">' . esc_html__( 'Canonical Fighters', 'mma-future-data-engine' ) . '</h1> ';
@@ -119,30 +123,18 @@ final class FightersPage {
 		try {
 			if ( 'create' === $action ) {
 				$fighter = $service->create( $_POST, get_current_user_id() );
-				wp_safe_redirect(
-					self::page_url(
-						array(
-							'action'      => 'edit',
-							'fighter_id'  => (int) $fighter['id'],
-							'mmaf_notice' => self::save_message( __( 'Fighter created.', 'mma-future-data-engine' ), $fighter['_mmaf_notices'] ?? array() ),
-						)
-					)
+				return self::redirect_to_fighter_edit_or_notice(
+					(int) $fighter['id'],
+					self::save_message( __( 'Fighter created.', 'mma-future-data-engine' ), $fighter['_mmaf_notices'] ?? array() )
 				);
-				exit;
 			}
 
 			if ( 'update' === $action && $fighter_id > 0 ) {
 				$fighter = $service->update( $fighter_id, $_POST, get_current_user_id() );
-				wp_safe_redirect(
-					self::page_url(
-						array(
-							'action'      => 'edit',
-							'fighter_id'  => $fighter_id,
-							'mmaf_notice' => self::save_message( __( 'Fighter updated.', 'mma-future-data-engine' ), $fighter['_mmaf_notices'] ?? array() ),
-						)
-					)
+				return self::redirect_to_fighter_edit_or_notice(
+					$fighter_id,
+					self::save_message( __( 'Fighter updated.', 'mma-future-data-engine' ), $fighter['_mmaf_notices'] ?? array() )
 				);
-				exit;
 			}
 
 			return array(
@@ -192,16 +184,10 @@ final class FightersPage {
 					get_current_user_id()
 				);
 
-				wp_safe_redirect(
-					self::page_url(
-						array(
-							'action'      => 'edit',
-							'fighter_id'  => $fighter_id,
-							'mmaf_notice' => __( 'Manual stats override cleared.', 'mma-future-data-engine' ),
-						)
-					)
+				return self::redirect_to_fighter_edit_or_notice(
+					$fighter_id,
+					__( 'Manual stats override cleared.', 'mma-future-data-engine' )
 				);
-				exit;
 			}
 
 			$record = self::stats_override_record_from_post();
@@ -229,16 +215,10 @@ final class FightersPage {
 				get_current_user_id()
 			);
 
-			wp_safe_redirect(
-				self::page_url(
-					array(
-						'action'      => 'edit',
-						'fighter_id'  => $fighter_id,
-						'mmaf_notice' => __( 'Manual stats override saved.', 'mma-future-data-engine' ),
-					)
-				)
+			return self::redirect_to_fighter_edit_or_notice(
+				$fighter_id,
+				__( 'Manual stats override saved.', 'mma-future-data-engine' )
 			);
-			exit;
 		} catch ( \Throwable $error ) {
 			return array(
 				'type'    => 'error',
@@ -1074,6 +1054,29 @@ final class FightersPage {
 		}
 
 		return $base . ' ' . __( 'Adjusted values:', 'mma-future-data-engine' ) . ' ' . implode( ' ', $notices );
+	}
+
+	private static function redirect_to_fighter_edit_or_notice( int $fighter_id, string $message ): array {
+		$url = self::page_url(
+			array(
+				'action'      => 'edit',
+				'fighter_id'  => $fighter_id,
+				'mmaf_notice' => $message,
+			)
+		);
+
+		if ( ! headers_sent() && wp_safe_redirect( $url ) ) {
+			exit;
+		}
+
+		return array(
+			'type'              => 'success',
+			'message'           => $message,
+			'redirect_fallback' => array(
+				'action'     => 'edit',
+				'fighter_id' => $fighter_id,
+			),
+		);
 	}
 
 	private static function page_url( array $args = array() ): string {

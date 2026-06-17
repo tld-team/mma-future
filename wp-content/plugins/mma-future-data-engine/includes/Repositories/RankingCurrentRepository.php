@@ -126,9 +126,9 @@ final class RankingCurrentRepository {
 			$wpdb->prepare(
 				"
 				INSERT INTO {$this->current_table}
-					(ranking_run_id, board_key, fighter_id, rank_position, total_score, breakdown_json, eligibility_json, warnings_json, source_summary_json, created_at, updated_at)
+					(ranking_run_id, board_key, fighter_id, rank_position, total_score, raw_score, normalized_score, confidence_score, sample_size, quality_flags_json, breakdown_json, eligibility_json, warnings_json, source_summary_json, created_at, updated_at)
 				SELECT
-					ranking_run_id, board_key, fighter_id, rank_position, total_score, breakdown_json, eligibility_json, warnings_json, source_summary_json, created_at, %s
+					ranking_run_id, board_key, fighter_id, rank_position, total_score, raw_score, normalized_score, confidence_score, sample_size, quality_flags_json, breakdown_json, eligibility_json, warnings_json, source_summary_json, created_at, %s
 				FROM {$this->snapshots_table}
 				WHERE ranking_run_id = %d
 				ORDER BY board_key ASC, rank_position ASC, id ASC
@@ -230,6 +230,11 @@ final class RankingCurrentRepository {
 					r.fighter_id,
 					f.display_name,
 					r.total_score,
+					r.raw_score,
+					r.normalized_score,
+					r.confidence_score,
+					r.sample_size,
+					r.quality_flags_json,
 					r.breakdown_json,
 					r.eligibility_json,
 					r.warnings_json

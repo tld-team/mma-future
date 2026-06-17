@@ -2,6 +2,7 @@
 namespace MMAF\DataEngine\REST;
 
 use MMAF\DataEngine\Repositories\RestReadRepository;
+use MMAF\DataEngine\Services\Formula\FormulaV13;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -49,12 +50,17 @@ final class RankingsController extends AbstractRestController {
 		$per_page          = max( 1, min( 100, absint( $request->get_param( 'per_page' ) ) ) );
 		$include_breakdown = $this->bool_value( $request->get_param( 'include_breakdown' ) );
 		$active_run        = $this->repository->active_ranking_run();
+		$ranking_state     = $this->repository->ranking_state_summary();
 
 		if ( ! $active_run ) {
 			return rest_ensure_response(
 				array(
 					'board'                 => $board,
 					'active_ranking_run_id' => null,
+					'latest_completed_ranking_run_id' => $ranking_state['latest_completed_run_id'],
+					'has_newer_completed_draft' => $ranking_state['has_newer_completed_draft'],
+					'active_calculated_at'  => null,
+					'latest_completed_calculated_at' => $ranking_state['latest_completed_calculated_at'],
 					'formula_version'       => null,
 					'generated_at'          => null,
 					'page'                  => $page,
@@ -72,6 +78,7 @@ final class RankingsController extends AbstractRestController {
 
 		foreach ( $result['rows'] as $row ) {
 			$profile = $this->profile_data( $row['wp_post_id'] ?? null );
+			$normalized_score = $this->normalized_public_score( $row );
 			$item    = array(
 				'rank'         => (int) $row['rank_position'],
 				'fighter_id'   => (int) $row['fighter_id'],
@@ -99,7 +106,10 @@ final class RankingsController extends AbstractRestController {
 					'recent_form'     => $row['recent_form'],
 					'activity_status' => $row['activity_status'],
 				),
-				'score'          => (float) $row['total_score'],
+				'score'          => $normalized_score,
+				'raw_score'      => $this->raw_public_score( $row ),
+				'confidence_score' => is_numeric( $row['confidence_score'] ?? null ) ? (float) $row['confidence_score'] : null,
+				'sample_size'    => (int) ( $row['sample_size'] ?? 0 ),
 				'warnings_count' => $this->warnings_count( $row['warnings_json'] ),
 			);
 
@@ -108,6 +118,7 @@ final class RankingsController extends AbstractRestController {
 				$item['eligibility']    = $this->json_value( $row['eligibility_json'] );
 				$item['warnings']       = $this->json_value( $row['warnings_json'] );
 				$item['source_summary'] = $this->json_value( $row['source_summary_json'] );
+				$item['quality_flags']  = $this->json_value( $row['quality_flags_json'] ?? '' );
 			}
 
 			$items[] = $item;
@@ -117,6 +128,10 @@ final class RankingsController extends AbstractRestController {
 			array(
 				'board'                 => $board,
 				'active_ranking_run_id' => (int) $active_run['id'],
+				'latest_completed_ranking_run_id' => $ranking_state['latest_completed_run_id'],
+				'has_newer_completed_draft' => $ranking_state['has_newer_completed_draft'],
+				'active_calculated_at'  => $ranking_state['active_calculated_at'],
+				'latest_completed_calculated_at' => $ranking_state['latest_completed_calculated_at'],
 				'formula_version'       => (string) $active_run['formula_version'],
 				'generated_at'          => (string) $active_run['calculated_at'],
 				'page'                  => $page,
@@ -126,5 +141,23 @@ final class RankingsController extends AbstractRestController {
 				'items'                 => $items,
 			)
 		);
+	}
+
+	private function normalized_public_score( array $row ): float {
+		if ( is_numeric( $row['normalized_score'] ?? null ) ) {
+			return round( (float) $row['normalized_score'], 3 );
+		}
+
+		$legacy_raw_score = is_numeric( $row['total_score'] ?? null ) ? (float) $row['total_score'] : 0.0;
+
+		return round( ( new FormulaV13() )->normalized_score( $legacy_raw_score ), 3 );
+	}
+
+	private function raw_public_score( array $row ): ?float {
+		if ( is_numeric( $row['raw_score'] ?? null ) ) {
+			return (float) $row['raw_score'];
+		}
+
+		return is_numeric( $row['total_score'] ?? null ) ? (float) $row['total_score'] : null;
 	}
 }

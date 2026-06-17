@@ -325,6 +325,11 @@ final class Schema {
 				fighter_id BIGINT UNSIGNED NOT NULL,
 				rank_position INT NOT NULL,
 				total_score DECIMAL(10,3) NOT NULL,
+				raw_score DECIMAL(10,3) NULL,
+				normalized_score DECIMAL(10,3) NULL,
+				confidence_score DECIMAL(6,3) NULL,
+				sample_size INT NOT NULL DEFAULT 0,
+				quality_flags_json LONGTEXT NULL,
 				breakdown_json LONGTEXT NULL,
 				eligibility_json LONGTEXT NULL,
 				warnings_json LONGTEXT NULL,
@@ -335,6 +340,8 @@ final class Schema {
 				KEY ranking_run_id (ranking_run_id),
 				KEY board_key (board_key),
 				KEY fighter_id (fighter_id),
+				KEY normalized_score (normalized_score),
+				KEY confidence_score (confidence_score),
 				UNIQUE KEY board_fighter (board_key, fighter_id)
 			) $charset_collate;",
 			"CREATE TABLE {$tables['ranking_snapshots']} (
@@ -344,6 +351,11 @@ final class Schema {
 				fighter_id BIGINT UNSIGNED NOT NULL,
 				rank_position INT NOT NULL,
 				total_score DECIMAL(10,3) NOT NULL,
+				raw_score DECIMAL(10,3) NULL,
+				normalized_score DECIMAL(10,3) NULL,
+				confidence_score DECIMAL(6,3) NULL,
+				sample_size INT NOT NULL DEFAULT 0,
+				quality_flags_json LONGTEXT NULL,
 				previous_rank_position INT NULL,
 				previous_total_score DECIMAL(10,3) NULL,
 				movement INT NULL,
@@ -356,7 +368,9 @@ final class Schema {
 				PRIMARY KEY  (id),
 				KEY ranking_run_id (ranking_run_id),
 				KEY board_key (board_key),
-				KEY fighter_id (fighter_id)
+				KEY fighter_id (fighter_id),
+				KEY normalized_score (normalized_score),
+				KEY confidence_score (confidence_score)
 			) $charset_collate;",
 			"CREATE TABLE {$tables['source_import_runs']} (
 				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
