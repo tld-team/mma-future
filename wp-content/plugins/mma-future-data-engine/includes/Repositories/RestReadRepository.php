@@ -226,7 +226,7 @@ final class RestReadRepository {
 		return $wpdb->get_results(
 			$wpdb->prepare(
 				"
-				SELECT board_key, rank_position, total_score, raw_score, normalized_score, confidence_score, sample_size, quality_flags_json, ranking_run_id
+				SELECT board_key, rank_position, total_score, raw_score, normalized_score, confidence_score, sample_size, quality_flags_json, breakdown_json, ranking_run_id
 				FROM {$this->ranking_current_table}
 				WHERE fighter_id = %d
 				ORDER BY board_key ASC, rank_position ASC

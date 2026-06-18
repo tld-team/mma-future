@@ -108,6 +108,7 @@ final class RankingsController extends AbstractRestController {
 				),
 				'score'          => $normalized_score,
 				'raw_score'      => $this->raw_public_score( $row ),
+				'performance_raw_score' => $this->performance_raw_public_score( $row ),
 				'confidence_score' => is_numeric( $row['confidence_score'] ?? null ) ? (float) $row['confidence_score'] : null,
 				'sample_size'    => (int) ( $row['sample_size'] ?? 0 ),
 				'warnings_count' => $this->warnings_count( $row['warnings_json'] ),
@@ -159,5 +160,12 @@ final class RankingsController extends AbstractRestController {
 		}
 
 		return is_numeric( $row['total_score'] ?? null ) ? (float) $row['total_score'] : null;
+	}
+
+	private function performance_raw_public_score( array $row ): ?float {
+		$breakdown = $this->json_value( $row['breakdown_json'] ?? '' );
+		$value = $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null;
+
+		return is_numeric( $value ) ? (float) $value : null;
 	}
 }

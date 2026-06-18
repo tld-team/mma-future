@@ -122,7 +122,7 @@ final class RankingsPage {
 					</tr>
 					<tr>
 						<th scope="row"><?php echo esc_html__( 'Tie-breaker policy', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html__( 'Equal point totals are ordered by wins, finish rate, age, last fight, then deterministic fallback.', 'mma-future-data-engine' ); ?></td>
+						<td><?php echo esc_html__( 'Equal totals are ordered by adjusted raw score, wins, finish rate, confidence, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' ); ?></td>
 					</tr>
 					<tr>
 						<th scope="row"><?php echo esc_html__( 'Latest activation summary', 'mma-future-data-engine' ); ?></th>
@@ -242,7 +242,7 @@ final class RankingsPage {
 					);
 					?>
 				</p>
-				<p class="description"><?php echo esc_html__( 'Total score is Formula output, not a simple record. Equal total scores keep the same score and are ordered by tie-breakers: wins, finish rate, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' ); ?></p>
+				<p class="description"><?php echo esc_html__( 'Total (0-100) is normalized from Adjusted Raw. Adjusted Raw is Performance Raw pulled toward neutral zero by Confidence. Tie-breakers: Adjusted Raw, wins, finish rate, confidence, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' ); ?></p>
 			<?php endif; ?>
 
 			<?php if ( ! empty( $preview_rows ) ) : ?>
@@ -253,13 +253,15 @@ final class RankingsPage {
 							<th scope="col"><?php echo esc_html__( 'Rank', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Fighter', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Board', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Total score', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Raw', 'mma-future-data-engine' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Total (0-100)', 'mma-future-data-engine' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Performance Raw', 'mma-future-data-engine' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Adjusted Raw', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Confidence', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Sample', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Score breakdown', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Eligibility', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Warnings', 'mma-future-data-engine' ); ?></th>
+							<th scope="col"><?php echo esc_html__( 'Quality flags', 'mma-future-data-engine' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -267,18 +269,22 @@ final class RankingsPage {
 							<?php
 							$eligibility = json_decode( (string) $row['eligibility_json'], true );
 							$warnings    = json_decode( (string) $row['warnings_json'], true );
+							$breakdown   = json_decode( (string) ( $row['breakdown_json'] ?? '' ), true );
+							$quality_flags = json_decode( (string) ( $row['quality_flags_json'] ?? '' ), true );
 							?>
 							<tr>
 								<td><?php echo esc_html( (string) $row['rank_position'] ); ?></td>
 								<td><?php echo esc_html( (string) ( $row['display_name'] ?? ( 'Fighter #' . $row['fighter_id'] ) ) ); ?></td>
 								<td><?php echo esc_html( (string) $row['board_key'] ); ?></td>
 								<td><?php echo esc_html( (string) $row['total_score'] ); ?></td>
+								<td><?php echo esc_html( self::format_score_part( $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null ) ); ?></td>
 								<td><?php echo esc_html( (string) ( $row['raw_score'] ?? '' ) ); ?></td>
 								<td><?php echo esc_html( (string) ( $row['confidence_score'] ?? '' ) ); ?></td>
 								<td><?php echo esc_html( (string) ( $row['sample_size'] ?? '' ) ); ?></td>
 								<td><?php echo esc_html( self::format_score_breakdown( (string) ( $row['breakdown_json'] ?? '' ) ) ); ?></td>
 								<td><?php echo esc_html( ! empty( $eligibility['eligible'] ) ? __( 'Eligible', 'mma-future-data-engine' ) : __( 'Ineligible', 'mma-future-data-engine' ) ); ?></td>
 								<td><?php echo esc_html( (string) count( is_array( $warnings['warnings'] ?? null ) ? $warnings['warnings'] : array() ) ); ?></td>
+								<td><?php echo esc_html( empty( $quality_flags ) || ! is_array( $quality_flags ) ? '-' : implode( ', ', $quality_flags ) ); ?></td>
 							</tr>
 						<?php endforeach; ?>
 					</tbody>
@@ -663,13 +669,15 @@ final class RankingsPage {
 		}
 
 		return sprintf(
-			'base=%s, finish=%s, age=%s, OD=%s, loss quality=%s, confidence=%s, raw=%s, norm=%s',
+			'base=%s, finish=%s, age=%s, OD=%s, loss quality=%s, performance raw=%s, confidence=%s%%, factor=%s, adjusted raw=%s, total=%s',
 			self::format_score_part( $breakdown['base_record_points'] ?? null ),
 			self::format_score_part( $breakdown['finishes_points'] ?? null ),
 			self::format_score_part( $breakdown['age_adjustment_points'] ?? null ),
 			self::format_score_part( $breakdown['opponent_differential_points'] ?? null ),
 			self::format_score_part( $breakdown['loss_quality_penalty_points'] ?? null ),
-			self::format_score_part( $breakdown['confidence_adjustment_points'] ?? null ),
+			self::format_score_part( $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null ),
+			self::format_score_part( $breakdown['confidence_score'] ?? null ),
+			self::format_score_part( $breakdown['confidence_factor'] ?? null ),
 			self::format_score_part( $breakdown['raw_score'] ?? null ),
 			self::format_score_part( $breakdown['normalized_score'] ?? null )
 		);

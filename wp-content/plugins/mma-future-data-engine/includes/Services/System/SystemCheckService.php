@@ -4,6 +4,7 @@ namespace MMAF\DataEngine\Services\System;
 use MMAF\DataEngine\Migrations\Schema;
 use MMAF\DataEngine\REST\RestServiceProvider;
 use MMAF\DataEngine\Services\Formula\FormulaV13;
+use MMAF\DataEngine\Services\Formula\FormulaV14;
 use MMAF\DataEngine\Support\DateTime;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -360,7 +361,7 @@ final class SystemCheckService {
 			$this->add_check( 'active_ranking_run_exists', $active_run ? 'pass' : 'fail', 'Active ranking run exists', $active_run ? $active_run_id : 'missing', 'existing ranking run' );
 			if ( $active_run ) {
 				$this->add_check( 'active_ranking_run_marked_active', 1 === (int) $active_run['is_active'] ? 'pass' : 'fail', 'Active ranking run is marked active', (int) $active_run['is_active'], '1' );
-				$this->add_check( 'active_ranking_formula_current', FormulaV13::VERSION === (string) $active_run['formula_version'] ? 'pass' : 'warning', 'Active ranking formula version', (string) $active_run['formula_version'], FormulaV13::VERSION );
+				$this->add_check( 'active_ranking_formula_current', FormulaV14::VERSION === (string) $active_run['formula_version'] ? 'pass' : 'warning', 'Active ranking formula version', (string) $active_run['formula_version'], FormulaV14::VERSION );
 			}
 		}
 
@@ -459,20 +460,20 @@ final class SystemCheckService {
 
 		$this->add_zero_check( 'invalid_total_score', 'Invalid total_score', $this->count_where( $tables['ranking_current'], 'total_score IS NULL' ) );
 		$active_formula_version = null === $active_run_id ? null : $wpdb->get_var( $wpdb->prepare( "SELECT formula_version FROM {$tables['ranking_runs']} WHERE id = %d LIMIT 1", $active_run_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$active_v13 = FormulaV13::VERSION === (string) $active_formula_version;
-		$formula_config = FormulaV13::config();
+		$active_normalized_formula = in_array( (string) $active_formula_version, array( FormulaV13::VERSION, FormulaV14::VERSION ), true );
+		$formula_config = FormulaV14::config();
 		$min_scoring_bouts = (int) ( $formula_config['eligibility']['min_scoring_bouts'] ?? 1 );
 
-		if ( $active_v13 && $this->column_exists( $tables['ranking_current'], 'normalized_score' ) ) {
+		if ( $active_normalized_formula && $this->column_exists( $tables['ranking_current'], 'normalized_score' ) ) {
 			$this->add_zero_check( 'invalid_normalized_score', 'Invalid normalized_score', $this->count_where( $tables['ranking_current'], 'normalized_score IS NULL OR normalized_score < 0 OR normalized_score > 100 OR ABS(total_score - normalized_score) > 0.001' ) );
 		}
-		if ( $active_v13 && $this->column_exists( $tables['ranking_current'], 'raw_score' ) ) {
+		if ( $active_normalized_formula && $this->column_exists( $tables['ranking_current'], 'raw_score' ) ) {
 			$this->add_zero_check( 'invalid_raw_score', 'Invalid raw_score', $this->count_where( $tables['ranking_current'], 'raw_score IS NULL' ) );
 		}
-		if ( $active_v13 && $this->column_exists( $tables['ranking_current'], 'confidence_score' ) ) {
+		if ( $active_normalized_formula && $this->column_exists( $tables['ranking_current'], 'confidence_score' ) ) {
 			$this->add_zero_check( 'invalid_confidence_score', 'Invalid confidence_score', $this->count_where( $tables['ranking_current'], 'confidence_score IS NULL OR confidence_score < 0 OR confidence_score > 100' ) );
 		}
-		if ( $active_v13 && $this->column_exists( $tables['ranking_current'], 'sample_size' ) ) {
+		if ( $active_normalized_formula && $this->column_exists( $tables['ranking_current'], 'sample_size' ) ) {
 			$this->add_zero_check( 'invalid_sample_size', 'Invalid trusted ranking sample size', $this->count_where( $tables['ranking_current'], 'sample_size < ' . $min_scoring_bouts ) );
 		}
 

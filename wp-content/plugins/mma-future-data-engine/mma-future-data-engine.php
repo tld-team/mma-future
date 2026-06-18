@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MMA Future Data Engine
  * Description: Canonical sports data engine for MMA Future fighters, events, bouts, imports, stats, and rankings. Produced by TLD Team.
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: Luka Mutic
  * Author URI: https://tldteam.com
  * Text Domain: mma-future-data-engine
@@ -42,6 +42,7 @@ require_once MMAF_PLUGIN_DIR . 'includes/Repositories/SourceImportRunRepository.
 require_once MMAF_PLUGIN_DIR . 'includes/Repositories/SourceImportItemRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV12.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV13.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV14.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/FighterPostSyncService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/FieldProvenanceService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/AuditLogService.php';

@@ -1,7 +1,7 @@
 <?php
 namespace MMAF\DataEngine\Services;
 
-use MMAF\DataEngine\Services\Formula\FormulaV13;
+use MMAF\DataEngine\Services\Formula\FormulaV14;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -12,7 +12,7 @@ final class EligibilityService {
 		$reasons  = array();
 		$warnings = array();
 		$gates    = array();
-		$config   = FormulaV13::config();
+		$config   = FormulaV14::config();
 		$rules    = $config['eligibility'];
 
 		$this->gate(
@@ -108,10 +108,12 @@ final class EligibilityService {
 			$inactivity_months = $this->months_between( (string) $last_fight_date, $reference_date );
 		}
 
+		$is_inactive = $last_fight_date ? $this->is_inactive( (string) $last_fight_date, $reference_date, (int) $rules['inactivity_months'] ) : null;
+
 		$this->gate(
 			$gates,
 			'inactivity',
-			null !== $inactivity_months && $inactivity_months <= (int) $rules['inactivity_months'],
+			null !== $is_inactive && ! $is_inactive,
 			null === $inactivity_months ? 'insufficient_data_missing_last_fight_date' : 'ineligible_inactive_24_months',
 			$reasons,
 			array(
@@ -282,6 +284,18 @@ final class EligibilityService {
 		}
 	}
 
+	private function is_inactive( string $last_fight_date, string $reference_date, int $threshold_months ): ?bool {
+		try {
+			$last_fight = new \DateTimeImmutable( $last_fight_date );
+			$reference  = new \DateTimeImmutable( $reference_date );
+			$cutoff     = $last_fight->modify( '+' . $threshold_months . ' months' );
+
+			return $reference >= $cutoff;
+		} catch ( \Throwable $error ) {
+			return null;
+		}
+	}
+
 	private function loss_limit( int $wins ): ?int {
 		if ( $wins >= 20 ) {
 			return 5;
@@ -296,7 +310,7 @@ final class EligibilityService {
 		}
 
 		if ( $wins >= 5 ) {
-			return 1;
+			return 2;
 		}
 
 		return null;

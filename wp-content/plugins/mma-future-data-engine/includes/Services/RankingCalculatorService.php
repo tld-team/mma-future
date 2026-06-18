@@ -4,7 +4,7 @@ namespace MMAF\DataEngine\Services;
 use MMAF\DataEngine\Migrations\Schema;
 use MMAF\DataEngine\Repositories\RankingCurrentRepository;
 use MMAF\DataEngine\Repositories\RankingRunRepository;
-use MMAF\DataEngine\Services\Formula\FormulaV13;
+use MMAF\DataEngine\Services\Formula\FormulaV14;
 use MMAF\DataEngine\Support\DateTime;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -50,24 +50,24 @@ final class RankingCalculatorService {
 	private RankingRunRepository $runs;
 	private RankingCurrentRepository $rankings;
 	private EligibilityService $eligibility;
-	private FormulaV13 $formula;
+	private FormulaV14 $formula;
 	private AuditLogService $audit_log;
 
 	public function __construct() {
 		$this->runs       = new RankingRunRepository();
 		$this->rankings   = new RankingCurrentRepository();
 		$this->eligibility = new EligibilityService();
-		$this->formula    = new FormulaV13();
+		$this->formula    = new FormulaV14();
 		$this->audit_log  = new AuditLogService();
 	}
 
 	public function calculate_draft( int $actor_user_id = 0, ?string $reference_date = null ): array {
 		$reference_date = $reference_date ? $reference_date : current_time( 'Y-m-d' );
 		$calculated_at  = DateTime::mysql_now();
-		$config         = FormulaV13::config();
+		$config         = FormulaV14::config();
 		$previous       = $this->runs->get_last_calculation_summary();
 		$run_id         = $this->runs->create(
-			FormulaV13::VERSION,
+			FormulaV14::VERSION,
 			$config,
 			$reference_date,
 			$calculated_at,
@@ -106,7 +106,7 @@ final class RankingCalculatorService {
 			$summary = array(
 				'ranking_run_id'      => $run_id,
 				'calculated_at'       => $calculated_at,
-				'formula_version'     => FormulaV13::VERSION,
+				'formula_version'     => FormulaV14::VERSION,
 				'reference_date'      => $reference_date,
 				'status'              => 'failed',
 				'eligible_fighters'   => 0,
@@ -140,7 +140,7 @@ final class RankingCalculatorService {
 		$ineligible_count    = 0;
 		$calculated_count    = 0;
 		$excluded_insufficient_sample = 0;
-		$min_scoring_bouts   = (int) ( FormulaV13::config()['eligibility']['min_scoring_bouts'] ?? 1 );
+		$min_scoring_bouts   = (int) ( FormulaV14::config()['eligibility']['min_scoring_bouts'] ?? 1 );
 		$total_confidence    = 0.0;
 		$total_missing_prefight = 0;
 		$total_warnings      = 0;
@@ -217,7 +217,7 @@ final class RankingCalculatorService {
 		$summary = array(
 			'ranking_run_id'      => $run_id,
 			'calculated_at'       => $calculated_at,
-			'formula_version'     => FormulaV13::VERSION,
+			'formula_version'     => FormulaV14::VERSION,
 			'reference_date'      => $reference_date,
 			'status'              => 'draft',
 			'is_active'           => 0,
@@ -346,9 +346,11 @@ final class RankingCalculatorService {
 		$breakdown = array(
 			'total_score'                      => 0.0,
 			'raw_score'                        => 0.0,
+			'performance_raw_score'            => 0.0,
 			'raw_score_before_confidence'      => 0.0,
 			'normalized_score'                 => 0.0,
 			'confidence_score'                 => 0.0,
+			'confidence_factor'                => 0.0,
 			'confidence_adjustment_points'     => 0.0,
 			'sample_size'                      => 0,
 			'base_record_points'               => 0.0,
@@ -426,19 +428,22 @@ final class RankingCalculatorService {
 			$warnings[] = 'no_countable_fights';
 		}
 
-		$raw_before_confidence =
+		$performance_raw_score =
 			$breakdown['base_record_points']
 			+ $breakdown['finishes_points']
 			+ $breakdown['age_adjustment_points']
 			+ $breakdown['opponent_differential_points']
 			+ $breakdown['loss_quality_penalty_points'];
-		$confidence_score = $this->formula->confidence_score( $countable_bouts_used, $prefight_missing, $method_missing );
-		$confidence_adjustment = -1.0 * ( ( 100.0 - $confidence_score ) / 10.0 );
-		$raw_score = $raw_before_confidence + $confidence_adjustment;
-		$normalized_score = $this->formula->normalized_score( $raw_score );
+		$confidence_score = round( $this->formula->confidence_score( $countable_bouts_used, $prefight_missing, $method_missing ), 3 );
+		$confidence_factor = round( $confidence_score / 100.0, 6 );
+		$raw_score = round( $this->formula->adjusted_raw_score( $performance_raw_score, $confidence_score ), 6 );
+		$confidence_adjustment = round( $raw_score - $performance_raw_score, 6 );
+		$normalized_score = round( $this->formula->normalized_score( $raw_score ), 3 );
 
-		$breakdown['raw_score_before_confidence']  = $raw_before_confidence;
+		$breakdown['performance_raw_score']        = $performance_raw_score;
+		$breakdown['raw_score_before_confidence']  = $performance_raw_score;
 		$breakdown['confidence_score']             = $confidence_score;
+		$breakdown['confidence_factor']            = $confidence_factor;
 		$breakdown['confidence_adjustment_points'] = $confidence_adjustment;
 		$breakdown['raw_score']                    = $raw_score;
 		$breakdown['normalized_score']             = $normalized_score;
@@ -460,9 +465,11 @@ final class RankingCalculatorService {
 			'quality_flags'                    => $quality_flags,
 			'source_types_linked_to_fighter'   => $source_types,
 			'generated_by'                     => 'ranking_engine',
-			'formula_version'                  => FormulaV13::VERSION,
+			'performance_raw_score'            => $performance_raw_score,
+			'confidence_factor'                => $confidence_factor,
+			'formula_version'                  => FormulaV14::VERSION,
 			'generated_at'                     => $calculated_at,
-			'tie_breaker_order'                => (array) ( FormulaV13::config()['tie_breakers'] ?? array() ),
+			'tie_breaker_order'                => (array) ( FormulaV14::config()['tie_breakers'] ?? array() ),
 		);
 
 		return array(
@@ -474,7 +481,7 @@ final class RankingCalculatorService {
 	}
 
 	private function quality_flags( int $sample_size, int $prefight_missing, int $method_missing, float $confidence_score, array $eligibility ): array {
-		$config = FormulaV13::config();
+		$config = FormulaV14::config();
 		$flags  = array();
 
 		if ( $sample_size < (int) $config['eligibility']['min_scoring_bouts'] ) {
@@ -605,7 +612,7 @@ final class RankingCalculatorService {
 			'age'             => null === ( $eligibility['age'] ?? null ) ? null : (int) $eligibility['age'],
 			'last_fight_date' => is_array( $stats ) ? ( $stats['last_fight_date'] ?? null ) : null,
 			'fighter_id'      => (int) ( $fighter['id'] ?? 0 ),
-			'order'           => (array) ( FormulaV13::config()['tie_breakers'] ?? array() ),
+			'order'           => (array) ( FormulaV14::config()['tie_breakers'] ?? array() ),
 		);
 	}
 
@@ -717,6 +724,6 @@ final class RankingCalculatorService {
 	}
 
 	private function storage_strategy(): string {
-		return 'draft rows are stored in mmaf_ranking_snapshots by ranking_run_id; mmaf_ranking_current is live-only; total_score is the public normalized 0-100 alias and raw_score is retained for audit';
+		return 'draft rows are stored in mmaf_ranking_snapshots by ranking_run_id; mmaf_ranking_current is live-only; total_score is normalized 0-100, raw_score is confidence-adjusted raw, and performance raw is retained in breakdown/source summary';
 	}
 }

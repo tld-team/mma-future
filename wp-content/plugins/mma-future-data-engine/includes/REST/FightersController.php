@@ -206,6 +206,7 @@ final class FightersController extends AbstractRestController {
 				'rank'                  => (int) $ranking['rank_position'],
 				'score'                 => $normalized_score,
 				'raw_score'             => $this->raw_public_score( $ranking ),
+				'performance_raw_score' => $this->performance_raw_public_score( $ranking ),
 				'confidence_score'      => is_numeric( $ranking['confidence_score'] ?? null ) ? (float) $ranking['confidence_score'] : null,
 				'sample_size'           => (int) ( $ranking['sample_size'] ?? 0 ),
 				'quality_flags'         => $this->json_value( $ranking['quality_flags_json'] ?? '' ),
@@ -232,6 +233,13 @@ final class FightersController extends AbstractRestController {
 		}
 
 		return is_numeric( $ranking['total_score'] ?? null ) ? (float) $ranking['total_score'] : null;
+	}
+
+	private function performance_raw_public_score( array $ranking ): ?float {
+		$breakdown = $this->json_value( $ranking['breakdown_json'] ?? '' );
+		$value = $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null;
+
+		return is_numeric( $value ) ? (float) $value : null;
 	}
 
 	private function recent_fights_payload( array $recent_fights ): array {

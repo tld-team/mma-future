@@ -4,6 +4,7 @@ namespace MMAF\DataEngine\Services;
 use MMAF\DataEngine\Repositories\RankingCurrentRepository;
 use MMAF\DataEngine\Repositories\RankingRunRepository;
 use MMAF\DataEngine\Services\Formula\FormulaV13;
+use MMAF\DataEngine\Services\Formula\FormulaV14;
 use MMAF\DataEngine\Support\DateTime;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -33,7 +34,7 @@ final class RankingActivationService {
 
 		try {
 			$run       = $this->validate_run( $ranking_run_id );
-			$snapshots = $this->validate_snapshots( $ranking_run_id );
+			$snapshots = $this->validate_snapshots( $ranking_run_id, (string) $run['formula_version'] );
 		} catch ( \Throwable $error ) {
 			$this->audit_log->write(
 				'ranking_activation_failed',
@@ -128,12 +129,12 @@ final class RankingActivationService {
 			throw new \RuntimeException( __( 'Only completed ranking runs can be activated.', 'mma-future-data-engine' ) );
 		}
 
-		if ( FormulaV13::VERSION !== (string) $run['formula_version'] ) {
+		if ( ! in_array( (string) $run['formula_version'], array( FormulaV13::VERSION, FormulaV14::VERSION ), true ) ) {
 			throw new \RuntimeException(
 				sprintf(
-					/* translators: %s: formula version. */
+					/* translators: %s: formula versions. */
 					__( 'Only Formula %s ranking runs can be activated in this phase.', 'mma-future-data-engine' ),
-					FormulaV13::VERSION
+					FormulaV13::VERSION . ' or ' . FormulaV14::VERSION
 				)
 			);
 		}
@@ -145,7 +146,7 @@ final class RankingActivationService {
 		return $run;
 	}
 
-	private function validate_snapshots( int $ranking_run_id ): array {
+	private function validate_snapshots( int $ranking_run_id, string $formula_version ): array {
 		$snapshots = $this->rankings->snapshots_for_run( $ranking_run_id );
 		if ( empty( $snapshots ) ) {
 			throw new \RuntimeException( __( 'Ranking run has no draft snapshot rows to activate.', 'mma-future-data-engine' ) );
@@ -153,7 +154,7 @@ final class RankingActivationService {
 
 		$board_fighters = array();
 		$board_ranks    = array();
-		$config         = FormulaV13::config();
+		$config         = FormulaV14::VERSION === $formula_version ? FormulaV14::config() : FormulaV13::config();
 		$min_sample     = (int) ( $config['eligibility']['min_scoring_bouts'] ?? 3 );
 
 		foreach ( $snapshots as $snapshot ) {
@@ -201,7 +202,7 @@ final class RankingActivationService {
 			}
 
 			if ( abs( $total_score - $normalized_score ) > 0.001 ) {
-				throw new \RuntimeException( __( 'Snapshot total_score must match normalized_score for Formula v1.3.', 'mma-future-data-engine' ) );
+				throw new \RuntimeException( __( 'Snapshot total_score must match normalized_score for normalized ranking formulas.', 'mma-future-data-engine' ) );
 			}
 
 			if ( (int) ( $snapshot['sample_size'] ?? 0 ) < $min_sample ) {
