@@ -161,19 +161,53 @@ final class ScraperLatestBundleService {
 			);
 		}
 
-		$content = file_get_contents( (string) $bundle['paths']['fighter_profiles'] );
+		$profile_path = (string) $bundle['paths']['fighter_profiles'];
+		$profile_size = isset( $bundle['file_sizes']['fighter_profiles'] ) ? (int) $bundle['file_sizes']['fighter_profiles'] : 0;
+		if ( $profile_size > FighterProfileEnrichmentPreviewService::max_file_size() ) {
+			return $this->oversized_profile_preview_summary( $bundle, $profile_path, $profile_size );
+		}
+
+		$content = file_get_contents( $profile_path );
 		if ( false === $content ) {
 			throw new \RuntimeException( 'Could not read fighter_profiles.json from latest bundle.' );
 		}
 
 		return ( new FighterProfileEnrichmentPreviewService() )->analyze_json_string(
 			$content,
-			(string) $bundle['paths']['fighter_profiles'],
+			$profile_path,
 			array(),
 			'',
 			25,
 			0,
 			$results_dry_run
+		);
+	}
+
+	private function oversized_profile_preview_summary( array $bundle, string $profile_path, int $profile_size ): array {
+		$report = (array) ( $bundle['data']['fighter_profiles_report'] ?? array() );
+		$summary = array(
+			'status' => 'skipped_large_file',
+			'enrichment_file' => $profile_path,
+			'profiles_total' => (int) ( $report['profiles_total'] ?? 0 ),
+			'profiles_success' => (int) ( $report['profiles_success'] ?? 0 ),
+			'profiles_failed' => (int) ( $report['profiles_failed'] ?? 0 ),
+			'error' => sprintf(
+				'fighter_profiles.json is %d bytes, above the %d-byte preview limit. Detailed profile rows were skipped during latest bundle dry-run.',
+				$profile_size,
+				FighterProfileEnrichmentPreviewService::max_file_size()
+			),
+		);
+
+		if ( ! empty( $report ) ) {
+			$summary['schema_version'] = (string) ( $report['schema_version'] ?? '' );
+			$summary['source'] = (string) ( $report['source'] ?? '' );
+			$summary['run_id'] = (string) ( $report['run_id'] ?? '' );
+		}
+
+		return array(
+			'summary' => $summary,
+			'rows' => array(),
+			'total' => 0,
 		);
 	}
 

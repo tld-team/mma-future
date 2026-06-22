@@ -106,7 +106,8 @@ final class FighterProfileEnrichmentApplyService {
 	}
 
 	public function apply_all_safe_json_string( string $content, string $path_label, int $user_id ): array {
-		$preview = ( new FighterProfileEnrichmentPreviewService() )->analyze_json_string_unpaged( $content, $path_label );
+		$preview_service = new FighterProfileEnrichmentPreviewService();
+		$preview = $preview_service->create_row_iterator( $content, $path_label );
 		$summary = array(
 			'status' => 'completed',
 			'enrichment_file' => $path_label,
@@ -123,7 +124,7 @@ final class FighterProfileEnrichmentApplyService {
 		);
 		$rows = array();
 
-		foreach ( (array) ( $preview['rows'] ?? array() ) as $row ) {
+		foreach ( $preview['iterator'] as $row ) {
 			$match_type = (string) ( $row['match_type'] ?? '' );
 			if ( in_array( $match_type, array( 'exact_source_match', 'source_url_match' ), true ) ) {
 				++$summary['profiles_matched'];

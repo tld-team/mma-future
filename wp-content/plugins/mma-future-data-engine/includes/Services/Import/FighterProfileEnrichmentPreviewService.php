@@ -52,6 +52,10 @@ final class FighterProfileEnrichmentPreviewService {
 		return self::workspace_root() . DIRECTORY_SEPARATOR . 'scraper' . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'latest' . DIRECTORY_SEPARATOR . 'fighter_profiles.json';
 	}
 
+	public static function max_file_size(): int {
+		return self::MAX_FILE_SIZE;
+	}
+
 	public static function resolve_safe_json_path( string $path ): string {
 		$path = trim( $path );
 		if ( '' === $path ) {
@@ -188,87 +192,71 @@ final class FighterProfileEnrichmentPreviewService {
 		return $row;
 	}
 
+	public function create_row_iterator( string $content, string $path, array $results_dry_run = array() ): array {
+		return $this->prepare_profile_row_iteration( $content, $path, $results_dry_run );
+	}
+
 	public function analyze_json_string( string $content, string $path, array $filters = array(), string $search = '', int $limit = 50, int $offset = 0, array $results_dry_run = array() ): array {
-		$data = $this->decode_payload( $content );
-		$schema_version = (string) $data['schema_version'];
-		$profiles = (array) $data['profiles'];
+		$analysis = $this->prepare_profile_row_iteration( $content, $path, $results_dry_run );
+		$summary = (array) $analysis['summary'];
+		$iterator = $analysis['iterator'];
 
-		$this->load_database_context();
-		$this->load_planned_import_context( $results_dry_run );
-
-		$summary = $this->empty_summary();
-		$summary['schema_version'] = $schema_version;
-		$summary['source'] = (string) ( $data['source'] ?? '' );
-		$summary['run_id'] = (string) ( $data['run_id'] ?? '' );
-		$summary['scraped_at'] = (string) ( $data['scraped_at'] ?? '' );
-		$summary['enrichment_file'] = $path;
-		$summary['profiles_total'] = count( $profiles );
-
+		$limit = max( 1, min( 100, $limit ) );
+		$offset = max( 0, $offset );
+		$total = 0;
+		$processed_rows = 0;
 		$rows = array();
-		foreach ( $profiles as $index => $profile ) {
-			if ( ! is_array( $profile ) ) {
+		foreach ( $iterator as $row ) {
+			++$processed_rows;
+			$this->add_row_counts( $summary, $row );
+
+			if ( ! $this->row_matches( $row, $filters, $search ) ) {
 				continue;
 			}
 
-			$row = $this->build_profile_row( $profile, (int) $index );
-			$this->add_row_counts( $summary, $row );
-			$rows[] = $row;
+			if ( $total >= $offset && count( $rows ) < $limit ) {
+				$rows[] = $row;
+			}
+
+			++$total;
 		}
 
 		$summary['profiles_not_safe_for_auto_write'] = $summary['profiles_total'];
 		$summary['matching_quality_good_enough_for_later_import'] = $this->matching_quality_answer( $summary );
 		$summary['matching_quality_reason'] = $this->matching_quality_reason( $summary );
 
-		$filtered = $this->filter_rows( $rows, $filters, $search );
-		$total = count( $filtered );
-		$limit = max( 1, min( 100, $limit ) );
-		$offset = max( 0, $offset );
-
 		return array(
 			'summary' => $summary,
-			'rows'    => array_slice( $filtered, $offset, $limit ),
+			'rows'    => $rows,
 			'total'   => $total,
-			'all_rows_count' => count( $rows ),
+			'all_rows_count' => $processed_rows,
 		);
 	}
 
 	public function analyze_json_string_unpaged( string $content, string $path, array $filters = array(), string $search = '' ): array {
-		$data = $this->decode_payload( $content );
-		$schema_version = (string) $data['schema_version'];
-		$profiles = (array) $data['profiles'];
-
-		$this->load_database_context();
-		$this->load_planned_import_context( array() );
-
-		$summary = $this->empty_summary();
-		$summary['schema_version'] = $schema_version;
-		$summary['source'] = (string) ( $data['source'] ?? '' );
-		$summary['run_id'] = (string) ( $data['run_id'] ?? '' );
-		$summary['scraped_at'] = (string) ( $data['scraped_at'] ?? '' );
-		$summary['enrichment_file'] = $path;
-		$summary['profiles_total'] = count( $profiles );
+		$analysis = $this->prepare_profile_row_iteration( $content, $path, array() );
+		$summary = (array) $analysis['summary'];
+		$iterator = $analysis['iterator'];
 
 		$rows = array();
-		foreach ( $profiles as $index => $profile ) {
-			if ( ! is_array( $profile ) ) {
-				continue;
-			}
-
-			$row = $this->build_profile_row( $profile, (int) $index );
+		$processed_rows = 0;
+		foreach ( $iterator as $row ) {
+			++$processed_rows;
 			$this->add_row_counts( $summary, $row );
-			$rows[] = $row;
+			if ( $this->row_matches( $row, $filters, $search ) ) {
+				$rows[] = $row;
+			}
 		}
 
 		$summary['profiles_not_safe_for_auto_write'] = $summary['profiles_total'];
 		$summary['matching_quality_good_enough_for_later_import'] = $this->matching_quality_answer( $summary );
 		$summary['matching_quality_reason'] = $this->matching_quality_reason( $summary );
-		$filtered = $this->filter_rows( $rows, $filters, $search );
 
 		return array(
 			'summary' => $summary,
-			'rows'    => $filtered,
-			'total'   => count( $filtered ),
-			'all_rows_count' => count( $rows ),
+			'rows'    => $rows,
+			'total'   => count( $rows ),
+			'all_rows_count' => $processed_rows,
 		);
 	}
 
@@ -926,61 +914,103 @@ final class FighterProfileEnrichmentPreviewService {
 		}
 	}
 
-	private function filter_rows( array $rows, array $filters, string $search ): array {
-		$filters = array_values( array_intersect( $filters, self::filters() ) );
-		$search = Sanitizer::normalize_name( $search );
+	private function prepare_profile_row_iteration( string $content, string $path, array $results_dry_run ): array {
+		$data = $this->decode_payload( $content );
+		$profiles = (array) $data['profiles'];
 
+		$this->load_database_context();
+		$this->load_planned_import_context( $results_dry_run );
+
+		$summary = $this->empty_summary();
+		$summary['schema_version'] = (string) $data['schema_version'];
+		$summary['source'] = (string) ( $data['source'] ?? '' );
+		$summary['run_id'] = (string) ( $data['run_id'] ?? '' );
+		$summary['scraped_at'] = (string) ( $data['scraped_at'] ?? '' );
+		$summary['enrichment_file'] = $path;
+		$summary['profiles_total'] = count( $profiles );
+
+		return array(
+			'summary' => $summary,
+			'iterator' => $this->yield_profile_rows( $profiles ),
+		);
+	}
+
+	private function yield_profile_rows( array $profiles ): \Generator {
+		foreach ( $profiles as $index => $profile ) {
+			if ( ! is_array( $profile ) ) {
+				continue;
+			}
+
+			yield $this->build_profile_row( $profile, (int) $index );
+		}
+	}
+
+	private function filter_rows( array $rows, array $filters, string $search ): array {
 		return array_values(
 			array_filter(
 				$rows,
-				static function ( array $row ) use ( $filters, $search ): bool {
-					if ( '' !== $search ) {
-						$haystack = Sanitizer::normalize_name( implode( ' ', array( $row['profile_display_name'], $row['source_fighter_id'], $row['matched_canonical_name'] ) ) );
-						if ( false === strpos( $haystack, $search ) ) {
-							return false;
-						}
-					}
-
-					foreach ( $filters as $filter ) {
-						if ( 'matched' === $filter && ! in_array( $row['match_type'], array( 'exact_source_match', 'source_url_match', 'matched_planned_import' ), true ) ) {
-							return false;
-						}
-						if ( 'unmatched' === $filter && 'no_canonical_match' !== $row['match_type'] ) {
-							return false;
-						}
-						if ( 'ambiguous' === $filter && 'ambiguous_match' !== $row['match_type'] ) {
-							return false;
-						}
-						if ( 'has_dob_suggestion' === $filter && ! $row['has_dob_suggestion'] ) {
-							return false;
-						}
-						if ( 'has_weight_class_suggestion' === $filter && ! $row['has_weight_class_suggestion'] ) {
-							return false;
-						}
-					if ( 'has_pro_record' === $filter && ! $row['has_pro_record'] ) {
-							return false;
-						}
-						if ( 'has_fight_history' === $filter && $row['fight_history_rows'] <= 0 ) {
-							return false;
-						}
-						if ( 'has_record_gap' === $filter && '' === $row['record_gap_indicator'] ) {
-							return false;
-						}
-						if ( 'backend_column_missing' === $filter && ! $row['has_backend_column_missing'] ) {
-							return false;
-						}
-						if ( 'unsafe_ambiguous' === $filter && ! $row['has_unsafe_ambiguous'] ) {
-							return false;
-						}
-						if ( 'low_completeness' === $filter && ! $row['is_low_completeness'] ) {
-							return false;
-						}
-					}
-
-					return true;
-				}
+				fn ( array $row ): bool => $this->row_matches( $row, $filters, $search )
 			)
 		);
+	}
+
+	private function row_matches( array $row, array $filters, string $search ): bool {
+		$filters = array_values( array_intersect( $filters, self::filters() ) );
+		$search = Sanitizer::normalize_name( $search );
+
+		if ( '' !== $search ) {
+			$haystack = Sanitizer::normalize_name(
+				implode(
+					' ',
+					array(
+						(string) ( $row['profile_display_name'] ?? '' ),
+						(string) ( $row['source_fighter_id'] ?? '' ),
+						(string) ( $row['matched_canonical_name'] ?? '' ),
+					)
+				)
+			);
+			if ( false === strpos( $haystack, $search ) ) {
+				return false;
+			}
+		}
+
+		foreach ( $filters as $filter ) {
+			if ( 'matched' === $filter && ! in_array( (string) ( $row['match_type'] ?? '' ), array( 'exact_source_match', 'source_url_match', 'matched_planned_import' ), true ) ) {
+				return false;
+			}
+			if ( 'unmatched' === $filter && 'no_canonical_match' !== (string) ( $row['match_type'] ?? '' ) ) {
+				return false;
+			}
+			if ( 'ambiguous' === $filter && 'ambiguous_match' !== (string) ( $row['match_type'] ?? '' ) ) {
+				return false;
+			}
+			if ( 'has_dob_suggestion' === $filter && empty( $row['has_dob_suggestion'] ) ) {
+				return false;
+			}
+			if ( 'has_weight_class_suggestion' === $filter && empty( $row['has_weight_class_suggestion'] ) ) {
+				return false;
+			}
+			if ( 'has_pro_record' === $filter && empty( $row['has_pro_record'] ) ) {
+				return false;
+			}
+			if ( 'has_fight_history' === $filter && (int) ( $row['fight_history_rows'] ?? 0 ) <= 0 ) {
+				return false;
+			}
+			if ( 'has_record_gap' === $filter && '' === (string) ( $row['record_gap_indicator'] ?? '' ) ) {
+				return false;
+			}
+			if ( 'backend_column_missing' === $filter && empty( $row['has_backend_column_missing'] ) ) {
+				return false;
+			}
+			if ( 'unsafe_ambiguous' === $filter && empty( $row['has_unsafe_ambiguous'] ) ) {
+				return false;
+			}
+			if ( 'low_completeness' === $filter && empty( $row['is_low_completeness'] ) ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private function suggested_admin_action( string $match_type, array $field_statuses, string $record_gap, array $warnings ): string {
