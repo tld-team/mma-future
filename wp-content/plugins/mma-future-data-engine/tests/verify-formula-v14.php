@@ -15,6 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV14.php';
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV15.php';
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaRegistry.php';
 require_once dirname( __DIR__ ) . '/includes/Services/EligibilityService.php';
 
 use MMAF\DataEngine\Services\EligibilityService;

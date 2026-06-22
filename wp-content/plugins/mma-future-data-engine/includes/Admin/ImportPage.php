@@ -183,6 +183,7 @@ final class ImportPage {
 
 		$filename = 'mmaf-system-snapshot-' . gmdate( 'Ymd-His' ) . '.jsonl';
 
+		// Stream snapshot exports as a fresh download to avoid admin/browser cache reuse.
 		nocache_headers();
 		header( 'Content-Type: application/x-ndjson; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );

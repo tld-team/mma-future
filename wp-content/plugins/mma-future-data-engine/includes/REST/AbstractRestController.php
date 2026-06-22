@@ -1,6 +1,9 @@
 <?php
 namespace MMAF\DataEngine\REST;
 
+use MMAF\DataEngine\Services\Formula\FormulaRegistry;
+use MMAF\DataEngine\Services\Formula\FormulaV13;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -99,5 +102,59 @@ abstract class AbstractRestController {
 		$decoded = $this->json_value( $warnings_json );
 
 		return is_array( $decoded['warnings'] ?? null ) ? count( $decoded['warnings'] ) : 0;
+	}
+
+	protected function ranking_formula_version( array $row, ?string $fallback = null ): string {
+		$formula_version = (string) ( $row['formula_version'] ?? '' );
+
+		if ( '' !== $formula_version ) {
+			return $formula_version;
+		}
+
+		return null === $fallback || '' === $fallback ? FormulaRegistry::current_version() : $fallback;
+	}
+
+	protected function ranking_public_score( array $row, ?string $fallback_formula_version = null ): ?float {
+		$formula_version = $this->ranking_formula_version( $row, $fallback_formula_version );
+		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
+			return is_numeric( $row['total_score'] ?? null ) ? round( (float) $row['total_score'], 3 ) : null;
+		}
+
+		if ( is_numeric( $row['normalized_score'] ?? null ) ) {
+			return round( (float) $row['normalized_score'], 3 );
+		}
+
+		$legacy_raw_score = is_numeric( $row['total_score'] ?? null ) ? (float) $row['total_score'] : 0.0;
+
+		return round( ( new FormulaV13() )->normalized_score( $legacy_raw_score ), 3 );
+	}
+
+	protected function ranking_raw_public_score( array $row ): ?float {
+		if ( is_numeric( $row['raw_score'] ?? null ) ) {
+			return (float) $row['raw_score'];
+		}
+
+		return is_numeric( $row['total_score'] ?? null ) ? (float) $row['total_score'] : null;
+	}
+
+	protected function ranking_performance_raw_public_score( array $row, ?string $fallback_formula_version = null ): ?float {
+		$formula_version = $this->ranking_formula_version( $row, $fallback_formula_version );
+		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
+			return null;
+		}
+
+		$breakdown = $this->json_value( $row['breakdown_json'] ?? '' );
+		$value = $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null;
+
+		return is_numeric( $value ) ? (float) $value : null;
+	}
+
+	protected function ranking_confidence_public_score( array $row, ?string $fallback_formula_version = null ): ?float {
+		$formula_version = $this->ranking_formula_version( $row, $fallback_formula_version );
+		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
+			return null;
+		}
+
+		return is_numeric( $row['confidence_score'] ?? null ) ? (float) $row['confidence_score'] : null;
 	}
 }

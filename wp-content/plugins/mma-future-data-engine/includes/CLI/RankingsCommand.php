@@ -43,6 +43,7 @@ final class RankingsCommand {
 		\WP_CLI::line( 'Boards: ' . implode( ',', (array) $summary['boards_generated'] ) );
 		\WP_CLI::line( 'Warnings: ' . $summary['warnings_count'] );
 		\WP_CLI::line( 'Storage: ' . $summary['storage_strategy'] );
+		\WP_CLI::line( 'Activation: draft calculation does not change live rankings; activation stays manual.' );
 
 		\WP_CLI::success( 'Ranking draft calculated.' );
 	}

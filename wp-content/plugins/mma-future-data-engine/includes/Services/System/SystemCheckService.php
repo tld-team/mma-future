@@ -5,6 +5,7 @@ use MMAF\DataEngine\Migrations\Schema;
 use MMAF\DataEngine\REST\RestServiceProvider;
 use MMAF\DataEngine\Services\Formula\FormulaV13;
 use MMAF\DataEngine\Services\Formula\FormulaV14;
+use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 use MMAF\DataEngine\Support\DateTime;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -361,7 +362,7 @@ final class SystemCheckService {
 			$this->add_check( 'active_ranking_run_exists', $active_run ? 'pass' : 'fail', 'Active ranking run exists', $active_run ? $active_run_id : 'missing', 'existing ranking run' );
 			if ( $active_run ) {
 				$this->add_check( 'active_ranking_run_marked_active', 1 === (int) $active_run['is_active'] ? 'pass' : 'fail', 'Active ranking run is marked active', (int) $active_run['is_active'], '1' );
-				$this->add_check( 'active_ranking_formula_current', FormulaV14::VERSION === (string) $active_run['formula_version'] ? 'pass' : 'warning', 'Active ranking formula version', (string) $active_run['formula_version'], FormulaV14::VERSION );
+				$this->add_check( 'active_ranking_formula_current', FormulaRegistry::current_version() === (string) $active_run['formula_version'] ? 'pass' : 'warning', 'Active ranking formula version', (string) $active_run['formula_version'], FormulaRegistry::current_version() );
 			}
 		}
 
@@ -460,8 +461,9 @@ final class SystemCheckService {
 
 		$this->add_zero_check( 'invalid_total_score', 'Invalid total_score', $this->count_where( $tables['ranking_current'], 'total_score IS NULL' ) );
 		$active_formula_version = null === $active_run_id ? null : $wpdb->get_var( $wpdb->prepare( "SELECT formula_version FROM {$tables['ranking_runs']} WHERE id = %d LIMIT 1", $active_run_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$active_normalized_formula = in_array( (string) $active_formula_version, array( FormulaV13::VERSION, FormulaV14::VERSION ), true );
-		$formula_config = FormulaV14::config();
+		$active_normalized_formula = FormulaRegistry::uses_normalized_scores( (string) $active_formula_version );
+		$active_direct_formula = FormulaRegistry::uses_direct_scores( (string) $active_formula_version );
+		$formula_config = FormulaRegistry::config_for_version( (string) $active_formula_version );
 		$min_scoring_bouts = (int) ( $formula_config['eligibility']['min_scoring_bouts'] ?? 1 );
 
 		if ( $active_normalized_formula && $this->column_exists( $tables['ranking_current'], 'normalized_score' ) ) {
@@ -475,6 +477,18 @@ final class SystemCheckService {
 		}
 		if ( $active_normalized_formula && $this->column_exists( $tables['ranking_current'], 'sample_size' ) ) {
 			$this->add_zero_check( 'invalid_sample_size', 'Invalid trusted ranking sample size', $this->count_where( $tables['ranking_current'], 'sample_size < ' . $min_scoring_bouts ) );
+		}
+		if ( $active_direct_formula && $this->column_exists( $tables['ranking_current'], 'raw_score' ) ) {
+			$this->add_zero_check( 'invalid_direct_raw_score', 'Invalid direct-formula raw_score', $this->count_where( $tables['ranking_current'], 'raw_score IS NULL OR ABS(total_score - raw_score) > 0.001' ) );
+		}
+		if ( $active_direct_formula && $this->column_exists( $tables['ranking_current'], 'normalized_score' ) ) {
+			$this->add_zero_check( 'unexpected_normalized_score_direct_formula', 'Unexpected normalized_score for direct-formula rankings', $this->count_where( $tables['ranking_current'], 'normalized_score IS NOT NULL' ) );
+		}
+		if ( $active_direct_formula && $this->column_exists( $tables['ranking_current'], 'confidence_score' ) ) {
+			$this->add_zero_check( 'unexpected_confidence_score_direct_formula', 'Unexpected confidence_score for direct-formula rankings', $this->count_where( $tables['ranking_current'], 'confidence_score IS NOT NULL' ) );
+		}
+		if ( $active_direct_formula && $this->column_exists( $tables['ranking_current'], 'sample_size' ) ) {
+			$this->add_zero_check( 'invalid_direct_sample_size', 'Invalid direct-formula sample size', $this->count_where( $tables['ranking_current'], 'sample_size < ' . $min_scoring_bouts ) );
 		}
 
 		$calculation = $this->system_state_json( 'last_ranking_calculation_summary' );

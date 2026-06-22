@@ -3,7 +3,7 @@ namespace MMAF\DataEngine\REST;
 
 use MMAF\DataEngine\CPT\FighterPostType;
 use MMAF\DataEngine\Repositories\RestReadRepository;
-use MMAF\DataEngine\Services\Formula\FormulaV13;
+use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -200,46 +200,26 @@ final class FightersController extends AbstractRestController {
 	private function rankings_payload( array $rankings ): array {
 		$items = array();
 		foreach ( $rankings as $ranking ) {
-			$normalized_score = $this->normalized_public_score( $ranking );
-			$items[] = array(
+			$formula_version = $this->ranking_formula_version( $ranking );
+			$item = array(
 				'board'                 => (string) $ranking['board_key'],
 				'rank'                  => (int) $ranking['rank_position'],
-				'score'                 => $normalized_score,
-				'raw_score'             => $this->raw_public_score( $ranking ),
-				'performance_raw_score' => $this->performance_raw_public_score( $ranking ),
-				'confidence_score'      => is_numeric( $ranking['confidence_score'] ?? null ) ? (float) $ranking['confidence_score'] : null,
+				'score'                 => $this->ranking_public_score( $ranking, $formula_version ),
+				'raw_score'             => $this->ranking_raw_public_score( $ranking ),
 				'sample_size'           => (int) ( $ranking['sample_size'] ?? 0 ),
 				'quality_flags'         => $this->json_value( $ranking['quality_flags_json'] ?? '' ),
 				'active_ranking_run_id' => (int) $ranking['ranking_run_id'],
 			);
+
+			if ( FormulaRegistry::uses_normalized_scores( $formula_version ) ) {
+				$item['performance_raw_score'] = $this->ranking_performance_raw_public_score( $ranking, $formula_version );
+				$item['confidence_score'] = $this->ranking_confidence_public_score( $ranking, $formula_version );
+			}
+
+			$items[] = $item;
 		}
 
 		return $items;
-	}
-
-	private function normalized_public_score( array $ranking ): float {
-		if ( is_numeric( $ranking['normalized_score'] ?? null ) ) {
-			return round( (float) $ranking['normalized_score'], 3 );
-		}
-
-		$legacy_raw_score = is_numeric( $ranking['total_score'] ?? null ) ? (float) $ranking['total_score'] : 0.0;
-
-		return round( ( new FormulaV13() )->normalized_score( $legacy_raw_score ), 3 );
-	}
-
-	private function raw_public_score( array $ranking ): ?float {
-		if ( is_numeric( $ranking['raw_score'] ?? null ) ) {
-			return (float) $ranking['raw_score'];
-		}
-
-		return is_numeric( $ranking['total_score'] ?? null ) ? (float) $ranking['total_score'] : null;
-	}
-
-	private function performance_raw_public_score( array $ranking ): ?float {
-		$breakdown = $this->json_value( $ranking['breakdown_json'] ?? '' );
-		$value = $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null;
-
-		return is_numeric( $value ) ? (float) $value : null;
 	}
 
 	private function recent_fights_payload( array $recent_fights ): array {

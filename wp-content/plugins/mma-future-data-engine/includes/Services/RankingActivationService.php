@@ -5,6 +5,7 @@ use MMAF\DataEngine\Repositories\RankingCurrentRepository;
 use MMAF\DataEngine\Repositories\RankingRunRepository;
 use MMAF\DataEngine\Services\Formula\FormulaV13;
 use MMAF\DataEngine\Services\Formula\FormulaV14;
+use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 use MMAF\DataEngine\Support\DateTime;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -129,12 +130,12 @@ final class RankingActivationService {
 			throw new \RuntimeException( __( 'Only completed ranking runs can be activated.', 'mma-future-data-engine' ) );
 		}
 
-		if ( ! in_array( (string) $run['formula_version'], array( FormulaV13::VERSION, FormulaV14::VERSION ), true ) ) {
+		if ( ! in_array( (string) $run['formula_version'], FormulaRegistry::activation_supported_versions(), true ) ) {
 			throw new \RuntimeException(
 				sprintf(
 					/* translators: %s: formula versions. */
 					__( 'Only Formula %s ranking runs can be activated in this phase.', 'mma-future-data-engine' ),
-					FormulaV13::VERSION . ' or ' . FormulaV14::VERSION
+					implode( ', ', FormulaRegistry::activation_supported_versions() )
 				)
 			);
 		}
@@ -154,7 +155,7 @@ final class RankingActivationService {
 
 		$board_fighters = array();
 		$board_ranks    = array();
-		$config         = FormulaV14::VERSION === $formula_version ? FormulaV14::config() : FormulaV13::config();
+		$config         = FormulaRegistry::config_for_version( $formula_version );
 		$min_sample     = (int) ( $config['eligibility']['min_scoring_bouts'] ?? 3 );
 
 		foreach ( $snapshots as $snapshot ) {
@@ -178,32 +179,7 @@ final class RankingActivationService {
 				throw new \RuntimeException( __( 'Snapshot row has a non-numeric total score.', 'mma-future-data-engine' ) );
 			}
 
-			foreach ( array( 'raw_score', 'normalized_score', 'confidence_score' ) as $score_field ) {
-				if ( ! is_numeric( $snapshot[ $score_field ] ?? null ) ) {
-					throw new \RuntimeException(
-						sprintf(
-							/* translators: %s: score field name. */
-							__( 'Snapshot row has a non-numeric %s field.', 'mma-future-data-engine' ),
-							$score_field
-						)
-					);
-				}
-			}
-
-			$total_score      = (float) $snapshot['total_score'];
-			$normalized_score = (float) $snapshot['normalized_score'];
-			$confidence_score = (float) $snapshot['confidence_score'];
-			if ( $normalized_score < 0.0 || $normalized_score > 100.0 || $total_score < 0.0 || $total_score > 100.0 ) {
-				throw new \RuntimeException( __( 'Snapshot row has a normalized score outside the 0-100 range.', 'mma-future-data-engine' ) );
-			}
-
-			if ( $confidence_score < 0.0 || $confidence_score > 100.0 ) {
-				throw new \RuntimeException( __( 'Snapshot row has a confidence score outside the 0-100 range.', 'mma-future-data-engine' ) );
-			}
-
-			if ( abs( $total_score - $normalized_score ) > 0.001 ) {
-				throw new \RuntimeException( __( 'Snapshot total_score must match normalized_score for normalized ranking formulas.', 'mma-future-data-engine' ) );
-			}
+			$this->validate_snapshot_score_contract( $snapshot, $formula_version );
 
 			if ( (int) ( $snapshot['sample_size'] ?? 0 ) < $min_sample ) {
 				throw new \RuntimeException( __( 'Snapshot row does not meet the minimum scoring sample size.', 'mma-future-data-engine' ) );
@@ -255,6 +231,61 @@ final class RankingActivationService {
 		}
 
 		return $snapshots;
+	}
+
+	private function validate_snapshot_score_contract( array $snapshot, string $formula_version ): void {
+		if ( FormulaRegistry::uses_normalized_scores( $formula_version ) ) {
+			foreach ( array( 'raw_score', 'normalized_score', 'confidence_score' ) as $score_field ) {
+				if ( ! is_numeric( $snapshot[ $score_field ] ?? null ) ) {
+					throw new \RuntimeException(
+						sprintf(
+							/* translators: %s: score field name. */
+							__( 'Snapshot row has a non-numeric %s field.', 'mma-future-data-engine' ),
+							$score_field
+						)
+					);
+				}
+			}
+
+			$total_score      = (float) $snapshot['total_score'];
+			$normalized_score = (float) $snapshot['normalized_score'];
+			$confidence_score = (float) $snapshot['confidence_score'];
+			if ( $normalized_score < 0.0 || $normalized_score > 100.0 || $total_score < 0.0 || $total_score > 100.0 ) {
+				throw new \RuntimeException( __( 'Snapshot row has a normalized score outside the 0-100 range.', 'mma-future-data-engine' ) );
+			}
+
+			if ( $confidence_score < 0.0 || $confidence_score > 100.0 ) {
+				throw new \RuntimeException( __( 'Snapshot row has a confidence score outside the 0-100 range.', 'mma-future-data-engine' ) );
+			}
+
+			if ( abs( $total_score - $normalized_score ) > 0.001 ) {
+				throw new \RuntimeException( __( 'Snapshot total_score must match normalized_score for normalized ranking formulas.', 'mma-future-data-engine' ) );
+			}
+
+			return;
+		}
+
+		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
+			if ( ! is_numeric( $snapshot['raw_score'] ?? null ) ) {
+				throw new \RuntimeException( __( 'Snapshot row has a non-numeric raw_score field.', 'mma-future-data-engine' ) );
+			}
+
+			if ( null !== ( $snapshot['normalized_score'] ?? null ) && '' !== (string) $snapshot['normalized_score'] ) {
+				throw new \RuntimeException( __( 'Snapshot normalized_score must stay NULL for direct-score ranking formulas.', 'mma-future-data-engine' ) );
+			}
+
+			if ( null !== ( $snapshot['confidence_score'] ?? null ) && '' !== (string) $snapshot['confidence_score'] ) {
+				throw new \RuntimeException( __( 'Snapshot confidence_score must stay NULL for direct-score ranking formulas.', 'mma-future-data-engine' ) );
+			}
+
+			if ( abs( (float) $snapshot['total_score'] - (float) $snapshot['raw_score'] ) > 0.001 ) {
+				throw new \RuntimeException( __( 'Snapshot total_score must match raw_score for direct-score ranking formulas.', 'mma-future-data-engine' ) );
+			}
+
+			return;
+		}
+
+		throw new \RuntimeException( __( 'Snapshot row uses an unsupported ranking formula version.', 'mma-future-data-engine' ) );
 	}
 
 	private function warnings_count( array $snapshots ): int {

@@ -141,6 +141,7 @@ final class RestReadRepository {
 				"
 				SELECT
 					r.*,
+					rr.formula_version,
 					f.display_name,
 					f.nickname,
 					f.gender,
@@ -161,6 +162,7 @@ final class RestReadRepository {
 					s.recent_form,
 					s.activity_status
 				FROM {$this->ranking_current_table} r
+				INNER JOIN {$this->ranking_runs_table} rr ON rr.id = r.ranking_run_id
 				INNER JOIN {$this->fighters_table} f ON f.id = r.fighter_id
 				LEFT JOIN {$this->stats_table} s ON s.fighter_id = f.id
 				WHERE r.board_key = %s
@@ -226,10 +228,11 @@ final class RestReadRepository {
 		return $wpdb->get_results(
 			$wpdb->prepare(
 				"
-				SELECT board_key, rank_position, total_score, raw_score, normalized_score, confidence_score, sample_size, quality_flags_json, breakdown_json, ranking_run_id
-				FROM {$this->ranking_current_table}
-				WHERE fighter_id = %d
-				ORDER BY board_key ASC, rank_position ASC
+				SELECT r.board_key, r.rank_position, r.total_score, r.raw_score, r.normalized_score, r.confidence_score, r.sample_size, r.quality_flags_json, r.breakdown_json, r.ranking_run_id, rr.formula_version
+				FROM {$this->ranking_current_table} r
+				INNER JOIN {$this->ranking_runs_table} rr ON rr.id = r.ranking_run_id
+				WHERE r.fighter_id = %d
+				ORDER BY r.board_key ASC, r.rank_position ASC
 				", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$fighter_id
 			),

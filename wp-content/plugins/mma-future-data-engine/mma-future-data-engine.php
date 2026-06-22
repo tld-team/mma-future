@@ -43,6 +43,8 @@ require_once MMAF_PLUGIN_DIR . 'includes/Repositories/SourceImportItemRepository
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV12.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV13.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV14.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV15.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaRegistry.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/FighterPostSyncService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/FieldProvenanceService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/AuditLogService.php';

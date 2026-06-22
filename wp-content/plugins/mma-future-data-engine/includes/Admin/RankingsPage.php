@@ -4,6 +4,7 @@ namespace MMAF\DataEngine\Admin;
 use MMAF\DataEngine\Repositories\RankingCurrentRepository;
 use MMAF\DataEngine\Repositories\RankingRunRepository;
 use MMAF\DataEngine\Services\RankingActivationService;
+use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 use MMAF\DataEngine\Services\RankingCalculatorService;
 use MMAF\DataEngine\Support\Capabilities;
 
@@ -49,6 +50,8 @@ final class RankingsPage {
 		$preview_offset   = ( $preview_paged - 1 ) * $preview_per_page;
 		$preview_rows     = $latest_run_id > 0 ? $rankings->latest_preview( $latest_run_id, $preview_per_page, $selected_board, $preview_offset ) : array();
 		$latest_summary   = $latest_run ? ( self::summary_from_run( $latest_run ) ?: $summary ) : $summary;
+		$latest_formula_version = $latest_run ? (string) $latest_run['formula_version'] : FormulaRegistry::current_version();
+		$latest_uses_direct_scores = FormulaRegistry::uses_direct_scores( $latest_formula_version );
 		$latest_warnings  = $latest_run_id > 0 ? $rankings->snapshot_warning_diagnostics( $latest_run_id ) : null;
 		$active_warnings  = $active_run_id > 0 ? $rankings->current_warning_diagnostics( $active_run_id ) : null;
 		?>
@@ -122,7 +125,7 @@ final class RankingsPage {
 					</tr>
 					<tr>
 						<th scope="row"><?php echo esc_html__( 'Tie-breaker policy', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html__( 'Equal totals are ordered by adjusted raw score, wins, finish rate, confidence, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' ); ?></td>
+						<td><?php echo esc_html( self::tie_breaker_policy_text( $latest_formula_version ) ); ?></td>
 					</tr>
 					<tr>
 						<th scope="row"><?php echo esc_html__( 'Latest activation summary', 'mma-future-data-engine' ); ?></th>
@@ -242,7 +245,7 @@ final class RankingsPage {
 					);
 					?>
 				</p>
-				<p class="description"><?php echo esc_html__( 'Total (0-100) is normalized from Adjusted Raw. Adjusted Raw is Performance Raw pulled toward neutral zero by Confidence. Tie-breakers: Adjusted Raw, wins, finish rate, confidence, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' ); ?></p>
+				<p class="description"><?php echo esc_html( self::preview_score_description( $latest_formula_version ) ); ?></p>
 			<?php endif; ?>
 
 			<?php if ( ! empty( $preview_rows ) ) : ?>
@@ -253,10 +256,12 @@ final class RankingsPage {
 							<th scope="col"><?php echo esc_html__( 'Rank', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Fighter', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Board', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Total (0-100)', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Performance Raw', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Adjusted Raw', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Confidence', 'mma-future-data-engine' ); ?></th>
+							<th scope="col"><?php echo esc_html( $latest_uses_direct_scores ? __( 'Direct score', 'mma-future-data-engine' ) : __( 'Total (0-100)', 'mma-future-data-engine' ) ); ?></th>
+							<?php if ( ! $latest_uses_direct_scores ) : ?>
+								<th scope="col"><?php echo esc_html__( 'Performance Raw', 'mma-future-data-engine' ); ?></th>
+								<th scope="col"><?php echo esc_html__( 'Adjusted Raw', 'mma-future-data-engine' ); ?></th>
+								<th scope="col"><?php echo esc_html__( 'Confidence', 'mma-future-data-engine' ); ?></th>
+							<?php endif; ?>
 							<th scope="col"><?php echo esc_html__( 'Sample', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Score breakdown', 'mma-future-data-engine' ); ?></th>
 							<th scope="col"><?php echo esc_html__( 'Eligibility', 'mma-future-data-engine' ); ?></th>
@@ -277,11 +282,13 @@ final class RankingsPage {
 								<td><?php echo esc_html( (string) ( $row['display_name'] ?? ( 'Fighter #' . $row['fighter_id'] ) ) ); ?></td>
 								<td><?php echo esc_html( (string) $row['board_key'] ); ?></td>
 								<td><?php echo esc_html( (string) $row['total_score'] ); ?></td>
-								<td><?php echo esc_html( self::format_score_part( $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null ) ); ?></td>
-								<td><?php echo esc_html( (string) ( $row['raw_score'] ?? '' ) ); ?></td>
-								<td><?php echo esc_html( (string) ( $row['confidence_score'] ?? '' ) ); ?></td>
+								<?php if ( ! $latest_uses_direct_scores ) : ?>
+									<td><?php echo esc_html( self::format_score_part( $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null ) ); ?></td>
+									<td><?php echo esc_html( (string) ( $row['raw_score'] ?? '' ) ); ?></td>
+									<td><?php echo esc_html( (string) ( $row['confidence_score'] ?? '' ) ); ?></td>
+								<?php endif; ?>
 								<td><?php echo esc_html( (string) ( $row['sample_size'] ?? '' ) ); ?></td>
-								<td><?php echo esc_html( self::format_score_breakdown( (string) ( $row['breakdown_json'] ?? '' ) ) ); ?></td>
+								<td><?php echo esc_html( self::format_score_breakdown( (string) ( $row['breakdown_json'] ?? '' ), $latest_formula_version ) ); ?></td>
 								<td><?php echo esc_html( ! empty( $eligibility['eligible'] ) ? __( 'Eligible', 'mma-future-data-engine' ) : __( 'Ineligible', 'mma-future-data-engine' ) ); ?></td>
 								<td><?php echo esc_html( (string) count( is_array( $warnings['warnings'] ?? null ) ? $warnings['warnings'] : array() ) ); ?></td>
 								<td><?php echo esc_html( empty( $quality_flags ) || ! is_array( $quality_flags ) ? '-' : implode( ', ', $quality_flags ) ); ?></td>
@@ -662,10 +669,22 @@ final class RankingsPage {
 		);
 	}
 
-	private static function format_score_breakdown( string $breakdown_json ): string {
+	private static function format_score_breakdown( string $breakdown_json, string $formula_version ): string {
 		$breakdown = json_decode( $breakdown_json, true );
 		if ( ! is_array( $breakdown ) ) {
 			return '-';
+		}
+
+		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
+			return sprintf(
+				'base=%s + finish=%s + age=%s + OD=%s + loss quality=%s = total=%s',
+				self::format_score_part( $breakdown['base_record_points'] ?? null ),
+				self::format_score_part( $breakdown['finishes_points'] ?? null ),
+				self::format_score_part( $breakdown['age_adjustment_points'] ?? null ),
+				self::format_score_part( $breakdown['opponent_differential_points'] ?? null ),
+				self::format_score_part( $breakdown['loss_quality_penalty_points'] ?? null ),
+				self::format_score_part( $breakdown['total_score'] ?? null )
+			);
 		}
 
 		return sprintf(
@@ -685,5 +704,21 @@ final class RankingsPage {
 
 	private static function format_score_part( $value ): string {
 		return is_numeric( $value ) ? number_format( (float) $value, 3, '.', '' ) : '-';
+	}
+
+	private static function tie_breaker_policy_text( string $formula_version ): string {
+		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
+			return __( 'Equal totals are ordered by wins, finish rate, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' );
+		}
+
+		return __( 'Equal totals are ordered by adjusted raw score, wins, finish rate, confidence, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' );
+	}
+
+	private static function preview_score_description( string $formula_version ): string {
+		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
+			return __( 'Formula v1.5 uses a direct score contract: base + finish + age + opponent differential + loss quality = total. Sample size is informational only. Tie-breakers: wins, finish rate, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' );
+		}
+
+		return __( 'Total (0-100) is normalized from Adjusted Raw. Adjusted Raw is Performance Raw pulled toward neutral zero by Confidence. Tie-breakers: Adjusted Raw, wins, finish rate, confidence, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' );
 	}
 }

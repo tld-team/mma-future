@@ -753,13 +753,14 @@ final class FightersPage {
 
 			<?php if ( ! empty( $rankings ) ) : ?>
 				<h3><?php echo esc_html__( 'Current ranking rows', 'mma-future-data-engine' ); ?></h3>
+				<p class="description"><?php echo esc_html__( 'Score reflects the stored formula score for that ranking run. Formula v1.5 rows use the direct formula total; historical v1.3/v1.4 rows keep their legacy score contract.', 'mma-future-data-engine' ); ?></p>
 				<table class="widefat striped" style="max-width: 980px;">
 					<thead>
 						<tr>
 							<th><?php echo esc_html__( 'Board', 'mma-future-data-engine' ); ?></th>
 							<th><?php echo esc_html__( 'Position', 'mma-future-data-engine' ); ?></th>
 							<th><?php echo esc_html__( 'Score', 'mma-future-data-engine' ); ?></th>
-							<th><?php echo esc_html__( 'Run ID', 'mma-future-data-engine' ); ?></th>
+							<th><?php echo esc_html__( 'Run / Formula', 'mma-future-data-engine' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -768,7 +769,7 @@ final class FightersPage {
 								<td><?php echo esc_html( (string) $ranking['board_key'] ); ?></td>
 								<td><?php echo esc_html( (string) $ranking['rank_position'] ); ?></td>
 								<td><?php echo esc_html( (string) $ranking['total_score'] ); ?></td>
-								<td><?php echo esc_html( (string) $ranking['ranking_run_id'] ); ?></td>
+								<td><?php echo esc_html( (string) $ranking['ranking_run_id'] . ' / ' . (string) ( $ranking['formula_version'] ?? '-' ) ); ?></td>
 							</tr>
 						<?php endforeach; ?>
 					</tbody>

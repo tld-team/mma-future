@@ -1,7 +1,7 @@
 <?php
 namespace MMAF\DataEngine\Services;
 
-use MMAF\DataEngine\Services\Formula\FormulaV14;
+use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -12,7 +12,7 @@ final class EligibilityService {
 		$reasons  = array();
 		$warnings = array();
 		$gates    = array();
-		$config   = FormulaV14::config();
+		$config   = FormulaRegistry::current_config();
 		$rules    = $config['eligibility'];
 
 		$this->gate(

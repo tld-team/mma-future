@@ -2,7 +2,7 @@
 namespace MMAF\DataEngine\REST;
 
 use MMAF\DataEngine\Repositories\RestReadRepository;
-use MMAF\DataEngine\Services\Formula\FormulaV13;
+use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -78,7 +78,7 @@ final class RankingsController extends AbstractRestController {
 
 		foreach ( $result['rows'] as $row ) {
 			$profile = $this->profile_data( $row['wp_post_id'] ?? null );
-			$normalized_score = $this->normalized_public_score( $row );
+			$formula_version = $this->ranking_formula_version( $row, (string) $active_run['formula_version'] );
 			$item    = array(
 				'rank'         => (int) $row['rank_position'],
 				'fighter_id'   => (int) $row['fighter_id'],
@@ -106,13 +106,16 @@ final class RankingsController extends AbstractRestController {
 					'recent_form'     => $row['recent_form'],
 					'activity_status' => $row['activity_status'],
 				),
-				'score'          => $normalized_score,
-				'raw_score'      => $this->raw_public_score( $row ),
-				'performance_raw_score' => $this->performance_raw_public_score( $row ),
-				'confidence_score' => is_numeric( $row['confidence_score'] ?? null ) ? (float) $row['confidence_score'] : null,
+				'score'          => $this->ranking_public_score( $row, $formula_version ),
+				'raw_score'      => $this->ranking_raw_public_score( $row ),
 				'sample_size'    => (int) ( $row['sample_size'] ?? 0 ),
 				'warnings_count' => $this->warnings_count( $row['warnings_json'] ),
 			);
+
+			if ( FormulaRegistry::uses_normalized_scores( $formula_version ) ) {
+				$item['performance_raw_score'] = $this->ranking_performance_raw_public_score( $row, $formula_version );
+				$item['confidence_score'] = $this->ranking_confidence_public_score( $row, $formula_version );
+			}
 
 			if ( $include_breakdown ) {
 				$item['breakdown']      = $this->json_value( $row['breakdown_json'] );
@@ -142,30 +145,5 @@ final class RankingsController extends AbstractRestController {
 				'items'                 => $items,
 			)
 		);
-	}
-
-	private function normalized_public_score( array $row ): float {
-		if ( is_numeric( $row['normalized_score'] ?? null ) ) {
-			return round( (float) $row['normalized_score'], 3 );
-		}
-
-		$legacy_raw_score = is_numeric( $row['total_score'] ?? null ) ? (float) $row['total_score'] : 0.0;
-
-		return round( ( new FormulaV13() )->normalized_score( $legacy_raw_score ), 3 );
-	}
-
-	private function raw_public_score( array $row ): ?float {
-		if ( is_numeric( $row['raw_score'] ?? null ) ) {
-			return (float) $row['raw_score'];
-		}
-
-		return is_numeric( $row['total_score'] ?? null ) ? (float) $row['total_score'] : null;
-	}
-
-	private function performance_raw_public_score( array $row ): ?float {
-		$breakdown = $this->json_value( $row['breakdown_json'] ?? '' );
-		$value = $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null;
-
-		return is_numeric( $value ) ? (float) $value : null;
 	}
 }
