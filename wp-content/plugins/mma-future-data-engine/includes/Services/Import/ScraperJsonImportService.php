@@ -60,19 +60,21 @@ final class ScraperJsonImportService {
 		$this->tables          = Schema::table_names();
 	}
 
-	public function import_file( string $path, int $created_by = 0 ): array {
+	public function import_file( string $path, int $created_by = 0, ?array $validated_plan = null ): array {
 		$content = file_get_contents( $path );
 
 		if ( false === $content ) {
 			throw new \RuntimeException( 'Could not read JSON file: ' . $path );
 		}
 
-		return $this->import_json_string( $content, $created_by );
+		return $this->import_json_string( $content, $created_by, $validated_plan );
 	}
 
-	public function import_json_string( string $json, int $created_by = 0 ): array {
+	public function import_json_string( string $json, int $created_by = 0, ?array $validated_plan = null ): array {
 		$started_at = DateTime::mysql_now();
-		$plan       = $this->dry_run->analyze_json_string( $json, $created_by, false );
+		$plan       = null === $validated_plan
+			? $this->dry_run->analyze_json_string( $json, $created_by, false )
+			: $this->validated_plan_for_payload( $json, $validated_plan );
 		$summary    = (array) $plan['summary'];
 		$run_id     = $this->runs->insert_import_run(
 			array(
@@ -155,6 +157,28 @@ final class ScraperJsonImportService {
 			'is_valid' => true,
 			'summary'  => $this->summary,
 		);
+	}
+
+	private function validated_plan_for_payload( string $json, array $plan ): array {
+		$summary = (array) ( $plan['summary'] ?? array() );
+		$expected_hash = (string) ( $summary['payload_hash'] ?? '' );
+		$actual_hash = hash( 'sha256', $json );
+
+		if ( empty( $plan['is_valid'] ) || (int) ( $summary['validation_errors_count'] ?? 0 ) > 0 ) {
+			throw new \RuntimeException( 'Prevalidated import plan is not valid.' );
+		}
+
+		if ( '' === $expected_hash || ! hash_equals( $expected_hash, $actual_hash ) ) {
+			throw new \RuntimeException( 'Prevalidated import plan does not match the current JSON payload.' );
+		}
+
+		foreach ( array( 'fighters', 'events', 'bouts' ) as $key ) {
+			if ( ! isset( $plan[ $key ] ) || ! is_array( $plan[ $key ] ) ) {
+				throw new \RuntimeException( 'Prevalidated import plan is missing ' . $key . '.' );
+			}
+		}
+
+		return $plan;
 	}
 
 	private function process_fighters( array $events, array $fighter_plan, int $run_id, int $user_id ): void {

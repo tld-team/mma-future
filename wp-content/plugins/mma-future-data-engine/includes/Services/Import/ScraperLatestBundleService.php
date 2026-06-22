@@ -44,8 +44,10 @@ final class ScraperLatestBundleService {
 		);
 	}
 
-	public function import_bundle( string $bundle_dir, int $created_by = 0, bool $allow_not_ready = false, string $not_ready_reason = '' ): array {
-		$analysis = $this->analyze_bundle( $bundle_dir, $created_by, false );
+	public function import_bundle( string $bundle_dir, int $created_by = 0, bool $allow_not_ready = false, string $not_ready_reason = '', ?array $validated_analysis = null ): array {
+		$analysis = null === $validated_analysis
+			? $this->analyze_bundle( $bundle_dir, $created_by, false )
+			: $validated_analysis;
 		$summary = (array) $analysis['summary'];
 
 		if ( empty( $analysis['is_valid'] ) ) {
@@ -62,7 +64,11 @@ final class ScraperLatestBundleService {
 		}
 
 		$bundle = (array) $analysis['bundle'];
-		$result = ( new ScraperJsonImportService() )->import_file( (string) $bundle['paths']['results'], $created_by );
+		$result = ( new ScraperJsonImportService() )->import_file(
+			(string) $bundle['paths']['results'],
+			$created_by,
+			(array) $analysis['results_dry_run']
+		);
 		$result_summary = (array) ( $result['summary'] ?? array() );
 		$import_run_id = (int) ( $result_summary['import_run_id'] ?? 0 );
 

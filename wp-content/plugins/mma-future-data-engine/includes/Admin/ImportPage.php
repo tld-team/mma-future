@@ -435,6 +435,8 @@ final class ImportPage {
 			throw new \RuntimeException( 'Confirm that a backup exists or that this is a local/dev environment before running actual import.' );
 		}
 
+		self::extend_import_runtime();
+
 		$bundle_dir = self::resolve_optional_bundle_dir();
 		if ( null !== $bundle_dir ) {
 			$reviewed_bundle_hash = isset( $_POST['mmaf_import_reviewed_bundle_hash'] ) ? sanitize_text_field( wp_unslash( $_POST['mmaf_import_reviewed_bundle_hash'] ) ) : '';
@@ -454,7 +456,7 @@ final class ImportPage {
 				throw new \RuntimeException( 'Explain why this not-ready latest bundle should be imported before running manual-review import.' );
 			}
 
-			return ( new ScraperLatestBundleService() )->import_bundle( $bundle_dir, get_current_user_id(), $allow_not_ready, $not_ready_reason );
+			return ( new ScraperLatestBundleService() )->import_bundle( $bundle_dir, get_current_user_id(), $allow_not_ready, $not_ready_reason, $analysis );
 		}
 
 		$path = self::resolve_input_path();
@@ -485,7 +487,7 @@ final class ImportPage {
 
 		$profile_input = self::resolve_optional_profile_input();
 		$service = new ScraperJsonImportService();
-		$result = $service->import_json_string( $content, get_current_user_id() );
+		$result = $service->import_json_string( $content, get_current_user_id(), $dry_run );
 		$result['summary']['fighter_profile_enrichment_provided'] = null !== $profile_input;
 
 		if ( null !== $profile_input ) {
@@ -668,6 +670,16 @@ final class ImportPage {
 	}
 
 	private static function extend_snapshot_runtime(): void {
+		if ( function_exists( 'set_time_limit' ) ) {
+			set_time_limit( 0 );
+		}
+	}
+
+	private static function extend_import_runtime(): void {
+		if ( function_exists( 'wp_raise_memory_limit' ) ) {
+			wp_raise_memory_limit( 'admin' );
+		}
+
 		if ( function_exists( 'set_time_limit' ) ) {
 			set_time_limit( 0 );
 		}
