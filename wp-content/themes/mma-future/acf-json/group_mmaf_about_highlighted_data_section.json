@@ -1,0 +1,112 @@
+{
+  "key": "group_mmaf_about_highlighted_data_section",
+  "title": "About — Data Sources",
+  "fields": [
+    {
+      "key": "field_mmaf_4e092f91db3ed75707",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_581a8f93f04afdf7de",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_9499ef2bd0326b64fd",
+      "label": "Data Sources Text",
+      "name": "data_sources_text",
+      "type": "wysiwyg",
+      "instructions": "Izvori koje sistem koristi.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "tabs": "visual",
+      "toolbar": "basic",
+      "media_upload": 0
+    },
+    {
+      "key": "field_mmaf_cf60f85d837b588ca1",
+      "label": "Update Schedule Text",
+      "name": "update_schedule_text",
+      "type": "textarea",
+      "instructions": "Objasni odvojene korake importa, statistike i aktivacije rangiranja.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_341244c8da5eeda258",
+      "label": "Limitations Text",
+      "name": "limitations_text",
+      "type": "textarea",
+      "instructions": "Ograničenja obuhvata i provere podataka.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_74dbec072fb44f9320",
+      "label": "Disclaimer",
+      "name": "disclaimer",
+      "type": "textarea",
+      "instructions": "Opciona napomena o podacima.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/about-highlighted-data-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

@@ -62,7 +62,8 @@ final class RankingCalculatorService {
 		$this->audit_log  = new AuditLogService();
 	}
 
-	public function calculate_draft( int $actor_user_id = 0, ?string $reference_date = null ): array {
+	public function calculate_draft( int $actor_user_id = 0, ?string $reference_date = null, string $reason = 'Manual draft ranking calculation' ): array {
+		\MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		$reference_date = $reference_date ? $reference_date : current_time( 'Y-m-d' );
 		$calculated_at  = DateTime::mysql_now();
 		$config         = FormulaRegistry::current_config();
@@ -73,15 +74,15 @@ final class RankingCalculatorService {
 			$reference_date,
 			$calculated_at,
 			'draft',
-			'Manual draft ranking calculation'
+			$reason
 		);
 
 		try {
 			$result = $this->build_result( $run_id, $reference_date, $calculated_at );
-			$this->rankings->insert_draft_snapshots( $run_id, $result['rows'] );
+			$written=$this->rankings->insert_draft_snapshots( $run_id, $result['rows'] );
 
 			$summary = $result['summary'];
-			$summary['ranked_rows'] = count( $result['rows'] );
+			$summary['ranked_rows'] = $written;
 			$summary['status']      = 'completed';
 
 			$this->runs->update(
@@ -98,7 +99,7 @@ final class RankingCalculatorService {
 				$run_id,
 				$previous,
 				$summary,
-				'Manual ranking calculation',
+				$reason,
 				$actor_user_id
 			);
 
@@ -133,9 +134,6 @@ final class RankingCalculatorService {
 	}
 
 	private function build_result( int $run_id, string $reference_date, string $calculated_at ): array {
-		$fighters             = $this->runs->list_fighters_with_stats();
-		$source_types         = $this->runs->source_types_by_fighter();
-		$scoring_items        = $this->scoring_items_by_fighter();
 		$ranked              = array();
 		$eligible_count      = 0;
 		$ineligible_count    = 0;
@@ -147,6 +145,11 @@ final class RankingCalculatorService {
 		$structural_warnings = array();
 		$eligibility_reasons = array();
 
+		foreach ($this->runs->fighter_batches_with_stats() as $fighters) {
+			$eligible_ids=[];
+			foreach ($fighters as $candidate) { if (!empty($this->eligibility->evaluate($candidate,$this->stats_from_row($candidate),$reference_date)['eligible_for_calculation'])) { $eligible_ids[]=(int)$candidate['id']; } }
+			$source_types=$eligible_ids?$this->runs->source_types_by_fighter($eligible_ids):[];
+			$scoring_items=$eligible_ids?$this->scoring_items_by_fighter($eligible_ids):[];
 		foreach ( $fighters as $fighter ) {
 			$fighter_id = (int) $fighter['id'];
 			$stats      = $this->stats_from_row( $fighter );
@@ -209,6 +212,7 @@ final class RankingCalculatorService {
 			);
 		}
 
+		}
 		$this->sort_ranked( $ranked );
 
 		$rows = $this->rows_for_boards( $ranked );
@@ -240,8 +244,7 @@ final class RankingCalculatorService {
 		);
 	}
 
-	private function rows_for_boards( array $ranked ): array {
-		$rows = array();
+	private function rows_for_boards( array $ranked ): \Generator {
 
 		foreach ( self::BOARD_KEYS as $board_key ) {
 			$position = 1;
@@ -250,12 +253,11 @@ final class RankingCalculatorService {
 					continue;
 				}
 
-				$rows[] = $this->snapshot_row_for_item( $item, $board_key, $position );
+				yield $this->snapshot_row_for_item( $item, $board_key, $position );
 				++$position;
 			}
 		}
 
-		return $rows;
 	}
 
 	private function snapshot_row_for_item( array $item, string $board_key, int $position ): array {
@@ -486,10 +488,11 @@ final class RankingCalculatorService {
 		return array_values( array_unique( $flags ) );
 	}
 
-	private function scoring_items_by_fighter(): array {
+	private function scoring_items_by_fighter(?array $ids=null): array {
 		global $wpdb;
 
 		$tables = Schema::table_names();
+		$where=null===$ids?'':' WHERE EXISTS (SELECT 1 FROM '.$tables['bout_participants'].' target WHERE target.bout_id=p.bout_id AND target.fighter_id IN ('.implode(',',array_map('intval',$ids?:[0])).'))';
 		$rows   = $wpdb->get_results(
 			"
 			SELECT
@@ -522,6 +525,7 @@ final class RankingCalculatorService {
 			LEFT JOIN {$tables['bouts']} b ON b.id = p.bout_id
 			LEFT JOIN {$tables['events']} e ON e.id = b.event_id AND e.deleted_soft = 0
 			LEFT JOIN {$tables['fighters']} f ON f.id = p.fighter_id
+			$where
 			ORDER BY b.event_id ASC, p.bout_id ASC, p.id ASC
 			", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			ARRAY_A

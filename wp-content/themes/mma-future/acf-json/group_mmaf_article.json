@@ -1,0 +1,106 @@
+{
+  "key": "group_mmaf_article",
+  "title": "Article — Editorial And Relations",
+  "fields": [
+    {
+      "key": "field_mmaf_75e1f688e5dbb626c3",
+      "label": "Key Takeaways",
+      "name": "key_takeaways",
+      "type": "repeater",
+      "instructions": "Dodaj sažete ključne poruke.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_3ceb5625ba2fd7dddb",
+          "label": "Takeaway Text",
+          "name": "takeaway_text",
+          "type": "text",
+          "instructions": "Jedna ključna poruka članka.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_ab3e9c380feffa66e5",
+      "label": "Related Fighter Ids",
+      "name": "related_fighter_ids",
+      "type": "mmaf_entity",
+      "instructions": "Izaberi povezane javne kanonske borce.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "entity_type": "fighter",
+      "multiple": 1
+    },
+    {
+      "key": "field_mmaf_c2a7030902645a9006",
+      "label": "Related Event Ids",
+      "name": "related_event_ids",
+      "type": "mmaf_entity",
+      "instructions": "Izaberi povezane kanonske događaje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "entity_type": "event",
+      "multiple": 1
+    },
+    {
+      "key": "field_mmaf_831e064378a59f6974",
+      "label": "Article Cta",
+      "name": "article_cta",
+      "type": "link",
+      "instructions": "Opcioni prateći poziv na akciju.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "post_type",
+        "operator": "==",
+        "value": "post"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

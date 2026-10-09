@@ -27,20 +27,13 @@ final class StatsRebuildService {
 	}
 
 	public function rebuild_all( int $actor_user_id = 0, string $reason = 'Manual stats rebuild' ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
+        return \MMAF\DataEngine\Services\RegularImport\Transaction::run(fn()=>$this->rebuild_summary($actor_user_id,$reason));
+    }
+    private function rebuild_summary(int $actor_user_id,string $reason): array {
 		$previous_summary = $this->stats->get_last_rebuild_summary();
-		$fighters         = $this->stats->list_active_fighters();
-		$fighter_ids      = array();
-		$rows_by_fighter  = array();
-		$warnings_count   = 0;
-
-		foreach ( $fighters as $fighter ) {
-			$fighter_id                 = (int) $fighter['id'];
-			$fighter_ids[ $fighter_id ] = true;
-			$rows_by_fighter[ $fighter_id ] = $this->empty_fighter_stats( $fighter_id );
-		}
-
-		$participants_by_bout = $this->participants_by_bout( $this->stats->list_participants_with_fighters() );
-		$bouts                = $this->stats->list_bouts_with_events();
+		$fighters_total = $this->stats->active_count();
+		$warnings_count = 0;
 		$countable_bouts      = 0;
 		$skipped_bouts        = 0;
 		$malformed_bouts      = 0;
@@ -60,9 +53,9 @@ final class StatsRebuildService {
 			'missing_prefight_record'      => 0,
 		);
 
-		foreach ( $bouts as $bout ) {
+		foreach ( $this->stats->bout_stream() as $bout ) {
 			$bout_id      = (int) $bout['id'];
-			$participants = $participants_by_bout[ $bout_id ] ?? array();
+			$participants = $bout['_participants'];
 
 			if ( 2 !== count( $participants ) ) {
 				++$skipped_bouts;
@@ -122,47 +115,43 @@ final class StatsRebuildService {
 					continue;
 				}
 
-				if ( 1 === (int) $participant['fighter_deleted_soft'] || ! isset( $fighter_ids[ $fighter_id ] ) ) {
+				if ( 1 === (int) $participant['fighter_deleted_soft'] ) {
 					$this->increment_warning( $summary_warnings, 'soft_deleted_fighter_skipped', $fighter_id, $warnings_count );
 					continue;
 				}
 
 				if ( ! in_array( $result, self::COUNTABLE_RESULTS, true ) ) {
-					$this->add_fighter_warning( $rows_by_fighter[ $fighter_id ], 'invalid_result_for_fighter' );
 					$this->increment_warning( $summary_warnings, 'invalid_result_for_fighter', $bout_id, $warnings_count );
 					continue;
 				}
 
 				if ( $this->participant_missing_prefight_record( $participant ) ) {
-					$this->add_fighter_warning( $rows_by_fighter[ $fighter_id ], 'missing_prefight_record' );
 					$this->increment_warning( $summary_warnings, 'missing_prefight_record', $bout_id, $warnings_count );
 				}
 
-				if ( empty( $bout['event_date'] ) ) {
-					$this->add_fighter_warning( $rows_by_fighter[ $fighter_id ], 'missing_event_date' );
-				}
 
 				if ( 'win' === $result && ( empty( $bout['method_category'] ) || 'unknown' === (string) $bout['method_category'] ) ) {
-					$this->add_fighter_warning( $rows_by_fighter[ $fighter_id ], 'missing_method_category' );
 					$this->increment_warning( $summary_warnings, 'missing_method_category', $bout_id, $warnings_count );
 				}
 
-				$this->apply_participant_result( $rows_by_fighter[ $fighter_id ], $bout, $result );
 			}
 		}
 
-		$stats_rows = array();
-		foreach ( $rows_by_fighter as $fighter_id => $stats_row ) {
-			$this->finalize_fighter_stats( $stats_row );
-			$stats_rows[] = $this->database_row( $stats_row );
-		}
+		$this->stats->replace_all( $this->stats_rows() );
+        $coverageTable=\MMAF\DataEngine\Migrations\Schema::table_names()['fighter_career_coverage']; $last=0;
+        $career=new \MMAF\DataEngine\Services\RegularImport\CareerHistory();
+        do {
+            global $wpdb;
+            $coverages=$wpdb->get_results($wpdb->prepare("SELECT * FROM $coverageTable WHERE fighter_id>%d ORDER BY fighter_id LIMIT 250",$last),ARRAY_A);
+            if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+            foreach ($coverages as $coverage) { $last=(int)$coverage['fighter_id']; $career->refresh_record_coverage($coverage,$actor_user_id); }
+        } while(count($coverages)===250);
 
-		$this->stats->replace_all( $stats_rows );
 
 		$summary = array(
 			'rebuilt_at'             => DateTime::mysql_now(),
-			'fighters_total'         => count( $fighters ),
-			'stats_rows_written'     => count( $stats_rows ),
+			'fighters_total'         => $fighters_total,
+			'stats_rows_written'     => $fighters_total,
 			'countable_bouts'        => $countable_bouts,
 			'skipped_bouts'          => $skipped_bouts,
 			'malformed_bouts'        => $malformed_bouts,
@@ -182,7 +171,28 @@ final class StatsRebuildService {
 			$actor_user_id
 		);
 
+		do_action( 'mmaf_public_data_changed', 'stats' );
 		return $summary;
+	}
+
+	/** Materialize only one indexed fighter batch and its history at a time. */
+	private function stats_rows(): \Generator {
+		foreach ($this->stats->fighter_batches() as $ids) {
+			$rows=[]; foreach ($ids as $id) { $rows[$id]=$this->empty_fighter_stats($id); }
+			foreach ($this->stats->history_for_fighters($ids) as $bout) {
+				$id=(int)$bout['fighter_id']; $result=(string)$bout['result_for_fighter'];
+				if ((int)$bout['participant_count']!==2 || (int)$bout['deleted_soft']===1 || !in_array($bout['status'],self::COUNTABLE_STATUSES,true)) { continue; }
+				if (!in_array($result,self::COUNTABLE_RESULTS,true)) {
+					if ((int)$bout['countable_participants']>0) { $this->add_fighter_warning($rows[$id],'invalid_result_for_fighter'); }
+					continue;
+				}
+				if ($this->participant_missing_prefight_record($bout)) { $this->add_fighter_warning($rows[$id],'missing_prefight_record'); }
+				if (empty($bout['event_date'])) { $this->add_fighter_warning($rows[$id],'missing_event_date'); }
+				if ($result==='win' && (empty($bout['method_category']) || $bout['method_category']==='unknown')) { $this->add_fighter_warning($rows[$id],'missing_method_category'); }
+				$this->apply_participant_result($rows[$id],$bout,$result);
+			}
+			foreach ($rows as $row) { $this->finalize_fighter_stats($row); yield $this->database_row($row); }
+		}
 	}
 
 	private function participants_by_bout( array $participants ): array {

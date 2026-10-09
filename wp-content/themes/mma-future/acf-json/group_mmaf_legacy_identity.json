@@ -1,0 +1,45 @@
+{
+    "key": "group_mmaf_legacy_identity",
+    "title": "Legacy profile identity",
+    "fields": [
+        {
+            "key": "field_mmaf_legacy_canonical_fighter_id",
+            "label": "Verified canonical fighter",
+            "name": "legacy_canonical_fighter_id",
+            "type": "mmaf_entity",
+            "instructions": "Poveži samo nakon potvrde identiteta iz izvora. Ime samo po sebi nije dovoljno. Prazno zadržava stari profil i URL.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "entity_type": "fighter",
+            "multiple": 0,
+            "ui": 1,
+            "ajax": 1,
+            "allow_null": 1,
+            "return_format": "value"
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "post_type",
+                "operator": "==",
+                "value": "fighter"
+            }
+        ]
+    ],
+    "menu_order": 99,
+    "position": "side",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": [],
+    "active": true,
+    "description": "Confirmed mapping preserves old fighter URLs.",
+    "show_in_rest": 0,
+    "modified": 1791460800
+}

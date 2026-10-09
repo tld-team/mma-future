@@ -25,6 +25,7 @@ final class SystemSnapshotImportService {
 	}
 
 	public function import_json_string( string $json, int $user_id = 0, bool $reset_wp_post_links = true ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		global $wpdb;
 
 		$payload = json_decode( $json, true, 512, JSON_BIGINT_AS_STRING );

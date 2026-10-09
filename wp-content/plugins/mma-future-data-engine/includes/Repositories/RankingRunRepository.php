@@ -38,6 +38,8 @@ final class RankingRunRepository {
 			array(
 				'formula_version'          => $formula_version,
 				'formula_config_snapshot'  => wp_json_encode( $formula_config_snapshot ),
+				'data_scope_version' => (string) get_option('mmaf_history_data_scope','legacy_partial_v1'),
+				'data_snapshot_json' => wp_json_encode( $this->data_snapshot() ),
 				'reference_date'           => $reference_date,
 				'calculated_at'            => $calculated_at,
 				'status'                   => $status,
@@ -55,6 +57,13 @@ final class RankingRunRepository {
 		return (int) $wpdb->insert_id;
 	}
 
+	private function data_snapshot(): array {
+		global $wpdb;
+		$t = Schema::table_names();
+		$stats = $wpdb->get_row( "SELECT COUNT(*) AS fighters,SUM(pro_fights_count) AS participant_results,SUM(wins) AS wins,SUM(losses) AS losses,SUM(draws) AS draws,SUM(nc) AS no_contests,MAX(calculated_at) AS latest_calculated_at FROM {$t['fighter_stats_current']}", ARRAY_A );
+		$coverage = $wpdb->get_results( "SELECT status,COUNT(*) AS total FROM {$t['fighter_career_coverage']} GROUP BY status ORDER BY status", ARRAY_A );
+		return array( 'history_scope' => get_option( 'mmaf_history_data_scope', 'legacy_partial_v1' ), 'stats_updated_at' => ( new RestReadRepository() )->health_summary()['latest_stats_rebuild_time'], 'statistics' => $stats, 'career_coverage' => $coverage, 'public_data_revision' => get_option( 'mmaf_public_data_revision', '' ) );
+	}
 	public function update( int $run_id, array $data ): void {
 		global $wpdb;
 
@@ -117,8 +126,9 @@ final class RankingRunRepository {
 		return $row ?: null;
 	}
 
-	public function list_fighters_with_stats(): array {
+	public function list_fighters_with_stats(?array $ids=null): array {
 		global $wpdb;
+		$where=null===$ids?'':' WHERE f.id IN ('.implode(',',array_map('intval',$ids?:[0])).')';
 
 		return $wpdb->get_results(
 			"
@@ -169,17 +179,19 @@ final class RankingRunRepository {
 				) AS malformed_tapology_source_count
 			FROM {$this->fighters_table} f
 			LEFT JOIN {$this->stats_table} s ON s.fighter_id = f.id
+			$where
 			ORDER BY f.id ASC
 			", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			ARRAY_A
 		);
 	}
 
-	public function source_types_by_fighter(): array {
+	public function source_types_by_fighter(?array $ids=null): array {
 		global $wpdb;
+		$where=null===$ids?'':' AND fighter_id IN ('.implode(',',array_map('intval',$ids?:[0])).')';
 
 		$rows = $wpdb->get_results(
-			"SELECT fighter_id, source_type FROM {$this->fighter_sources_table} WHERE fighter_id IS NOT NULL ORDER BY fighter_id ASC, source_type ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			"SELECT fighter_id, source_type FROM {$this->fighter_sources_table} WHERE fighter_id IS NOT NULL $where ORDER BY fighter_id ASC, source_type ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			ARRAY_A
 		);
 
@@ -197,6 +209,16 @@ final class RankingRunRepository {
 		}
 
 		return $grouped;
+	}
+
+	public function fighter_batches_with_stats(int $size=250): \Generator {
+		global $wpdb; $last=0;
+		do {
+			$ids=$wpdb->get_col($wpdb->prepare("SELECT id FROM {$this->fighters_table} WHERE id>%d ORDER BY id LIMIT %d",$last,$size));
+			if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+			if (!$ids) { break; }
+			$last=(int)end($ids); yield $this->list_fighters_with_stats($ids);
+		} while(count($ids)===$size);
 	}
 
 	public function get_last_calculation_summary(): ?array {

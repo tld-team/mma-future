@@ -395,6 +395,8 @@ final class ImportPage {
 	}
 
 	private static function handle_dry_run_request(): array {
+		self::extend_import_runtime();
+
 		$bundle_dir = self::resolve_optional_bundle_dir();
 		if ( null !== $bundle_dir ) {
 			$analysis = ( new ScraperLatestBundleService() )->analyze_bundle( $bundle_dir, get_current_user_id(), false );

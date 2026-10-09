@@ -5,7 +5,7 @@ $anchor = isset($block['anchor']) ? $block['anchor'] : $blocks_id;
 
 // ACF Fields
 $background_image = get_field('background_image');
-$bg_image_url = !empty($background_image['url']) ? $background_image['url'] : '';
+$bg_image_url = is_array($background_image) ? ($background_image['url'] ?? '') : (is_numeric($background_image) ? (wp_get_attachment_image_url((int)$background_image, 'full') ?: '') : (is_string($background_image) && filter_var($background_image, FILTER_VALIDATE_URL) ? $background_image : ''));
 $title = get_field('title');
 $subtitle = get_field('subtitle');
 $primary_cta_button = get_field('primary_cta_button');
@@ -35,12 +35,12 @@ $secondary_cta_button = get_field('secondary_cta_button');
             <?php endif; ?>
             
             <!-- Call-to-Action Buttons -->
-            <?php if (!empty($primary_cta_button['url']) || !empty($secondary_cta_button['url'])) : ?>
+            <?php if ((!empty($primary_cta_button['url']) && !empty($primary_cta_button['title'])) || (!empty($secondary_cta_button['url']) && !empty($secondary_cta_button['title']))) : ?>
             <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <!-- Primary CTA Button - View Rankings -->
-                <?php if (!empty($primary_cta_button['url'])) : ?>
+                <?php if ((!empty($primary_cta_button['url']) && !empty($primary_cta_button['title']))) : ?>
                 <a href="<?php echo esc_url($primary_cta_button['url']); ?>" <?php echo !empty($primary_cta_button['target']) ? 'target="' . esc_attr($primary_cta_button['target']) . '"' : ''; ?> class="hero-cta-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 h-14 px-8 rounded-2xl font-heading font-semibold text-base uppercase no-underline ring-1 ring-white/25 visited:text-white" style="text-decoration: none !important;">
-                    <span><?php echo esc_html(!empty($primary_cta_button['title']) ? $primary_cta_button['title'] : 'View Rankings'); ?></span>
+                    <span><?php echo esc_html($primary_cta_button['title']); ?></span>
                     <svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
                     </svg>
@@ -48,12 +48,12 @@ $secondary_cta_button = get_field('secondary_cta_button');
                 <?php endif; ?>
                 
                 <!-- Secondary CTA Button - How it works -->
-                <?php if (!empty($secondary_cta_button['url'])) : ?>
+                <?php if ((!empty($secondary_cta_button['url']) && !empty($secondary_cta_button['title']))) : ?>
                 <a href="<?php echo esc_url($secondary_cta_button['url']); ?>" <?php echo !empty($secondary_cta_button['target']) ? 'target="' . esc_attr($secondary_cta_button['target']) . '"' : ''; ?> class="hero-cta-secondary w-full sm:w-auto inline-flex items-center justify-center gap-2 h-14 px-8 rounded-2xl font-heading font-semibold text-base no-underline ring-1 ring-white/30 visited:text-white" style="text-decoration: none !important;">
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M8 5v14l11-7z"></path>
                     </svg>
-                    <span><?php echo esc_html(!empty($secondary_cta_button['title']) ? $secondary_cta_button['title'] : 'How it works?'); ?></span>
+                    <span><?php echo esc_html($secondary_cta_button['title']); ?></span>
                 </a>
                 <?php endif; ?>
             </div>

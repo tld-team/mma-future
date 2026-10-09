@@ -59,7 +59,7 @@ abstract class AbstractRestController {
 		}
 
 		$post = get_post( $post_id );
-		if ( ! $post instanceof \WP_Post || 'trash' === $post->post_status ) {
+		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status || 'mmaf_fighter' !== $post->post_type ) {
 			return array(
 				'wp_post_id' => $post_id,
 				'slug'       => null,

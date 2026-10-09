@@ -51,13 +51,13 @@ final class FieldProvenanceService {
 		);
 
 		if ( $existing_id ) {
-			$wpdb->update(
+			\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->update(
 				$this->table,
 				$data,
 				array( 'id' => (int) $existing_id ),
 				null,
 				array( '%d' )
-			);
+			));
 
 			return;
 		}
@@ -69,7 +69,7 @@ final class FieldProvenanceService {
 		$data['first_seen_at'] = $now;
 		$data['created_at']    = $now;
 
-		$wpdb->insert( $this->table, $data );
+		\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->insert( $this->table, $data ));
 	}
 
 	public function upsert_source( string $entity_type, int $entity_id, string $field_name, $value, string $source_type, ?string $source_id = null, int $user_id = 0 ): void {
@@ -107,13 +107,13 @@ final class FieldProvenanceService {
 		);
 
 		if ( $existing_id ) {
-			$wpdb->update(
+			\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->update(
 				$this->table,
 				$data,
 				array( 'id' => (int) $existing_id ),
 				null,
 				array( '%d' )
-			);
+			));
 
 			return;
 		}
@@ -125,7 +125,7 @@ final class FieldProvenanceService {
 		$data['first_seen_at'] = $now;
 		$data['created_at']    = $now;
 
-		$wpdb->insert( $this->table, $data );
+		\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->insert( $this->table, $data ));
 	}
 
 	public function has_manual_verified( string $entity_type, int $entity_id, string $field_name ): bool {

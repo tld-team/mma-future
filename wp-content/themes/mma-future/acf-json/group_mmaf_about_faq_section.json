@@ -1,0 +1,53 @@
+{
+  "key": "group_mmaf_about_faq_section",
+  "title": "About — FAQ",
+  "fields": [
+    {
+      "key": "field_mmaf_138a0fd2aee026c343",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_aee72925a252f1f23e",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/about-faq-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

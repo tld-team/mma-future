@@ -125,6 +125,19 @@ final class BoutImportPreviewService {
 			}
 		}
 
+		if (in_array((string)($event_preview['action'] ?? ''), ['blocked_event_conflict','review_event_match'], true)) {
+            $action = 'blocked_parent_event';
+            $reason = 'Parent event requires review before this bout can be imported.';
+        }
+
+        if(in_array($action,['create_candidate','update_candidate','no_change_candidate'],true)){
+            foreach(['fighter_a','fighter_b'] as $side){
+                $ref=$fighter_previews[$this->fighter_ref_key((array)($bout[$side]??[]))]??[];
+                if(in_array($ref['action']??'',['likely_match_review','unresolved_fighter_ref'],true)){
+                    $action='blocked_fighter';$reason='A participant requires identity review before this bout can be imported.';break;
+                }
+            }
+        }
 		if ( empty( $result['method_category'] ) || 'unknown' === (string) $result['method_category'] ) {
 			$warnings[] = 'Bout ' . ( '' !== $source_bout_id ? $source_bout_id : '#' . ( $bout_index + 1 ) ) . ' has missing/unknown method category.';
 			++$warning_count;

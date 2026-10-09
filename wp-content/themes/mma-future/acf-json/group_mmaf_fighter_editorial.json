@@ -1,0 +1,128 @@
+{
+  "key": "group_mmaf_fighter_editorial",
+  "title": "Fighter — Editorial Content",
+  "fields": [
+    {
+      "key": "field_mmaf_8108ebc520f399d518",
+      "label": "Biography",
+      "name": "biography",
+      "type": "wysiwyg",
+      "instructions": "Urednički tekst o borcu; ne unosi rekord ili skor koji se prikazuje iz baze.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "tabs": "visual",
+      "toolbar": "basic",
+      "media_upload": 0
+    },
+    {
+      "key": "field_mmaf_84927b9ecb3edbc628",
+      "label": "Career Highlights",
+      "name": "career_highlights",
+      "type": "repeater",
+      "instructions": "Urednički istaknute stavke karijere.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_43ede64ea6a943e100",
+          "label": "Highlight Text",
+          "name": "highlight_text",
+          "type": "text",
+          "instructions": "Jedna proverena stavka karijere.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_888503454cd11a53ad",
+      "label": "Fighter Social Links",
+      "name": "fighter_social_links",
+      "type": "repeater",
+      "instructions": "Javni linkovi borca.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_d2cef8880e3b31e472",
+          "label": "Link",
+          "name": "link",
+          "type": "link",
+          "instructions": "Javni profil borca i naziv linka.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "return_format": "array"
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_0ba6a20a2206e870bf",
+      "label": "Hero Image",
+      "name": "hero_image",
+      "type": "image",
+      "instructions": "Opciona hero slika; bez nje se koristi featured image profila.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "id",
+      "preview_size": "medium",
+      "library": "all"
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "post_type",
+        "operator": "==",
+        "value": "mmaf_fighter"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

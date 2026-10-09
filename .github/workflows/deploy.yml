@@ -6,13 +6,16 @@ on:
       - main  # Pokreće se svaki put kada pushujete u 'main' granu
 
 jobs:
+  validate:
+    uses: ./.github/workflows/validate.yml
   ftp-deploy:
     name: Upload to cPanel via FTP
+    needs: validate
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2  # Preuzima kod iz repozitorijuma
+        uses: actions/checkout@v4
 
       - name: Deploy files via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -28,3 +31,6 @@ jobs:
             **/.github*
             **/README.md
             **/node_modules/*
+            dev-tools/**
+            tests/**
+            docs/**

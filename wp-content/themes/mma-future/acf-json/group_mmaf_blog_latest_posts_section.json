@@ -1,0 +1,122 @@
+{
+  "key": "group_mmaf_blog_latest_posts_section",
+  "title": "Home — Latest Posts",
+  "fields": [
+    {
+      "key": "field_mmaf_5840e2d0db45171f62",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_8aa4b68fb24a4d3d8e",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_b6e236e61bbeec8df9",
+      "label": "Primary Link",
+      "name": "primary_link",
+      "type": "link",
+      "instructions": "Destinacija i tekst glavnog dugmeta.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    },
+    {
+      "key": "field_mmaf_cb2b4c0193a57e00d9",
+      "label": "Secondary Link",
+      "name": "secondary_link",
+      "type": "link",
+      "instructions": "Opcioni drugi link; prazno znači da se dugme ne prikazuje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    },
+    {
+      "key": "field_mmaf_6128ece42895edd3ae",
+      "label": "Posts Count",
+      "name": "posts_count",
+      "type": "number",
+      "instructions": "Broj poslednjih članaka.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "default_value": 4,
+      "min": 1,
+      "max": 12
+    },
+    {
+      "key": "field_mmaf_ec4b6d4e8545a3d835",
+      "label": "Post Category",
+      "name": "post_category",
+      "type": "taxonomy",
+      "instructions": "Opcioni filter kategorije; prazno znači sve.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "taxonomy": "category",
+      "field_type": "select",
+      "allow_null": 1,
+      "add_term": 0,
+      "save_terms": 0,
+      "load_terms": 0,
+      "return_format": "id",
+      "multiple": 0
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/blog-latest-posts-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

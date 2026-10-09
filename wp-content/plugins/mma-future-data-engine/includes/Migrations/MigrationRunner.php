@@ -9,7 +9,7 @@ final class MigrationRunner {
 	public static function run(): void {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-		foreach ( Schema::sql() as $statement ) {
+		foreach ( array_merge( Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql() ) as $statement ) {
 			dbDelta( $statement );
 		}
 

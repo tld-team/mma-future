@@ -36,6 +36,10 @@ final class Plugin {
 
 		add_action( 'init', array( FighterPostType::class, 'register' ) );
 		RestServiceProvider::register();
+		Services\PublicVisibilityService::register();
+		Services\PublicCacheService::register();
+		Services\RegularImport\Module::register();
+		Services\DataPipeline\Processor::register();
 
 		if ( is_admin() ) {
 			add_action( 'admin_menu', array( AdminMenu::class, 'register' ) );

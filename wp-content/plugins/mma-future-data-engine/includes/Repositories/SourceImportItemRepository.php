@@ -54,6 +54,7 @@ final class SourceImportItemRepository {
 			)
 		);
 
+		if ($wpdb->last_error || !$wpdb->insert_id) { throw new \RuntimeException('Could not save import log: '.$wpdb->last_error); }
 		return (int) $wpdb->insert_id;
 	}
 

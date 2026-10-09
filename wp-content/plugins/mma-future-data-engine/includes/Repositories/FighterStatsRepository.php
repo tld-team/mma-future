@@ -75,12 +75,12 @@ final class FighterStatsRepository {
 		);
 	}
 
-	public function replace_all( array $rows ): void {
+	public function replace_all( iterable $rows ): void {
 		global $wpdb;
 
 		$now = DateTime::mysql_now();
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$deleted = $wpdb->query( "DELETE FROM {$this->table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -98,9 +98,9 @@ final class FighterStatsRepository {
 				}
 			}
 
-			$wpdb->query( 'COMMIT' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 	}
@@ -154,5 +154,39 @@ final class FighterStatsRepository {
 		);
 
 		return $row ?: null;
+	}
+
+	public function active_count(): int {
+		global $wpdb;
+		return (int)$wpdb->get_var("SELECT COUNT(*) FROM {$this->fighters_table} WHERE deleted_soft=0");
+	}
+	public function fighter_batches(int $size=250): \Generator {
+		global $wpdb; $last=0;
+		do {
+			$rows=$wpdb->get_results($wpdb->prepare("SELECT id FROM {$this->fighters_table} WHERE deleted_soft=0 AND id>%d ORDER BY id LIMIT %d",$last,$size),ARRAY_A);
+			if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+			if (!$rows) { break; }
+			$last=(int)end($rows)['id']; yield array_map('intval',array_column($rows,'id'));
+		} while(count($rows)===$size);
+	}
+	public function bout_stream(int $size=250): \Generator {
+		global $wpdb; $last=0;
+		do {
+			$bouts=$wpdb->get_results($wpdb->prepare("SELECT b.*,e.id AS event_exists,e.event_date FROM {$this->bouts_table} b LEFT JOIN {$this->events_table} e ON e.id=b.event_id AND e.deleted_soft=0 WHERE b.id>%d ORDER BY b.id LIMIT %d",$last,$size),ARRAY_A);
+			if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+			if (!$bouts) { break; }
+			$ids=implode(',',array_map('intval',array_column($bouts,'id')));
+			$participants=$wpdb->get_results("SELECT p.*,f.id AS fighter_exists,f.deleted_soft AS fighter_deleted_soft FROM {$this->participants_table} p LEFT JOIN {$this->fighters_table} f ON f.id=p.fighter_id WHERE p.bout_id IN ($ids) ORDER BY p.bout_id,p.id",ARRAY_A);
+			if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+			$grouped=[]; foreach ($participants as $row) { $grouped[(int)$row['bout_id']][]=$row; }
+			foreach ($bouts as $bout) { $last=(int)$bout['id']; $bout['_participants']=$grouped[$last]??[]; yield $bout; }
+		} while(count($bouts)===$size);
+	}
+	public function history_for_fighters(array $ids): array {
+		global $wpdb; $in=implode(',',array_map('intval',$ids));
+		if (!$in) { return []; }
+		$rows=$wpdb->get_results("SELECT p.*,b.id,b.bout_order,b.status,b.deleted_soft,b.method_category,e.id AS event_exists,e.event_date,(SELECT COUNT(*) FROM {$this->participants_table} other WHERE other.bout_id=b.id) AS participant_count,(SELECT COUNT(*) FROM {$this->participants_table} other WHERE other.bout_id=b.id AND other.result_for_fighter IN ('win','loss','draw','no_contest')) AS countable_participants FROM {$this->participants_table} p JOIN {$this->bouts_table} b ON b.id=p.bout_id LEFT JOIN {$this->events_table} e ON e.id=b.event_id AND e.deleted_soft=0 WHERE p.fighter_id IN ($in) ORDER BY p.fighter_id,b.id",ARRAY_A);
+		if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+		return $rows;
 	}
 }

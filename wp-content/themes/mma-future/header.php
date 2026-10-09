@@ -96,44 +96,7 @@
 	<!-- ============================================================
 	     SITE TOPBAR (Marquee)
 	     ============================================================ -->
-	<div class="site-topbar">
-		<div class="site-topbar__inner mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 min-h-10 py-2 flex items-center gap-4">
-			<div class="site-topbar__label flex items-center gap-2 flex-none pr-4 border-r border-[#CBD5E1]">
-				<span class="site-topbar__label-dot inline-block w-1.5 h-1.5 rounded-full bg-[#1D4E89]"></span>
-				<span class="site-topbar__label-text text-[11px] sm:text-[12px] font-heading font-semibold uppercase tracking-wider">Latest updates</span>
-			</div>
-
-			<div class="site-topbar__marquee flex-1 min-w-0 pl-1" aria-label="<?php esc_attr_e('Site updates', 'mma-future'); ?>">
-				<div class="site-topbar__fade-left" aria-hidden="true"></div>
-				<div class="site-topbar__fade-right" aria-hidden="true"></div>
-
-				<div class="site-topbar__track">
-					<div class="flex items-center whitespace-nowrap pr-10">
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">UFC 300 breakdown now live</span>
-						<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">Updated heavyweight rankings available</span>
-						<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">New fight analysis added to the blog</span>
-						<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">Explore scoring methodology on the About page</span>
-						<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">Follow MMA Future for updates</span>
-					</div>
-					<div class="flex items-center whitespace-nowrap pr-10" aria-hidden="true">
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">UFC 300 breakdown now live</span>
-						<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">Updated heavyweight rankings available</span>
-						<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">New fight analysis added to the blog</span>
-						<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">Explore scoring methodology on the About page</span>
-						<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>
-						<span class="site-topbar__item text-xs font-heading font-medium uppercase tracking-wide leading-none">Follow MMA Future for updates</span>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+	<?php mmaf_render_top_bar(); ?>
 
 	<!-- ============================================================
 	     SITE HEADER
@@ -234,7 +197,7 @@
 						<svg class="header-login-btn-icon h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 							<path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
 						</svg>
-						<?php esc_html_e('Prijava', 'mma-future'); ?>
+						<?php esc_html_e('Log in', 'mma-future'); ?>
 					</a>
 				</div>
 
@@ -330,7 +293,7 @@
 						<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 							<path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
 						</svg>
-						<?php esc_html_e('Prijava', 'mma-future'); ?>
+						<?php esc_html_e('Log in', 'mma-future'); ?>
 					</a>
 				</div>
 

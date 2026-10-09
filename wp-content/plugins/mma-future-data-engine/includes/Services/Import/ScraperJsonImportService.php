@@ -71,6 +71,7 @@ final class ScraperJsonImportService {
 	}
 
 	public function import_json_string( string $json, int $created_by = 0, ?array $validated_plan = null ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		$started_at = DateTime::mysql_now();
 		$plan       = null === $validated_plan
 			? $this->dry_run->analyze_json_string( $json, $created_by, false )
@@ -290,8 +291,14 @@ final class ScraperJsonImportService {
 
 					$updated = $this->update_event_from_source( $event_id, $event, $warnings, $user_id );
 					$this->touch_event_source( (int) $source['id'], $event, $run_id );
-					$this->summary[ $updated ? 'events_updated' : 'events_no_change' ]++;
-					$this->log_item( $run_id, 'event', $source_event_id, $identity_hash, $content_hash, $event_id, $updated ? 'updated' : 'no_change', $updated ? 'update' : 'no_change', $warnings );
+					// A changed source payload is still an update when every canonical
+					// field is preserved by provenance. This keeps the approved plan and
+					// final report aligned while retaining the manual canonical values.
+					$this->summary['events_updated']++;
+					if ( ! $updated ) {
+						$warnings[] = 'source_metadata_updated_canonical_fields_preserved';
+					}
+					$this->log_item( $run_id, 'event', $source_event_id, $identity_hash, $content_hash, $event_id, 'updated', 'update', $warnings );
 					continue;
 				}
 
@@ -418,7 +425,7 @@ final class ScraperJsonImportService {
 			'deleted_soft'        => 0,
 		);
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$fighter_id = $this->fighters->insert( $row );
@@ -439,11 +446,11 @@ final class ScraperJsonImportService {
 			$this->audit_log->write( 'fighter_created_from_scraper', 'fighter', $fighter_id, null, $after, 'Tapology scraper JSON import created a provisional fighter.', $user_id );
 			$this->summary['audit_rows_written']++;
 
-			$wpdb->query( 'COMMIT' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 
 			return $fighter_id;
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 	}
@@ -453,7 +460,7 @@ final class ScraperJsonImportService {
 
 		$row = $this->event_row( $event );
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$event_id = $this->events->insert( $row );
@@ -468,11 +475,11 @@ final class ScraperJsonImportService {
 			$this->audit_log->write( 'event_created_from_scraper', 'event', $event_id, null, $after, 'Tapology scraper JSON import created an event.', $user_id );
 			$this->summary['audit_rows_written']++;
 
-			$wpdb->query( 'COMMIT' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 
 			return $event_id;
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 	}
@@ -483,7 +490,7 @@ final class ScraperJsonImportService {
 		$row          = $this->bout_row( $bout, $event_id, $warnings );
 		$participants = $this->participant_rows( $bout, $fighter_a_id, $fighter_b_id );
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$bout_id = $this->bouts->insert( $row );
@@ -507,11 +514,11 @@ final class ScraperJsonImportService {
 			$this->audit_log->write( 'bout_created_from_scraper', 'bout', $bout_id, null, $after, 'Tapology scraper JSON import created a bout.', $user_id );
 			$this->summary['audit_rows_written']++;
 
-			$wpdb->query( 'COMMIT' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 
 			return $bout_id;
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 	}
@@ -561,7 +568,7 @@ final class ScraperJsonImportService {
 			$changed = true;
 		}
 
-		if ( $this->provenance->has_source( 'bout', $bout_id, 'result_type', self::SOURCE ) && ! $this->provenance->has_manual_verified( 'bout', $bout_id, 'result_type' ) ) {
+		if ( $this->provenance->has_source( 'bout', $bout_id, 'result_type', self::SOURCE ) && null === $this->provenance->protected_reason( 'bout', $bout_id, 'result_type' ) ) {
 			$this->participants->replace_exactly_two( $bout_id, $this->participant_rows( $bout, $fighter_a_id, $fighter_b_id ) );
 			$this->summary['participants_created_updated'] += 2;
 			$changed = true;
@@ -585,13 +592,14 @@ final class ScraperJsonImportService {
 		$updates = array();
 
 		foreach ( $incoming as $field => $value ) {
+            if (null !== $this->provenance->protected_reason($entity_type,$entity_id,$field)) { $warnings[]='manual_field_preserved:'.$entity_type.'.'.$field; continue; }
 			$current_value = $current[ $field ] ?? null;
 			if ( $this->same_value( $current_value, $value ) ) {
 				continue;
 			}
 
 			$current_empty = null === $current_value || '' === (string) $current_value;
-			$tapology_owned = $this->provenance->has_source( $entity_type, $entity_id, $field, self::SOURCE ) && ! $this->provenance->has_manual_verified( $entity_type, $entity_id, $field );
+			$tapology_owned = $this->provenance->has_source( $entity_type, $entity_id, $field, self::SOURCE ) && null === $this->provenance->protected_reason( $entity_type, $entity_id, $field );
 
 			if ( $current_empty || $tapology_owned ) {
 				$updates[ $field ] = $value;
@@ -738,7 +746,7 @@ final class ScraperJsonImportService {
 		$source_slug       = $tapology ? $tapology['source_slug'] : $this->slug_from_url( $url );
 		$identity_hash     = $this->fighter_sources->identity_hash_for_source( self::SOURCE, $source_fighter_id, $url );
 
-		$wpdb->insert(
+		\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->insert(
 			$this->tables['fighter_sources'],
 			array(
 				'fighter_id'          => $fighter_id,
@@ -754,7 +762,7 @@ final class ScraperJsonImportService {
 				'created_at'          => $now,
 				'updated_at'          => null,
 			)
-		);
+		));
 	}
 
 	private function update_fighter_source_metadata( int $source_id, array $ref ): void {
@@ -777,13 +785,13 @@ final class ScraperJsonImportService {
 			$updates['source_slug'] = $tapology ? $tapology['source_slug'] : $this->slug_from_url( $url );
 		}
 
-		$wpdb->update(
+		\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->update(
 			$this->tables['fighter_sources'],
 			$updates,
 			array( 'id' => $source_id ),
 			null,
 			array( '%d' )
-		);
+		));
 	}
 
 	private function single_source_url_match( string $source_url ): ?array {
@@ -814,7 +822,7 @@ final class ScraperJsonImportService {
 		global $wpdb;
 
 		$now = DateTime::mysql_now();
-		$wpdb->insert(
+		\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->insert(
 			$this->tables['event_sources'],
 			array_merge(
 				$this->event_source_row( $event, $run_id ),
@@ -826,7 +834,7 @@ final class ScraperJsonImportService {
 					'updated_at'  => null,
 				)
 			)
-		);
+		));
 	}
 
 	private function touch_event_source( int $source_id, array $event, int $run_id ): void {
@@ -835,7 +843,7 @@ final class ScraperJsonImportService {
 		$row = $this->event_source_row( $event, $run_id );
 		$row['updated_at'] = DateTime::mysql_now();
 
-		$wpdb->update( $this->tables['event_sources'], $row, array( 'id' => $source_id ), null, array( '%d' ) );
+		\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->update( $this->tables['event_sources'], $row, array( 'id' => $source_id ), null, array( '%d' ) ));
 	}
 
 	private function event_source_row( array $event, int $run_id ): array {
@@ -864,7 +872,7 @@ final class ScraperJsonImportService {
 		global $wpdb;
 
 		$now = DateTime::mysql_now();
-		$wpdb->insert(
+		\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->insert(
 			$this->tables['bout_sources'],
 			array_merge(
 				$this->bout_source_row( $bout, $event_id, $run_id ),
@@ -874,7 +882,7 @@ final class ScraperJsonImportService {
 					'updated_at' => null,
 				)
 			)
-		);
+		));
 	}
 
 	private function touch_bout_source( int $source_id, array $bout, int $event_id, int $run_id ): void {
@@ -883,7 +891,7 @@ final class ScraperJsonImportService {
 		$row = $this->bout_source_row( $bout, $event_id, $run_id );
 		$row['updated_at'] = DateTime::mysql_now();
 
-		$wpdb->update( $this->tables['bout_sources'], $row, array( 'id' => $source_id ), null, array( '%d' ) );
+		\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->update( $this->tables['bout_sources'], $row, array( 'id' => $source_id ), null, array( '%d' ) ));
 	}
 
 	private function bout_source_row( array $bout, int $event_id, int $run_id ): array {

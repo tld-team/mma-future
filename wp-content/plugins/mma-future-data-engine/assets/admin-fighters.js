@@ -180,8 +180,21 @@
 			$removeButton.hide();
 		});
 
-		$('#mmaf-select-all-fighters').on('change', function () {
-			$('.mmaf-fighter-row-checkbox').prop('checked', $(this).prop('checked'));
+		var $fighterRows = $('.mmaf-fighter-row-checkbox');
+		var $selectAll = $('#mmaf-select-all-fighters');
+		function syncSelection() {
+			var count = $fighterRows.filter(':checked').length;
+			$selectAll.prop('checked', count > 0 && count === $fighterRows.length)
+				.prop('indeterminate', count > 0 && count < $fighterRows.length);
+			var $counter = $('#mmaf-selected-count');
+			$counter.text(($counter.attr('data-label') || '').replace('%d', count));
+			$('.mmaf-apply-fighters').prop('disabled', count === 0);
+		}
+		$selectAll.on('change', function () {
+			$fighterRows.prop('checked', $(this).prop('checked'));
+			syncSelection();
 		});
+		$fighterRows.on('change', syncSelection);
+		if ($fighterRows.length) { syncSelection(); }
 	});
 }(jQuery));

@@ -66,6 +66,7 @@ final class FighterProfileEnrichmentApplyService {
 	private array $tables;
 	private FieldProvenanceService $provenance;
 	private AuditLogService $audit_log;
+	private bool $source_refresh = false;
 
 	public function __construct() {
 		$this->tables = Schema::table_names();
@@ -100,12 +101,15 @@ final class FighterProfileEnrichmentApplyService {
 	}
 
 	public function apply_json_string( string $content, string $path_label, string $source_fighter_id, string $source_url, array $selected_fields, int $user_id ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		$detail = $this->load_detail_json_string( $content, $path_label, $source_fighter_id, $source_url );
 
 		return $this->apply_profile_detail( $detail, $selected_fields, $user_id );
 	}
 
-	public function apply_all_safe_json_string( string $content, string $path_label, int $user_id ): array {
+	public function apply_all_safe_json_string( string $content, string $path_label, int $user_id, bool $source_refresh = false ): array {
+		$this->source_refresh=$source_refresh;
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		$preview_service = new FighterProfileEnrichmentPreviewService();
 		$preview = $preview_service->create_row_iterator( $content, $path_label );
 		$summary = array(
@@ -239,11 +243,11 @@ final class FighterProfileEnrichmentApplyService {
 		}
 
 		$reviews = (array) $detail['safe_field_reviews'];
-		$skipped = array();
+		$skipped = $this->skip_reasons_from_reviews($reviews);
 		$changes = array();
 		foreach ( $selected_fields as $field ) {
 			$review = (array) ( $reviews[ $field ] ?? array() );
-			if ( 'safe_empty_can_apply' !== (string) ( $review['status'] ?? '' ) ) {
+			if ( !in_array((string)($review['status']??''),['safe_empty_can_apply','safe_source_refresh'],true) ) {
 				$skipped[ $field ] = $this->field_action_from_status( $field, (string) ( $review['status'] ?? 'unsupported_field' ) );
 				continue;
 			}
@@ -283,7 +287,7 @@ final class FighterProfileEnrichmentApplyService {
 			}
 
 			$current = (string) ( $before[ $field ] ?? '' );
-			if ( ! $this->current_value_is_empty_or_unknown( $field, $current ) ) {
+			if ( ! $this->current_value_is_empty_or_unknown( $field, $current ) && !$this->can_refresh_source_field($field,$fighter_id,$current,$detail) ) {
 				$skipped[ $field ] = 'skip_existing_value';
 				unset( $changes[ $field ] );
 			}
@@ -304,7 +308,7 @@ final class FighterProfileEnrichmentApplyService {
 		}
 		$update['updated_at'] = DateTime::mysql_now();
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$updated = $wpdb->update(
@@ -316,7 +320,7 @@ final class FighterProfileEnrichmentApplyService {
 			);
 
 			if ( false === $updated ) {
-				throw new \RuntimeException( 'Could not update canonical fighter safe fields.' );
+				throw new \RuntimeException( 'Could not update canonical fighter safe fields: '.$wpdb->last_error );
 			}
 
 			$source_id = '' !== (string) ( $detail['source_fighter_id'] ?? '' )
@@ -333,6 +337,8 @@ final class FighterProfileEnrichmentApplyService {
 					$source_id,
 					$user_id
 				);
+				$observed=\MMAF\DataEngine\Services\DataPipeline\ProfileStore::date($detail['source_scraped_at']??null);
+				if ($observed) { \MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->update($this->tables['field_provenance'],['source_observed_at'=>$observed],['entity_type'=>'fighter','entity_id'=>$fighter_id,'field_name'=>$field,'source_type'=>$this->provenance_source_type_for_field($field)])); }
 			}
 
 			$after = $this->get_fighter( $fighter_id );
@@ -363,13 +369,13 @@ final class FighterProfileEnrichmentApplyService {
 					'profile_json_file' => (string) ( $detail['enrichment_file'] ?? '' ),
 					'applied_by' => $user_id,
 				),
-				'Admin-approved Tapology fighter profile enrichment applied to empty safe fields only.',
+				$this->source_refresh ? 'Latest stored source profile; manual values protected.' : 'Admin-approved Tapology fighter profile enrichment applied to empty safe fields only.',
 				$user_id
 			);
 
-			$wpdb->query( 'COMMIT' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 
@@ -380,6 +386,11 @@ final class FighterProfileEnrichmentApplyService {
 			'fighter_id' => $fighter_id,
 		);
 	}
+
+    public function preview_safe_changes(array $row, bool $planned = false): int {
+        if ($planned) { $row['match_type'] = 'exact_source_match'; }
+        return $this->safe_applyable_count($this->field_reviews($row));
+    }
 
 	private function field_reviews( array $row ): array {
 		$match_type = (string) ( $row['match_type'] ?? '' );
@@ -398,8 +409,12 @@ final class FighterProfileEnrichmentApplyService {
 				$status = 'unsafe_ambiguous';
 			} elseif ( null !== $protection_reason ) {
 				$status = $protection_reason;
-			} elseif ( 'canonical_empty_can_suggest' === $status ) {
-				$status = 'safe_empty_can_apply';
+			} elseif ( 'canonical_empty_can_suggest' === $status || ('canonical_differs_source_suggestion' === $status && $this->can_refresh_source_field($field,$fighter_id,(string)($row[$meta['current_key']]??''),$row)) ) {
+                global $wpdb;
+                $suggested = (string)($row[$meta['suggested_key']]??'');
+                $value = $this->prepare_value($field,$suggested);
+                $clean = $value === null ? null : $wpdb->strip_invalid_text_for_column($this->tables['fighters'],$field,(string)$value);
+				$status = $value !== null && !is_wp_error($clean) && $clean === (string)$value ? ('canonical_empty_can_suggest'===$status?'safe_empty_can_apply':'safe_source_refresh') : 'invalid_source_value';
 			}
 
 			$reviews[ $field ] = array(
@@ -408,7 +423,7 @@ final class FighterProfileEnrichmentApplyService {
 				'suggested' => (string) ( $row[ $meta['suggested_key'] ] ?? '' ),
 				'status' => $status,
 				'protection_reason' => $protection_reason,
-				'can_apply' => 'safe_empty_can_apply' === $status,
+				'can_apply' => in_array($status,['safe_empty_can_apply','safe_source_refresh'],true),
 			);
 		}
 
@@ -515,7 +530,7 @@ final class FighterProfileEnrichmentApplyService {
 		$skipped = array();
 		foreach ( $reviews as $field => $review ) {
 			$status = (string) ( $review['status'] ?? 'not_available' );
-			if ( 'safe_empty_can_apply' === $status ) {
+			if ( in_array($status,['safe_empty_can_apply','safe_source_refresh'],true) ) {
 				continue;
 			}
 
@@ -529,7 +544,8 @@ final class FighterProfileEnrichmentApplyService {
 		if ( 'not_available' === $status ) {
 			return 'gender' === $field ? 'skip_cannot_infer_gender' : 'skip_missing_value';
 		}
-		if ( 'already_same' === $status || 'canonical_differs_source_suggestion' === $status ) {
+		if ('already_same'===$status) { return 'skip_unchanged'; }
+		if ( 'canonical_differs_source_suggestion' === $status ) {
 			return 'skip_existing_value';
 		}
 		if ( in_array( $status, array( 'protected_by_locked_provenance', 'protected_by_manual_verified', 'protected_by_admin_override' ), true ) ) {
@@ -540,6 +556,16 @@ final class FighterProfileEnrichmentApplyService {
 		}
 
 		return $status;
+	}
+
+	private function can_refresh_source_field(string $field,int $fighter_id,string $current,array $detail): bool {
+		// Identity/DOB/nationality changes require review; only evolving source-owned facts refresh automatically.
+		if (!$this->source_refresh || !in_array($field,['nickname','weight_class','last_weigh_in'],true) || $fighter_id<1 || $this->provenance->is_protected('fighter',$fighter_id,$field)) { return false; }
+		$observed=\MMAF\DataEngine\Services\DataPipeline\ProfileStore::date($detail['source_scraped_at']??null);
+		if (!$observed) { return false; }
+		global $wpdb;
+		$owned=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->tables['field_provenance']} WHERE entity_type='fighter' AND entity_id=%d AND field_name=%s AND source_type IN ('tapology','tapology_profile_enrichment') AND source_id=%s AND value_hash=%s ORDER BY COALESCE(source_observed_at,last_seen_at) DESC LIMIT 1",$fighter_id,$field,(string)($detail['source_fighter_id']??''),hash('sha256',trim(strtolower($current)))),ARRAY_A);
+		return $owned && $observed>(string)($owned['source_observed_at']?:$owned['last_seen_at']);
 	}
 
 	private function provenance_source_type_for_field( string $field ): string {

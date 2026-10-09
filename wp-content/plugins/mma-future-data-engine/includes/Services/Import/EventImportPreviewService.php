@@ -86,6 +86,8 @@ final class EventImportPreviewService {
 			$reason        = 'Exact source event mapping exists.';
 
 			if ( ! empty( $matched_source['identity_hash'] ) && $matched_source['identity_hash'] !== $identity_hash ) {
+				$action = 'blocked_event_conflict';
+				$reason = 'Existing source identity differs; this event and its bouts require review.';
 				$conflicts[] = 'source_event_id ' . $source_event_id . ' is mapped but incoming identity_hash differs.';
 			}
 		} else {

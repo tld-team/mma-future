@@ -16,15 +16,17 @@ final class FighterPostSyncService {
 	}
 
 	public function sync( int $fighter_id, array $fighter ): int {
-		$post_status = ! empty( $fighter['is_public'] ) ? 'publish' : 'draft';
+		$post_status = ! empty( $fighter['is_public'] ) && empty( $fighter['deleted_soft'] ) ? 'publish' : 'draft';
 		$post_id     = isset( $fighter['wp_post_id'] ) ? (int) $fighter['wp_post_id'] : 0;
 
-		if ( $post_id > 0 && $this->fighters->wp_post_exists( $post_id ) ) {
+		$existing = $post_id > 0 ? get_post( $post_id ) : null;
+		if ( $existing && FighterPostType::POST_TYPE !== $existing->post_type ) { throw new \RuntimeException( 'Linked post is not a canonical fighter. Review the identity mapping.' ); }
+		if ( $existing ) {
 			$updated = wp_update_post(
 				array(
 					'ID'          => $post_id,
 					'post_title'  => (string) $fighter['display_name'],
-					'post_name'   => sanitize_title( (string) $fighter['display_name'] ),
+					'post_name'   => $existing->post_name ?: sanitize_title( (string) $fighter['display_name'] ),
 					'post_status' => $post_status,
 				),
 				true

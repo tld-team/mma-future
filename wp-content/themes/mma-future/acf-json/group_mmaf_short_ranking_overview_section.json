@@ -1,0 +1,147 @@
+{
+  "key": "group_mmaf_short_ranking_overview_section",
+  "title": "Home — Ranking Overview",
+  "fields": [
+    {
+      "key": "field_mmaf_1db3d4aff58f7dad31",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_9c9569a9b484095c4b",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_399b48fc2a160ea854",
+      "label": "Primary Link",
+      "name": "primary_link",
+      "type": "link",
+      "instructions": "Destinacija i tekst glavnog dugmeta.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    },
+    {
+      "key": "field_mmaf_e697b76c7e1aec88fd",
+      "label": "Secondary Link",
+      "name": "secondary_link",
+      "type": "link",
+      "instructions": "Opcioni drugi link; prazno znači da se dugme ne prikazuje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    },
+    {
+      "key": "field_mmaf_5e5f8e9c7b925d7c63",
+      "label": "Ranking Board",
+      "name": "ranking_board",
+      "type": "select",
+      "instructions": "Lista čiji se rangovi prikazuju.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "choices": {},
+      "ui": 1,
+      "default_value": "overall"
+    },
+    {
+      "key": "field_mmaf_24ecbb188563e1ce3c",
+      "label": "Top Five Count",
+      "name": "top_five_count",
+      "type": "number",
+      "instructions": "Broj boraca u kratkom pregledu.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "default_value": 5,
+      "min": 1,
+      "max": 10
+    },
+    {
+      "key": "field_mmaf_9daf92d88c0f5df7c8",
+      "label": "Show Top Movers",
+      "name": "show_top_movers",
+      "type": "true_false",
+      "instructions": "Prikaži najveće uspone između dve aktivirane liste.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "default_value": 1,
+      "ui": 1
+    },
+    {
+      "key": "field_mmaf_d2e62e3e3f09db7263",
+      "label": "Top Movers Title",
+      "name": "top_movers_title",
+      "type": "text",
+      "instructions": "Naslov pregleda najvećih uspona.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/short-ranking-overview"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

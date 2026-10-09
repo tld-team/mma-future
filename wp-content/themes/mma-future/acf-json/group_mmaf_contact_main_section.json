@@ -1,0 +1,350 @@
+{
+    "key": "group_mmaf_contact_main_section",
+    "title": "Contact — Main",
+    "fields": [
+        {
+            "key": "field_mmaf_a62e512c4bb5582e85",
+            "label": "Section Title",
+            "name": "section_title",
+            "type": "text",
+            "instructions": "Glavni naslov ove sekcije.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_72123f804abef97293",
+            "label": "Section Description",
+            "name": "section_description",
+            "type": "textarea",
+            "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_e86035f70cc3a447eb",
+            "label": "Contact Reasons",
+            "name": "contact_reasons",
+            "type": "repeater",
+            "instructions": "Dodaj razloge kontakta; identifikator se dodeljuje automatski.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "layout": "row",
+            "min": 0,
+            "max": 0,
+            "button_label": "Add item",
+            "sub_fields": [
+                {
+                    "key": "field_mmaf_08a211161665b6d182",
+                    "label": "Reason Title",
+                    "name": "reason_title",
+                    "type": "text",
+                    "instructions": "Naziv razloga kontakta.",
+                    "required": 0,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    }
+                },
+                {
+                    "key": "field_mmaf_22e34e9f5392a2ba1d",
+                    "label": "Reason Description",
+                    "name": "reason_description",
+                    "type": "textarea",
+                    "instructions": "Kratko objašnjenje razloga.",
+                    "required": 0,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    }
+                }
+            ]
+        },
+        {
+            "key": "field_mmaf_8ccdb10a657b37aea0",
+            "label": "Form Title",
+            "name": "form_title",
+            "type": "text",
+            "instructions": "Naslov kontakt forme.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_84d573f14f2d840b12",
+            "label": "Submit Label",
+            "name": "submit_label",
+            "type": "text",
+            "instructions": "Tekst dugmeta. Primer: Send message.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_be7c97e90f2cfc321e",
+            "label": "Privacy Notice",
+            "name": "privacy_notice",
+            "type": "textarea",
+            "instructions": "Kratko objašnjenje obrade poruke.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_be91c42f63de8d869b",
+            "label": "Quick Links",
+            "name": "quick_links",
+            "type": "repeater",
+            "instructions": "Linkovi korisni pre slanja poruke.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "layout": "row",
+            "min": 0,
+            "max": 0,
+            "button_label": "Add item",
+            "sub_fields": [
+                {
+                    "key": "field_mmaf_f2756d7c94c1a12962",
+                    "label": "Link",
+                    "name": "link",
+                    "type": "link",
+                    "instructions": "Destinacija i tekst brzog linka.",
+                    "required": 0,
+                    "conditional_logic": 0,
+                    "wrapper": {
+                        "width": "",
+                        "class": "",
+                        "id": ""
+                    },
+                    "return_format": "array"
+                }
+            ]
+        },
+        {
+            "key": "field_mmaf_4e69ea3447c19b3e70",
+            "label": "Form Name Label",
+            "name": "form_name_label",
+            "type": "text",
+            "instructions": "Javni naziv polja Name.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_bb43b3aa8fd3641d17",
+            "label": "Form Name Placeholder",
+            "name": "form_name_placeholder",
+            "type": "text",
+            "instructions": "Kratak primer ili pomoć za polje Name.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_5924a72b00a98a2c34",
+            "label": "Form Email Label",
+            "name": "form_email_label",
+            "type": "text",
+            "instructions": "Javni naziv polja Email.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_9db8e4b48e0b4f273a",
+            "label": "Form Email Placeholder",
+            "name": "form_email_placeholder",
+            "type": "text",
+            "instructions": "Kratak primer ili pomoć za polje Email.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_055d1fe472d64773ca",
+            "label": "Form Organization Label",
+            "name": "form_organization_label",
+            "type": "text",
+            "instructions": "Javni naziv polja Organization.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_0a1112b1b5f7650e2f",
+            "label": "Form Organization Placeholder",
+            "name": "form_organization_placeholder",
+            "type": "text",
+            "instructions": "Kratak primer ili pomoć za polje Organization.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_097b204637873fe82f",
+            "label": "Form Website Label",
+            "name": "form_website_label",
+            "type": "text",
+            "instructions": "Javni naziv polja Website.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_e37c2e86fba2b77808",
+            "label": "Form Website Placeholder",
+            "name": "form_website_placeholder",
+            "type": "text",
+            "instructions": "Kratak primer ili pomoć za polje Website.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_ee978bc4e67a3d6c1e",
+            "label": "Form Message Label",
+            "name": "form_message_label",
+            "type": "text",
+            "instructions": "Javni naziv polja Message.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_3c1d7a4610a145a14b",
+            "label": "Form Message Placeholder",
+            "name": "form_message_placeholder",
+            "type": "text",
+            "instructions": "Kratak primer ili pomoć za polje Message.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            }
+        },
+        {
+            "key": "field_mmaf_contact_main_section_form_reason_label",
+            "label": "Reason label",
+            "name": "form_reason_label",
+            "type": "text",
+            "instructions": "Naziv polja za razlog kontakta. Primer: Reason.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "maxlength": 160
+        },
+        {
+            "key": "field_mmaf_contact_main_section_form_reason_placeholder",
+            "label": "Reason placeholder",
+            "name": "form_reason_placeholder",
+            "type": "text",
+            "instructions": "Početna poruka u izboru razloga. Primer: Choose a reason.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "default_value": "",
+            "maxlength": 160
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "block",
+                "operator": "==",
+                "value": "acf/contact-main-section"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "",
+    "show_in_rest": 0,
+    "modified": 1791457200
+}

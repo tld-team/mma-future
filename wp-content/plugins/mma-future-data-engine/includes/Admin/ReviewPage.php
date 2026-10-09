@@ -397,6 +397,7 @@ final class ReviewPage {
 	}
 
 	private static function render_needs_review(): void {
+        if(!empty($_GET['import_job_id'])){\MMAF\DataEngine\Services\RegularImport\ReviewAdmin::render(absint($_GET['import_job_id']));return;}
 		$filters = array(
 			'item_type'     => isset( $_GET['item_type'] ) ? sanitize_key( wp_unslash( $_GET['item_type'] ) ) : '',
 			'status'        => isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '',

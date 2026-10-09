@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MMA Future Data Engine
  * Description: Canonical sports data engine for MMA Future fighters, events, bouts, imports, stats, and rankings. Produced by TLD Team.
- * Version: 2.1.0
+ * Version: 2.4.0
  * Author: Luka Mutic
  * Author URI: https://tldteam.com
  * Text Domain: mma-future-data-engine
@@ -14,9 +14,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'MMAF_PLUGIN_FILE', __FILE__ );
 define( 'MMAF_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
-define( 'MMAF_PLUGIN_VERSION', '2.0.0' );
-define( 'MMAF_DB_VERSION', '1.4.3' );
+define( 'MMAF_PLUGIN_VERSION', '2.4.0' );
+define( 'MMAF_DB_VERSION', '1.7.0' );
 
+require_once MMAF_PLUGIN_DIR . 'vendor/autoload.php';
+spl_autoload_register(static function ($class) {
+    $prefix = 'MMAF\\DataEngine\\';
+    if (strpos($class, $prefix) === 0) {
+        $file = MMAF_PLUGIN_DIR . 'includes/' . str_replace('\\','/',substr($class, strlen($prefix))) . '.php';
+        if (is_file($file)) { require_once $file; }
+    }
+});
 require_once MMAF_PLUGIN_DIR . 'includes/Support/Capabilities.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Support/DateTime.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Support/Logger.php';
@@ -38,6 +46,7 @@ require_once MMAF_PLUGIN_DIR . 'includes/Repositories/FighterStatsOverrideReposi
 require_once MMAF_PLUGIN_DIR . 'includes/Repositories/RankingRunRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Repositories/RankingCurrentRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Repositories/RestReadRepository.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Repositories/PublicReadRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Repositories/SourceImportRunRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Repositories/SourceImportItemRepository.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV12.php';
@@ -46,6 +55,7 @@ require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV14.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaV15.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Formula/FormulaRegistry.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/FighterPostSyncService.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Services/FighterPublicationService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/FieldProvenanceService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/AuditLogService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/Services/SystemSnapshotExportService.php';
@@ -80,6 +90,9 @@ require_once MMAF_PLUGIN_DIR . 'includes/Services/Import/FighterProfileEnrichmen
 require_once MMAF_PLUGIN_DIR . 'includes/Services/Import/FighterProfileEnrichmentApplyService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/REST/RestServiceProvider.php';
 require_once MMAF_PLUGIN_DIR . 'includes/REST/AbstractRestController.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Services/PublicVisibilityService.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Services/PublicCacheService.php';
+require_once MMAF_PLUGIN_DIR . 'includes/Services/PublicReadService.php';
 require_once MMAF_PLUGIN_DIR . 'includes/REST/RankingsController.php';
 require_once MMAF_PLUGIN_DIR . 'includes/REST/FightersController.php';
 require_once MMAF_PLUGIN_DIR . 'includes/REST/HealthController.php';

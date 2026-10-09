@@ -75,6 +75,8 @@ Thumbs.db
 # add your own entries here
 !wp-content/themes/mma-future
 !wp-content/themes/mma-future/theme.json
+!wp-content/themes/mma-future/acf-json/
+!wp-content/themes/mma-future/acf-json/*.json
 !wp-content/plugins/mma-future-data-engine/
 !wp-content/plugins/mma-future-data-engine/**
 wp-content/plugins/mma-future-data-engine/tools/
@@ -83,3 +85,18 @@ wp-content/plugins/mma-future-data-engine/**/*.md
 !.gitattributes
 !.github/
 !package.json
+!dev-tools/
+!dev-tools/**
+dev-tools/**/__pycache__/
+dev-tools/**/*.pyc
+dev-tools/**/*.egg-info/
+dev-tools/**/.venv/
+dev-tools/**/data/
+!tests/
+!tests/**
+!docs/
+!docs/**
+
+tests/**/*.json
+tests/**/*.log
+tests/**/private/

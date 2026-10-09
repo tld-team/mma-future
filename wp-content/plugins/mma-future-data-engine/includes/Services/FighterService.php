@@ -49,6 +49,12 @@ final class FighterService {
 		'weight_class',
 		'height',
 		'height_cm',
+		'reach_cm',
+		'stance',
+		'birthplace',
+		'fighting_out_of',
+		'team_name',
+		'coach_name',
 		'last_weigh_in',
 		'status',
 		'rankability_status',
@@ -77,12 +83,13 @@ final class FighterService {
 	}
 
 	public function create( array $input, int $user_id ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		global $wpdb;
 
 		$payload            = $this->prepare_payload( $input, true, 0 );
 		$this->last_notices = $payload['notices'];
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$fighter_id = $this->fighters->insert( $payload['fighter'] );
@@ -109,19 +116,22 @@ final class FighterService {
 				$user_id
 			);
 
-			$wpdb->query( 'COMMIT' );
+			FighterLifecycleService::changed($fighter_id,$user_id,[], $after ?: $fighter,false);
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
+			do_action( 'mmaf_public_data_changed', 'fighter' );
 
 			$result                  = $after ?: $fighter;
 			$result['_mmaf_notices'] = $this->last_notices;
 
 			return $result;
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 	}
 
 	public function update( int $fighter_id, array $input, int $user_id ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		global $wpdb;
 
 		$before = $this->fighters->find( $fighter_id );
@@ -133,7 +143,7 @@ final class FighterService {
 		$payload            = $this->prepare_payload( $input, false, $fighter_id );
 		$this->last_notices = $payload['notices'];
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$this->fighters->update( $fighter_id, $payload['fighter'] );
@@ -160,14 +170,16 @@ final class FighterService {
 				$user_id
 			);
 
-			$wpdb->query( 'COMMIT' );
+			FighterLifecycleService::changed($fighter_id,$user_id,$before,$after ?: $current,false);
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
+			do_action( 'mmaf_public_data_changed', 'fighter' );
 
 			$result                  = $after ?: $current;
 			$result['_mmaf_notices'] = $this->last_notices;
 
 			return $result;
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 	}
@@ -208,6 +220,16 @@ final class FighterService {
 			'deleted_soft'       => Sanitizer::bool_int( $input['deleted_soft'] ?? 0 ),
 		);
 
+		$current_facts = $fighter_id ? $this->fighters->find( $fighter_id ) : array();
+		foreach ( array( 'stance', 'birthplace', 'fighting_out_of', 'team_name', 'coach_name' ) as $fact ) {
+			$fighter[$fact] = array_key_exists( $fact, $input ) ? Sanitizer::text_or_null( $input[$fact] ) : ( $current_facts[$fact] ?? null );
+			if ( null !== $fighter[$fact] && strlen( $fighter[$fact] ) > ( 'stance' === $fact ? 40 : 255 ) ) { throw new \InvalidArgumentException( 'Fighter fact is too long: ' . $fact ); }
+		}
+		$fighter['reach_cm'] = array_key_exists( 'reach_cm', $input ) ? Sanitizer::text_or_null( $input['reach_cm'] ) : ( $current_facts['reach_cm'] ?? null );
+		if ( null !== $fighter['reach_cm'] ) {
+			if ( ! ctype_digit( (string) $fighter['reach_cm'] ) || (int) $fighter['reach_cm'] < 100 || (int) $fighter['reach_cm'] > 270 ) { throw new \InvalidArgumentException( 'Reach must be a whole number from 100 through 270 cm.' ); }
+			$fighter['reach_cm'] = (int) $fighter['reach_cm'];
+		}
 		if ( $is_new ) {
 			$fighter['wp_post_id'] = null;
 		}

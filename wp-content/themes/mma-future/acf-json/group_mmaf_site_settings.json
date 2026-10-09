@@ -1,0 +1,585 @@
+{
+  "key": "group_mmaf_site_settings",
+  "title": "MMA Future — Site Settings",
+  "fields": [
+    {
+      "key": "field_mmaf_2841e4739cccbc8919",
+      "label": "Top Bar",
+      "name": "tab_top_bar",
+      "type": "tab",
+      "instructions": "Unesi sadržaj za polje „Top Bar“. Ostavi prazno ako nije potrebno.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_017e776e9934a090c6",
+      "label": "Top Bar Enabled",
+      "name": "top_bar_enabled",
+      "type": "true_false",
+      "instructions": "Uključi traku sa kratkim obaveštenjima.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "default_value": 1,
+      "ui": 1
+    },
+    {
+      "key": "field_mmaf_7dc3fddf7b561b7f37",
+      "label": "Top Bar Label",
+      "name": "top_bar_label",
+      "type": "text",
+      "instructions": "Kratka oznaka. Primer: Latest updates.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_e13d9930a86e085e94",
+      "label": "Top Bar Messages",
+      "name": "top_bar_messages",
+      "type": "repeater",
+      "instructions": "Dodaj poruke redom kako treba da se prikazuju.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_7380d73f5e987b5c65",
+          "label": "Message Text",
+          "name": "message_text",
+          "type": "text",
+          "instructions": "Kratko obaveštenje. Primer: Explore the latest rankings.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_f5559c65cb20d7af4f",
+          "label": "Message Link",
+          "name": "message_link",
+          "type": "link",
+          "instructions": "Opcioni link na koji se poruka odnosi.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "return_format": "array"
+        },
+        {
+          "key": "field_mmaf_fd9637cfea6ff2b2d5",
+          "label": "Message Enabled",
+          "name": "message_enabled",
+          "type": "true_false",
+          "instructions": "Isključi poruku bez brisanja.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "default_value": 1,
+          "ui": 1
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_ff3f4734c3f486e602",
+      "label": "Top Bar Scroll Duration",
+      "name": "top_bar_scroll_duration",
+      "type": "number",
+      "instructions": "Trajanje kruga u sekundama; veći broj znači sporije pomeranje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "default_value": 38,
+      "min": 10,
+      "max": 180
+    },
+    {
+      "key": "field_mmaf_4e68ff2117db572bfd",
+      "label": "Footer",
+      "name": "tab_footer",
+      "type": "tab",
+      "instructions": "Unesi sadržaj za polje „Footer“. Ostavi prazno ako nije potrebno.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_45e9cb89090e0d6c98",
+      "label": "Footer Description",
+      "name": "footer_description",
+      "type": "textarea",
+      "instructions": "Kratak opis MMA Future ispod logotipa.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_cf879956b645c7c615",
+      "label": "Footer Menu Titles",
+      "name": "footer_menu_titles",
+      "type": "group",
+      "instructions": "Naslovi kolona navigacije u footeru.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "sub_fields": [
+        {
+          "key": "field_mmaf_64065fb7a04e09cee6",
+          "label": "Explore",
+          "name": "explore",
+          "type": "text",
+          "instructions": "Naslov prve kolone linkova.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_b96fb727d66cb4fbfd",
+          "label": "Resources",
+          "name": "resources",
+          "type": "text",
+          "instructions": "Naslov druge kolone linkova.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_ead81c6f9e7d70da5b",
+          "label": "Contact",
+          "name": "contact",
+          "type": "text",
+          "instructions": "Naslov kolone sa kontakt podacima.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_9e746202be259f9795",
+      "label": "Footer Copyright",
+      "name": "footer_copyright",
+      "type": "text",
+      "instructions": "Tekst uz automatsku godinu. Primer: MMA Future. All rights reserved.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_e1d45abadd6574e53b",
+      "label": "Contact And Social",
+      "name": "tab_contact_and_social",
+      "type": "tab",
+      "instructions": "Unesi sadržaj za polje „Contact And Social“. Ostavi prazno ako nije potrebno.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_0aa007ed2ea686ca30",
+      "label": "Contact Email",
+      "name": "contact_email",
+      "type": "email",
+      "instructions": "Javna adresa na Contact strani i u footeru.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_40cf6470d69e2ff1cb",
+      "label": "Contact Phone",
+      "name": "contact_phone",
+      "type": "text",
+      "instructions": "Opcioni javni telefon sa pozivnim brojem zemlje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_e9b98b28ecfdd2895c",
+      "label": "Contact Location",
+      "name": "contact_location",
+      "type": "text",
+      "instructions": "Javna lokacija. Primer: Belgrade, Serbia.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_563aefcf17ebf9f90c",
+      "label": "Contact Map Link",
+      "name": "contact_map_link",
+      "type": "url",
+      "instructions": "Opcioni link ka mapi.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_486dfc5f9cdf9d497e",
+      "label": "Social Links",
+      "name": "social_links",
+      "type": "repeater",
+      "instructions": "Dodaj javne profile željenim redosledom.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_cc1b7faf99c6790a77",
+          "label": "Platform",
+          "name": "platform",
+          "type": "select",
+          "instructions": "Izaberi platformu.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "choices": {
+            "facebook": "Facebook",
+            "instagram": "Instagram",
+            "x": "X",
+            "youtube": "YouTube",
+            "linkedin": "LinkedIn",
+            "website": "Website"
+          },
+          "allow_null": 0
+        },
+        {
+          "key": "field_mmaf_14a0585d8a158599a1",
+          "label": "Profile Link",
+          "name": "profile_link",
+          "type": "url",
+          "instructions": "Pun URL javnog profila.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_42b0937abf1c12c1fe",
+      "label": "Contact Recipient",
+      "name": "contact_recipient",
+      "type": "email",
+      "instructions": "Interna adresa za prijem poruka; ne prikazuje se posetiocima.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_126499b1959a303eab",
+      "label": "Contact Success Message",
+      "name": "contact_success_message",
+      "type": "textarea",
+      "instructions": "Poruka kada server prihvati slanje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_3d1e4526f5c65c0a24",
+      "label": "Contact Error Message",
+      "name": "contact_error_message",
+      "type": "textarea",
+      "instructions": "Poruka kada slanje ne uspe.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_56500402e1155abf93",
+      "label": "Partners",
+      "name": "tab_partners",
+      "type": "tab",
+      "instructions": "Unesi sadržaj za polje „Partners“. Ostavi prazno ako nije potrebno.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_17b7a4ba40832b016d",
+      "label": "Partners",
+      "name": "partners",
+      "type": "repeater",
+      "instructions": "Dodaj potvrđene partnere; prevuci redove za promenu redosleda.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_676a33a751247c9924",
+          "label": "Partner Name",
+          "name": "partner_name",
+          "type": "text",
+          "instructions": "Naziv potvrđenog partnera; koristi se i za opis logotipa.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_4114bde666b07c0b85",
+          "label": "Partner Logo",
+          "name": "partner_logo",
+          "type": "image",
+          "instructions": "Odaberi logo iz Media Library.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "return_format": "id",
+          "preview_size": "medium",
+          "library": "all"
+        },
+        {
+          "key": "field_mmaf_ca3b98dfa8d38a01e6",
+          "label": "Partner Link",
+          "name": "partner_link",
+          "type": "link",
+          "instructions": "Opcioni link ka partneru.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "return_format": "array"
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_4749888c7beae621ac",
+      "label": "FAQ",
+      "name": "tab_faq",
+      "type": "tab",
+      "instructions": "Unesi sadržaj za polje „FAQ“. Ostavi prazno ako nije potrebno.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_165963a83bd6183104",
+      "label": "Faq Items",
+      "name": "faq_items",
+      "type": "repeater",
+      "instructions": "Dodaj pitanja i odgovore.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_6d6dc2a264ecaaba20",
+          "label": "Question",
+          "name": "question",
+          "type": "text",
+          "instructions": "Kratko pitanje kako bi ga posetilac postavio.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_c5edf20782c8b6ad9f",
+          "label": "Answer",
+          "name": "answer",
+          "type": "wysiwyg",
+          "instructions": "Jasan odgovor na pitanje.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "tabs": "visual",
+          "toolbar": "basic",
+          "media_upload": 0
+        },
+        {
+          "key": "field_mmaf_ff299d2d06ea644c85",
+          "label": "Show On",
+          "name": "show_on",
+          "type": "select",
+          "instructions": "Strane na kojima se pitanje prikazuje.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "choices": {
+            "both": "About and Rankings",
+            "about": "About",
+            "rankings": "Rankings"
+          },
+          "default_value": "both"
+        }
+      ]
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "options_page",
+        "operator": "==",
+        "value": "mmaf-site-settings"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

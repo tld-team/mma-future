@@ -1,0 +1,40 @@
+name: Validate source
+
+on:
+  pull_request:
+  workflow_call:
+
+jobs:
+  wordpress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: find wp-content/plugins/mma-future-data-engine wp-content/themes/mma-future -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: ACF JSON and JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for file in Path('wp-content/themes/mma-future/acf-json').glob('*.json'):
+              with file.open() as source:
+                  json.load(source)
+          PY
+          node --check wp-content/themes/mma-future/assets/dist/js/integration.js
+          node --check wp-content/plugins/mma-future-data-engine/assets/regular-import.js
+          node --check wp-content/plugins/mma-future-data-engine/assets/admin-fighters.js
+          bash -n wp-content/plugins/mma-future-data-engine/bin/regular-import-runner.sh
+          php tests/unit/json-document.php
+  scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        working-directory: dev-tools/scraper
+        run: python -m pip install -e '.[test]'
+      - name: Scraper regression tests
+        working-directory: dev-tools/scraper
+        run: python -m pytest -q

@@ -16,6 +16,8 @@ final class FighterIdentityPreviewService {
 	private FighterSourceRepository $fighter_sources;
 	private string $fighters_table;
 	private string $aliases_table;
+	private string $sources_table;
+	private ?array $normalized_source_url_index = null;
 
 	public function __construct() {
 		$tables                = Schema::table_names();
@@ -23,9 +25,11 @@ final class FighterIdentityPreviewService {
 		$this->fighter_sources = new FighterSourceRepository();
 		$this->fighters_table  = $tables['fighters'];
 		$this->aliases_table   = $tables['fighter_aliases'];
+		$this->sources_table   = $tables['fighter_sources'];
 	}
 
 	public function preview_fighters( array $events, array &$warnings, array &$conflicts ): array {
+		$this->normalized_source_url_index = null;
 		$refs              = $this->collect_refs( $events );
 		$previews          = array();
 		$source_id_names   = array();
@@ -136,7 +140,7 @@ final class FighterIdentityPreviewService {
 		} elseif ( null !== $source_url_hash ) {
 			$url_matches = $this->fighter_sources->find_by_identity_hash( 'tapology', $source_url_hash );
 			if ( empty( $url_matches ) ) {
-				$url_matches = $this->fighter_sources->find_by_normalized_source_url( 'tapology', $source_url );
+				$url_matches = $this->find_by_normalized_source_url( $source_url );
 			}
 			$fighter_ids = array();
 			foreach ( $url_matches as $url_match ) {
@@ -206,6 +210,34 @@ final class FighterIdentityPreviewService {
 		}
 
 		return 'name:' . Sanitizer::normalize_name( (string) ( $ref['name'] ?? '' ) );
+	}
+
+	private function find_by_normalized_source_url( string $source_url ): array {
+		global $wpdb;
+
+		$normalized_url = TapologyFighterUrl::normalize( $source_url );
+		if ( '' === $normalized_url ) {
+			return array();
+		}
+
+		if ( null === $this->normalized_source_url_index ) {
+			// This preview is read-only; normalize legacy source URLs once per analysis.
+			$this->normalized_source_url_index = array();
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT * FROM {$this->sources_table} WHERE source_type = %s AND source_url IS NOT NULL AND source_url <> ''", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					'tapology'
+				),
+				ARRAY_A
+			);
+
+			foreach ( (array) $rows as $row ) {
+				$url = TapologyFighterUrl::normalize( (string) ( $row['source_url'] ?? '' ) );
+				$this->normalized_source_url_index[ $url ][] = $row;
+			}
+		}
+
+		return $this->normalized_source_url_index[ $normalized_url ] ?? array();
 	}
 
 	private function find_likely_by_normalized_name( string $normalized_name ): array {

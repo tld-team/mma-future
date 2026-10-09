@@ -1,0 +1,5 @@
+{
+  "halaxa/json-machine": "1.2.6",
+  "ifsnop/mysqldump-php": "2.13",
+  "namespace_prefix": "MMAFVendor"
+}

@@ -7,6 +7,7 @@ if ( ! function_exists( 'mma_future_register_acf_blocks' ) ) {
 		}
 
 		$blocks = array(
+			array( 'name' => 'single-fighter-hero', 'title' => 'Legacy Fighter Hero', 'description' => 'Compatible alias for saved fighter blocks.', 'render_template' => 'blocks/single-fighter-hero-section/single-fighter-hero-section.php' ),
 			array(
 				'name' => 'single-fighter-detail',
 				'title' => 'Single Fighter Detail',

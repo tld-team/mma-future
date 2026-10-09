@@ -30,6 +30,9 @@ final class BoutService {
 		'pending_method_review',
 		'pending_prefight_warning',
 		'excluded_amateur',
+		'excluded_non_mma',
+		'excluded_exhibition',
+		'excluded_record_ineligible',
 		'excluded_cancelled',
 		'excluded_overturned',
 		'duplicate_suspected',
@@ -113,6 +116,7 @@ final class BoutService {
 	}
 
 	public function create( array $input, int $user_id ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		global $wpdb;
 
 		$payload            = $this->prepare_payload( $input, 0 );
@@ -159,6 +163,7 @@ final class BoutService {
 	}
 
 	public function update( int $bout_id, array $input, int $user_id ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		global $wpdb;
 
 		$before_row = $this->bouts->find( $bout_id );

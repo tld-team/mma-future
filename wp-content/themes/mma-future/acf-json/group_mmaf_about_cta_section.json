@@ -1,0 +1,83 @@
+{
+  "key": "group_mmaf_about_cta_section",
+  "title": "About — Call To Action",
+  "fields": [
+    {
+      "key": "field_mmaf_377f7f0b134faf966e",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_609a43e41760f88502",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_332a80c3213b5c242a",
+      "label": "Primary Link",
+      "name": "primary_link",
+      "type": "link",
+      "instructions": "Destinacija i tekst glavnog dugmeta.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    },
+    {
+      "key": "field_mmaf_7b654ed7c1a0e5cce6",
+      "label": "Secondary Link",
+      "name": "secondary_link",
+      "type": "link",
+      "instructions": "Opcioni drugi link; prazno znači da se dugme ne prikazuje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/about-cta-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

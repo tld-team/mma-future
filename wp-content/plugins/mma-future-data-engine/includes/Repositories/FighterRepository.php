@@ -36,10 +36,11 @@ final class FighterRepository {
 		$offset = max( 0, $offset );
 		$where = $this->where_clause( $search, $filters );
 		$args  = array_merge( $where['args'], array( $limit, $offset ) );
+		$order = 'newest' === ( $filters['sort'] ?? '' ) ? 'f.created_at DESC, f.id DESC' : 'f.updated_at DESC, f.created_at DESC, f.id DESC';
 
 		return $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$this->table} f {$where['sql']} ORDER BY f.updated_at DESC, f.created_at DESC, f.id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT * FROM {$this->table} f {$where['sql']} ORDER BY {$order} LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$args
 			),
 			ARRAY_A

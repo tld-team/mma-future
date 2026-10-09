@@ -1,0 +1,83 @@
+{
+  "key": "group_690275b3d45cd",
+  "title": "Single fighter hero",
+  "fields": [
+    {
+      "ID": 538,
+      "key": "field_690275b4c8764",
+      "label": "",
+      "name": "",
+      "aria-label": "",
+      "prefix": "acf",
+      "type": "group",
+      "value": null,
+      "menu_order": 0,
+      "instructions": "Postojeće polje starog fighter sadržaja; sačuvano radi kompatibilnosti.",
+      "required": 0,
+      "id": "",
+      "class": "",
+      "conditional_logic": 0,
+      "parent": 537,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "block",
+      "sub_fields": [
+        {
+          "ID": 539,
+          "key": "field_69027601f2bec",
+          "label": "test",
+          "name": "test",
+          "aria-label": "",
+          "prefix": "acf",
+          "type": "text",
+          "value": null,
+          "menu_order": 0,
+          "instructions": "Postojeće polje starog fighter sadržaja; sačuvano radi kompatibilnosti.",
+          "required": 0,
+          "id": "",
+          "class": "",
+          "conditional_logic": 0,
+          "parent": 538,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "default_value": "",
+          "maxlength": "",
+          "placeholder": "",
+          "prepend": "",
+          "append": "",
+          "_name": "test",
+          "_valid": 1
+        }
+      ],
+      "_name": "",
+      "_valid": 1
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/single-fighter-hero"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": false,
+  "description": "",
+  "show_in_rest": 0,
+  "display_title": "",
+  "_valid": true,
+  "modified": 1791457200
+}

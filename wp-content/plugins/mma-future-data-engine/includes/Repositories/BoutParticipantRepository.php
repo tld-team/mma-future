@@ -32,6 +32,11 @@ final class BoutParticipantRepository {
 			throw new \InvalidArgumentException( __( 'Exactly two bout participants are required.', 'mma-future-data-engine' ) );
 		}
 
+		$roles = array_column( $participants, 'participant_role' );
+		$ids = array_map( 'intval', array_column( $participants, 'fighter_id' ) );
+		if ( count( array_unique( $roles ) ) !== 2 || count( array_unique( $ids ) ) !== 2 || min( $ids ) < 1 ) {
+			throw new \InvalidArgumentException( 'A bout requires two distinct fighters and distinct participant roles.' );
+		}
 		$now = DateTime::mysql_now();
 		$keep_ids = array();
 
@@ -53,31 +58,33 @@ final class BoutParticipantRepository {
 
 			if ( $existing_id > 0 ) {
 				$participant['updated_at'] = $now;
-				$wpdb->update(
+				$updated = $wpdb->update(
 					$this->table,
 					$participant,
 					array( 'id' => $existing_id ),
 					null,
 					array( '%d' )
 				);
+				if ( false === $updated ) { throw new \RuntimeException( 'Could not update bout participant: ' . $wpdb->last_error ); }
 				$keep_ids[] = $existing_id;
 				continue;
 			}
 
 			$participant['created_at'] = $now;
 			$participant['updated_at'] = null;
-			$wpdb->insert( $this->table, $participant );
+			if ( false === $wpdb->insert( $this->table, $participant ) ) { throw new \RuntimeException( 'Could not insert bout participant: ' . $wpdb->last_error ); }
 			$keep_ids[] = (int) $wpdb->insert_id;
 		}
 
 		if ( ! empty( $keep_ids ) ) {
 			$placeholders = implode( ',', array_fill( 0, count( $keep_ids ), '%d' ) );
-			$wpdb->query(
+			$deleted = $wpdb->query(
 				$wpdb->prepare(
 					"DELETE FROM {$this->table} WHERE bout_id = %d AND id NOT IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 					array_merge( array( $bout_id ), $keep_ids )
 				)
 			);
+			if ( false === $deleted ) { throw new \RuntimeException( 'Could not remove obsolete participants: ' . $wpdb->last_error ); }
 		}
 
 		$this->assert_exactly_two( $bout_id );

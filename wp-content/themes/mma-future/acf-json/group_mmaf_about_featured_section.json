@@ -1,0 +1,118 @@
+{
+  "key": "group_mmaf_about_featured_section",
+  "title": "About — Features",
+  "fields": [
+    {
+      "key": "field_mmaf_27ed2592356f4f1270",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_80fa4ba1da605fe328",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_97fa797d838e3bb0e3",
+      "label": "Features",
+      "name": "features",
+      "type": "repeater",
+      "instructions": "Dodaj kartice željenim redosledom.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_fd8f40ca33bf0e5e4f",
+          "label": "Feature Icon",
+          "name": "feature_icon",
+          "type": "image",
+          "instructions": "Ikona iz Media Library.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "return_format": "id",
+          "preview_size": "medium",
+          "library": "all"
+        },
+        {
+          "key": "field_mmaf_9422ebab2a5b42d54a",
+          "label": "Feature Title",
+          "name": "feature_title",
+          "type": "text",
+          "instructions": "Naslov kartice.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_c64e468ab9c8bff244",
+          "label": "Feature Description",
+          "name": "feature_description",
+          "type": "textarea",
+          "instructions": "Kratko objašnjenje kartice.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        }
+      ]
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/about-featured-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

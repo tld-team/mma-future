@@ -43,7 +43,8 @@ if (is_singular('post')):
 		$permalink = get_the_permalink();
 
 		/* Optional meta fields */
-		$key_takeaways = get_post_meta($post_id, 'key_takeaways', true);
+		$key_takeaways = mmaf_site_field('key_takeaways', $post_id);
+		if (is_array($key_takeaways)) { $key_takeaways = array_column($key_takeaways, 'takeaway_text'); }
 		$key_takeaways_text = get_post_meta($post_id, 'key_takeaways_text', true);
 		$related_fighters = get_post_meta($post_id, 'related_fighters', true);
 		$related_events = get_post_meta($post_id, 'related_events', true);
@@ -193,7 +194,7 @@ if (is_singular('post')):
 						$takeaway_items = [];
 						if (is_array($key_takeaways) && !empty($key_takeaways)) {
 							$takeaway_items = $key_takeaways;
-						} elseif (is_string($key_takeaways_text) && trim($key_takeaways_text) !== '') {
+						} elseif (!metadata_exists('post', $post_id, 'key_takeaways') && is_string($key_takeaways_text) && trim($key_takeaways_text) !== '') {
 							$takeaway_items = array_filter(array_map('trim', explode("\n", $key_takeaways_text)));
 						}
 						if (!empty($takeaway_items)):
@@ -347,111 +348,7 @@ if (is_singular('post')):
 					<aside class="hidden lg:block lg:col-span-3">
 						<div class="sticky top-24 space-y-6">
 
-							<?php
-							/* ============================================================
-							   H-1) RELATED FIGHTERS (optional)
-							   ============================================================ */
-							$fighter_ids = [];
-							if (is_array($related_fighters) && !empty($related_fighters)) {
-								$fighter_ids = array_map('absint', $related_fighters);
-							} elseif (is_string($related_fighters) && trim($related_fighters) !== '') {
-								$fighter_ids = array_map('absint', array_filter(explode(',', $related_fighters)));
-							}
-							$fighter_ids = array_slice(array_filter($fighter_ids), 0, 3);
-
-							if (!empty($fighter_ids)):
-								$fighters_q = new WP_Query([
-									'post_type' => 'fighter',
-									'post__in' => $fighter_ids,
-									'posts_per_page' => 3,
-									'orderby' => 'post__in',
-									'no_found_rows' => true,
-								]);
-								if ($fighters_q->have_posts()):
-									?>
-									<div class="rounded-xl border border-slate-200/70 bg-white p-4">
-										<h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-											<?php esc_html_e('Related Fighters', 'mma-future'); ?>
-										</h3>
-										<ul class="space-y-3 list-none m-0 p-0">
-											<?php while ($fighters_q->have_posts()):
-												$fighters_q->the_post();
-												$f_name = get_the_title();
-												$f_link = get_the_permalink();
-												$f_class = get_post_meta(get_the_ID(), 'weight_class', true);
-												$initials = implode('', array_map(function ($w) {
-													return mb_strtoupper(mb_substr($w, 0, 1)); }, explode(' ', $f_name)));
-												$initials = mb_substr($initials, 0, 2);
-												?>
-												<li>
-													<a href="<?php echo esc_url($f_link); ?>" class="flex items-center gap-3 group">
-														<span
-															class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
-															style="background:var(--brand);">
-															<?php echo esc_html($initials); ?>
-														</span>
-														<span>
-															<span
-																class="block text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors"><?php echo esc_html($f_name); ?></span>
-															<?php if ($f_class): ?>
-																<span
-																	class="block text-xs text-slate-400"><?php echo esc_html($f_class); ?></span>
-															<?php endif; ?>
-														</span>
-													</a>
-												</li>
-											<?php endwhile;
-											wp_reset_postdata(); ?>
-										</ul>
-									</div>
-								<?php endif; endif; ?>
-
-							<?php
-							/* ============================================================
-							   H-2) RELATED EVENTS (optional)
-							   ============================================================ */
-							$event_ids = [];
-							if (is_array($related_events) && !empty($related_events)) {
-								$event_ids = array_map('absint', $related_events);
-							} elseif (is_string($related_events) && trim($related_events) !== '') {
-								$event_ids = array_map('absint', array_filter(explode(',', $related_events)));
-							}
-							$event_ids = array_slice(array_filter($event_ids), 0, 3);
-
-							if (!empty($event_ids)):
-								$events_q = new WP_Query([
-									'post_type' => 'event',
-									'post__in' => $event_ids,
-									'posts_per_page' => 3,
-									'orderby' => 'post__in',
-									'no_found_rows' => true,
-								]);
-								if ($events_q->have_posts()):
-									?>
-									<div class="rounded-xl border border-slate-200/70 bg-white p-4">
-										<h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-											<?php esc_html_e('Related Events', 'mma-future'); ?>
-										</h3>
-										<ul class="space-y-3 list-none m-0 p-0">
-											<?php while ($events_q->have_posts()):
-												$events_q->the_post();
-												$e_date = get_post_meta(get_the_ID(), 'event_date', true);
-												?>
-												<li>
-													<a href="<?php echo esc_url(get_the_permalink()); ?>" class="block group">
-														<span
-															class="block text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors"><?php the_title(); ?></span>
-														<?php if ($e_date): ?>
-															<span
-																class="block text-xs text-slate-400 mt-0.5"><?php echo esc_html($e_date); ?></span>
-														<?php endif; ?>
-													</a>
-												</li>
-											<?php endwhile;
-											wp_reset_postdata(); ?>
-										</ul>
-									</div>
-								<?php endif; endif; ?>
+							<?php mmaf_render_article_relations( $post_id ); ?>
 
 							<?php
 							/* ============================================================
@@ -517,50 +414,7 @@ if (is_singular('post')):
 								</div>
 							<?php endif; ?>
 
-							<!-- Upcoming Events (static) -->
-							<div class="rounded-xl border border-slate-200/70 bg-white p-4">
-								<h3 class="!text-[11px] !leading-none font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-3 whitespace-nowrap">
-									<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-										<rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-									</svg>
-									<?php esc_html_e('Upcoming Events', 'mma-future'); ?>
-								</h3>
-								<ul class="space-y-1.5 list-none m-0 p-0">
-									<li>
-										<a href="<?php echo esc_url(home_url('/event/ufc-301-las-vegas/')); ?>"
-											class="group flex items-start gap-3 rounded-lg px-2 py-2 -mx-2 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-											<span class="mt-[7px] h-2 w-2 rounded-full bg-[#0047A8] flex-shrink-0"></span>
-											<span class="min-w-0 flex-1">
-												<span class="block text-sm font-medium text-slate-700 group-hover:text-slate-900 leading-snug">UFC 301: Las Vegas</span>
-												<span class="block text-xs text-slate-400 mt-0.5">Mar 15, 2026</span>
-											</span>
-											<svg xmlns="http://www.w3.org/2000/svg" class="mt-1 h-3.5 w-3.5 flex-shrink-0 text-slate-300 opacity-0 transition group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-										</a>
-									</li>
-									<li>
-										<a href="<?php echo esc_url(home_url('/event/ufc-fight-night-sao-paulo/')); ?>"
-											class="group flex items-start gap-3 rounded-lg px-2 py-2 -mx-2 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-											<span class="mt-[7px] h-2 w-2 rounded-full bg-[#0047A8] flex-shrink-0"></span>
-											<span class="min-w-0 flex-1">
-												<span class="block text-sm font-medium text-slate-700 group-hover:text-slate-900 leading-snug">UFC Fight Night: São Paulo</span>
-												<span class="block text-xs text-slate-400 mt-0.5">Mar 1, 2026</span>
-											</span>
-											<svg xmlns="http://www.w3.org/2000/svg" class="mt-1 h-3.5 w-3.5 flex-shrink-0 text-slate-300 opacity-0 transition group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-										</a>
-									</li>
-									<li>
-										<a href="<?php echo esc_url(home_url('/event/ufc-302-new-york/')); ?>"
-											class="group flex items-start gap-3 rounded-lg px-2 py-2 -mx-2 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-											<span class="mt-[7px] h-2 w-2 rounded-full bg-[#0047A8] flex-shrink-0"></span>
-											<span class="min-w-0 flex-1">
-												<span class="block text-sm font-medium text-slate-700 group-hover:text-slate-900 leading-snug">UFC 302: New York</span>
-												<span class="block text-xs text-slate-400 mt-0.5">Apr 6, 2026</span>
-											</span>
-											<svg xmlns="http://www.w3.org/2000/svg" class="mt-1 h-3.5 w-3.5 flex-shrink-0 text-slate-300 opacity-0 transition group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-										</a>
-									</li>
-								</ul>
-							</div>
+							<?php mmaf_render_upcoming_events(); ?>
 
 						</div><!-- /sticky -->
 					</aside>
@@ -572,80 +426,7 @@ if (is_singular('post')):
 		 MOBILE SIDEBAR (below article, visible on < lg)
 		 ============================================================ -->
 			<div class="lg:hidden max-w-6xl mx-auto px-4 sm:px-6 pb-8 space-y-6">
-				<?php
-				if (!empty($fighter_ids)):
-					$fighters_q2 = new WP_Query([
-						'post_type' => 'fighter',
-						'post__in' => $fighter_ids,
-						'posts_per_page' => 3,
-						'orderby' => 'post__in',
-						'no_found_rows' => true,
-					]);
-					if ($fighters_q2->have_posts()):
-						?>
-						<div class="rounded-xl border border-slate-200/70 bg-white p-4">
-							<h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-								<?php esc_html_e('Related Fighters', 'mma-future'); ?></h3>
-							<ul class="space-y-3 list-none m-0 p-0">
-								<?php while ($fighters_q2->have_posts()):
-									$fighters_q2->the_post();
-									$f_name = get_the_title();
-									$f_link = get_the_permalink();
-									$f_class = get_post_meta(get_the_ID(), 'weight_class', true);
-									$initials = mb_substr(implode('', array_map(function ($w) {
-										return mb_strtoupper(mb_substr($w, 0, 1)); }, explode(' ', $f_name))), 0, 2);
-									?>
-									<li>
-										<a href="<?php echo esc_url($f_link); ?>" class="flex items-center gap-3 group">
-											<span
-												class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
-												style="background:var(--brand);"><?php echo esc_html($initials); ?></span>
-											<span>
-												<span
-													class="block text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors"><?php echo esc_html($f_name); ?></span>
-												<?php if ($f_class): ?><span
-														class="block text-xs text-slate-400"><?php echo esc_html($f_class); ?></span><?php endif; ?>
-											</span>
-										</a>
-									</li>
-								<?php endwhile;
-								wp_reset_postdata(); ?>
-							</ul>
-						</div>
-					<?php endif; endif; ?>
-
-				<?php
-				if (!empty($event_ids)):
-					$events_q2 = new WP_Query([
-						'post_type' => 'event',
-						'post__in' => $event_ids,
-						'posts_per_page' => 3,
-						'orderby' => 'post__in',
-						'no_found_rows' => true,
-					]);
-					if ($events_q2->have_posts()):
-						?>
-						<div class="rounded-xl border border-slate-200/70 bg-white p-4">
-							<h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-								<?php esc_html_e('Related Events', 'mma-future'); ?></h3>
-							<ul class="space-y-3 list-none m-0 p-0">
-								<?php while ($events_q2->have_posts()):
-									$events_q2->the_post();
-									$e_date = get_post_meta(get_the_ID(), 'event_date', true);
-									?>
-									<li>
-										<a href="<?php echo esc_url(get_the_permalink()); ?>" class="block group">
-											<span
-												class="block text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors"><?php the_title(); ?></span>
-											<?php if ($e_date): ?><span
-													class="block text-xs text-slate-400 mt-0.5"><?php echo esc_html($e_date); ?></span><?php endif; ?>
-										</a>
-									</li>
-								<?php endwhile;
-								wp_reset_postdata(); ?>
-							</ul>
-						</div>
-					<?php endif; endif; ?>
+				<?php mmaf_render_article_relations($post_id); ?>
 			</div>
 
 			<!-- ============================================================

@@ -1,0 +1,191 @@
+{
+  "key": "group_mmaf_about_our_team_section",
+  "title": "About — Team",
+  "fields": [
+    {
+      "key": "field_mmaf_13ae8e786ddf6b35dd",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_7aaff0809b0ec5322e",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_3d438aa48cbe747b99",
+      "label": "Primary Link",
+      "name": "primary_link",
+      "type": "link",
+      "instructions": "Destinacija i tekst glavnog dugmeta.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    },
+    {
+      "key": "field_mmaf_1851715fc8ca8a1601",
+      "label": "Secondary Link",
+      "name": "secondary_link",
+      "type": "link",
+      "instructions": "Opcioni drugi link; prazno znači da se dugme ne prikazuje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "array"
+    },
+    {
+      "key": "field_mmaf_b2fb2b4301b77a740d",
+      "label": "Team Members",
+      "name": "team_members",
+      "type": "repeater",
+      "instructions": "Dodaj potvrđene članove tima.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_91709f47c4c7725def",
+          "label": "Member Name",
+          "name": "member_name",
+          "type": "text",
+          "instructions": "Ime stvarnog člana tima.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_f4bf17fdbf56a50153",
+          "label": "Member Role",
+          "name": "member_role",
+          "type": "text",
+          "instructions": "Uloga u projektu.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_58cd61c95ef96fb9d3",
+          "label": "Member Photo",
+          "name": "member_photo",
+          "type": "image",
+          "instructions": "Fotografija iz Media Library.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "return_format": "id",
+          "preview_size": "medium",
+          "library": "all"
+        },
+        {
+          "key": "field_mmaf_652b183053ff2023bd",
+          "label": "Member Description",
+          "name": "member_description",
+          "type": "textarea",
+          "instructions": "Kratak opis rada člana tima.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_367d43a113fca34082",
+          "label": "Member Focus",
+          "name": "member_focus",
+          "type": "text",
+          "instructions": "Oblast rada. Primer: Data research.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_f25a66c5373f808950",
+          "label": "Member Link",
+          "name": "member_link",
+          "type": "link",
+          "instructions": "Opcioni javni profil.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "return_format": "array"
+        }
+      ]
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/about-our-team-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

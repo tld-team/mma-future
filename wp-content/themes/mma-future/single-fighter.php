@@ -17,6 +17,7 @@ get_header();
 		while ( have_posts() ) :
 			the_post();
 
+			if ( ! trim( get_the_content() ) ) { echo '<main id="primary" class="mmaf-section"><div class="mmaf-container"><h1>' . esc_html( get_the_title() ) . '</h1><p>This legacy profile is awaiting verified linkage to its canonical fighter data.</p></div></main>'; }
 			get_template_part( 'template-parts/content', 'fighter' );
 
 		endwhile; // End of the loop.

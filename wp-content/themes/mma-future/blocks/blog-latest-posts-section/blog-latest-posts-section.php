@@ -1,7 +1,8 @@
 <?php
 $latest_posts = new WP_Query( array(
 	'post_type'      => 'post',
-	'posts_per_page' => 4,
+	'posts_per_page' => max( 1, min( 12, (int) ( mmaf_site_field( 'posts_count' ) ?: 4 ) ) ),
+	'cat' => (int) mmaf_site_field( 'post_category' ),
 	'orderby'        => 'date',
 	'order'          => 'DESC',
 	'post_status'    => 'publish',
@@ -20,10 +21,10 @@ $blog_url     = $blog_page_id ? get_permalink( $blog_page_id ) : home_url( '/blo
 
 		<div class="blog-latest-posts-section__header text-center">
 			<h2 class="blog-latest-posts-section__title text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-				Latest from the blog
+				<?php echo esc_html( mmaf_site_field( 'section_title' ) ); ?>
 			</h2>
 			<p class="blog-latest-posts-section__subtitle mt-3 max-w-2xl mx-auto text-base sm:text-lg text-slate-600 leading-relaxed">
-				Analysis, breakdowns, and insights from the world of MMA — backed by data, not hype.
+				<?php echo esc_html( mmaf_site_field( 'section_description' ) ); ?>
 			</p>
 		</div>
 
@@ -88,10 +89,7 @@ $blog_url     = $blog_page_id ? get_permalink( $blog_page_id ) : home_url( '/blo
 		</div>
 
 		<div class="blog-latest-posts-section__cta-wrap mt-10 flex justify-center">
-			<a href="<?php echo esc_url( $blog_url ); ?>"
-			   class="blog-latest-posts-section__cta inline-flex items-center justify-center h-11 px-5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-[#0047A8] hover:text-white hover:border-[#0047A8] hover:shadow-md transition-all duration-200 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
-				View all articles
-			</a>
+			<?php mmaf_site_link( mmaf_site_field( 'primary_link' ), 'blog-latest-posts-section__cta mmaf-button mmaf-button--secondary' ); ?>
 		</div>
 
 	</div>

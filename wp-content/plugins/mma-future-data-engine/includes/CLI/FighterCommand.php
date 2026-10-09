@@ -14,6 +14,11 @@ final class FighterCommand {
 		\WP_CLI::add_command( 'mmaf fighter', self::class );
 	}
 
+	/** Reconcile public WordPress posts with existing canonical decisions. */
+	public function sync_public( array $args, array $assoc_args ): void {
+		if ( isset( $assoc_args['apply'] ) && ! in_array( wp_get_environment_type(), array( 'local','development','staging' ), true ) ) { \WP_CLI::error( 'Publication reconciliation is limited to local/dev/staging.' ); }
+		\WP_CLI::line( wp_json_encode( ( new \MMAF\DataEngine\Services\FighterPublicationService() )->reconcile( isset( $assoc_args['apply'] ), get_current_user_id() ), JSON_PRETTY_PRINT ) );
+	}
 	/**
 	 * Guarded placeholder for future audited fighter merges.
 	 */

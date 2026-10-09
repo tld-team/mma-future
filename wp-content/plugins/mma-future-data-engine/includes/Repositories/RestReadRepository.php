@@ -286,6 +286,7 @@ final class RestReadRepository {
 
 		if ( ! $include_non_public ) {
 			$where .= ' AND f.is_public = 1';
+			$where .= " AND EXISTS (SELECT 1 FROM {$wpdb->posts} public_post WHERE public_post.ID=f.wp_post_id AND public_post.post_type='mmaf_fighter' AND public_post.post_status='publish')";
 		}
 
 		return $wpdb->get_results(
@@ -343,6 +344,12 @@ final class RestReadRepository {
 			'latest_ranking_calculation_time'=> $ranking_summary['calculated_at'] ?? null,
 			'latest_ranking_activation_time' => $activation_summary['activated_at'] ?? null,
 		);
+	}
+
+	public function public_dates(): array {
+		$activation = $this->system_state_json( 'last_ranking_activation_summary' );
+		$stats = $this->system_state_json( 'last_stats_rebuild_summary' );
+		return array( 'latest_public_ranking_update' => $activation['activated_at'] ?? null, 'latest_stats_rebuild_time' => $stats['rebuilt_at'] ?? null );
 	}
 
 	public function public_health_summary(): array {

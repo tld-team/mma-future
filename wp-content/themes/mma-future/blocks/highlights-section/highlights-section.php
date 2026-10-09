@@ -14,33 +14,15 @@ $count = is_array($rows) ? count($rows) : 0;
 // Check if we have header content
 $has_header_content = !empty($section_title) || !empty($section_subtitle);
 
-// Fallback values
-if (empty($section_title)) {
-    $section_title = 'Transparent Ranking System';
-}
-if (empty($section_subtitle)) {
-    $section_subtitle = 'Our formula evaluates fighters across multiple dimensions for fair, data-driven rankings.';
-}
-
-// CTA values with fallbacks
 $has_cta = !empty($cta) && is_array($cta) && !empty($cta['url']);
-$cta_url = '#methodology';
-$cta_title = 'Read Full Methodology';
-$cta_target = '';
-if ($has_cta) {
-    $cta_url = $cta['url'];
-    if (!empty($cta['title'])) {
-        $cta_title = $cta['title'];
-    }
-    if (!empty($cta['target'])) {
-        $cta_target = $cta['target'];
-    }
-}
+$cta_url = $cta['url'] ?? '';
+$cta_title = $cta['title'] ?? '';
+$cta_target = $cta['target'] ?? '';
 
 // Dynamic desktop layout class
 $lg_basis_class = ($count >= 4) ? 'lg:basis-[calc(25%-18px)]' : 'lg:basis-[calc(33.333%-16px)]';
 ?>
-<section id="highlights-section" class="highlights-section py-20 mt-20 mb-10 bg-white">
+<section id="<?php echo esc_attr( $block['anchor'] ?? $block['id'] ?? wp_unique_id( 'highlights-' ) ); ?>" class="highlights-section py-20 mt-20 mb-10 bg-white">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <!-- Section Header -->

@@ -178,12 +178,12 @@ final class RankingCurrentRepository {
 		);
 	}
 
-	public function insert_draft_snapshots( int $ranking_run_id, array $rows ): void {
+	public function insert_draft_snapshots( int $ranking_run_id, iterable $rows ): int {
 		global $wpdb;
 
 		$now = DateTime::mysql_now();
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$deleted = $wpdb->delete( $this->snapshots_table, array( 'ranking_run_id' => $ranking_run_id ), array( '%d' ) );
@@ -191,6 +191,7 @@ final class RankingCurrentRepository {
 				throw new \RuntimeException( $wpdb->last_error ? $wpdb->last_error : __( 'Could not clear draft ranking snapshots.', 'mma-future-data-engine' ) );
 			}
 
+			$count=0;
 			foreach ( $rows as $row ) {
 				$row['ranking_run_id'] = $ranking_run_id;
 				$row['created_at']     = $now;
@@ -198,11 +199,13 @@ final class RankingCurrentRepository {
 				if ( false === $inserted ) {
 					throw new \RuntimeException( $wpdb->last_error ? $wpdb->last_error : __( 'Could not insert draft ranking row.', 'mma-future-data-engine' ) );
 				}
+				++$count;
 			}
 
-			$wpdb->query( 'COMMIT' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
+			return $count;
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 	}

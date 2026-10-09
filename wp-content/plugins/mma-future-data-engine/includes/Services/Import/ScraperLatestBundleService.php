@@ -361,36 +361,7 @@ final class ScraperLatestBundleService {
 			$entity = sanitize_key( (string) ( $item['entity'] ?? 'scraper' ) );
 			$context = is_array( $item['context'] ?? null ) ? (array) $item['context'] : array();
 			$source_id = $this->source_id_from_review_context( $context );
-			$item_key = $this->manual_review_item_key( $run_id, $type, $source_id, (int) $index );
-			$notes = $this->manual_review_notes( $item, $import_run_id );
-
-			$existing_id = (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT id FROM {$tables['review_items']} WHERE item_key = %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-					$item_key
-				)
-			);
-
-			$row = array(
-				'item_type'     => 'scraper_' . $entity,
-				'item_key'      => $item_key,
-				'source_type'   => 'tapology',
-				'source_id'     => '' !== $source_id ? $source_id : null,
-				'canonical_id'  => null,
-				'related_canonical_id' => null,
-				'status'        => 'open',
-				'action_taken'  => $type,
-				'notes'         => $notes,
-				'updated_at'    => $now,
-			);
-
-			if ( $existing_id > 0 ) {
-				$wpdb->update( $tables['review_items'], $row, array( 'id' => $existing_id ), null, array( '%d' ) );
-			} else {
-				$row['created_by'] = $created_by > 0 ? $created_by : null;
-				$row['created_at'] = $now;
-				$wpdb->insert( $tables['review_items'], $row );
-			}
+			\MMAF\DataEngine\Services\RegularImport\Review::upsert(0,$type,$source_id,$context,$created_by);
 			++$upserted;
 		}
 

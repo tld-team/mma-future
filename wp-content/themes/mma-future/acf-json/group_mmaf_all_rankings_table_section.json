@@ -1,0 +1,117 @@
+{
+  "key": "group_mmaf_all_rankings_table_section",
+  "title": "Rankings — Table",
+  "fields": [
+    {
+      "key": "field_mmaf_3997b178a747fc7d78",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_d78d5c1056bb47a049",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_7de92d0794b4503dd2",
+      "label": "Default Board",
+      "name": "default_board",
+      "type": "select",
+      "instructions": "Podrazumevana lista pri otvaranju strane.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "choices": {},
+      "ui": 1,
+      "default_value": "male"
+    },
+    {
+      "key": "field_mmaf_d0becb129a13afd8c6",
+      "label": "Rows Per Page",
+      "name": "rows_per_page",
+      "type": "number",
+      "instructions": "Broj redova po strani.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "default_value": 25,
+      "min": 5,
+      "max": 100
+    },
+    {
+      "key": "field_mmaf_aba0c70b469564ab9a",
+      "label": "Show Score Breakdown",
+      "name": "show_score_breakdown",
+      "type": "true_false",
+      "instructions": "Omogući detalje aktivnog obračuna.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "default_value": 1,
+      "ui": 1
+    },
+    {
+      "key": "field_mmaf_ddbcb654d9112ba704",
+      "label": "Empty State Text",
+      "name": "empty_state_text",
+      "type": "textarea",
+      "instructions": "Poruka kada nema rezultata za izabrane filtere.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/all-rankings-table-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

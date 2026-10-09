@@ -1,0 +1,151 @@
+{
+  "key": "group_mmaf_about_how_it_works_section",
+  "title": "About — How It Works",
+  "fields": [
+    {
+      "key": "field_mmaf_e1f6115aebb2661bc5",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_3125781859fb45f471",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_cc66125746bc6c34d4",
+      "label": "Steps",
+      "name": "steps",
+      "type": "repeater",
+      "instructions": "Koraci obrade i rangiranja.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_ab3265656803e4de18",
+          "label": "Step Title",
+          "name": "step_title",
+          "type": "text",
+          "instructions": "Naziv koraka.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        },
+        {
+          "key": "field_mmaf_58f42f4153ec44c844",
+          "label": "Step Description",
+          "name": "step_description",
+          "type": "textarea",
+          "instructions": "Objasni šta se radi u ovom koraku.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_f22f3352acb5edf8f7",
+      "label": "Principles",
+      "name": "principles",
+      "type": "repeater",
+      "instructions": "Principi koje sistem zaista primenjuje.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_89c7088c6fb708ffb1",
+          "label": "Principle Text",
+          "name": "principle_text",
+          "type": "text",
+          "instructions": "Jedna jasna metodološka smernica.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_d6465e99d74d1d30ca",
+      "label": "Example Fighter Id",
+      "name": "example_fighter_id",
+      "type": "mmaf_entity",
+      "instructions": "Izaberi javnog borca za stvarni primer aktivnog score breakdown-a.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "entity_type": "fighter",
+      "multiple": 0
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/about-how-it-works-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

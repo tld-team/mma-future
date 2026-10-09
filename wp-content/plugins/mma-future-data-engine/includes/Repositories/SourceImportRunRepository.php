@@ -40,6 +40,7 @@ final class SourceImportRunRepository {
 
 		$wpdb->insert( $this->table, $row );
 
+		if ($wpdb->last_error || !$wpdb->insert_id) { throw new \RuntimeException('Could not save import log: '.$wpdb->last_error); }
 		return (int) $wpdb->insert_id;
 	}
 
@@ -68,6 +69,7 @@ final class SourceImportRunRepository {
 			)
 		);
 
+		if ($wpdb->last_error || !$wpdb->insert_id) { throw new \RuntimeException('Could not save import log: '.$wpdb->last_error); }
 		return (int) $wpdb->insert_id;
 	}
 

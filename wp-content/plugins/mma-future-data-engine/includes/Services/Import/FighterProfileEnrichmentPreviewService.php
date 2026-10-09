@@ -380,6 +380,7 @@ final class FighterProfileEnrichmentPreviewService {
 			'profile_index' => $index,
 			'source_fighter_id' => $source_fighter_id,
 			'source_url' => $source_url,
+			'source_scraped_at' => (string)($profile['scraped_at'] ?? $profile['profile_scraped_at'] ?? ''),
 			'profile_display_name' => $display_name,
 			'matched_canonical_fighter_id' => $fighter ? (int) $fighter['id'] : 0,
 			'matched_canonical_name' => $fighter ? (string) $fighter['display_name'] : '',
@@ -465,8 +466,18 @@ final class FighterProfileEnrichmentPreviewService {
 		return $matches;
 	}
 
-	private function load_database_context(): void {
+	private function load_database_context(?array $profiles = null): void {
 		global $wpdb;
+		$where='';
+		if (null !== $profiles) {
+			$ids=[]; $urls=[];
+			foreach ($profiles as $profile) { $ids[]=(string)($profile['source_fighter_id']??''); $urls[]=$this->normalize_url((string)($profile['source_url']??'')); }
+			$ids=array_values(array_unique(array_filter($ids))); $urls=array_values(array_unique(array_filter($urls)));
+			$parts=[];
+			if ($ids) { $parts[]=$wpdb->prepare('fs.source_fighter_id IN ('.implode(',',array_fill(0,count($ids),'%s')).')',...$ids); }
+			if ($urls) { $parts[]=$wpdb->prepare('fs.source_url IN ('.implode(',',array_fill(0,count($urls),'%s')).')',...$urls); }
+			$where=' WHERE '.($parts?'('.implode(' OR ',$parts).')':'1=0');
+		}
 
 		$this->source_id_map = array();
 		$this->tapology_url_map = array();
@@ -498,6 +509,7 @@ final class FighterProfileEnrichmentPreviewService {
 			FROM {$this->tables['fighter_sources']} fs
 			LEFT JOIN {$this->tables['fighters']} f ON f.id = fs.fighter_id
 			LEFT JOIN {$this->tables['fighter_stats_current']} st ON st.fighter_id = f.id
+			$where
 			", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			ARRAY_A
 		);
@@ -918,7 +930,7 @@ final class FighterProfileEnrichmentPreviewService {
 		$data = $this->decode_payload( $content );
 		$profiles = (array) $data['profiles'];
 
-		$this->load_database_context();
+		$this->load_database_context($profiles);
 		$this->load_planned_import_context( $results_dry_run );
 
 		$summary = $this->empty_summary();

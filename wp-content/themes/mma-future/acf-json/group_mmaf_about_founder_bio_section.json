@@ -1,0 +1,215 @@
+{
+  "key": "group_mmaf_about_founder_bio_section",
+  "title": "About — Founder",
+  "fields": [
+    {
+      "key": "field_mmaf_65315fd73d98a891a9",
+      "label": "Section Title",
+      "name": "section_title",
+      "type": "text",
+      "instructions": "Glavni naslov ove sekcije.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_86f97978633b11f14f",
+      "label": "Section Description",
+      "name": "section_description",
+      "type": "textarea",
+      "instructions": "Kratak uvod ispod naslova; jedna do tri rečenice.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_cc078795dcbf18e325",
+      "label": "Founder Name",
+      "name": "founder_name",
+      "type": "text",
+      "instructions": "Ime stvarne osobe.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_cf88830ffe95b8b16e",
+      "label": "Founder Role",
+      "name": "founder_role",
+      "type": "text",
+      "instructions": "Uloga u projektu.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_01eb7cb6e992c71fd3",
+      "label": "Founder Photo",
+      "name": "founder_photo",
+      "type": "image",
+      "instructions": "Fotografija iz Media Library.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "id",
+      "preview_size": "medium",
+      "library": "all"
+    },
+    {
+      "key": "field_mmaf_ae2997e5bf26ed9bbd",
+      "label": "Founder Biography",
+      "name": "founder_biography",
+      "type": "wysiwyg",
+      "instructions": "Kratka biografija i veza sa projektom.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "tabs": "visual",
+      "toolbar": "basic",
+      "media_upload": 0
+    },
+    {
+      "key": "field_mmaf_5b61b5f6a15ffce07f",
+      "label": "Experience Items",
+      "name": "experience_items",
+      "type": "repeater",
+      "instructions": "Relevantno iskustvo.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_4a7285b6628cbc91f1",
+          "label": "Experience Text",
+          "name": "experience_text",
+          "type": "text",
+          "instructions": "Jedna proverena stavka iskustva.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          }
+        }
+      ]
+    },
+    {
+      "key": "field_mmaf_4a99937d5065c00b07",
+      "label": "Founder Quote",
+      "name": "founder_quote",
+      "type": "textarea",
+      "instructions": "Opcioni citat osnivača.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      }
+    },
+    {
+      "key": "field_mmaf_ef72fabbf4a2883648",
+      "label": "Signature Image",
+      "name": "signature_image",
+      "type": "image",
+      "instructions": "Opciona slika potpisa.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "return_format": "id",
+      "preview_size": "medium",
+      "library": "all"
+    },
+    {
+      "key": "field_mmaf_8d3419377f30dae137",
+      "label": "Founder Links",
+      "name": "founder_links",
+      "type": "repeater",
+      "instructions": "Opcioni javni linkovi.",
+      "required": 0,
+      "conditional_logic": 0,
+      "wrapper": {
+        "width": "",
+        "class": "",
+        "id": ""
+      },
+      "layout": "row",
+      "min": 0,
+      "max": 0,
+      "button_label": "Add item",
+      "sub_fields": [
+        {
+          "key": "field_mmaf_1e14a7d2ec44c4a18e",
+          "label": "Link",
+          "name": "link",
+          "type": "link",
+          "instructions": "Destinacija i naziv javnog linka.",
+          "required": 0,
+          "conditional_logic": 0,
+          "wrapper": {
+            "width": "",
+            "class": "",
+            "id": ""
+          },
+          "return_format": "array"
+        }
+      ]
+    }
+  ],
+  "location": [
+    [
+      {
+        "param": "block",
+        "operator": "==",
+        "value": "acf/about-founder-bio-section"
+      }
+    ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "hide_on_screen": "",
+  "active": true,
+  "description": "",
+  "show_in_rest": 0,
+  "modified": 1791457200
+}

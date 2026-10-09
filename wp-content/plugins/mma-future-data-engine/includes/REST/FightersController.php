@@ -2,6 +2,7 @@
 namespace MMAF\DataEngine\REST;
 
 use MMAF\DataEngine\CPT\FighterPostType;
+use MMAF\DataEngine\Services\PublicReadService;
 use MMAF\DataEngine\Repositories\RestReadRepository;
 use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 
@@ -17,6 +18,18 @@ final class FightersController extends AbstractRestController {
 	}
 
 	public function register_routes(): void {
+        register_rest_route(RestServiceProvider::NAMESPACE,'/fighters/(?P<id>[\\d]+)/fights',array(
+            'methods'=>\WP_REST_Server::READABLE,'callback'=>array($this,'get_fights'),'permission_callback'=>'__return_true',
+            'args'=>array(
+                'id'=>array('type'=>'integer','required'=>true,'minimum'=>1),
+                'page'=>array('type'=>'integer','default'=>1,'minimum'=>1),
+                'per_page'=>array('type'=>'integer','default'=>10,'minimum'=>1,'maximum'=>100),
+                'result'=>array('type'=>'string','default'=>'','enum'=>array('','win','loss','draw','no_contest')),
+                'method'=>array('type'=>'string','default'=>'','enum'=>array('','ko_tko','submission','decision','other','unknown')),
+                'sort'=>array('type'=>'string','default'=>'newest','enum'=>array('newest','oldest')),
+            ),
+        ));
+
 		register_rest_route(
 			RestServiceProvider::NAMESPACE,
 			'/fighters/search',
@@ -60,54 +73,18 @@ final class FightersController extends AbstractRestController {
 		);
 	}
 
-	public function get_item( \WP_REST_Request $request ) {
-		$fighter_id = absint( $request->get_param( 'id' ) );
-		$fighter    = $this->repository->fighter( $fighter_id );
+    public function get_item( \WP_REST_Request $request ) {
+        return rest_ensure_response((new PublicReadService())->fighter(absint($request['id'])));
+    }
+    public function get_fights( \WP_REST_Request $request ) {
+        return rest_ensure_response((new PublicReadService())->history(absint($request['id']),$request->get_params()));
+    }
 
-		if ( ! $fighter || 1 === (int) $fighter['deleted_soft'] ) {
-			return new \WP_Error( 'mmaf_fighter_not_found', __( 'Fighter not found.', 'mma-future-data-engine' ), array( 'status' => 404 ) );
-		}
-
-		if ( 1 !== (int) $fighter['is_public'] && ! current_user_can( 'manage_options' ) ) {
-			return new \WP_Error( 'mmaf_fighter_not_found', __( 'Fighter not found.', 'mma-future-data-engine' ), array( 'status' => 404 ) );
-		}
-
-		$stats         = $this->repository->fighter_stats( $fighter_id );
-		$rankings      = $this->repository->fighter_current_rankings( $fighter_id );
-		$recent_fights = $this->repository->recent_fights( $fighter_id, 10 );
-
-		return rest_ensure_response(
-			$this->fighter_response_payload( $fighter, $stats, $rankings, $recent_fights )
-		);
-	}
-
-	public function get_item_by_slug( \WP_REST_Request $request ) {
-		$slug = sanitize_title( (string) $request->get_param( 'slug' ) );
-		if ( '' === $slug ) {
-			return new \WP_Error( 'mmaf_fighter_not_found', __( 'Fighter not found.', 'mma-future-data-engine' ), array( 'status' => 404 ) );
-		}
-
-		$post = get_page_by_path( $slug, OBJECT, FighterPostType::POST_TYPE );
-		if ( ! $post instanceof \WP_Post || 'trash' === $post->post_status ) {
-			return new \WP_Error( 'mmaf_fighter_not_found', __( 'Fighter not found.', 'mma-future-data-engine' ), array( 'status' => 404 ) );
-		}
-
-		$fighter = $this->repository->fighter_by_wp_post_id( (int) $post->ID );
-		if ( ! $fighter || 1 === (int) $fighter['deleted_soft'] ) {
-			return new \WP_Error( 'mmaf_fighter_not_found', __( 'Fighter not found.', 'mma-future-data-engine' ), array( 'status' => 404 ) );
-		}
-
-		if ( 1 !== (int) $fighter['is_public'] && ! current_user_can( 'manage_options' ) ) {
-			return new \WP_Error( 'mmaf_fighter_not_found', __( 'Fighter not found.', 'mma-future-data-engine' ), array( 'status' => 404 ) );
-		}
-
-		$fighter_id    = (int) $fighter['id'];
-		$stats         = $this->repository->fighter_stats( $fighter_id );
-		$rankings      = $this->repository->fighter_current_rankings( $fighter_id );
-		$recent_fights = $this->repository->recent_fights( $fighter_id, 10 );
-
-		return rest_ensure_response( $this->fighter_response_payload( $fighter, $stats, $rankings, $recent_fights ) );
-	}
+    public function get_item_by_slug( \WP_REST_Request $request ) {
+        $post=get_page_by_path(sanitize_title((string)$request['slug']),OBJECT,FighterPostType::POST_TYPE);
+        $fighter=$post instanceof \WP_Post ? $this->repository->fighter_by_wp_post_id((int)$post->ID) : null;
+        return rest_ensure_response((new PublicReadService())->fighter($fighter?(int)$fighter['id']:0));
+    }
 
 	public function search( \WP_REST_Request $request ) {
 		$query = sanitize_text_field( (string) $request->get_param( 'q' ) );

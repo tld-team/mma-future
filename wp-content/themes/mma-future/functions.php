@@ -224,6 +224,11 @@ require get_template_directory() . '/inc/customizer.php';
  * Register blocks
  */
 require get_template_directory() . '/inc/register-blocks.php';
+require_once get_template_directory() . '/inc/site-content.php';
+require_once get_template_directory() . '/inc/public-render.php';
+require_once get_template_directory() . '/inc/editorial-render.php';
+require_once get_template_directory() . '/inc/contact.php';
+require_once get_template_directory() . '/inc/content-migration.php';
 
 /**
  * Custom navigation walker classes

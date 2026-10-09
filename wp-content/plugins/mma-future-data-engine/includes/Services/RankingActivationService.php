@@ -24,6 +24,7 @@ final class RankingActivationService {
 	}
 
 	public function activate( int $ranking_run_id, int $actor_user_id = 0 ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		global $wpdb;
 
 		$ranking_run_id = max( 0, $ranking_run_id );
@@ -113,6 +114,7 @@ final class RankingActivationService {
 			$actor_user_id
 		);
 
+		do_action( 'mmaf_public_data_changed', 'activation' );
 		return $summary;
 	}
 

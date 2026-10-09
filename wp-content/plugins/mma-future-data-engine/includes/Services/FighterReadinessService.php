@@ -34,13 +34,16 @@ final class FighterReadinessService {
 		$this->audit_log       = new AuditLogService();
 	}
 
-	public function report( ?string $reference_date = null ): array {
-		$items  = $this->evaluate_rows( $this->load_rows(), $reference_date );
+	public function report( ?string $reference_date = null, bool $include_items=true ): array {
+		$evaluated=$include_items?$this->evaluate_rows($this->load_rows(),$reference_date):$this->evaluated_stream($reference_date);
+		$items=[];
 		$counts = $this->empty_counts();
 		$buckets = $this->empty_buckets();
 		$blockers = array();
 
-		foreach ( $items as $item ) {
+		foreach ( $evaluated as $item ) {
+			$items[]=$item;
+			if (!$include_items) { usort($items,static fn($a,$b)=>($b['readiness_score']<=>$a['readiness_score']) ?: ((int)$a['fighter']['id']<=>(int)$b['fighter']['id']));$items=array_slice($items,0,15); }
 			$fighter = $item['fighter'];
 			++$counts['total_fighters'];
 
@@ -109,7 +112,8 @@ final class FighterReadinessService {
 			'buckets'    => $buckets,
 			'blockers'   => $blockers,
 			'closest'    => array_slice( $items, 0, 15 ),
-			'items'      => $items,
+			'items'      => $include_items?$items:[],
+			'items_included' => $include_items,
 			'generated_at' => DateTime::mysql_now(),
 		);
 	}
@@ -194,9 +198,9 @@ final class FighterReadinessService {
 				'no_rankings_recalculated_or_activated' => true,
 				'recommended_order' => array(
 					'Review data/formula-ready candidates manually.',
-					'Mark a small reviewed subset as verified.',
-					'Mark verified candidates public only after profile identity is confirmed.',
-					'Mark public candidates rankable only after a fresh stats rebuild and readiness validation.',
+					'Use Check selected without changes to preview the combined decision.',
+					'Approve & prepare a reviewed selection; stored career data and statistics process in the background.',
+					'Review the resulting ranking draft and activate it separately.',
 				),
 			),
 		);
@@ -220,6 +224,9 @@ final class FighterReadinessService {
 		$items = $this->evaluate_fighter_ids( $ids, $reference_date );
 		$indexed = array();
 		foreach ( $items as $item ) {
+			$approval = $this->bulk_decision( 'approve_and_prepare', $item );
+			$item['approval_blocker_codes'] = 'blocked' === $approval['status'] ? $approval['reasons'] : array();
+			$item['approval_blocker_summary'] = $this->summary_for_codes( array_slice( $item['approval_blocker_codes'], 0, 5 ) );
 			$indexed[ (int) $item['fighter']['id'] ] = $item;
 		}
 
@@ -228,6 +235,7 @@ final class FighterReadinessService {
 
 	public function process_bulk_action( string $action, array $fighter_ids, int $user_id ): array {
 		global $wpdb;
+		\MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 
 		$fighter_ids = $this->normalize_ids( $fighter_ids );
 		$result = array(
@@ -245,6 +253,9 @@ final class FighterReadinessService {
 			'message'        => '',
 			'next_step'      => __( 'No rankings were recalculated or activated.', 'mma-future-data-engine' ),
 		);
+		if ( count( $fighter_ids ) > 100 ) {
+			throw new \RuntimeException( __( 'Select up to 100 fighters per batch. Data preparation continues in the background.', 'mma-future-data-engine' ) );
+		}
 
 		if ( empty( $fighter_ids ) ) {
 			$result['message'] = __( 'No fighters were selected.', 'mma-future-data-engine' );
@@ -253,6 +264,12 @@ final class FighterReadinessService {
 
 		$items = $this->evaluate_fighter_ids( $fighter_ids );
 		$updates = array();
+		$found_ids = array_map( static fn( $item ) => (int) $item['fighter']['id'], $items );
+		foreach ( array_diff( $fighter_ids, $found_ids ) as $missing_id ) {
+			++$result['blocked_count'];
+			$result['blocked'][] = array( 'id' => $missing_id, 'name' => __( 'Fighter not found', 'mma-future-data-engine' ), 'reasons' => array( 'invalid_fighter_id' ) );
+			$this->add_reason_counts( $result, array( 'invalid_fighter_id' ) );
+		}
 
 		foreach ( $items as $item ) {
 			$decision = $this->bulk_decision( $action, $item );
@@ -308,7 +325,7 @@ final class FighterReadinessService {
 			return $result;
 		}
 
-		$wpdb->query( 'START TRANSACTION' );
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			foreach ( $updates as $pending ) {
@@ -331,6 +348,7 @@ final class FighterReadinessService {
 				}
 
 				$after = $this->load_fighter( $fighter_id );
+				FighterLifecycleService::changed($fighter_id,$user_id,$before,$after ?: array_merge($before,$update),true,false);
 				$this->audit_log->write(
 					'fighter_bulk_' . $action,
 					'fighter',
@@ -345,9 +363,10 @@ final class FighterReadinessService {
 				$result['updated'][] = $this->result_row( $item, array() );
 			}
 
-			$wpdb->query( 'COMMIT' );
+			\MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh($user_id,true);
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			throw $error;
 		}
 
@@ -360,8 +379,8 @@ final class FighterReadinessService {
 			$result['skipped_count']
 		);
 
-		if ( in_array( $action, array( 'mark_rankable', 'mark_not_rankable', 'move_to_provisional' ), true ) ) {
-			$result['next_step'] = __( 'Recommended next step: run a full stats rebuild if source data changed, then recalculate draft rankings manually. No rankings were recalculated or activated.', 'mma-future-data-engine' );
+		if ( in_array( $action, array( 'approve_and_prepare','mark_rankable', 'mark_not_rankable', 'move_to_provisional' ), true ) ) {
+			$result['next_step'] = __( 'Stored data preparation, statistics and one ranking draft are queued. Review the resulting draft before activating it.', 'mma-future-data-engine' );
 		}
 
 		return $result;
@@ -376,8 +395,19 @@ final class FighterReadinessService {
 		}
 
 		switch ( $action ) {
+			case 'approve_and_prepare':
+				$identity_reasons=$this->verified_blockers($item);
+				if ($identity_reasons) { return $this->blocked($identity_reasons); }
+				$prepared=$item;
+				$prepared['fighter']=array_merge($fighter,['status'=>'verified','is_public'=>1]);
+				$prepared['formula_blocker_codes']=array_values(array_diff($item['formula_blocker_codes'],['not_public','not_verified','not_rankable_flag','rankability_status_not_rankable','ineligible_status_provisional']));
+				$reasons=$this->rankable_blockers($prepared);
+				if ($reasons) { return $this->blocked($reasons); }
+				if ($fighter['status']==='verified' && (int)$fighter['is_public']===1 && (int)$fighter['is_rankable']===1 && $fighter['rankability_status']==='rankable') { return $this->skipped(['already_rankable']); }
+				return $this->update(['status'=>'verified','is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable']);
 			case 'validate_selected_for_ranking':
-				return empty( $item['rankable_blocker_codes'] ) ? $this->ready( array( 'ready_for_rankable_promotion' ) ) : $this->blocked( $item['rankable_blocker_codes'] );
+				$preview = $this->bulk_decision( 'approve_and_prepare', $item );
+				return 'blocked' === $preview['status'] ? $preview : $this->ready( array( 'ready_for_rankable_promotion' ) );
 
 			case 'mark_verified':
 				$reasons = $this->verified_blockers( $item );
@@ -670,9 +700,11 @@ final class FighterReadinessService {
 		global $wpdb;
 
 		$where = '';
+		$source_where='';
 		if ( ! empty( $fighter_ids ) ) {
 			$placeholders = implode( ',', array_fill( 0, count( $fighter_ids ), '%d' ) );
 			$where = $wpdb->prepare( "WHERE f.id IN ({$placeholders})", $fighter_ids ); // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$source_where=' AND fighter_id IN ('.implode(',',array_map('intval',$fighter_ids)).')';
 		}
 
 		return $wpdb->get_results(
@@ -707,6 +739,7 @@ final class FighterReadinessService {
 					SUM(CASE WHEN source_url IS NULL OR source_url = '' OR identity_hash IS NULL OR identity_hash = '' THEN 1 ELSE 0 END) AS malformed_tapology_source_count
 				FROM {$this->sources_table}
 				WHERE source_type = 'tapology' AND fighter_id IS NOT NULL
+				$source_where
 				GROUP BY fighter_id
 			) ts ON ts.fighter_id = f.id
 			{$where}
@@ -714,6 +747,15 @@ final class FighterReadinessService {
 			", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			ARRAY_A
 		);
+	}
+
+	private function evaluated_stream(?string $reference_date): \Generator {
+		global $wpdb;$last=0;
+		do {
+			$ids=$wpdb->get_col($wpdb->prepare("SELECT id FROM {$this->fighters_table} WHERE id>%d ORDER BY id LIMIT 250",$last));
+			if (!$ids) { break; }$last=(int)end($ids);
+			foreach ($this->evaluate_rows($this->load_rows(array_map('intval',$ids)),$reference_date) as $item) { yield $item; }
+		} while(count($ids)===250);
 	}
 
 	private function load_fighter( int $fighter_id ): ?array {

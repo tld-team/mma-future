@@ -56,6 +56,7 @@ final class EventService {
 	}
 
 	public function create( array $input, int $user_id ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		global $wpdb;
 
 		$payload            = $this->prepare_payload( $input, 0 );
@@ -91,6 +92,7 @@ final class EventService {
 	}
 
 	public function update( int $event_id, array $input, int $user_id ): array {
+        \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		global $wpdb;
 
 		$before = $this->events->find( $event_id );
