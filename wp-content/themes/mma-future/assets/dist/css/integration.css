@@ -1430,3 +1430,7 @@
 html:not(.mmaf-js) .mf-hero-bubble__more{display:block;max-height:none;opacity:1;visibility:visible}html:not(.mmaf-js) .mf-hero-bubble__toggle{display:none}
 
 @media(min-width:1024px){.how-it-works-section__flow{grid-template-columns:var(--mmaf-flow-columns)}}
+
+/* Keep the original hero foreground colors above inherited theme typography. */
+.mf-hero .text-white\/80 { color: rgba(255, 255, 255, .8); }
+.mf-hero .text-primary-300 { color: #66a3ff; }
