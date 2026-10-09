@@ -326,6 +326,15 @@
             },
             "default_value": "",
             "maxlength": 160
+        },
+        {
+            "key": "field_mmaf_contact_response_note",
+            "label": "Response Note",
+            "name": "response_note",
+            "type": "text",
+            "instructions": "Opciona kratka napomena ispod uvoda. Navedi rok odgovora samo ako je potvrđen.",
+            "required": 0,
+            "default_value": ""
         }
     ],
     "location": [

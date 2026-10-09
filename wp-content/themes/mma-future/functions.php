@@ -226,6 +226,7 @@ require get_template_directory() . '/inc/customizer.php';
 require get_template_directory() . '/inc/register-blocks.php';
 require_once get_template_directory() . '/inc/site-content.php';
 require_once get_template_directory() . '/inc/public-render.php';
+require_once get_template_directory() . '/inc/presentation.php';
 require_once get_template_directory() . '/inc/editorial-render.php';
 require_once get_template_directory() . '/inc/contact.php';
 require_once get_template_directory() . '/inc/content-migration.php';

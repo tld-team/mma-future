@@ -16,7 +16,7 @@ function mmaf_content_defaults(): array {
 		'short-ranking-overview' => array( 'section_title' => 'Ranking overview', 'section_description' => 'The leading fighters in the active ranking.', 'ranking_board' => 'overall', 'top_five_count' => 5, 'show_top_movers' => 1, 'top_movers_title' => 'Top Movers', 'primary_link' => $link( '/rankings/', 'View all rankings' ) ),
 		'all-rankings-table-section' => array( 'section_title' => 'MMA Future Rankings', 'section_description' => 'Explore the active rankings by board, fighter and score.', 'default_board' => 'male', 'rows_per_page' => 25, 'show_score_breakdown' => 1, 'empty_state_text' => 'No rankings match these filters.' ),
 		'blog-latest-posts-section' => array( 'section_title' => 'Latest from the blog', 'section_description' => 'Analysis, breakdowns, and insights from the world of MMA.', 'posts_count' => 4, 'primary_link' => $link( '/blog/', 'View all articles' ) ),
-		'contact-main-section' => array( 'section_title' => 'Contact MMA Future', 'section_description' => 'Questions about the data, a correction or an idea for collaboration? Get in touch.', 'form_title' => 'Send a message', 'submit_label' => 'Send message', 'privacy_notice' => 'Your message is sent to our team by email. Message contents are not stored in the website database.', 'contact_reasons' => array( array( 'reason_title' => 'Data correction', 'reason_description' => 'Help us verify a fighter, result or source identity.' ), array( 'reason_title' => 'Collaboration', 'reason_description' => 'Discuss a contribution or collaboration.' ), array( 'reason_title' => 'General enquiry', 'reason_description' => 'Ask about MMA Future.' ) ), 'form_name_label' => 'Name', 'form_name_placeholder' => 'Your name', 'form_email_label' => 'Email', 'form_email_placeholder' => 'you@example.com', 'form_organization_label' => 'Organization', 'form_organization_placeholder' => 'Optional', 'form_website_label' => 'Website', 'form_website_placeholder' => 'https://', 'form_reason_label' => 'Reason', 'form_reason_placeholder' => 'Choose a reason', 'form_message_label' => 'Message', 'form_message_placeholder' => 'How can we help?' ),
+		'contact-main-section' => array( 'section_title' => 'Contact MMA Future', 'section_description' => 'Questions about the data, a correction or an idea for collaboration? Get in touch.', 'quick_links' => array( array( 'link' => $link( '/about/', 'About & Methodology' ) ), array( 'link' => $link( '/rankings/', 'Explore rankings' ) ) ), 'form_title' => 'Send a message', 'submit_label' => 'Send message', 'privacy_notice' => 'Your message is sent to our team by email. Message contents are not stored in the website database.', 'contact_reasons' => array( array( 'reason_title' => 'Data correction', 'reason_description' => 'Help us verify a fighter, result or source identity.' ), array( 'reason_title' => 'Collaboration', 'reason_description' => 'Discuss a contribution or collaboration.' ), array( 'reason_title' => 'General enquiry', 'reason_description' => 'Ask about MMA Future.' ) ), 'form_name_label' => 'Name', 'form_name_placeholder' => 'Your name', 'form_email_label' => 'Email', 'form_email_placeholder' => 'you@example.com', 'form_organization_label' => 'Organization', 'form_organization_placeholder' => 'Optional', 'form_website_label' => 'Website', 'form_website_placeholder' => 'https://', 'form_reason_label' => 'Reason', 'form_reason_placeholder' => 'Choose a reason', 'form_message_label' => 'Message', 'form_message_placeholder' => 'How can we help?' ),
 	);
 }
 function mmaf_migrate_content( $apply = false ): array {
@@ -53,7 +53,7 @@ function mmaf_migrate_content( $apply = false ): array {
 			} unset( $block ); return $blocks;
 		};
 		$blocks = $walk( parse_blocks( $page->post_content ) );
-		if ( $changed ) { $report['pages'][] = array( 'id' => $page->ID, 'title' => $page->post_title ); if ( $apply ) { $result = wp_update_post( array( 'ID' => $page->ID, 'post_content' => serialize_blocks( $blocks ) ), true ); if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); } } }
+		if ( $changed ) { $report['pages'][] = array( 'id' => $page->ID, 'title' => $page->post_title ); if ( $apply ) { $result = wp_update_post( wp_slash( array( 'ID' => $page->ID, 'post_content' => serialize_blocks( $blocks ) ) ), true ); if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); } } }
 	}
 	$settings = array( 'top_bar_enabled' => 1, 'top_bar_label' => 'Latest updates', 'top_bar_scroll_duration' => 38, 'top_bar_messages' => array( array( 'message_text' => 'Explore the active MMA Future rankings', 'message_enabled' => 1, 'message_link' => array( 'url' => mmaf_rankings_url(), 'title' => 'Explore rankings', 'target' => '' ) ), array( 'message_text' => 'Learn how the MMA Future Score is calculated', 'message_enabled' => 1, 'message_link' => array( 'url' => home_url( '/about/' ), 'title' => 'Our methodology', 'target' => '' ) ) ), 'footer_description' => 'Follow emerging MMA fighters through recorded results and transparent rankings.', 'footer_menu_titles' => array( 'explore' => 'Explore', 'resources' => 'Resources', 'contact' => 'Contact' ), 'footer_copyright' => 'MMA Future. All rights reserved.', 'contact_success_message' => 'Your message has been accepted. Thank you for contacting MMA Future.', 'contact_error_message' => 'Unable to send your message. Please try again later.', 'faq_items' => array( array( 'question' => 'Is the MMA Future Score out of 100?', 'answer' => '<p>No. Formula v1.5 produces a direct total from its score contributions.</p>', 'show_on' => 'both' ), array( 'question' => 'Why do the statistics and rankings show different dates?', 'answer' => '<p>Statistics can be rebuilt after an import. A ranking changes only after a reviewed calculation is activated.</p>', 'show_on' => 'both' ), array( 'question' => 'Does every profile include a complete career?', 'answer' => '<p>Only verified complete careers use the complete-history label. Other profiles show recorded fights and the available coverage information.</p>', 'show_on' => 'both' ) ) );
 	foreach ( $keys['mmaf-site-settings'] ?? array() as $field ) {
@@ -133,3 +133,56 @@ function mmaf_frontend_inventory(): array {
  return $report;
 }
 if(defined('WP_CLI')&&WP_CLI){WP_CLI::add_command('mmaf frontend audit',static function(){WP_CLI::line(wp_json_encode(mmaf_frontend_inventory(),JSON_PRETTY_PRINT));});}
+
+/** Repair only exact signatures of defaults damaged by the previous unslashed seed. */
+function mmaf_repair_seeded_content( bool $apply = false ): array {
+ $report = array( 'apply' => $apply, 'pages' => array(), 'fields' => array() );
+ $defaults = mmaf_content_defaults();
+ $flatten = static function( array $values, string $prefix = '' ) use ( &$flatten ): array {
+  $out = array();
+  foreach ( $values as $key => $value ) {
+   $name = $prefix . $key;
+   if ( is_array( $value ) && array_is_list( $value ) ) { foreach ( $value as $index => $row ) { if ( is_array( $row ) ) { $out += $flatten( $row, $name . '_' . $index . '_' ); } } }
+   else { $out[$name] = $value; }
+  }
+  return $out;
+ };
+ $signatures = array();
+ foreach ( $defaults as $name => $values ) {
+  foreach ( $flatten( $values ) as $key => $value ) {
+   if ( ! is_string( $value ) ) { continue; }
+   $broken = json_decode( wp_unslash( serialize_block_attributes( array( 'value' => $value ) ) ), true );
+   if ( isset( $broken['value'] ) && $broken['value'] !== $value ) { $signatures['acf/' . $name][$key] = array( $broken['value'], $value ); }
+  }
+ }
+ foreach ( get_posts( array( 'post_type' => 'page', 'post_status' => array( 'publish', 'draft', 'private' ), 'posts_per_page' => -1 ) ) as $page ) {
+  $changed = false;
+  $walk = static function( array $blocks ) use ( &$walk, &$changed, &$report, $signatures, $page ): array {
+   foreach ( $blocks as &$block ) {
+    foreach ( $signatures[$block['blockName'] ?? ''] ?? array() as $key => [$damaged, $original] ) {
+     if ( isset( $block['attrs']['data'][$key] ) && $block['attrs']['data'][$key] === $damaged ) {
+      $block['attrs']['data'][$key] = $original; $changed = true;
+      $report['fields'][] = array( 'post_id' => $page->ID, 'block' => $block['blockName'], 'field' => $key );
+     }
+    }
+    $block['innerBlocks'] = $walk( $block['innerBlocks'] ?? array() );
+   } unset( $block );
+   return $blocks;
+  };
+  $blocks = $walk( parse_blocks( $page->post_content ) );
+  if ( ! $changed ) { continue; }
+  $report['pages'][] = $page->ID;
+  if ( $apply ) {
+   $result = wp_update_post( wp_slash( array( 'ID' => $page->ID, 'post_content' => serialize_blocks( $blocks ) ) ), true );
+   if ( is_wp_error( $result ) ) { throw new RuntimeException( $result->get_error_message() ); }
+  }
+ }
+ if ( $apply && $report['pages'] ) { do_action( 'mmaf_public_data_changed', 'content_repair' ); }
+ return $report;
+}
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+ WP_CLI::add_command( 'mmaf frontend repair-content', static function( $args, $assoc ) {
+  if ( isset( $assoc['apply'] ) && ! in_array( wp_get_environment_type(), array( 'local', 'development', 'staging' ), true ) ) { WP_CLI::error( 'This repair is limited to local/dev/staging.' ); }
+  WP_CLI::line( wp_json_encode( mmaf_repair_seeded_content( isset( $assoc['apply'] ) ), JSON_PRETTY_PRINT ) );
+ } );
+}

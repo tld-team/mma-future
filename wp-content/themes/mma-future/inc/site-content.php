@@ -91,11 +91,12 @@ function mmaf_render_top_bar() {
 	if ( ! mmaf_site_setting( 'top_bar_enabled' ) || ! $messages ) { return; }
 	$duration = max( 10, min( 180, (int) mmaf_site_setting( 'top_bar_scroll_duration' ) ) );
 	echo '<div class="site-topbar' . ( count( $messages ) === 1 ? ' site-topbar--static' : '' ) . '" style="--mmaf-marquee-duration:' . $duration . 's"><div class="site-topbar__inner mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 min-h-10 py-2 flex items-center gap-4">';
-	if ( $label = mmaf_site_setting( 'top_bar_label' ) ) { echo '<span class="site-topbar__label-text">' . esc_html( $label ) . '</span>'; }
-	echo '<div class="site-topbar__marquee"><div class="site-topbar__track">';
+	if ( $label = mmaf_site_setting( 'top_bar_label' ) ) { echo '<div class="site-topbar__label flex items-center gap-2 flex-none pr-4 border-r border-[#CBD5E1]"><span class="site-topbar__label-dot inline-block w-1.5 h-1.5 rounded-full bg-[#1D4E89]" aria-hidden="true"></span><span class="site-topbar__label-text text-[11px] sm:text-[12px] font-heading font-semibold uppercase tracking-wider">' . esc_html( $label ) . '</span></div>'; }
+	echo '<div class="site-topbar__marquee flex-1 min-w-0 pl-1" aria-label="Site updates"><div class="site-topbar__fade-left" aria-hidden="true"></div><div class="site-topbar__fade-right" aria-hidden="true"></div><div class="site-topbar__track">';
 	for ( $copy = 0; $copy < ( count( $messages ) > 1 ? 2 : 1 ); $copy++ ) {
-		echo '<div class="mmaf-topbar-group"' . ( $copy ? ' aria-hidden="true" inert' : '' ) . '>';
-		foreach ( $messages as $message ) {
+		echo '<div class="mmaf-topbar-group flex items-center whitespace-nowrap pr-10"' . ( $copy ? ' aria-hidden="true" inert' : '' ) . '>';
+		foreach ( $messages as $index => $message ) {
+			if ( $index ) { echo '<span class="site-topbar__separator mx-4 text-[10px] leading-none" aria-hidden="true">•</span>'; }
 			$link = $message['message_link'] ?? null;
 			if ( ! empty( $link['url'] ) ) { $link['title'] = $message['message_text']; mmaf_site_link( $link, 'site-topbar__item' ); }
 			else { echo '<span class="site-topbar__item">' . esc_html( $message['message_text'] ) . '</span>'; }
