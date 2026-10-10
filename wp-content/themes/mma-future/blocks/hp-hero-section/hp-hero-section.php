@@ -6,6 +6,12 @@ $anchor = isset($block['anchor']) ? $block['anchor'] : $blocks_id;
 // ACF Fields
 $background_image = get_field('background_image');
 $bg_image_url = is_array($background_image) ? ($background_image['url'] ?? '') : (is_numeric($background_image) ? (wp_get_attachment_image_url((int)$background_image, 'full') ?: '') : (is_string($background_image) && filter_var($background_image, FILTER_VALIDATE_URL) ? $background_image : ''));
+// Refresh cached media after a replacement or a restored local file, retaining the ACF selection.
+$bg_image_id = is_array($background_image) ? (int)($background_image['ID'] ?? $background_image['id'] ?? 0) : (is_numeric($background_image) ? (int)$background_image : 0);
+$bg_image_file = $bg_image_id ? get_attached_file($bg_image_id) : false;
+if ($bg_image_url && $bg_image_file && is_file($bg_image_file)) {
+    $bg_image_url = add_query_arg('ver', (string)filemtime($bg_image_file), $bg_image_url);
+}
 $title = get_field('title');
 $subtitle = get_field('subtitle');
 $primary_cta_button = get_field('primary_cta_button');

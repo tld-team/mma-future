@@ -18,6 +18,26 @@ foreach ( array( 'hero', 'stats', 'latest', 'history', 'bio' ) as $section ) {
  $out = capture_view( static fn() => mmaf_render_fighter_section( $section ) );
  assert_view( strlen( $out ) > 100 && ! str_contains( $out, 'MMAFPHP' ) && ! str_contains( $out, '&lt;svg' ), "fighter $section renders canonical data without escaped template markup" );
 }
+// Empty imported histories must not masquerade as a verified debut record.
+$empty_context = $context;
+$empty_context['recent_fights'] = array();
+$empty_context['stats'] = array_fill_keys( array( 'wins', 'losses', 'draws', 'nc', 'pro_fights_count', 'finish_wins' ), 0 );
+$empty_context['career_coverage']['status'] = 'unavailable';
+assert_view( ! mmaf_fighter_record_available( $empty_context ), 'unavailable history does not imply a verified zero record' );
+$GLOBALS['mmaf_fighter_context'] = $empty_context;
+$empty_hero = capture_view( static fn() => mmaf_render_fighter_section( 'hero' ) );
+assert_view( ! str_contains( $empty_hero, '0–0–0' ) && str_contains( $empty_hero, 'Professional record not available yet' ), 'empty hero explains the missing record while preserving its ranking' );
+$empty_history = capture_view( static fn() => mmaf_render_fighter_section( 'history' ) );
+assert_view( str_contains( $empty_history, 'Fight history not available yet' ) && ! str_contains( $empty_history, '<select' ), 'missing history shows an explanation without unusable filters' );
+$empty_context['career_coverage']['status'] = 'complete';
+assert_view( mmaf_fighter_record_available( $empty_context ) && '0–0–0' === mmaf_record( $empty_context['stats'] ), 'confirmed zero record remains known zero' );
+$empty_context['career_coverage']['status'] = 'partial';
+$empty_context['stats']['pro_fights_count'] = 1;
+$empty_context['stats']['losses'] = 1;
+assert_view( mmaf_fighter_record_available( $empty_context ) && '0–1–0' === mmaf_record( $empty_context['stats'] ), 'zero wins with a recorded loss remains a real record' );
+$GLOBALS['mmaf_fighter_context'] = $context;
+$filtered_empty = capture_view( static fn() => mmaf_render_fights( array( 'items' => array() ) ) );
+assert_view( str_contains( $filtered_empty, 'Try another result or method' ) && ! str_contains( $filtered_empty, 'not available yet' ), 'empty filter results do not claim that the career is unavailable' );
 unset( $GLOBALS['mmaf_fighter_context'] );
 assert_view( mmaf_instance_prefix( 'duplicate_block' ) !== mmaf_instance_prefix( 'duplicate_block' ), 'duplicated saved block IDs receive unique presentation prefixes' );
 foreach ( array( 'home', 'about', 'contact', 'all-rankings' ) as $slug ) {

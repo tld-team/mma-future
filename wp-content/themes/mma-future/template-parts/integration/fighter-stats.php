@@ -1,4 +1,5 @@
-<?php if ( ! defined( 'ABSPATH' ) ) { exit; }  ?>
+<?php if ( ! defined( 'ABSPATH' ) ) { exit; }
+if ( ! mmaf_fighter_record_available( $c ) ) { echo '<section class="mmaf-section"><div class="mmaf-container">'; mmaf_view( 'empty-state', array( 'title' => 'Fight data not available yet', 'description' => 'Confirmed professional results are needed to display fight statistics and recent form.' ) ); echo '</div></section>'; return; }  ?>
 
 <section class="mf-quick-stats bg-gradient-to-br from-slate-50 to-slate-100 py-8 lg:py-12">
 <div class="mf-quick-stats__container container mx-auto px-4">

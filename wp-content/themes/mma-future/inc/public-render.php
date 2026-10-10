@@ -14,6 +14,13 @@ function mmaf_record( $stats ) {
 	if ( ! is_array( $stats ) || null === ( $stats['wins'] ?? null ) ) { return '—'; }
 	return $stats['wins'] . '–' . $stats['losses'] . '–' . $stats['draws'] . ( ! empty( $stats['nc'] ) ? ' (' . $stats['nc'] . ' NC)' : '' );
 }
+/** An empty imported record must not imply that the fighter has never competed. */
+function mmaf_fighter_has_fight_data( array $context ): bool {
+	return ! empty( $context['recent_fights'] ) || (int) ( $context['stats']['pro_fights_count'] ?? 0 ) > 0;
+}
+function mmaf_fighter_record_available( array $context ): bool {
+	return mmaf_fighter_has_fight_data( $context ) || ( 'complete' === ( $context['career_coverage']['status'] ?? '' ) && 0 === ( $context['stats']['pro_fights_count'] ?? null ) );
+}
 function mmaf_render_dates( $data ) {
 	echo '<p class="mmaf-dates">Rankings calculated: ' . esc_html( mmaf_display_date( $data['ranking_calculated_at'] ?? null ) ) . ' · Activated: ' . esc_html( mmaf_display_date( $data['ranking_activated_at'] ?? null ) ) . ' · Statistics updated: ' . esc_html( mmaf_display_date( $data['stats_updated_at'] ?? null ) ) . '</p>';
 }
@@ -29,7 +36,7 @@ function mmaf_fighter_image( $context, $class = 'mmaf-avatar' ) {
 	else { echo '<span class="' . esc_attr( $class ) . ' mmaf-avatar--placeholder" aria-hidden="true"><i class="fas fa-user"></i></span>'; }
 }
 function mmaf_render_fights( $history ) {
- if ( empty( $history['items'] ) ) { echo '<p class="text-sm text-slate-500 py-8">No recorded professional MMA fights are available.</p>'; return; }
+ if ( empty( $history['items'] ) ) { mmaf_view( 'empty-state', array( 'title' => 'No fights to show', 'description' => 'Try another result or method, or return to the first page.' ) ); return; }
  echo '<div class="mf-fight-history__list flex flex-col gap-4">';
  foreach ( $history['items'] as $fight ) { mmaf_view( 'history-card', compact( 'fight' ) ); }
  echo '</div>';

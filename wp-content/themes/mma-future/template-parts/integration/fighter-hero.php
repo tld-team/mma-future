@@ -57,7 +57,7 @@
 <div class="flex flex-wrap gap-2 justify-center lg:justify-start">
 <span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-primary-500/20 border border-primary-400/30 text-primary-300 text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( $facts['Division'] ?? 'Unknown division' ); ?></span>
 <span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-accent/20 border border-accent/30 text-white text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( $overall ? '#' . $overall['rank'] . ' Overall' : 'Unranked' ); ?></span>
-<span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-white/10 border border-white/20 text-white/90 text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( ucfirst( $stats['activity_status'] ?? 'Unknown activity' ) ); ?></span>
+<?php if ( mmaf_fighter_has_fight_data( $c ) && ! empty( $stats['activity_status'] ) ) : ?><span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-white/10 border border-white/20 text-white/90 text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( ucwords( str_replace( '_', ' ', $stats['activity_status'] ) ) ); ?></span><?php endif; ?>
 </div>
 <!-- Stats Row -->
 <div class="grid grid-cols-[1.8fr_1.3fr_1.4fr] gap-6 sm:gap-8 md:gap-10 lg:gap-6 xl:gap-8 2xl:gap-12 max-w-full 2xl:max-w-[85%]">
@@ -76,7 +76,7 @@
 </div>
 </div>
 </div>
-<div class="text-3xl xs:text-4xl md:text-5xl lg:text-3xl xl:text-4xl 2xl:text-6xl font-heading font-black text-white tracking-tight leading-none mt-3"><?php echo esc_html( mmaf_record( $stats ) ); ?></div>
+<div class="text-3xl xs:text-4xl md:text-5xl lg:text-3xl xl:text-4xl 2xl:text-6xl font-heading font-black text-white tracking-tight leading-none mt-3"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? mmaf_record( $stats ) : '—' ); ?></div>
 </div>
 <!-- Finishes - Medium -->
 <div class="text-center lg:text-left">
@@ -93,7 +93,7 @@
 </div>
 </div>
 </div>
-<div class="text-2xl xs:text-3xl md:text-4xl lg:text-2xl xl:text-3xl 2xl:text-5xl font-heading font-bold text-white tracking-tight leading-none mt-3"><?php echo esc_html( mmaf_display_number( $stats['finish_wins'] ?? null ) ); ?></div>
+<div class="text-2xl xs:text-3xl md:text-4xl lg:text-2xl xl:text-3xl 2xl:text-5xl font-heading font-bold text-white tracking-tight leading-none mt-3"><?php echo esc_html( mmaf_display_number( mmaf_fighter_record_available( $c ) ? ( $stats['finish_wins'] ?? null ) : null ) ); ?></div>
 </div>
 <!-- Opponent Strength Score - Highlighted -->
 <div class="text-center lg:text-left">
@@ -115,7 +115,7 @@
 </div>
 <!-- Social Icons Row -->
 <div class="space-y-3 mt-8 sm:mt-10 lg:mt-12 xl:mt-14"><?php mmaf_social_links( (array) $c['editorial']['fighter_social_links'], 'inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/15', 'link' ); ?></div>
-<p class="text-white/70 text-sm"><?php echo esc_html( $c['career_coverage']['label'] ); ?></p><?php mmaf_render_dates( $c['dates'] ); ?></div>
+<p class="text-white/70 text-sm"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? $c['career_coverage']['label'] : 'Professional record not available yet' ); ?></p><?php mmaf_render_dates( $c['dates'] ); ?></div>
 <!-- Right Column: Methodology Bubble -->
 <aside class="mf-hero-bubble w-full lg:w-auto">
 <div class="mf-hero-bubble__card rounded-2xl p-5 lg:p-6 space-y-3 lg:space-y-4">

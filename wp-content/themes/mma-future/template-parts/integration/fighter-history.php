@@ -1,4 +1,9 @@
-<?php if ( ! defined( 'ABSPATH' ) ) { exit; }  ?>
+<?php if ( ! defined( 'ABSPATH' ) ) { exit; }
+if ( ! mmaf_fighter_has_fight_data( $c ) ) {
+ echo '<section class="mmaf-section mmaf-history-empty"><div class="mmaf-container">';
+ mmaf_view( 'empty-state', array( 'heading_level' => 2, 'title' => mmaf_fighter_record_available( $c ) ? 'No professional fights recorded' : 'Fight history not available yet', 'description' => 'We do not have confirmed professional MMA results for ' . $f['display_name'] . ' yet. Fight history, statistics and recent form will appear here when results are available.', 'show_links' => true ) );
+ echo '</div></section>'; return;
+}  ?>
 
 <section class="mf-fight-history bg-gradient-to-br from-slate-50 to-slate-100 py-12 lg:py-16">
 <div class="container mx-auto px-4" data-endpoint="fighters/<?php echo (int) $f['id']; ?>/fights" data-mmaf-browser="history" data-per-page="10" data-prefix="<?php echo esc_attr( $prefix ); ?>">

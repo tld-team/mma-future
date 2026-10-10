@@ -50,7 +50,7 @@
 <input class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white pl-3 pr-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0" id="<?php echo esc_attr( $id . 'organization' ); ?>" maxlength="160" name="organization" placeholder="<?php echo esc_attr( mmaf_site_field( 'form_organization_placeholder' ) ); ?>" type="text"/>
 <span class="mmaf-field-error" data-error-for="organization"></span></div>
 <div class="contact-main-section__field">
-<label class="contact-main-section__label block mb-2 text-sm font-medium !text-slate-700" for="<?php echo esc_attr( $id . 'website' ); ?>"><?php echo esc_html( mmaf_site_field( 'form_website_label' ) ); ?></label>
+<label class="contact-main-section__label block mb-2 text-sm font-medium !text-slate-700" for="<?php echo esc_attr( $id . 'website' ); ?>"><?php echo esc_html( preg_replace( '/\s*\(optional\)\s*$/i', '', (string) mmaf_site_field( 'form_website_label' ) ) ); ?> <span class="mmaf-optional">(optional)</span></label>
 <input class="contact-main-section__input h-11 w-full !rounded-lg !border !border-slate-300/70 !bg-white pl-3 pr-3 text-sm !text-slate-900 placeholder:!text-slate-400 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0" id="<?php echo esc_attr( $id . 'website' ); ?>" maxlength="500" name="website" placeholder="<?php echo esc_attr( mmaf_site_field( 'form_website_placeholder' ) ); ?>" type="url"/>
 <span class="mmaf-field-error" data-error-for="website"></span></div>
 </div>
