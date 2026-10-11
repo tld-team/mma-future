@@ -233,12 +233,19 @@ final class FighterReadinessService {
 		return $indexed;
 	}
 
-	public function process_bulk_action( string $action, array $fighter_ids, int $user_id ): array {
+	public function process_bulk_action( string $action, array $fighter_ids, int $user_id, bool $operation_worker=false ): array {
 		global $wpdb;
 		\MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 
-		$fighter_ids = $this->normalize_ids( $fighter_ids );
-		$result = array(
+        $fighter_ids = $this->normalize_ids( $fighter_ids );
+        if (in_array($action,\MMAF\DataEngine\Services\Operations\Jobs::PREPARE_ACTIONS,true) && !$operation_worker && $fighter_ids) {
+            $job=\MMAF\DataEngine\Services\Operations\Jobs::create($action,['mode'=>'ids','ids'=>$fighter_ids],$user_id,wp_generate_uuid4());
+            return ['action'=>$action,'selected_count'=>count($fighter_ids),'updated_count'=>0,'ready_count'=>0,'blocked_count'=>0,'skipped_count'=>0,'queued_count'=>count($fighter_ids),'operation_id'=>(int)$job['id'],'updated'=>[],'ready'=>[],'blocked'=>[],'skipped'=>[],'reason_counts'=>[],'message'=>'Frozen operation preview queued. Confirm its manifest before preparation.','next_step'=>'Review operation #'.$job['id'].'; fighters remain unpublished until preparation and validation pass.'];
+        }
+        if (in_array($action,\MMAF\DataEngine\Services\Operations\Jobs::PREPARE_ACTIONS,true) && $operation_worker) {
+            foreach($fighter_ids as $fighter_id){if(!\MMAF\DataEngine\Services\Operations\Authority::can_publish(\MMAF\DataEngine\Services\Operations\Jobs::$current,$fighter_id)){throw new \RuntimeException('A confirmed, prepared publication item is required.');}}
+        }
+        $result = array(
 			'action'         => $action,
 			'selected_count' => count( $fighter_ids ),
 			'updated_count'  => 0,
@@ -363,7 +370,7 @@ final class FighterReadinessService {
 				$result['updated'][] = $this->result_row( $item, array() );
 			}
 
-			\MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh($user_id,true);
+			if (!$operation_worker) { \MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh($user_id,true); }
 			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 		} catch ( \Throwable $error ) {
 			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();

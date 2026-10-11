@@ -1,36 +1,43 @@
-name: Deploy to cPanel
-
+name: Verified staging release
 on:
   push:
-    branches:
-      - main  # Pokreće se svaki put kada pushujete u 'main' granu
-
+    branches: [main]
+concurrency:
+  group: mma-future-staging
+  cancel-in-progress: false
+permissions:
+  contents: read
 jobs:
   validate:
     uses: ./.github/workflows/validate.yml
-  ftp-deploy:
-    name: Upload to cPanel via FTP
+  package:
     needs: validate
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Deploy files via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT }}
-          local-dir: ./
-          server-dir: ${{ secrets.FTP_DIRECTORY }}
-          exclude: |
-            **/.git*
-            **/.github*
-            **/README.md
-            **/node_modules/*
-            dev-tools/**
-            tests/**
-            docs/**
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: wp-content/themes/mma-future/package-lock.json
+      - name: Clean deterministic build
+        working-directory: wp-content/themes/mma-future
+        run: npm ci && npm run build
+      - name: Build allowlisted package
+        run: python3 ops/package.py --output /tmp/mmaf-release --commit "$GITHUB_SHA" --sequence "$GITHUB_RUN_NUMBER"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: staging-release
+          path: /tmp/mmaf-release/*
+          retention-days: 30
+      - name: Upload complete package to private incoming over FTPS
+        env:
+          FTP_SERVER: ${{ secrets.STAGING_FTPS_HOST }}
+          FTP_USERNAME: ${{ secrets.STAGING_FTPS_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.STAGING_FTPS_PASSWORD }}
+          FTP_PORT: '21'
+          FTP_INCOMING_DIRECTORY: '/'
+        run: bash ops/upload.sh /tmp/mmaf-release/*.zip
+      - name: Wait for verified application on staging
+        timeout-minutes: 35
+        run: python3 ops/wait-release.py --receipt /tmp/mmaf-release/*.ready --url https://mma-future-dev.tldteam.com/.well-known/mmaf-release.json

@@ -59,7 +59,9 @@ final class HealthPage {
 		);
 	}
 
-	public static function render(): void {
+	public static function render(): void { OperationsDashboard::render(); }
+
+    public static function render_legacy_diagnostics(): void {
 		if ( ! current_user_can( Capabilities::MANAGE ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'mma-future-data-engine' ) );
 		}

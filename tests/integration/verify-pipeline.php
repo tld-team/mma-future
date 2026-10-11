@@ -1,5 +1,6 @@
 <?php
 require __DIR__.'/bootstrap.php';
+require __DIR__.'/synthetic-fixtures.php';
 require __DIR__.'/pipeline-tests/LegacyStatsRebuildService.php';
 require __DIR__.'/pipeline-tests/LegacyRankingCalculatorService.php';
 use MMAF\DataEngine\Services\DataPipeline\{ProfileStore,Processor,Schema as PipelineSchema};
@@ -7,11 +8,19 @@ use MMAF\DataEngine\Services\RegularImport\{Transaction,WriteGuard,CareerHistory
 use MMAF\DataEngine\Services\{StatsRebuildService,LegacyStatsRebuildService,RankingCalculatorService,LegacyRankingCalculatorService,FighterReadinessService,FieldProvenanceService};
 use MMAF\DataEngine\Migrations\Schema;
 use MMAF\DataEngine\Repositories\{FighterRepository,FighterSourceRepository,RankingRunRepository};
+use MMAF\DataEngine\Services\Operations\{Jobs,Schema as Operations};
 function check($ok,$reason){if(!$ok){throw new RuntimeException($reason);}echo "PASS: $reason\n";}
 function stats_content($table){global $wpdb;return $wpdb->get_results("SELECT fighter_id,wins,losses,draws,nc,pro_fights_count,ko_tko_wins,submission_wins,decision_wins,finish_wins,finish_rate,last_fight_date,streak,recent_form,activity_status,warnings_json FROM $table ORDER BY fighter_id",ARRAY_A);}
 function ranking_content($table,$run){global $wpdb;return $wpdb->get_results($wpdb->prepare("SELECT board_key,fighter_id,rank_position,total_score,raw_score,sample_size,quality_flags_json,breakdown_json,eligibility_json,warnings_json FROM $table WHERE ranking_run_id=%d ORDER BY board_key,rank_position",$run),ARRAY_A);}
+function drive_processor(): array {
+ for($n=0;$n<2000;++$n){$result=(new Processor())->work();$state=Processor::status()['calculation'];
+  if(!empty($result['error']) || !empty($result['blocked'])){throw new RuntimeException('Processor cannot continue: '.wp_json_encode($result));}
+  if(!Processor::pending() && empty($state['pending'])){return $result;}
+ }
+ throw new RuntimeException('Processor exceeded its test step budget.');
+}
 set_exception_handler(function($e){fwrite(STDERR,$e->getMessage().' at '.$e->getFile().':'.$e->getLine()."\n");exit(1);});
-check(DB_NAME==='mmaf_frontend_dev','isolated dev clone is required');wp_set_current_user(1);
+\MMAF\DataEngine\Migrations\MigrationRunner::run();wp_set_current_user(1);
 $t=Schema::table_names();$p=PipelineSchema::tables();$store=new ProfileStore();$now=gmdate('Y-m-d H:i:s');
 $active=(new RankingRunRepository())->get_active_ranking_run_id();
 $rank_hash=hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['ranking_current']} ORDER BY id",ARRAY_A)));
@@ -19,10 +28,11 @@ $rank_hash=hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['r
 add_filter('pre_http_request',static function(){throw new RuntimeException('Preparation attempted a network request.');});
 WriteGuard::$worker=true;Transaction::begin();
 try {
+ fixture_canonical_baseline();
  $start=microtime(true);memory_reset_peak_usage();$legacy=(new LegacyStatsRebuildService())->rebuild_all();$old_stats=stats_content($t['fighter_stats_current']);$old_peak=memory_get_peak_usage(true);$old_time=microtime(true)-$start;
  $start=microtime(true);memory_reset_peak_usage();$new=(new StatsRebuildService())->rebuild_all();$new_peak=memory_get_peak_usage(true);$new_time=microtime(true)-$start;
  check($old_stats===stats_content($t['fighter_stats_current']),'batched statistics exactly match previous records, rates, form, streaks and warnings');
- foreach(['countable_bouts','skipped_bouts','malformed_bouts','participants_processed','warnings_count','warnings'] as $key){check($legacy[$key]===$new[$key],'statistics diagnostic parity: '.$key);}
+ foreach(['countable_bouts','skipped_bouts','malformed_bouts','participants_processed','warnings_count','warnings'] as $key){if($key==='warnings'){ksort($legacy[$key]);ksort($new[$key]);}check($legacy[$key]===$new[$key],'statistics diagnostic parity: '.$key);}
  $old_run=(new LegacyRankingCalculatorService())->calculate_draft(1,'2026-10-09');
  $new_run=(new RankingCalculatorService())->calculate_draft(1,'2026-10-09');
  check(ranking_content($t['ranking_snapshots'],$old_run['ranking_run_id'])===ranking_content($t['ranking_snapshots'],$new_run['ranking_run_id']),'batched v1.5 calculation exactly matches previous ranks, scores, breakdowns and eligibility');
@@ -47,15 +57,24 @@ try {
  $f->update($a['id'],['is_public'=>1]);$seed=ProfileStore::career_profile($raw,$a['id']);$seed['rows']=[$fight];(new CareerHistory())->process($seed,0,1,true);$f->update($a['id'],['is_public'=>0]);
  (new StatsRebuildService())->rebuild_all();
  $approval=(new FighterReadinessService())->process_bulk_action('approve_and_prepare',[$a['id']],1);
- check($approval['updated_count']===1,'one approval marks a ready candidate verified, public and rankable');
- $post=(int)$f->find($a['id'])['wp_post_id'];check(get_post_status($post)==='publish' && get_post_type($post)==='mmaf_fighter','bulk approval creates a valid published canonical profile');
- check(Processor::pending()===1,'approval queues stored preparation without fetching a profile');
+ check($approval['updated_count']===0 && !empty($approval['operation_id']) && !(int)$f->find($a['id'])['is_public'],'approval queues a frozen operation while keeping the candidate private');
+ fixture_confirm_job($approval['operation_id']);
  $interruption=static function(){throw new RuntimeException('Interrupted before preparation checkpoint');};add_action('mmaf_profile_preparation_before_checkpoint',$interruption);
- $beforeRestart=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']}");(new Processor())->work(1);
- check(Processor::pending()===1 && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']}")===$beforeRestart,'interrupted preparation rolls back career writes and leaves a resumable queue item');
+ $beforeRestart=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']}");Jobs::work(1);$item=Jobs::items($approval['operation_id'])['items'][0];
+ check($item['status']==='pending' && (int)$item['attempts']===1 && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']}")===$beforeRestart && !(int)$f->find($a['id'])['is_public'],'interrupted approval rolls back career writes and keeps a retryable unpublished candidate');
  remove_action('mmaf_profile_preparation_before_checkpoint',$interruption);
- $result=(new Processor())->work(1);
- check(empty($result['error']) && Processor::pending()===0,'stored preparation and the coalesced calculation finish');
+ // Simulate the backoff expiring instead of sleeping in the regression suite.
+ $wpdb->update(Operations::tables()['items'],['retry_at'=>gmdate('Y-m-d H:i:s',time()-1)],['operation_id'=>$approval['operation_id'],'fighter_id'=>$a['id']]);
+ $operation=fixture_drive_job($approval['operation_id']);
+ check($operation['status']==='completed' && !empty($operation['summary']['ranking_run_id']),'resumed approval finishes its stored preparation, statistics and one inactive draft');
+ $post=(int)$f->find($a['id'])['wp_post_id'];check(get_post_status($post)==='publish' && get_post_type($post)==='mmaf_fighter','prepared approval creates a valid published canonical profile');
+ // The regular-import queue uses the same checkpoint transaction independently.
+ Processor::enqueue($a['id'],1);Processor::request_refresh(1);
+ add_action('mmaf_profile_preparation_before_checkpoint',$interruption);(new Processor())->work(1);
+ check(Processor::pending()===1 && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']}")===$beforeRestart+1,'interrupted regular preparation preserves its pending queue without duplicate career writes');
+ remove_action('mmaf_profile_preparation_before_checkpoint',$interruption);
+ $wpdb->update($p['queue'],['retry_at'=>gmdate('Y-m-d H:i:s',time()-1)],['fighter_id'=>$a['id']]);drive_processor();
+ check(Processor::pending()===0,'regular preparation and its coalesced resumable calculations finish');
  $coverage=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighter_career_coverage']} WHERE fighter_id=%d",$a['id']),ARRAY_A);
  check($coverage['status']==='complete' && (int)$coverage['accepted_bouts_count']===2,'approved fighter gains complete canonical history from the saved JSON');
  $sharedParticipants=$wpdb->get_results("SELECT p.id,p.result_for_fighter FROM {$t['bout_participants']} p JOIN {$t['bout_sources']} s ON s.bout_id=p.bout_id WHERE s.source_bout_id='tapology_bout_949900302'",ARRAY_A);
@@ -67,13 +86,22 @@ try {
  $staleCareer=ProfileStore::career_profile($raw,$a['id']);$staleCareer['scraped_at']='2026-09-01T10:00:00Z';$staleCareer['rows']=[];$staleResult=(new CareerHistory())->process($staleCareer,0,1,true);check(!empty($staleResult['retained_newer']) && $wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighter_career_coverage']} WHERE fighter_id=%d",$a['id']),ARRAY_A)===$coverage,'an older career package cannot downgrade newer verified coverage');
  $prepared=Processor::status()['calculation'];check(!empty($prepared['draft']['ranking_run_id']) && !$prepared['pending'],'one completed ranking draft is recorded');
  $run_count=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}");$bout_count=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']}");
- Processor::enqueue($a['id'],1);(new Processor())->work();
+ Processor::enqueue($a['id'],1);drive_processor();
  check((int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$run_count && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']}")===$bout_count,'repeat preparation creates neither another draft nor duplicate bouts');
- $latest=$raw;$latest['scraped_at']='2026-10-08T13:00:00Z';$latest['profile_summary']['nickname']='Latest nickname';$store->put($latest,'tapology_fighter_profiles_v0_1');Processor::enqueue($a['id'],1);Processor::request_refresh(1);(new Processor())->work();
+ $latest=$raw;$latest['scraped_at']='2026-10-08T13:00:00Z';$latest['profile_summary']['nickname']='Latest nickname';$store->put($latest,'tapology_fighter_profiles_v0_1');Processor::enqueue($a['id'],1);Processor::request_refresh(1);drive_processor();
  check($f->find($a['id'])['nickname']==='Latest nickname','newer source-owned evolving facts refresh automatically');
  (new FieldProvenanceService())->upsert('fighter',$a['id'],'nickname','Latest nickname',1);
- $latest['scraped_at']='2026-10-08T14:00:00Z';$latest['profile_summary']['nickname']='Unwanted replacement';$store->put($latest,'tapology_fighter_profiles_v0_1');Processor::enqueue($a['id'],1);Processor::request_refresh(1);(new Processor())->work();
+ $latest['scraped_at']='2026-10-08T14:00:00Z';$latest['profile_summary']['nickname']='Unwanted replacement';$store->put($latest,'tapology_fighter_profiles_v0_1');Processor::enqueue($a['id'],1);Processor::request_refresh(1);drive_processor();
  check($f->find($a['id'])['nickname']==='Latest nickname','manual verification remains protected from new source values');
+ Processor::request_refresh(1);(new Processor())->work();$interruptedState=Processor::status()['calculation'];$failedChild=(int)$interruptedState['stats_job'];
+ Jobs::save($failedChild,['status'=>'failed','error_message'=>'Synthetic statistics failure']);$failure=(new Processor())->work();
+ check(($failure['blocked']??'')==='calculation_failed','failed frozen calculation remains explicit and never publishes an incomplete generation');
+ $retry=Processor::retry_failed(1);
+ check($retry['restarted_calculation'] && Jobs::get($failedChild)['status']==='cancelled' && !isset(Processor::status()['calculation']['frozen_generation']),'explicit retry retires the failed child and releases its frozen generation');
+ drive_processor();$retryDrafts=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}");
+ check(empty(Processor::status()['calculation']['pending']) && !empty(Processor::status()['calculation']['draft']['ranking_run_id']),'retried preparation completes a fresh statistics generation and inactive draft');
+ $noRetry=Processor::retry_failed(1);drive_processor();
+ check($noRetry['retried']===0 && !$noRetry['restarted_calculation'] && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$retryDrafts,'retry without failures is a no-op rather than another calculation');
  $hidden=(new FighterReadinessService())->process_bulk_action('mark_not_public',[$a['id']],1);clean_post_cache($post);check($hidden['updated_count']===1 && get_post_status($post)==='draft','bulk hiding synchronizes the public profile immediately');
  check((new RankingRunRepository())->get_active_ranking_run_id()===$active && hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['ranking_current']} ORDER BY id",ARRAY_A)))===$rank_hash,'all imports, approvals and draft calculations leave active rankings unchanged');
  $seedFile=tempnam(sys_get_temp_dir(),'mmaf-source-seed-');
@@ -92,6 +120,6 @@ try {
   $profileCount=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$p['profiles']}");
   try{$backfill->run($seedFile);throw new RuntimeException('Invalid source accepted');}catch(Throwable $e){check($e->getMessage()!=='Invalid source accepted' && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$p['profiles']}")===$profileCount,'invalid export is fully rejected before source writes');}
  }finally{unlink($seedFile);}
- file_put_contents(__DIR__.'/pipeline-verification.json',wp_json_encode(['stats_parity'=>true,'ranking_parity'=>true,'counts'=>['fighters'=>$new['fighters_total'],'bouts'=>$new['countable_bouts']],'legacy_stats'=>['seconds'=>$old_time,'peak_bytes'=>$old_peak],'batched_stats'=>['seconds'=>$new_time,'peak_bytes'=>$new_peak],'network_requests'=>0,'active_rankings_unchanged'=>true],JSON_PRETTY_PRINT));
-} finally {Transaction::rollback();WriteGuard::$worker=false;}
+ echo 'METRICS '.wp_json_encode(['stats_parity'=>true,'ranking_parity'=>true,'counts'=>['fighters'=>$new['fighters_total'],'bouts'=>$new['countable_bouts']],'legacy_stats'=>['seconds'=>$old_time,'peak_bytes'=>$old_peak],'batched_stats'=>['seconds'=>$new_time,'peak_bytes'=>$new_peak],'network_requests'=>0,'active_rankings_unchanged'=>true])."\n";
+} finally {Transaction::rollback();WriteGuard::$worker=false;wp_cache_flush();}
 check(!$store->for_fighter($fixture[1]['id']),'fixture snapshots and jobs roll back with canonical data');

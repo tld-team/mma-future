@@ -47,6 +47,18 @@ final class FighterRepository {
 		);
 	}
 
+    public function find_many(array $ids): array {
+        global $wpdb; $ids=array_unique(array_filter(array_map('intval',$ids),static fn($id)=>$id>0));
+        if (!$ids) { return []; }
+        return $wpdb->get_results("SELECT * FROM {$this->table} WHERE id IN (".implode(',',$ids).") ORDER BY id", ARRAY_A);
+    }
+    /** Safe reusable selection SQL for a single INSERT ... SELECT freeze. */
+    public function selection_sql(string $search,array $filters): string {
+        global $wpdb; $where=$this->where_clause($search,$filters);
+        $sql="SELECT f.id FROM {$this->table} f {$where['sql']}";
+        return $where['args'] ? $wpdb->prepare($sql,$where['args']) : $sql;
+    }
+
 	public function list_for_select( int $limit = 1000 ): array {
 		global $wpdb;
 
@@ -79,7 +91,7 @@ final class FighterRepository {
 		);
 	}
 
-	private function where_clause( string $search, array $filters ): array {
+	public function where_clause( string $search, array $filters ): array {
 		global $wpdb;
 
 		$where = array();
@@ -87,10 +99,11 @@ final class FighterRepository {
 
 		if ( '' !== $search ) {
 			$like    = '%' . $wpdb->esc_like( $search ) . '%';
-			$where[] = '(f.display_name LIKE %s OR f.normalized_name LIKE %s OR f.nickname LIKE %s)';
+			$where[] = '(f.display_name LIKE %s OR f.normalized_name LIKE %s OR f.nickname LIKE %s OR CAST(f.id AS CHAR) = %s)';
 			$args[]  = $like;
 			$args[]  = $like;
 			$args[]  = $like;
+            $args[] = ltrim($search, '#');
 		}
 
 		if ( ! empty( $filters['status'] ) ) {
@@ -114,6 +127,20 @@ final class FighterRepository {
 		} elseif ( 'not_rankable' === ( $filters['rankable_state'] ?? '' ) ) {
 			$where[] = 'f.is_rankable = 0';
 		}
+
+        $operations=\MMAF\DataEngine\Services\Operations\Schema::tables();
+        $coverage=Schema::table_names()['fighter_career_coverage'];
+        foreach (['gender','weight_class'] as $field) {
+            if (!empty($filters[$field])) { $where[]="f.$field = %s"; $args[]=(string)$filters[$field]; }
+        }
+        if (($filters['import_job']??'')==='legacy') {
+            $where[]="NOT EXISTS (SELECT 1 FROM {$operations['membership']} m WHERE m.fighter_id=f.id)";
+        } elseif (!empty($filters['import_job'])) {
+            $where[]="EXISTS (SELECT 1 FROM {$operations['membership']} m WHERE m.fighter_id=f.id AND m.import_job_id=%d)"; $args[]=(int)$filters['import_job'];
+        }
+        if (!empty($filters['preparation'])) { $where[]="EXISTS (SELECT 1 FROM {$operations['readiness']} r WHERE r.fighter_id=f.id AND r.preparation_state=%s)"; $args[]=(string)$filters['preparation']; }
+        if (!empty($filters['reason'])) { $where[]="EXISTS (SELECT 1 FROM {$operations['readiness']} r WHERE r.fighter_id=f.id AND r.reason_code=%s)"; $args[]=(string)$filters['reason']; }
+        if (!empty($filters['coverage'])) { $where[]="EXISTS (SELECT 1 FROM $coverage c WHERE c.fighter_id=f.id AND c.status=%s)"; $args[]=(string)$filters['coverage']; }
 
 		switch ( (string) ( $filters['readiness_issue'] ?? '' ) ) {
 			case 'missing_dob':

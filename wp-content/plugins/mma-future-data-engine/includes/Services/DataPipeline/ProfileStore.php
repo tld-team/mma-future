@@ -47,6 +47,8 @@ final class ProfileStore {
         return Transaction::run(function() use($wpdb,$table,$profile,$key,$identity,$observed,$success,$payload,$hash,$schema,$job,$now) {
             $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE source_type='tapology' AND source_fighter_id=%s FOR UPDATE",$key),ARRAY_A);
             $fighter=$this->resolve($identity);
+            \MMAF\DataEngine\Services\Operations\Membership::record($job,$fighter,'stored_profile');
+            if($fighter){\MMAF\DataEngine\Services\Operations\Readiness::invalidate($fighter);}
             $data=['source_type'=>'tapology','source_fighter_id'=>$key,'source_url'=>$identity['source_url'],'fighter_id'=>$fighter?:null,'schema_version'=>$schema,'updated_at'=>$now];
             $attempt=$observed;
             if (!$old || ($attempt && (!$old['last_attempt_at'] || $attempt>=$old['last_attempt_at']))) {

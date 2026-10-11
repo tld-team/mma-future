@@ -16,7 +16,7 @@ final class AuditLogService {
 		$this->table = $tables['audit_log'];
 	}
 
-	public function write( string $action, string $entity_type, int $entity_id, ?array $before, ?array $after, string $reason, int $user_id ): void {
+	public function write( string $action, string $entity_type, int $entity_id, ?array $before, ?array $after, string $reason, int $user_id ): int {
 		global $wpdb;
 
 		$inserted = $wpdb->insert(
@@ -36,5 +36,6 @@ final class AuditLogService {
 		if ( false === $inserted ) {
 			throw new \RuntimeException( $wpdb->last_error ? $wpdb->last_error : __( 'Could not write audit log entry.', 'mma-future-data-engine' ) );
 		}
+        return (int)$wpdb->insert_id;
 	}
 }

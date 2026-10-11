@@ -104,19 +104,8 @@ final class StatsPage {
 		}
 
 		try {
-			$service = new StatsRebuildService();
-			$summary = $service->rebuild_all( get_current_user_id(), 'Manual stats rebuild from admin' );
-
-			self::redirect_with_notice(
-				'success',
-				sprintf(
-					/* translators: 1: stats rows, 2: countable bouts, 3: warnings count. */
-					__( 'Stats rebuild complete. Rows written: %1$d. Countable bouts: %2$d. Warnings: %3$d.', 'mma-future-data-engine' ),
-					(int) $summary['stats_rows_written'],
-					(int) $summary['countable_bouts'],
-					(int) $summary['warnings_count']
-				)
-			);
+            $id=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,get_current_user_id());
+            wp_safe_redirect(admin_url('admin.php?page=mmaf-operations&operation_id='.$id));exit;
 		} catch ( \Throwable $error ) {
 			self::redirect_with_notice( 'error', $error->getMessage() );
 		}

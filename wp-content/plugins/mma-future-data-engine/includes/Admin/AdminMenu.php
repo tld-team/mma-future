@@ -37,6 +37,7 @@ final class AdminMenu {
 			array( FightersPage::class, 'render' )
 		);
 
+        add_submenu_page('mmaf','MMA Future Operations','Operations',Capabilities::MANAGE,'mmaf-operations',[OperationsPage::class,'render']);
 		add_submenu_page(
 			'mmaf',
 			__( 'MMA Future Events', 'mma-future-data-engine' ),

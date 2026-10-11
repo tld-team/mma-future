@@ -498,23 +498,8 @@ final class RankingsPage {
 		check_admin_referer( 'mmaf_calculate_ranking_draft', 'mmaf_rankings_nonce' );
 
 		try {
-			$service = new RankingCalculatorService();
-			$summary = $service->calculate_draft( get_current_user_id() );
-
-			return array(
-				'type'    => 'success',
-				'message' => sprintf(
-					/* translators: 1: ranking run ID, 2: eligible fighters, 3: ineligible fighters, 4: ranked rows, 5: board count, 6: warnings, 7: activatable yes/no. */
-					__( 'Ranking draft calculated. Run: %1$d. Eligible: %2$d. Ineligible: %3$d. Draft rows: %4$d. Boards: %5$d. Warnings: %6$d. Activatable: %7$s.', 'mma-future-data-engine' ),
-					(int) $summary['ranking_run_id'],
-					(int) $summary['eligible_fighters'],
-					(int) $summary['ineligible_fighters'],
-					(int) $summary['ranked_rows'],
-					count( (array) ( $summary['boards_generated'] ?? array() ) ),
-					(int) $summary['warnings_count'],
-					(int) $summary['ranked_rows'] > 0 ? __( 'yes', 'mma-future-data-engine' ) : __( 'no', 'mma-future-data-engine' )
-				),
-			);
+            $id=\MMAF\DataEngine\Services\Operations\Calculation::create('ranking',0,get_current_user_id());
+            wp_safe_redirect(admin_url('admin.php?page=mmaf-operations&operation_id='.$id));exit;
 		} catch ( \Throwable $error ) {
 			return array(
 				'type'    => 'error',

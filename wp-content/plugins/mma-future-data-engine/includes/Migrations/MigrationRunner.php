@@ -7,15 +7,57 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class MigrationRunner {
 	public static function run(): void {
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        // A verified runner already owns the writer barrier and canonical lock.
+        // Paused historical jobs must not prevent an additive release migration.
+        if(!(function_exists('mmaf_runner_owns_write_lock') && mmaf_runner_owns_write_lock())){
+            \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
+        }
+		\MMAF\DataEngine\Services\RegularImport\Mutex::run(static function() { self::migrate(); });
+	}
 
-		foreach ( array_merge( Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql() ) as $statement ) {
+	private static function migrate(): void {
+		$installed = (string) get_option('mmaf_db_version', '0');
+		if (version_compare($installed, MMAF_DB_VERSION, '>')) {
+			throw new \RuntimeException('An older release cannot downgrade the installed database schema.');
+		}
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		global $wpdb;
+		$statements = array_merge(Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql(), \MMAF\DataEngine\Services\Operations\Schema::sql());
+		foreach ( $statements as $statement ) {
 			dbDelta( $statement );
+			if ($wpdb->last_error) { throw new \RuntimeException('Schema migration failed: ' . $wpdb->last_error); }
 		}
 
 		self::run_safe_alters();
-
+		foreach ($statements as $statement) {
+			preg_match('/CREATE TABLE\s+(\w+)/i', $statement, $match);
+			$table = $match[1] ?? '';
+			if (!$table) { throw new \RuntimeException('Invalid schema statement.'); }
+			$columns = $wpdb->get_col("SHOW COLUMNS FROM `$table`", 0);
+			if ($wpdb->last_error || !$columns) { throw new \RuntimeException('Required schema table is unavailable: ' . $table); }
+			preg_match_all('/^\s*([a-z][a-z0-9_]*)\s+(?:bigint|int|tinyint|smallint|varchar|char|text|longtext|mediumtext|datetime|date|decimal|double|float|timestamp|enum)\b/im', $statement, $expected);
+			if (array_diff($expected[1], $columns)) { throw new \RuntimeException('Required schema columns are missing: ' . $table); }
+			if(in_array($table,\MMAF\DataEngine\Services\Operations\Schema::tables(),true) || in_array($table,[Schema::table_names()['fighters'],Schema::table_names()['field_provenance']],true)){
+				self::verify_operational_indexes($table,$statement);
+			}
+		}
 		update_option( 'mmaf_db_version', MMAF_DB_VERSION, false );
+	}
+
+	/** Check the indexes that make operation manifests and worker pages reliable. */
+	private static function verify_operational_indexes(string $table,string $statement): void {
+		global $wpdb;$actual=[];
+		foreach($wpdb->get_results("SHOW INDEX FROM `$table`",ARRAY_A) as $row){
+			$actual[$row['Key_name']]['columns'][(int)$row['Seq_in_index']]=$row['Column_name'];
+			$actual[$row['Key_name']]['unique']=(int)$row['Non_unique']===0;
+		}
+		if($wpdb->last_error){throw new \RuntimeException('Cannot verify operational indexes: '.$table);}
+		preg_match_all('/^\s*(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY)\s*(\w+)?\s*\(([^)]+)\)/im',$statement,$matches,PREG_SET_ORDER);
+		foreach($matches as $match){
+			$primary=stripos($match[1],'PRIMARY')===0;$name=$primary?'PRIMARY':$match[2];
+			$columns=array_map('trim',explode(',',$match[3]));$found=$actual[$name]??[];if(isset($found['columns'])){ksort($found['columns']);}
+			if(array_values($found['columns']??[])!==$columns || (($primary || stripos($match[1],'UNIQUE')===0) && empty($found['unique']))){throw new \RuntimeException('Required operational index is missing or incompatible: '.$table.'.'.$name);}
+		}
 	}
 
 	private static function run_safe_alters(): void {
@@ -24,19 +66,19 @@ final class MigrationRunner {
 		$tables = Schema::table_names();
 
 		if ( ! self::column_exists( $tables['fighters'], 'nickname' ) ) {
-			$wpdb->query( "ALTER TABLE {$tables['fighters']} ADD COLUMN nickname VARCHAR(255) NULL AFTER display_name" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['fighters']} ADD COLUMN nickname VARCHAR(255) NULL AFTER display_name" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $tables['fighters'], 'height' ) ) {
-			$wpdb->query( "ALTER TABLE {$tables['fighters']} ADD COLUMN height VARCHAR(60) NULL AFTER weight_class" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['fighters']} ADD COLUMN height VARCHAR(60) NULL AFTER weight_class" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $tables['fighters'], 'height_cm' ) ) {
-			$wpdb->query( "ALTER TABLE {$tables['fighters']} ADD COLUMN height_cm SMALLINT UNSIGNED NULL AFTER height" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['fighters']} ADD COLUMN height_cm SMALLINT UNSIGNED NULL AFTER height" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $tables['fighters'], 'last_weigh_in' ) ) {
-			$wpdb->query( "ALTER TABLE {$tables['fighters']} ADD COLUMN last_weigh_in VARCHAR(60) NULL AFTER height_cm" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['fighters']} ADD COLUMN last_weigh_in VARCHAR(60) NULL AFTER height_cm" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		$source_column = $wpdb->get_row(
@@ -48,23 +90,23 @@ final class MigrationRunner {
 		);
 
 		if ( $source_column && 'NO' === $source_column['Null'] ) {
-			$wpdb->query( "ALTER TABLE {$tables['fighter_sources']} MODIFY source_fighter_id VARCHAR(120) NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['fighter_sources']} MODIFY source_fighter_id VARCHAR(120) NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $tables['event_sources'], 'source_slug' ) ) {
-			$wpdb->query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN source_slug VARCHAR(255) NULL AFTER source_url" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN source_slug VARCHAR(255) NULL AFTER source_url" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $tables['event_sources'], 'source_promotion_url' ) ) {
-			$wpdb->query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN source_promotion_url TEXT NULL AFTER source_promotion_numeric_id" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN source_promotion_url TEXT NULL AFTER source_promotion_numeric_id" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $tables['event_sources'], 'is_verified' ) ) {
-			$wpdb->query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN is_verified TINYINT(1) NOT NULL DEFAULT 0 AFTER last_import_run_id" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN is_verified TINYINT(1) NOT NULL DEFAULT 0 AFTER last_import_run_id" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $tables['event_sources'], 'is_primary' ) ) {
-			$wpdb->query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN is_primary TINYINT(1) NOT NULL DEFAULT 0 AFTER is_verified" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$tables['event_sources']} ADD COLUMN is_primary TINYINT(1) NOT NULL DEFAULT 0 AFTER is_verified" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		self::add_ranking_score_columns( $tables['ranking_current'] );
@@ -77,23 +119,23 @@ final class MigrationRunner {
 		global $wpdb;
 
 		if ( ! self::column_exists( $table, 'raw_score' ) ) {
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN raw_score DECIMAL(10,3) NULL AFTER total_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$table} ADD COLUMN raw_score DECIMAL(10,3) NULL AFTER total_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $table, 'normalized_score' ) ) {
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN normalized_score DECIMAL(10,3) NULL AFTER raw_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$table} ADD COLUMN normalized_score DECIMAL(10,3) NULL AFTER raw_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $table, 'confidence_score' ) ) {
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN confidence_score DECIMAL(6,3) NULL AFTER normalized_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$table} ADD COLUMN confidence_score DECIMAL(6,3) NULL AFTER normalized_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $table, 'sample_size' ) ) {
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN sample_size INT NOT NULL DEFAULT 0 AFTER confidence_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$table} ADD COLUMN sample_size INT NOT NULL DEFAULT 0 AFTER confidence_score" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
 		if ( ! self::column_exists( $table, 'quality_flags_json' ) ) {
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN quality_flags_json LONGTEXT NULL AFTER sample_size" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			self::query( "ALTER TABLE {$table} ADD COLUMN quality_flags_json LONGTEXT NULL AFTER sample_size" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 	}
 
@@ -217,7 +259,7 @@ final class MigrationRunner {
 			return;
 		}
 
-		$wpdb->query( "ALTER TABLE {$table} ADD UNIQUE KEY {$index_name} {$columns_sql}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		self::query( "ALTER TABLE {$table} ADD UNIQUE KEY {$index_name} {$columns_sql}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	private static function column_exists( string $table, string $column ): bool {
@@ -245,4 +287,11 @@ final class MigrationRunner {
 
 		return null !== $found;
 	}
+	private static function query(string $sql) {
+		global $wpdb;
+		$result = $wpdb->query($sql);
+		if (false === $result) { throw new \RuntimeException('Schema change failed: ' . $wpdb->last_error); }
+		return $result;
+	}
+
 }

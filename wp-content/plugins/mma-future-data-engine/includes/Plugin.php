@@ -30,8 +30,20 @@ final class Plugin {
 	}
 
 	public function register(): void {
-		if ( get_option( 'mmaf_db_version' ) !== MMAF_DB_VERSION ) {
-			MigrationRunner::run();
+		// Schema changes run explicitly under deployment write coordination.
+		// In particular, loading an older compatible release must never downgrade it.
+		if ( version_compare((string) get_option('mmaf_db_version', '0'), MMAF_DB_VERSION, '<') ) {
+			add_action('admin_notices', static function() {
+				if (current_user_can(\MMAF\DataEngine\Support\Capabilities::MANAGE)) {
+					echo '<div class="notice notice-error"><p>MMA Future database migration is required. Run the verified release migration before starting data jobs.</p></div>';
+				}
+			});
+		}
+		if (defined('WP_CLI') && WP_CLI) {
+			\WP_CLI::add_command('mmaf system migrate', static function() {
+				MigrationRunner::run();
+				\WP_CLI::success('Verified database schema ' . get_option('mmaf_db_version'));
+			});
 		}
 
 		add_action( 'init', array( FighterPostType::class, 'register' ) );
@@ -40,6 +52,7 @@ final class Plugin {
 		Services\PublicCacheService::register();
 		Services\RegularImport\Module::register();
 		Services\DataPipeline\Processor::register();
+        Services\Operations\Module::register();
 
 		if ( is_admin() ) {
 			add_action( 'admin_menu', array( AdminMenu::class, 'register' ) );

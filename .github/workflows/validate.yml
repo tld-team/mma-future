@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: PHP syntax
-        run: find wp-content/plugins/mma-future-data-engine wp-content/themes/mma-future -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find wp-content/plugins/mma-future-data-engine wp-content/themes/mma-future wp-content/mu-plugins ops -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: ACF JSON and JavaScript syntax
         run: |
           python3 - <<'PY'
@@ -23,7 +23,14 @@ jobs:
           node --check wp-content/themes/mma-future/assets/dist/js/integration.js
           node --check wp-content/plugins/mma-future-data-engine/assets/regular-import.js
           node --check wp-content/plugins/mma-future-data-engine/assets/admin-fighters.js
-          bash -n wp-content/plugins/mma-future-data-engine/bin/regular-import-runner.sh
+          node --check wp-content/plugins/mma-future-data-engine/assets/operations.js
+          bash -n wp-content/plugins/mma-future-data-engine/bin/regular-import-runner.sh ops/supervisor.sh ops/monitor.sh ops/upload.sh
+          python3 tests/unit/release-package.py
+          python3 tests/unit/release-recovery.py
+          python3 tests/unit/release-receipt.py
+          python3 tests/unit/runtime-gate.py
+          python3 tests/unit/monitor.py
+          python3 -m compileall -q ops
           php tests/unit/json-document.php
   scraper:
     runs-on: ubuntu-latest
@@ -38,3 +45,73 @@ jobs:
       - name: Scraper regression tests
         working-directory: dev-tools/scraper
         run: python -m pytest -q
+
+  database:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: mmaf_frontend_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      MMAF_WP_CORE: /tmp/mmaf-wp
+      MMAF_CI_PRIVATE: /tmp/mmaf-ci-operations
+      MMAF_TEST_BOOTSTRAP: ${{ github.workspace }}/ops/ci-bootstrap.php
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official WordPress and WP-CLI test runtime
+        run: |
+          curl --fail --location --silent https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar -o /tmp/wp-cli.phar
+          php /tmp/wp-cli.phar core download --path=/tmp/mmaf-wp --version=7.0
+          mkdir -m 700 /tmp/mmaf-ci-operations
+          python3 - <<'PY'
+          import json,os,time
+          from pathlib import Path
+          root=Path('/tmp/mmaf-ci-operations')
+          config={'verification':{'database':'mmaf_restore_ci','host':'127.0.0.1','port':3306,'user':'root','password':'root'}}
+          for name,value in [('config.json',config),('capacity.json',{'checked_at':time.time(),'bytes_unlimited':True,'inodes_unlimited':True})]:
+              path=root/name;path.write_text(json.dumps(value));path.chmod(0o600)
+          PY
+          MYSQL_PWD=root mysql --host=127.0.0.1 --port=3306 -uroot -e 'CREATE DATABASE mmaf_restore_ci CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+          php /tmp/wp-cli.phar config create --path=/tmp/mmaf-wp --dbname=mmaf_frontend_test --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306 --extra-php <<'PHP'
+          define('WP_ENVIRONMENT_TYPE','local');
+          define('DISABLE_WP_CRON',true);
+          define('MMAF_SERVER_SUPERVISOR',true);
+          define('MMAF_OPERATIONS_DIR',getenv('MMAF_CI_PRIVATE'));
+          define('MMAF_WRITE_LOCK',MMAF_OPERATIONS_DIR.'/worker.lock');
+          define('MMAF_IMPORT_STORAGE_DIR',MMAF_OPERATIONS_DIR.'/imports');
+          require getenv('GITHUB_WORKSPACE').'/ops/runtime-gate.php';
+          PHP
+          ln -s "$GITHUB_WORKSPACE/wp-content/plugins/mma-future-data-engine" /tmp/mmaf-wp/wp-content/plugins/mma-future-data-engine
+          ln -s "$GITHUB_WORKSPACE/wp-content/themes/mma-future" /tmp/mmaf-wp/wp-content/themes/mma-future
+          cp -R wp-content/mu-plugins /tmp/mmaf-wp/wp-content/
+          php /tmp/wp-cli.phar core install --path=/tmp/mmaf-wp --url=http://example.test --title=Fixture --admin_user=fixture --admin_password=ci-fixture-only --admin_email=fixture@example.test --skip-email
+          php /tmp/wp-cli.phar plugin activate mma-future-data-engine --path=/tmp/mmaf-wp
+          php /tmp/wp-cli.phar theme activate mma-future --path=/tmp/mmaf-wp
+          php /tmp/wp-cli.phar mmaf system migrate --path=/tmp/mmaf-wp
+      - name: Synthetic database integration
+        run: |
+          php -d memory_limit=256M tests/integration/verify-career.php
+          php -d memory_limit=256M tests/integration/verify-bulk.php
+          php -d memory_limit=256M tests/integration/verify-pipeline.php
+          php -d memory_limit=256M tests/integration/verify-operations.php
+          php -d memory_limit=256M tests/integration/verify-admin-contracts.php
+          php -d memory_limit=256M tests/integration/verify-review-audit.php
+          php -d memory_limit=256M tests/integration/verify-retention.php
+      - name: Actual synthetic staging-to-local transfer
+        env:
+          MMAF_SYNC_WP_CORE: /tmp/mmaf-wp
+          MMAF_TEST_PHP: php
+          MMAF_TEST_WP_CLI: /tmp/wp-cli.phar
+          MMAF_TEST_MYSQL: mysql
+          MMAF_TEST_MYSQLDUMP: mysqldump
+          MMAF_SYNC_DB_HOST: 127.0.0.1:3306
+          MMAF_SYNC_DB_PASSWORD: root
+        run: python3 tests/integration/verify-local-sync.py

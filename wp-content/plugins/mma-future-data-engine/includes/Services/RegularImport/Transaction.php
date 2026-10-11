@@ -4,9 +4,14 @@ namespace MMAF\DataEngine\Services\RegularImport;
 /** Nested services use savepoints; only the owner commits the batch and checkpoint. */
 final class Transaction {
     private static int $depth = 0;
+    private static array $callbacks=[];
+    private static array $marks=[];
+    public static function active(): bool { return self::$depth>0; }
+    public static function after_commit(callable $callback): void { if(!self::$depth){$callback();return;} self::$callbacks[]=$callback; }
     public static function begin(): void {
         global $wpdb;
         self::query(self::$depth ? 'SAVEPOINT mmaf_tx_' . self::$depth : 'START TRANSACTION');
+        self::$marks[self::$depth]=count(self::$callbacks);
         ++self::$depth;
     }
     public static function commit(): void {
@@ -14,10 +19,14 @@ final class Transaction {
         $depth = self::$depth - 1;
         self::query($depth ? 'RELEASE SAVEPOINT mmaf_tx_' . $depth : 'COMMIT');
         self::$depth = $depth;
+        unset(self::$marks[$depth]);
+        if(!$depth){$callbacks=self::$callbacks;self::$callbacks=[];foreach($callbacks as $callback){try{$callback();}catch(\Throwable $error){update_option('mmaf_after_commit_error',['at'=>gmdate('Y-m-d H:i:s'),'reason'=>'Post-commit invalidation needs retry'],false);}}}
+
     }
     public static function rollback(): void {
         if (!self::$depth) { return; }
         --self::$depth;
+        self::$callbacks=array_slice(self::$callbacks,0,self::$marks[self::$depth]??0);unset(self::$marks[self::$depth]);
         self::query(self::$depth ? 'ROLLBACK TO SAVEPOINT mmaf_tx_' . self::$depth : 'ROLLBACK');
     }
     public static function run(callable $callback) {

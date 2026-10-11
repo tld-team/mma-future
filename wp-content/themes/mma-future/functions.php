@@ -156,11 +156,22 @@ add_action( 'widgets_init', 'mma_future_widgets_init' );
 /**
  * Enqueue scripts and styles.
  */
+function mmaf_asset_version(string $relative): string {
+	static $manifest;
+	if (null === $manifest) {
+		$file = get_template_directory() . '/asset-manifest.json';
+		$manifest = is_file($file) ? json_decode(file_get_contents($file), true) : array();
+	}
+	$hash = $manifest['assets'][$relative] ?? null;
+	$file = get_template_directory() . '/' . $relative;
+	return $hash ? substr($hash, 0, 16) : (is_file($file) ? (string) filemtime($file) : _S_VERSION);
+}
+
 function mma_future_scripts() {
 	/** ==============================            custom styles and scripts            ============================== */
 	/**  */
-	wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css' );
-	wp_enqueue_script( 'mma-main', get_template_directory_uri() . '/assets/dist/js/main.js', array(), _S_VERSION, true );
+	wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css', array(), mmaf_asset_version('assets/dist/css/output.css') );
+	wp_enqueue_script( 'mma-main', get_template_directory_uri() . '/assets/dist/js/main.js', array(), mmaf_asset_version('assets/dist/js/main.js'), true );
 	// wp_enqueue_script( 'tailwindcss', 'https://cdn.tailwindcss.com' );
 	wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css' );
 
@@ -188,8 +199,8 @@ add_action( 'wp_enqueue_scripts', 'mma_future_scripts' );
 function mma_future_admin_scripts($hook) {
 	if ( 'post.php' === $hook ) {
 		wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css' );
-		wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css' );
-		wp_enqueue_script( 'mma-main', get_template_directory_uri() . '/assets/dist/js/main.js', array(), _S_VERSION, true );
+		wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css', array(), mmaf_asset_version('assets/dist/css/output.css') );
+		wp_enqueue_script( 'mma-main', get_template_directory_uri() . '/assets/dist/js/main.js', array(), mmaf_asset_version('assets/dist/js/main.js'), true );
 	}
 }
 add_action( 'admin_enqueue_scripts', 'mma_future_admin_scripts' );

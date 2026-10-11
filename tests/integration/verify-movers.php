@@ -9,7 +9,7 @@ function check($ok,$why){if(!$ok){throw new RuntimeException($why);}echo "PASS: 
 $t=Schema::table_names();$runs=new RankingRunRepository();$base=$runs->active();$original=$runs->get_active_ranking_run_id();$service=new PublicReadService();
 $sample=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['ranking_snapshots']} WHERE ranking_run_id=%d AND board_key='overall' LIMIT 1",$original),ARRAY_A);
 $ids=$wpdb->get_col("SELECT f.id FROM {$t['fighters']} f JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.is_public=1 AND f.deleted_soft=0 AND p.post_type='mmaf_fighter' AND p.post_status='publish' ORDER BY f.id LIMIT 6");
-function event($id){global $runs; $runs->set_active_ranking_run_id($id);(new AuditLogService())->write('ranking_activated','ranking_run',$id,null,['status'=>'activated'],'Isolated fixture',1);}
+function event($id){global $runs; $runs->set_active_ranking_run_id($id);$audit=(new AuditLogService())->write('ranking_activated','ranking_run',$id,null,['status'=>'activated','ranking_run_id'=>$id,'boards'=>['overall']],'Isolated fixture',1);\MMAF\DataEngine\Services\Operations\Activations::record($id,['overall'],gmdate('Y-m-d H:i:s'),1,$audit);}
 function snapshots($run,$positions){global $wpdb,$t,$sample,$ids;foreach($positions as $index=>$rank){$r=$sample;unset($r['id']);$r['ranking_run_id']=$run;$r['fighter_id']=$ids[$index];$r['rank_position']=$rank;if(false===$wpdb->insert($t['ranking_snapshots'],$r)){throw new RuntimeException($wpdb->last_error);}}}
 WriteGuard::$worker=true;Transaction::begin();
 try{

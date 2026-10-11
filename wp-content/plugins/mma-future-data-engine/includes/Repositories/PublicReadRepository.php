@@ -60,28 +60,33 @@ final class PublicReadRepository {
 		return $row ?: null;
 	}
 
-	public function previous_activation( int $active_id, string $board ): ?array {
-		global $wpdb;
-		// Audit order follows activation order, including rollback and repeat activations.
-		$rows = $wpdb->get_results( "SELECT entity_id,after_json,created_at FROM {$this->tables['audit_log']} WHERE action='ranking_activated' AND entity_type='ranking_run' ORDER BY id DESC", ARRAY_A );
-		$seen_current = false;
-		foreach ( $rows as $row ) {
-			$id = (int) $row['entity_id'];
-			if ( ! $seen_current ) { if ( $id === $active_id ) { $seen_current=true; } continue; }
-			if ( $id === $active_id ) { continue; }
-			$run = ( new RankingRunRepository() )->find( $id );
-			if ( $run && in_array( $board, $this->boards( $id ), true ) ) { $run['activated_at']=$row['created_at']; return $run; }
-		}
-		return null;
-	}
-
-	public function movers( int $current_id, int $previous_id, string $board ): array {
-		global $wpdb;
-		$t=$this->tables;
-		return $wpdb->get_results( $wpdb->prepare(
-			"SELECT c.fighter_id,c.rank_position AS current_rank,p.rank_position AS previous_rank,(p.rank_position-c.rank_position) AS rank_change,f.display_name,f.wp_post_id FROM {$t['ranking_snapshots']} c LEFT JOIN {$t['ranking_snapshots']} p ON p.ranking_run_id=%d AND p.board_key=c.board_key AND p.fighter_id=c.fighter_id INNER JOIN {$t['fighters']} f ON f.id=c.fighter_id WHERE c.ranking_run_id=%d AND c.board_key=%s AND f.is_public=1 AND f.deleted_soft=0 AND " . $this->public_post_condition() . ' ORDER BY rank_change DESC,c.rank_position ASC,c.fighter_id ASC',
-			$previous_id,$current_id,$board ), ARRAY_A ) ?: array();
-	}
+    public function previous_activation(int $active_id,string $board): ?array {
+        global $wpdb;$ledger=\MMAF\DataEngine\Services\Operations\Schema::tables()['activations'];
+        $current=$wpdb->get_row($wpdb->prepare("SELECT activated_at,audit_id FROM $ledger WHERE ranking_run_id=%d AND board_key=%s ORDER BY activated_at DESC,audit_id DESC LIMIT 1",$active_id,$board),ARRAY_A);
+        if(!$current){return null;}
+        $row=$wpdb->get_row($wpdb->prepare("SELECT ranking_run_id,activated_at FROM $ledger WHERE board_key=%s AND ranking_run_id<>%d AND (activated_at<%s OR (activated_at=%s AND audit_id<%d)) ORDER BY activated_at DESC,audit_id DESC LIMIT 1",$board,$active_id,$current['activated_at'],$current['activated_at'],$current['audit_id']),ARRAY_A);
+        $run=$row?(new RankingRunRepository())->find((int)$row['ranking_run_id']):null;
+        if($run){$run['activated_at']=$row['activated_at'];}return $run;
+    }
+    public function movers(int $current,int $previous,string $board,int $limit=3): array {
+        global $wpdb;$t=$this->tables;
+        return $wpdb->get_results($wpdb->prepare("SELECT c.fighter_id,c.rank_position current_rank,p.rank_position previous_rank,(p.rank_position-c.rank_position) rank_change,f.display_name,f.wp_post_id FROM {$t['ranking_snapshots']} c JOIN {$t['ranking_snapshots']} p ON p.ranking_run_id=%d AND p.board_key=c.board_key AND p.fighter_id=c.fighter_id JOIN {$t['fighters']} f ON f.id=c.fighter_id WHERE c.ranking_run_id=%d AND c.board_key=%s AND p.rank_position>c.rank_position AND f.is_public=1 AND f.deleted_soft=0 AND ".$this->public_post_condition()." ORDER BY rank_change DESC,c.rank_position,f.id LIMIT %d",$previous,$current,$board,min(10,max(1,$limit))),ARRAY_A)?:[];
+    }
+    public function new_entries(int $current,int $previous,string $board,array $options=[]): array {
+        global $wpdb;$t=$this->tables;
+        $from="FROM {$t['ranking_snapshots']} c LEFT JOIN {$t['ranking_snapshots']} p ON p.ranking_run_id=%d AND p.board_key=c.board_key AND p.fighter_id=c.fighter_id JOIN {$t['fighters']} f ON f.id=c.fighter_id WHERE c.ranking_run_id=%d AND c.board_key=%s AND p.id IS NULL AND f.is_public=1 AND f.deleted_soft=0 AND ".$this->public_post_condition();
+        $args=[$previous,$current,$board];$total=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) $from",$args));
+        if(isset($options['include_new']) && !$options['include_new']){return ['total'=>$total,'rows'=>[]];}
+        $pagination='';if(isset($options['new_page']) || isset($options['new_per_page'])){$pagination=' LIMIT %d OFFSET %d';$limit=min(100,max(1,(int)($options['new_per_page']??25)));$args[]=$limit;$args[]=(max(1,(int)($options['new_page']??1))-1)*$limit;}
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT c.fighter_id,c.rank_position current_rank,f.display_name,f.wp_post_id $from ORDER BY c.rank_position,f.id $pagination",$args),ARRAY_A)?:[];
+        return ['total'=>$total,'rows'=>$rows];
+    }
+    /** Card data in one bounded query, without biography, history or source payloads. */
+    public function cards(array $posts): array {
+        global $wpdb;$t=$this->tables;$in=implode(',',array_map('absint',$posts));if(!$in){return [];}
+        $run=(new RankingRunRepository())->get_active_ranking_run_id();
+        return $wpdb->get_results($wpdb->prepare("SELECT f.id,f.wp_post_id,f.display_name,f.gender,f.weight_class,f.nationality,f.date_of_birth,f.birth_year,f.nickname,s.wins,s.losses,s.draws,s.nc,s.pro_fights_count,c.status coverage_status,r.rank_position FROM {$t['fighters']} f LEFT JOIN {$t['fighter_stats_current']} s ON s.fighter_id=f.id LEFT JOIN {$t['fighter_career_coverage']} c ON c.fighter_id=f.id LEFT JOIN {$t['ranking_snapshots']} r ON r.fighter_id=f.id AND r.ranking_run_id=%d AND r.board_key='overall' WHERE f.wp_post_id IN ($in) AND f.is_public=1 AND f.deleted_soft=0 AND ".$this->public_post_condition(),$run),ARRAY_A)?:[];
+    }
 
 	public function boards( int $run_id ): array {
 		global $wpdb;

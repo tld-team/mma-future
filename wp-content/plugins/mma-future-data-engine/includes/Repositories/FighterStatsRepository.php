@@ -169,24 +169,40 @@ final class FighterStatsRepository {
 			$last=(int)end($rows)['id']; yield array_map('intval',array_column($rows,'id'));
 		} while(count($rows)===$size);
 	}
-	public function bout_stream(int $size=250): \Generator {
-		global $wpdb; $last=0;
-		do {
+    public function bout_batch(int $last,int $size=250): array {
+        global $wpdb;
 			$bouts=$wpdb->get_results($wpdb->prepare("SELECT b.*,e.id AS event_exists,e.event_date FROM {$this->bouts_table} b LEFT JOIN {$this->events_table} e ON e.id=b.event_id AND e.deleted_soft=0 WHERE b.id>%d ORDER BY b.id LIMIT %d",$last,$size),ARRAY_A);
 			if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
-			if (!$bouts) { break; }
+			if (!$bouts) { return []; }
 			$ids=implode(',',array_map('intval',array_column($bouts,'id')));
 			$participants=$wpdb->get_results("SELECT p.*,f.id AS fighter_exists,f.deleted_soft AS fighter_deleted_soft FROM {$this->participants_table} p LEFT JOIN {$this->fighters_table} f ON f.id=p.fighter_id WHERE p.bout_id IN ($ids) ORDER BY p.bout_id,p.id",ARRAY_A);
 			if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
 			$grouped=[]; foreach ($participants as $row) { $grouped[(int)$row['bout_id']][]=$row; }
-			foreach ($bouts as $bout) { $last=(int)$bout['id']; $bout['_participants']=$grouped[$last]??[]; yield $bout; }
-		} while(count($bouts)===$size);
-	}
+            foreach ($bouts as &$bout) { $bout['_participants']=$grouped[(int)$bout['id']]??[]; } unset($bout);
+            return $bouts;
+    }
+    public function bout_stream(int $size=250): \Generator {
+        $last=0;
+        do { $batch=$this->bout_batch($last,$size); foreach($batch as $bout){$last=(int)$bout['id'];yield $bout;} } while(count($batch)===$size);
+    }
+
 	public function history_for_fighters(array $ids): array {
 		global $wpdb; $in=implode(',',array_map('intval',$ids));
 		if (!$in) { return []; }
-		$rows=$wpdb->get_results("SELECT p.*,b.id,b.bout_order,b.status,b.deleted_soft,b.method_category,e.id AS event_exists,e.event_date,(SELECT COUNT(*) FROM {$this->participants_table} other WHERE other.bout_id=b.id) AS participant_count,(SELECT COUNT(*) FROM {$this->participants_table} other WHERE other.bout_id=b.id AND other.result_for_fighter IN ('win','loss','draw','no_contest')) AS countable_participants FROM {$this->participants_table} p JOIN {$this->bouts_table} b ON b.id=p.bout_id LEFT JOIN {$this->events_table} e ON e.id=b.event_id AND e.deleted_soft=0 WHERE p.fighter_id IN ($in) ORDER BY p.fighter_id,b.id",ARRAY_A);
+		$rows=$wpdb->get_results("SELECT p.*,b.id,b.bout_order,b.status,b.deleted_soft,b.method_category,e.id AS event_exists,e.event_date FROM {$this->participants_table} p JOIN {$this->bouts_table} b ON b.id=p.bout_id LEFT JOIN {$this->events_table} e ON e.id=b.event_id AND e.deleted_soft=0 WHERE p.fighter_id IN ($in) ORDER BY p.fighter_id,b.id",ARRAY_A);
 		if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+		if (!$rows) { return []; }
+		// Aggregate once for this batch. Correlated counts can cause repeated full
+		// scans when the optimizer estimates a large IN selection inaccurately.
+		$bout_ids=implode(',',array_unique(array_map('intval',array_column($rows,'id'))));
+		$counts=$wpdb->get_results("SELECT bout_id,COUNT(*) AS participant_count,SUM(result_for_fighter IN ('win','loss','draw','no_contest')) AS countable_participants FROM {$this->participants_table} WHERE bout_id IN ($bout_ids) GROUP BY bout_id",ARRAY_A);
+		if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+		$by_bout=[]; foreach ($counts as $count) { $by_bout[(int)$count['bout_id']]=$count; }
+		foreach ($rows as &$row) {
+			$count=$by_bout[(int)$row['id']]??[];
+			$row['participant_count']=(int)($count['participant_count']??0);
+			$row['countable_participants']=(int)($count['countable_participants']??0);
+		} unset($row);
 		return $rows;
 	}
 }

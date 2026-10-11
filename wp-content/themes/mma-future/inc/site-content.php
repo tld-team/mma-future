@@ -81,8 +81,8 @@ add_action( 'customize_register', static function( $manager ) {
 } );
 add_action( 'wp_enqueue_scripts', static function() {
 	$directory = get_template_directory(); $uri = get_template_directory_uri();
-	wp_enqueue_style( 'mmaf-integration', $uri . '/assets/dist/css/integration.css', array( 'mma-main' ), (string) filemtime( $directory . '/assets/dist/css/integration.css' ) );
-	wp_enqueue_script( 'mmaf-integration', $uri . '/assets/dist/js/integration.js', array(), (string) filemtime( $directory . '/assets/dist/js/integration.js' ), true );
+	wp_enqueue_style( 'mmaf-integration', $uri . '/assets/dist/css/integration.css', array( 'mma-main' ), mmaf_asset_version('assets/dist/css/integration.css') );
+	wp_enqueue_script( 'mmaf-integration', $uri . '/assets/dist/js/integration.js', array(), mmaf_asset_version('assets/dist/js/integration.js'), true );
 	wp_localize_script( 'mmaf-integration', 'mmafSite', array( 'rest' => esc_url_raw( rest_url() ), 'nonce' => wp_create_nonce( 'wp_rest' ) ) );
 } );
 
