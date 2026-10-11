@@ -33,7 +33,7 @@ final class Presentation {
     }
     public static function progress(array $job,array $counts): array {
         $done=array_sum(array_intersect_key($counts,array_flip(['completed','noop','review','failed'])));
-        return ['phase'=>self::label($job['phase']),'processed'=>$done,'total'=>(int)$job['total'],'counts'=>$counts,
+        return ['phase'=>$job['status']==='ready'?'Review frozen selection':self::label($job['phase']),'processed'=>$done,'total'=>(int)$job['total'],'counts'=>$counts,
             'status_label'=>$job['status']==='completed' && (($counts['review']??0)+($counts['failed']??0)>0)?'Completed with issues':self::label($job['status']),
             'allowed_commands'=>self::commands($job)];
     }

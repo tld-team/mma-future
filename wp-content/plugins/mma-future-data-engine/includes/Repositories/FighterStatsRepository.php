@@ -156,6 +156,18 @@ final class FighterStatsRepository {
 		return $row ?: null;
 	}
 
+	/** Current records for one admin page, independent of readiness refreshes. */
+	public function records_for_fighters(array $ids): array {
+		global $wpdb;
+		$ids=array_values(array_unique(array_filter(array_map('intval',$ids),static fn($id)=>$id>0)));
+		if (!$ids) { return []; }
+		$rows=$wpdb->get_results("SELECT fighter_id,wins,losses,draws,nc FROM {$this->table} WHERE fighter_id IN (".implode(',',$ids).")",ARRAY_A);
+		if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
+		$out=[];
+		foreach ($rows as $row) { $out[(int)$row['fighter_id']]=$row; }
+		return $out;
+	}
+
 	public function active_count(): int {
 		global $wpdb;
 		return (int)$wpdb->get_var("SELECT COUNT(*) FROM {$this->fighters_table} WHERE deleted_soft=0");

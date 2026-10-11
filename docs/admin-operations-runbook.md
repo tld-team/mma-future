@@ -13,6 +13,8 @@ This delivery focuses on preparation, resumable calculations and verified stagin
 
 Pause stops future units; completed changes remain recorded. Resume continues checkpoints. Cancel does not undo already committed changes. Retry targets technical failures and rechecks current inputs. Historical jobs copied to local cannot be resumed as staging jobs.
 
+The preview separates **saved-profile readiness** from **current ranking checks**. An available profile does not guarantee ranking eligibility. Current blockers appear beside each fighter; preparation may change the input, so final checks run again before publication. **Check selected without changes** does not apply public/verified/rankable statuses.
+
 ## Worker and diagnosis
 
 The staging supervisor owns MMA Future processing; WordPress core cron runs separately. Preparation is bounded to ten fighters; calculation steps to 250 rows and a byte budget. Do not launch competing worker scripts.

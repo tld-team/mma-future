@@ -20,6 +20,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class FightersPage {
 	private const PAGE_SLUG = 'mmaf-fighters';
 
+	/** Bulk redirects must finish before WordPress sends the admin page header. */
+	public static function handle_bulk_request(): void {
+		if (($_SERVER['REQUEST_METHOD']??'')!=='POST' || ($_GET['page']??'')!==self::PAGE_SLUG || ($_POST['mmaf_action']??'')!=='bulk_readiness') { return; }
+		if (!current_user_can(Capabilities::MANAGE)) { wp_die('Access denied.','',['response'=>403]); }
+		$error=self::handle_bulk_post();
+		wp_die(esc_html($error['message']??'Operation preview could not be created.'),'Operation preview',['response'=>409,'back_link'=>true]);
+	}
+
 	public static function enqueue_assets(): void {
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
 
@@ -271,6 +279,7 @@ final class FightersPage {
         $per_page=self::current_per_page(); $total=$repository->count($search,$filters); $paged=min(max(1,absint($_GET['paged']??1)),max(1,(int)ceil($total/$per_page)));
         $fighters=$repository->list($search,$per_page,($paged-1)*$per_page,$filters);$ids=array_column($fighters,'id');
         $projection=\MMAF\DataEngine\Services\Operations\Readiness::read($ids);
+        $records=(new FighterStatsRepository())->records_for_fighters($ids);
         $metadata=\MMAF\DataEngine\Services\DataPipeline\Processor::metadata($ids);
         $membership=\MMAF\DataEngine\Services\Operations\Membership::for_page($ids);
         $query_filters=array_merge(['s'=>$search],self::filter_query_args($filters));
@@ -298,9 +307,12 @@ final class FightersPage {
                 <tbody>
                 <?php if(!$fighters){echo '<tr><td colspan="9">No matching fighters.</td></tr>';} ?>
                 <?php foreach($fighters as $fighter): $id=(int)$fighter['id'];$check=$projection[$id]??[];$meta=$metadata[$id]??[];
-                    $stats=$check['stats']??null;
-                    $state=$check['preparation']['state']??'Not checked';
+                    $stats=$records[$id]??null;
+                    $state=['pending'=>'Preparing','completed'=>'Prepared','review'=>'Needs review','failed'=>'Failed'][$meta['preparation_status']??'']
+                        ?? ['ready'=>'Ready for preparation','preparing'=>'Preparing','review'=>'Needs review','failed'=>'Failed'][$check['preparation']['state']??''] ?? 'Not checked';
                     $reason=$check['preparation']['reason']??'';
+                    if(!empty($meta['identity_conflict'])){$state='Needs review';$reason='identity_conflict';}
+                    if($reason){$reason=\MMAF\DataEngine\Services\Operations\Presentation::label($reason);}
                     $import=$membership[$id]??0;
                 ?>
                     <tr>
@@ -422,7 +434,7 @@ final class FightersPage {
 					<option value="move_to_provisional"><?php echo esc_html__( 'Move to provisional / pending review', 'mma-future-data-engine' ); ?></option>
 				</select>
 				<?php submit_button( __( 'Prepare operation preview', 'mma-future-data-engine' ), 'action mmaf-apply-fighters', '', false ); ?>
-				<span id="mmaf-selected-count" role="status" aria-live="polite" data-label="<?php echo esc_attr__( '%d selected on this page', 'mma-future-data-engine' ); ?>"></span>
+				<span id="mmaf-selected-count" role="status" aria-live="polite" data-label="<?php echo esc_attr__( '%d selected on this page', 'mma-future-data-engine' ); ?>" data-filtered-label="<?php echo esc_attr__( 'All matching fighters selected', 'mma-future-data-engine' ); ?>"></span>
 			</div>
 			<br class="clear">
 			<p class="description"><?php echo esc_html__( 'Choose this page or all matching results. A frozen manifest is previewed in the background, then explicitly confirmed. New fighters are prepared before publication. The resulting ranking draft remains inactive.', 'mma-future-data-engine' ); ?></p>

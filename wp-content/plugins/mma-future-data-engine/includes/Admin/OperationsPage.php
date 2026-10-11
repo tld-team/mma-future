@@ -43,7 +43,9 @@ final class OperationsPage {
         echo '</ul><p>Processing time '.esc_html(number_format((int)$job['duration_ms']/1000,1)).' s · peak '.esc_html(size_format((int)$job['peak_memory'])).'</p>';
         if($job['error_message']){echo '<div class="notice notice-error inline"><p>'.esc_html($job['error_message']).'</p></div>';}
         if($job['status']==='ready'){
-            echo '<div class="notice notice-info inline"><p>Review before confirming: '.(int)($job['summary']['ready']??0).' ready; '.(int)($job['summary']['review']??0).' need review; '.(int)($job['summary']['failed']??0).' technical failures; '.(int)($job['summary']['already_public']??0).' already public; '.(int)($job['summary']['already_rankable']??0).' already rankable.</p></div>';
+            echo '<div class="notice notice-info inline"><p>Saved-profile readiness: '.(int)($job['summary']['ready']??0).' ready for preparation; '.(int)($job['summary']['review']??0).' need review; '.(int)($job['summary']['failed']??0).' technical failures; '.(int)($job['summary']['already_public']??0).' already public; '.(int)($job['summary']['already_rankable']??0).' already rankable.</p>';
+            if(isset($job['summary']['ranking_ready'],$job['summary']['ranking_blocked'])){echo '<p>Current ranking checks: '.(int)$job['summary']['ranking_ready'].' pass; '.(int)$job['summary']['ranking_blocked'].' have blockers. Checks run again after preparation; this preview does not publish fighters.</p>';}
+            echo '</div>';
             foreach($job['summary']['reasons']??[] as $reason=>$count){echo '<p>'.(int)$count.' · '.esc_html(Presentation::label($reason)).'</p>';}
         }
         foreach($job['summary']['excluded']??[] as $excluded){echo '<p>Excluded #'.(int)$excluded['fighter_id'].' · '.esc_html(Presentation::label($excluded['reason'])).'</p>';}
@@ -59,6 +61,7 @@ final class OperationsPage {
             echo '<td><a href="'.esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.$row['fighter_id'])).'">#'.(int)$row['fighter_id'].' '.esc_html($row['display_name']??'').'</a>';
             if(!empty($members[(int)$row['fighter_id']])){echo '<br><a href="'.esc_url(admin_url('admin.php?page=mmaf-regular-import&job_id='.$members[(int)$row['fighter_id']])).'">Import #'.(int)$members[(int)$row['fighter_id']].'</a>';}
             echo '</td><td>'.esc_html(Presentation::label($row['status'])).'</td><td>'.esc_html($row['reason_code']?Presentation::label($row['reason_code']):($row['status']==='completed'?'Requested changes applied.':($row['status']==='noop'?'Saved facts and source are unchanged.':'')));
+            if($row['status']==='pending' && !empty($row['result']['ranking_blockers'])){echo '<p>Current ranking blockers: '.esc_html($row['result']['ranking_blocker_summary']??implode('; ',array_map([Presentation::class,'label'],$row['result']['ranking_blockers']))).'</p>';}
             if($row['status']==='review'){echo '<br><a href="'.esc_url(admin_url('admin.php?page=mmaf-review&fighter_id='.$row['fighter_id'])).'">Review fighter evidence and allowed next steps</a>';}
             echo '<details><summary>Processing evidence</summary><pre style="white-space:pre-wrap">'.esc_html(wp_json_encode($row['result'],JSON_PRETTY_PRINT)).'</pre></details></td></tr>';
         }

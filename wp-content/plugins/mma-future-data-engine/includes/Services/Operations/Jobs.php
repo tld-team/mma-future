@@ -146,11 +146,11 @@ final class Jobs {
         $evaluated=(new FighterReadinessService())->evaluate_fighters_for_table($fighters);
         foreach($fighters as $fighter){$fid=(int)$fighter['id'];$decision=Readiness::decision($fighter,$metadata[$fid]??[]);
             Transaction::run(static function()use($id,$fid,$decision,$fighter,$evaluated){
-                self::item($id,$fid,['status'=>'pending','input_hash'=>Readiness::fingerprint($fid),'reason_code'=>$decision['reason'],'result'=>['preview'=>$decision,'already_public'=>(bool)$fighter['is_public'],'already_rankable'=>(bool)$fighter['is_rankable'],'ranking_blockers'=>$evaluated[$fid]['approval_blocker_codes']??[]]]);
+                self::item($id,$fid,['status'=>'pending','input_hash'=>Readiness::fingerprint($fid),'reason_code'=>$decision['reason'],'result'=>['preview'=>$decision,'already_public'=>(bool)$fighter['is_public'],'already_rankable'=>(bool)$fighter['is_rankable'],'ranking_blockers'=>$evaluated[$fid]['approval_blocker_codes']??[],'ranking_blocker_summary'=>$evaluated[$fid]['approval_blocker_summary']??'']]);
             });
         }
         if(count($rows)===$limit){return;}
-        self::save($id,['phase'=>'preview_manifest','checkpoint'=>array_merge($job['checkpoint'],['manifest_cursor'=>0,'manifest_digest'=>hash('sha256','mmaf-operation-manifest-v1:'.$id)]),'summary'=>array_merge($job['summary'],['total'=>(int)$job['total'],'ready'=>0,'review'=>0,'already_public'=>0,'already_rankable'=>0,'reasons'=>[]])]);
+        self::save($id,['phase'=>'preview_manifest','checkpoint'=>array_merge($job['checkpoint'],['manifest_cursor'=>0,'manifest_digest'=>hash('sha256','mmaf-operation-manifest-v1:'.$id)]),'summary'=>array_merge($job['summary'],['total'=>(int)$job['total'],'ready'=>0,'review'=>0,'already_public'=>0,'already_rankable'=>0,'ranking_ready'=>0,'ranking_blocked'=>0,'reasons'=>[]])]);
         self::preview_manifest(self::get($id),$limit);
     }
     /** Hash and summarize one page, with a durable digest for the next worker. */
@@ -162,6 +162,7 @@ final class Jobs {
                 $cp['manifest_cursor']=(int)$row['fighter_id'];$cp['manifest_digest']=hash('sha256',$cp['manifest_digest'].';'.$row['fighter_id'].':'.$row['input_hash']);
                 $value=json_decode($row['result_json'],true)?:[];$state=$value['preview']['state']??'review';$summary[$state]=($summary[$state]??0)+1;
                 $summary['already_public']+=(int)($value['already_public']??0);$summary['already_rankable']+=(int)($value['already_rankable']??0);
+                $rankingState=empty($value['ranking_blockers'])?'ranking_ready':'ranking_blocked';$summary[$rankingState]=(int)($summary[$rankingState]??0)+1;
                 $reason=$value['preview']['reason']??null;if($reason){$summary['reasons'][$reason]=($summary['reasons'][$reason]??0)+1;}
             }
             self::save($id,['status'=>count($batch)<$limit?'ready':'previewing','manifest_hash'=>count($batch)<$limit?$cp['manifest_digest']:null,'checkpoint'=>$cp,'summary'=>$summary]);

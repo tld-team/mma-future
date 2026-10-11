@@ -182,19 +182,22 @@
 
 		var $fighterRows = $('.mmaf-fighter-row-checkbox');
 		var $selectAll = $('#mmaf-select-all-fighters');
+		var $filteredSelection = $('input[name="selection_mode"][value="filtered"]');
 		function syncSelection() {
 			var count = $fighterRows.filter(':checked').length;
+			var filtered = $filteredSelection.prop('checked');
 			$selectAll.prop('checked', count > 0 && count === $fighterRows.length)
 				.prop('indeterminate', count > 0 && count < $fighterRows.length);
 			var $counter = $('#mmaf-selected-count');
-			$counter.text(($counter.attr('data-label') || '').replace('%d', count));
-			$('.mmaf-apply-fighters').prop('disabled', count === 0);
+			$counter.text(filtered ? $counter.attr('data-filtered-label') : ($counter.attr('data-label') || '').replace('%d', count));
+			$('.mmaf-apply-fighters').prop('disabled', !filtered && count === 0);
 		}
 		$selectAll.on('change', function () {
 			$fighterRows.prop('checked', $(this).prop('checked'));
 			syncSelection();
 		});
 		$fighterRows.on('change', syncSelection);
+		$filteredSelection.on('change', syncSelection);
 		if ($fighterRows.length) { syncSelection(); }
 	});
 }(jQuery));

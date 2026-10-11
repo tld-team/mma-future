@@ -15,6 +15,16 @@ try{
     admin_assert(Readiness::fingerprint($a)!==$before && Readiness::approval_hash($a)!==$approval,'new contradictory binding changes preview and approval fingerprints');
     admin_assert(Readiness::decision($repo->find($a),$metadata[$a])['reason']==='identity_conflict','shared identity requires review before missing-profile preparation');
     wp_set_current_user(1);$job=Jobs::create('validate_selected_for_ranking',['mode'=>'ids','ids'=>[$a,PHP_INT_MAX]],1,'missing-ids-'.wp_generate_uuid4());
+    Repository::check($wpdb->insert($t['fighter_stats_current'],['fighter_id'=>$a,'wins'=>7,'losses'=>2,'draws'=>0,'nc'=>1,'created_at'=>gmdate('Y-m-d H:i:s'),'updated_at'=>gmdate('Y-m-d H:i:s')]));
+    $records=(new MMAF\DataEngine\Repositories\FighterStatsRepository())->records_for_fighters([$a,$b]);
+    admin_assert((int)$records[$a]['wins']===7 && !isset($records[$b]) && !array_key_exists('warnings_json',$records[$a]),'page record read preserves missing stats and omits detailed payloads');
+    $savedGet=$_GET;$_GET=['s'=>'Admin identity fixture A'];
+    try{$render=new ReflectionMethod(MMAF\DataEngine\Admin\FightersPage::class,'render_list');ob_start();$render->invoke(null);$html=ob_get_clean();}finally{$_GET=$savedGet;}
+    admin_assert(str_contains($html,'7-2-0-1') && str_contains($html,'Needs review'),'admin page shows current record and identity conflict before a readiness projection exists');
+    Jobs::work(10);$job=Jobs::get((int)$job['id']);
+    admin_assert($job['status']==='ready' && (int)$job['summary']['review']===1 && (int)$job['summary']['ranking_blocked']===1,'preview keeps source readiness separate from current ranking blockers');
+    ob_start();MMAF\DataEngine\Admin\OperationsPage::progress($job,Jobs::items((int)$job['id']));$progress=ob_get_clean();
+    admin_assert(str_contains($progress,'Current ranking checks: 0 pass; 1 have blockers') && str_contains($progress,'Current ranking blockers:') && str_contains($progress,'Review frozen selection'),'admin preview explains blockers without opening raw processing JSON');
     admin_assert(($job['summary']['requested_total']??0)===2 && ($job['summary']['excluded'][0]['reason']??'')==='fighter_not_found','explicit missing IDs remain visible with their exclusion reason');
     do_action('rest_api_init');$count=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$o['jobs']}");
     $subscriber=wp_insert_user(['user_login'=>'admin-contracts-'.wp_generate_uuid4(),'user_pass'=>'local-fixture-only','role'=>'subscriber']);
