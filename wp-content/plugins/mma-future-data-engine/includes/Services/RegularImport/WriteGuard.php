@@ -3,8 +3,11 @@ namespace MMAF\DataEngine\Services\RegularImport;
 final class WriteGuard {
     public static bool $worker = false;
     public static function assertAllowed(): void {
-        if (self::$worker) { return; }
+        if (defined('MMAF_OPERATIONS_DIR') && (is_file(MMAF_OPERATIONS_DIR.'/maintenance.flag') || is_file(MMAF_OPERATIONS_DIR.'/writes-paused.flag')) && !(function_exists('mmaf_runner_owns_write_lock') && mmaf_runner_owns_write_lock())) {
+            throw new ImportException('Backup or release preparation has paused new writes. Try again shortly.','release_locked',true);
+        }
         Mutex::acquire();
+        if (self::$worker) { return; }
         $job=(new Repository())->active();
         if ($job && (!empty($job['approved_by']) || !empty($job['writes_started']))) {
             throw new ImportException('An import is in progress. Finish or resume it before changing MMA Future data.','import_locked');

@@ -1,0 +1,12 @@
+{
+  "wp_root": "/home/ACCOUNT/staging.example.com",
+  "private_root": "/home/ACCOUNT/mmaf-operations/staging",
+  "write_lock": "/home/ACCOUNT/mmaf-private-imports/SITE_HASH/worker.lock",
+  "php": "/usr/local/bin/php",
+  "wp_cli": "/usr/local/bin/wp",
+  "mysqldump": "/usr/bin/mariadb-dump",
+  "url": "https://staging.example.com",
+  "probe_host": "staging.example.com",
+  "probe_address": "127.0.0.1",
+  "environment": "staging"
+}
