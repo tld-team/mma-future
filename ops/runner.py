@@ -2,6 +2,7 @@
 """Private runner; locks, journals and backups survive code/runtime replacement."""
 import argparse, contextlib, datetime, fcntl, gzip, hashlib, json, os, re, secrets, shutil, stat, subprocess, sys, tempfile, time, zipfile
 from pathlib import Path
+from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from storage import atomic, digest, capacity, check_sql, MediaStore, BackupCatalog
 PREFIXES=('wp-content/themes/mma-future/','wp-content/plugins/mma-future-data-engine/','wp-content/mu-plugins/','ops/')
@@ -149,17 +150,25 @@ class Runner:
     def http_check(self,manifest):
         host=self.c.get('probe_host');address=self.c.get('probe_address','127.0.0.1');base=self.c['url'].rstrip('/')
         if not host or not re.fullmatch(r'[a-zA-Z0-9.-]+',host) or address not in {'127.0.0.1','::1'}: raise ValueError('Explicit loopback probe host required')
+        public=urlsplit(base);scheme=self.c.get('probe_scheme',public.scheme)
+        if public.hostname!=host or public.scheme not in {'http','https'} or scheme not in {'http','https'} or public.port or public.query or public.fragment or public.username or public.password:raise ValueError('Invalid public or loopback probe URL')
+        probe_base=scheme+'://'+public.netloc+public.path
         token=self.root/'probe.token';token.write_text(secrets.token_hex(32));token.chmod(0o600)
-        port=443 if base.startswith('https://') else 80
+        port=443 if scheme=='https' else 80
         # Header secret goes through a private curl config, never argv/logs.
         config=self.root/'probe.curl';config.write_text('header = "X-MMAF-Release-Probe: '+token.read_text()+'"\n');config.chmod(0o600)
         common=['curl','--config',str(config),'--fail','--silent','--show-error','--max-time','20','--resolve',host+':'+str(port)+':'+address]
         try:
             for route in ['/','/all-rankings/','/wp-json/mma-future/v1/health']:
-                subprocess.run(common+[base+route],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,check=True)
+                subprocess.run(common+[probe_base+route],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,check=True)
             name='wp-content/themes/mma-future/assets/dist/css/output.css'
-            response=subprocess.check_output(common+[base+'/'+name],stderr=subprocess.PIPE)
+            response=subprocess.check_output(common+[probe_base+'/'+name],stderr=subprocess.PIPE)
             if hashlib.sha256(response).hexdigest()!=manifest['files'][name]: raise ValueError('Public asset checksum mismatch')
+            # Shared hosting may present its default TLS certificate on loopback. The private
+            # probe can use local HTTP; public HTTPS still verifies TLS without the private token.
+            public_check=subprocess.run(['curl','--silent','--show-error','--max-time','20','--output','/dev/null','--write-out','%{http_code}',base+'/'],capture_output=True,text=True)
+            expected='503' if (self.root/'maintenance.flag').exists() else '200'
+            if public_check.returncode or public_check.stdout.strip()!=expected:raise ValueError('Public TLS or maintenance status check failed')
         finally: token.unlink(missing_ok=True);config.unlink(missing_ok=True)
     def _migration_health(self,stage,manifest,baseline):
         env={'MMAF_RELEASE_MANIFEST':str(stage/'release.json'),'MMAF_RELEASE_BASELINE':str(baseline)}
