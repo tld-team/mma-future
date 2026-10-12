@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: PHP syntax
-        run: find wp-content/plugins/mma-future-data-engine wp-content/themes/mma-future -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find wp-content/plugins/mma-future-data-engine wp-content/themes/mma-future wp-content/mu-plugins ops -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: ACF JSON and JavaScript syntax
         run: |
           python3 - <<'PY'
@@ -25,6 +25,8 @@ jobs:
           node --check wp-content/plugins/mma-future-data-engine/assets/admin-fighters.js
           bash -n wp-content/plugins/mma-future-data-engine/bin/regular-import-runner.sh
           php tests/unit/json-document.php
+          python3 tests/unit/release-http.py
+          python3 -m compileall -q ops
   scraper:
     runs-on: ubuntu-latest
     steps:
