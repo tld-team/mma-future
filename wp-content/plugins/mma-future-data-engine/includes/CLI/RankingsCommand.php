@@ -2,7 +2,6 @@
 namespace MMAF\DataEngine\CLI;
 
 use MMAF\DataEngine\Services\RankingActivationService;
-use MMAF\DataEngine\Services\RankingCalculatorService;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -19,14 +18,14 @@ final class RankingsCommand {
 	}
 
 	/**
-	 * Calculate a draft ranking run from canonical fight data.
+	 * Queue a resumable draft. Use --wait for up to 50 seconds or
+	 * --operation-id=<id> to continue the same draft; activation stays manual.
 	 */
 	public function calculate( array $args, array $assoc_args ): void {
-		$reference_date = isset( $assoc_args['reference-date'] ) ? (string) $assoc_args['reference-date'] : null;
-
 		try {
-			$service = new RankingCalculatorService();
-			$summary = $service->calculate_draft( 0, $reference_date );
+			$job = CalculationCommand::run('ranking', $assoc_args);
+			if ($job['status'] !== 'completed') { return; }
+			$summary = $job['summary'];
 		} catch ( \Throwable $error ) {
 			\WP_CLI::error( $error->getMessage() );
 			return;
@@ -40,9 +39,9 @@ final class RankingsCommand {
 		\WP_CLI::line( 'Eligible fighters: ' . $summary['eligible_fighters'] );
 		\WP_CLI::line( 'Ineligible fighters: ' . $summary['ineligible_fighters'] );
 		\WP_CLI::line( 'Ranked rows: ' . $summary['ranked_rows'] );
-		\WP_CLI::line( 'Boards: ' . implode( ',', (array) $summary['boards_generated'] ) );
+		\WP_CLI::line( 'Boards: ' . implode( ',', (array) ($summary['boards_generated'] ?? []) ) );
 		\WP_CLI::line( 'Warnings: ' . $summary['warnings_count'] );
-		\WP_CLI::line( 'Storage: ' . $summary['storage_strategy'] );
+		\WP_CLI::line( 'Storage: ' . ($summary['storage_strategy'] ?? 'validated inactive snapshots') );
 		\WP_CLI::line( 'Activation: draft calculation does not change live rankings; activation stays manual.' );
 
 		\WP_CLI::success( 'Ranking draft calculated.' );

@@ -36,7 +36,7 @@ final class RankingActivationService {
 
 		try {
 			$run       = $this->validate_run( $ranking_run_id );
-			$snapshots = $this->validate_snapshots( $ranking_run_id, (string) $run['formula_version'] );
+			$validation = $this->validate_snapshots( $ranking_run_id, (string) $run['formula_version'] );
 		} catch ( \Throwable $error ) {
 			$this->audit_log->write(
 				'ranking_activation_failed',
@@ -51,21 +51,17 @@ final class RankingActivationService {
 		}
 
 		$activated_at = DateTime::mysql_now();
-		$boards       = array();
-		foreach ( $snapshots as $snapshot ) {
-			$boards[ (string) $snapshot['board_key'] ] = true;
-		}
-
-		$wpdb->query( 'START TRANSACTION' );
+		$boards = $validation['boards'];
+		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
 			$rows_written = $this->rankings->replace_current_from_snapshots( $ranking_run_id );
-			if ( $rows_written !== count( $snapshots ) ) {
+			if ( $rows_written !== $validation['total'] ) {
 				throw new \RuntimeException(
 					sprintf(
 						/* translators: 1: expected rows, 2: rows written. */
 						__( 'Current ranking row count mismatch. Expected %1$d rows, wrote %2$d rows.', 'mma-future-data-engine' ),
-						count( $snapshots ),
+						$validation['total'],
 						$rows_written
 					)
 				);
@@ -80,18 +76,20 @@ final class RankingActivationService {
 				'formula_version'                => (string) $run['formula_version'],
 				'current_rows_written'           => $rows_written,
 				'boards_count'                   => count( $boards ),
-				'boards'                         => array_keys( $boards ),
+				'boards'                         => $boards,
 				'previous_active_ranking_run_id' => $previous['active_ranking_run_id'],
 				'status'                         => 'activated',
-				'warnings_count'                 => $this->warnings_count( $snapshots ),
+				'warnings_count'                 => $validation['warnings'],
 				'actor_user_id'                  => $actor_user_id > 0 ? $actor_user_id : null,
 			);
 
 			$this->runs->set_last_activation_summary( $summary );
 
-			$wpdb->query( 'COMMIT' );
+			$audit_id=$this->audit_log->write('ranking_activated','ranking_run',$ranking_run_id,$previous,$summary,'Manual ranking activation',$actor_user_id);
+			\MMAF\DataEngine\Services\Operations\Activations::record($ranking_run_id,$boards,$activated_at,$actor_user_id,$audit_id);
+			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 		} catch ( \Throwable $error ) {
-			$wpdb->query( 'ROLLBACK' );
+			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
 			$this->audit_log->write(
 				'ranking_activation_failed',
 				'ranking_run',
@@ -103,16 +101,6 @@ final class RankingActivationService {
 			);
 			throw $error;
 		}
-
-		$this->audit_log->write(
-			'ranking_activated',
-			'ranking_run',
-			$ranking_run_id,
-			$previous,
-			$summary,
-			'Manual ranking activation',
-			$actor_user_id
-		);
 
 		do_action( 'mmaf_public_data_changed', 'activation' );
 		return $summary;
@@ -149,91 +137,33 @@ final class RankingActivationService {
 		return $run;
 	}
 
-	private function validate_snapshots( int $ranking_run_id, string $formula_version ): array {
-		$snapshots = $this->rankings->snapshots_for_run( $ranking_run_id );
-		if ( empty( $snapshots ) ) {
-			throw new \RuntimeException( __( 'Ranking run has no draft snapshot rows to activate.', 'mma-future-data-engine' ) );
-		}
-
-		$board_fighters = array();
-		$board_ranks    = array();
-		$config         = FormulaRegistry::config_for_version( $formula_version );
-		$min_sample     = (int) ( $config['eligibility']['min_scoring_bouts'] ?? 3 );
-
-		foreach ( $snapshots as $snapshot ) {
-			$board_key = (string) $snapshot['board_key'];
-			$fighter_id = (int) $snapshot['fighter_id'];
-			$rank_position = (int) $snapshot['rank_position'];
-
-			if ( '' === $board_key ) {
-				throw new \RuntimeException( __( 'Snapshot row has an empty board key.', 'mma-future-data-engine' ) );
-			}
-
-			if ( $fighter_id <= 0 || empty( $snapshot['fighter_exists'] ) ) {
-				throw new \RuntimeException( __( 'Snapshot row references a missing fighter.', 'mma-future-data-engine' ) );
-			}
-
-			if ( $rank_position <= 0 ) {
-				throw new \RuntimeException( __( 'Snapshot row has an invalid rank position.', 'mma-future-data-engine' ) );
-			}
-
-			if ( ! is_numeric( $snapshot['total_score'] ) ) {
-				throw new \RuntimeException( __( 'Snapshot row has a non-numeric total score.', 'mma-future-data-engine' ) );
-			}
-
-			$this->validate_snapshot_score_contract( $snapshot, $formula_version );
-
-			if ( (int) ( $snapshot['sample_size'] ?? 0 ) < $min_sample ) {
-				throw new \RuntimeException( __( 'Snapshot row does not meet the minimum scoring sample size.', 'mma-future-data-engine' ) );
-			}
-
-			$board_fighter_key = $board_key . ':' . $fighter_id;
-			if ( isset( $board_fighters[ $board_fighter_key ] ) ) {
-				throw new \RuntimeException( __( 'Snapshot rows contain duplicate board/fighter pairs.', 'mma-future-data-engine' ) );
-			}
-			$board_fighters[ $board_fighter_key ] = true;
-
-			if ( ! isset( $board_ranks[ $board_key ] ) ) {
-				$board_ranks[ $board_key ] = array();
-			}
-
-			if ( isset( $board_ranks[ $board_key ][ $rank_position ] ) ) {
-				throw new \RuntimeException( __( 'Snapshot rows contain duplicate rank positions in a board.', 'mma-future-data-engine' ) );
-			}
-			$board_ranks[ $board_key ][ $rank_position ] = true;
-
-			foreach ( array( 'breakdown_json', 'eligibility_json', 'warnings_json', 'source_summary_json', 'quality_flags_json' ) as $json_field ) {
-				if ( null !== $snapshot[ $json_field ] && '' !== (string) $snapshot[ $json_field ] && null === json_decode( (string) $snapshot[ $json_field ], true ) ) {
-					throw new \RuntimeException(
-						sprintf(
-							/* translators: %s: JSON field name. */
-							__( 'Snapshot row has invalid JSON in %s.', 'mma-future-data-engine' ),
-							$json_field
-						)
-					);
-				}
-			}
-		}
-
-		foreach ( $board_ranks as $board_key => $ranks ) {
-			ksort( $ranks );
-			$expected = 1;
-			foreach ( array_keys( $ranks ) as $rank_position ) {
-				if ( $rank_position !== $expected ) {
-					throw new \RuntimeException(
-						sprintf(
-							/* translators: %s: board key. */
-							__( 'Snapshot ranks for board %s must start at 1 and be contiguous.', 'mma-future-data-engine' ),
-							$board_key
-						)
-					);
-				}
-				++$expected;
-			}
-		}
-
-		return $snapshots;
-	}
+    private function validate_snapshots(int $run,string $formula): array {
+        global $wpdb;$t=\MMAF\DataEngine\Migrations\Schema::table_names();
+        $groups=$wpdb->get_results($wpdb->prepare("SELECT board_key,COUNT(*) n,COUNT(DISTINCT fighter_id) fighters,COUNT(DISTINCT rank_position) ranks,MIN(rank_position) first_rank,MAX(rank_position) last_rank FROM {$t['ranking_snapshots']} WHERE ranking_run_id=%d GROUP BY board_key",$run),ARRAY_A);
+        if(!$groups){throw new \RuntimeException('Ranking run has no draft snapshot rows to activate.');}
+        $out=['total'=>0,'boards'=>[],'warnings'=>0];
+        foreach($groups as $g){
+            if(!$g['board_key']){throw new \RuntimeException('Snapshot row has an empty board key.');}
+            if($g['n']!==$g['fighters']){throw new \RuntimeException('Snapshot rows contain duplicate board/fighter pairs.');}
+            if($g['n']!==$g['ranks']){throw new \RuntimeException('Snapshot rows contain duplicate rank positions in a board.');}
+            if((int)$g['first_rank']!==1 || (int)$g['last_rank']!==(int)$g['n']){throw new \RuntimeException('Snapshot ranks for board '.$g['board_key'].' must start at 1 and be contiguous.');}
+            $out['total']+=(int)$g['n'];$out['boards'][]=$g['board_key'];
+        }
+        $min=(int)(FormulaRegistry::config_for_version($formula)['eligibility']['min_scoring_bouts']??3);$cursor=0;
+        do{
+            $rows=$wpdb->get_results($wpdb->prepare("SELECT r.*,f.id fighter_exists FROM {$t['ranking_snapshots']} r LEFT JOIN {$t['fighters']} f ON f.id=r.fighter_id WHERE r.ranking_run_id=%d AND r.id>%d ORDER BY r.id LIMIT 250",$run,$cursor),ARRAY_A);
+            foreach($rows as $row){
+                $cursor=(int)$row['id'];
+                if(!$row['fighter_exists'] || (int)$row['fighter_id']<1){throw new \RuntimeException('Snapshot row references a missing fighter.');}
+                if(!is_numeric($row['total_score'])){throw new \RuntimeException('Snapshot row has a non-numeric total score.');}
+                $this->validate_snapshot_score_contract($row,$formula);
+                if((int)$row['sample_size']<$min){throw new \RuntimeException('Snapshot row does not meet the minimum scoring sample size.');}
+                foreach(['breakdown_json','eligibility_json','warnings_json','source_summary_json','quality_flags_json'] as $key){if($row[$key]!==null && $row[$key]!=='' && json_decode($row[$key],true)===null){throw new \RuntimeException('Snapshot row has invalid JSON in '.$key.'.');}}
+                $out['warnings']+=$this->warnings_count([$row]);
+            }
+        }while(count($rows)===250);
+        return $out;
+    }
 
 	private function validate_snapshot_score_contract( array $snapshot, string $formula_version ): void {
 		if ( FormulaRegistry::uses_normalized_scores( $formula_version ) ) {

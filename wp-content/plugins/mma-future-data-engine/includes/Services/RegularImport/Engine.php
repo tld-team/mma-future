@@ -12,7 +12,8 @@ final class Engine {
     private Repository $repo;
     public function __construct(){ $this->repo=new Repository(); }
     public function work(): array {
-        return Mutex::run(function(): array {
+        $next=$this->repo->active();
+        $unit=function(): array {return Mutex::run(function(): array {
             update_option('mmaf_import_worker_seen',gmdate('c'),false);
             $job=$this->repo->active();
             if(!$job||in_array($job['status'],['uploading','awaiting_approval','paused','needs_attention'],true)){return ['worked'=>false];}
@@ -49,7 +50,8 @@ final class Engine {
                 $this->repo->update($id,['status'=>$status,'retry_at'=>$terminal?null:gmdate('Y-m-d H:i:s',time()+60*$attempts),'error'=>['message'=>$e->getMessage(),'reason'=>$e instanceof ImportException?$e->reason:'execution_error','retryable'=>$retryable],'finished_at'=>$status==='rejected'?gmdate('Y-m-d H:i:s'):null]);
                 return ['worked'=>false,'job_id'=>$id,'status'=>$status,'error'=>$e->getMessage()];
             }finally{WriteGuard::$worker=false;}
-        });
+        });};
+        return $next && $next['phase']==='backup'?BackupGuard::run($unit):$unit();
     }
     private function step(array $job,callable $heartbeat): void {
         global $wpdb;$id=(int)$job['id'];$meta=$job['meta'];$phase=$job['phase'];
@@ -108,8 +110,10 @@ final class Engine {
             $this->repo->update($id,['phase'=>['results'=>'profiles','profiles'=>'review','review'=>'stored_career'][$phase],'status'=>'queued']);return;
         }
         if($phase==='stats'){
-            $meta['stats']=(new StatsRebuildService())->rebuild_all((int)$job['approved_by'],'Regular import job '.$id);
-            $this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);return;
+            $calculation=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,(int)$job['approved_by'],'import:'.$id.':stats');
+            $result=\MMAF\DataEngine\Services\Operations\Calculation::step($calculation);
+            if($result['status']==='failed'){throw new ImportException('Statistics generation failed: '.$result['error_message'],'calculation');}
+            if($result['status']==='completed'){$meta['stats']=$result['summary'];$this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);}return;
         }
         if($phase==='audit'){
             $this->verifyFiles($job);$after=DatabaseState::integrity();
@@ -181,6 +185,7 @@ final class Engine {
             $run=(int)$summary['import_run_id'];$items=CanonicalSchema::table_names()['source_import_items'];
             $logs=$wpdb->get_results($wpdb->prepare("SELECT * FROM $items WHERE import_run_id=%d ORDER BY id",$run),ARRAY_A);
             foreach($logs?:[] as $log){
+                if($log['item_type']==='fighter' && !empty($log['canonical_id'])){\MMAF\DataEngine\Services\Operations\Membership::record($id,(int)$log['canonical_id'],'canonical_import_item');}
                 if($log['status']==='failed'){throw new \RuntimeException('Record failed: '.($log['error_message']??''));}
                 $key=(string)($log['source_id']?:$log['canonical_id']?:$log['identity_hash']?:$log['id']);
                 $category=self::category($log['status']);$this->applied($id,$log['item_type'],$key,$category,$log);
@@ -255,8 +260,10 @@ final class Engine {
             $this->repo->update($id,['phase'=>'stats','status'=>'queued']);return;
         }
         if($phase==='stats'){
-            $meta['stats']=(new StatsRebuildService())->rebuild_all((int)$job['approved_by'],'Career history import job '.$id);
-            $this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);return;
+            $calculation=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,(int)$job['approved_by'],'import:'.$id.':stats');
+            $result=\MMAF\DataEngine\Services\Operations\Calculation::step($calculation);
+            if($result['status']==='failed'){throw new ImportException('Statistics generation failed: '.$result['error_message'],'calculation');}
+            if($result['status']==='completed'){$meta['stats']=$result['summary'];$this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);}return;
         }
         if($phase==='audit'){
             // Later opponent perspectives can change a shared bout's final status.

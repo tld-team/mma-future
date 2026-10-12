@@ -13,7 +13,9 @@ final class PublicCacheService {
   add_action('shutdown',array(self::class,'flush'),999);
  }
  public static function changed(string $reason='data'): void {
+  if(\MMAF\DataEngine\Services\Operations\Jobs::$current && !in_array($reason,['fighter_hidden','operation_completed'],true)){return;}
   if(WriteGuard::$worker&&$reason!=='import_completed'){return;}
+  if(\MMAF\DataEngine\Services\RegularImport\Transaction::active()){\MMAF\DataEngine\Services\RegularImport\Transaction::after_commit(static function()use($reason){self::changed($reason);});return;}
   if(self::$pending){return;}
   self::$pending=true;
   update_option('mmaf_public_data_revision',wp_generate_uuid4(),false);
@@ -30,5 +32,12 @@ final class PublicCacheService {
   if(!self::$pending){return;}self::$pending=false;
   if(function_exists('wpfc_clear_all_cache')){wpfc_clear_all_cache();}
   elseif(isset($GLOBALS['wp_fastest_cache'])&&is_callable(array($GLOBALS['wp_fastest_cache'],'deleteCache'))){$GLOBALS['wp_fastest_cache']->deleteCache(true);}
+ }
+ public static function retry_invalidation(): bool {
+  if(!get_option('mmaf_after_commit_error')){return false;}
+  try{
+   self::$pending=false;self::changed('invalidation_retry');self::flush();
+   delete_option('mmaf_after_commit_error');return true;
+  }catch(\Throwable $error){return false;}
  }
 }

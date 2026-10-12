@@ -2,7 +2,7 @@
 get_header();
 global $wp_query;
 $service = mmaf_public_service();
-$repository = $service ? new \MMAF\DataEngine\Repositories\RestReadRepository() : null;
+$cards = $service ? $service->fighter_cards(wp_list_pluck($wp_query->posts,'ID')) : [];
 $page_number = max( 1, (int) get_query_var( 'paged' ) );
 ?>
 <main id="primary" class="mmaf-directory">
@@ -19,8 +19,7 @@ $page_number = max( 1, (int) get_query_var( 'paged' ) );
 		<div class="mmaf-directory__summary"><span><?php echo esc_html( number_format_i18n( $wp_query->found_posts ) ); ?> fighter profiles</span><span>Page <?php echo (int) $page_number; ?> of <?php echo (int) $wp_query->max_num_pages; ?></span></div>
 		<div class="mmaf-directory__grid">
 			<?php while ( have_posts() ) : the_post();
-				$fighter = $repository->fighter_by_wp_post_id( get_the_ID() );
-				$context = $fighter ? $service->fighter( (int) $fighter['id'] ) : null;
+				$context = $cards[get_the_ID()] ?? null;
 				if ( ! $context || is_wp_error( $context ) ) { continue; }
 				$facts = mmaf_fighter_facts( $context['fighter'] );
 				$overall = null;

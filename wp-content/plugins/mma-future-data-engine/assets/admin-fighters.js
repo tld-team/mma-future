@@ -2,6 +2,11 @@
 	'use strict';
 
 	$(function () {
+        var $factsForm = $('[data-mmaf-facts-form]');
+        $factsForm.on('input change', function () {
+            $('[data-mmaf-single-operation] button').prop('disabled', true);
+            $('[data-mmaf-unsaved-notice]').prop('hidden', false);
+        });
 		var mediaFrame = null;
 		var $imageId = $('#fighter_image_id');
 		var $removeImage = $('#remove_fighter_image');
@@ -162,7 +167,7 @@
 			mediaFrame.on('select', function () {
 				var attachment = mediaFrame.state().get('selection').first().toJSON();
 
-				$imageId.val(attachment.id);
+				$imageId.val(attachment.id).trigger('change');
 				$removeImage.val('0');
 				setPreview(attachment);
 				$removeButton.show();
@@ -174,7 +179,7 @@
 		$removeButton.on('click', function (event) {
 			event.preventDefault();
 
-			$imageId.val('');
+			$imageId.val('').trigger('change');
 			$removeImage.val('1');
 			$preview.empty();
 			$removeButton.hide();
@@ -182,19 +187,22 @@
 
 		var $fighterRows = $('.mmaf-fighter-row-checkbox');
 		var $selectAll = $('#mmaf-select-all-fighters');
+		var $filteredSelection = $('input[name="selection_mode"][value="filtered"]');
 		function syncSelection() {
 			var count = $fighterRows.filter(':checked').length;
+			var filtered = $filteredSelection.prop('checked');
 			$selectAll.prop('checked', count > 0 && count === $fighterRows.length)
 				.prop('indeterminate', count > 0 && count < $fighterRows.length);
 			var $counter = $('#mmaf-selected-count');
-			$counter.text(($counter.attr('data-label') || '').replace('%d', count));
-			$('.mmaf-apply-fighters').prop('disabled', count === 0);
+			$counter.text(filtered ? $counter.attr('data-filtered-label') : ($counter.attr('data-label') || '').replace('%d', count));
+			$('.mmaf-apply-fighters').prop('disabled', !filtered && count === 0);
 		}
 		$selectAll.on('change', function () {
 			$fighterRows.prop('checked', $(this).prop('checked'));
 			syncSelection();
 		});
 		$fighterRows.on('change', syncSelection);
+		$filteredSelection.on('change', syncSelection);
 		if ($fighterRows.length) { syncSelection(); }
 	});
 }(jQuery));

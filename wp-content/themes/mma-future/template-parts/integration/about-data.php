@@ -17,7 +17,7 @@
 </svg>
 </div>
 <h3 class="about-highlighted-data-section__card-title mt-5 text-lg font-bold !text-slate-900">Data sources</h3>
-<div class="about-highlighted-data-section__card-text mt-2 text-sm sm:text-base !text-slate-600 leading-relaxed"><?php echo wp_kses_post( wpautop( mmaf_site_field( 'data_sources_text' ) ) ); ?></div>
+<div class="about-highlighted-data-section__card-text mt-2 text-sm sm:text-base !text-slate-600 leading-relaxed"><?php echo wp_kses_post( wpautop( (string) mmaf_site_field( 'data_sources_text' ) ) ); ?></div>
 </div>
 <!-- Card 2: Update schedule -->
 <div class="about-highlighted-data-section__card !rounded-2xl !border !border-slate-200/70 !bg-white p-6">
@@ -27,7 +27,7 @@
 </svg>
 </div>
 <h3 class="about-highlighted-data-section__card-title mt-5 text-lg font-bold !text-slate-900">Update schedule</h3>
-<div class="about-highlighted-data-section__card-text mt-2 text-sm sm:text-base !text-slate-600 leading-relaxed"><?php echo wp_kses_post( wpautop( mmaf_site_field( 'update_schedule_text' ) ) ); ?></div>
+<div class="about-highlighted-data-section__card-text mt-2 text-sm sm:text-base !text-slate-600 leading-relaxed"><?php echo wp_kses_post( wpautop( (string) mmaf_site_field( 'update_schedule_text' ) ) ); ?></div>
 </div>
 <!-- Card 3: Known limitations -->
 <div class="about-highlighted-data-section__card !rounded-2xl !border !border-slate-200/70 !bg-white p-6">
@@ -37,7 +37,7 @@
 </svg>
 </div>
 <h3 class="about-highlighted-data-section__card-title mt-5 text-lg font-bold !text-slate-900">Known limitations</h3>
-<div class="about-highlighted-data-section__card-text mt-2 text-sm sm:text-base !text-slate-600 leading-relaxed"><?php echo wp_kses_post( wpautop( mmaf_site_field( 'limitations_text' ) ) ); ?></div>
+<div class="about-highlighted-data-section__card-text mt-2 text-sm sm:text-base !text-slate-600 leading-relaxed"><?php echo wp_kses_post( wpautop( (string) mmaf_site_field( 'limitations_text' ) ) ); ?></div>
 </div>
 </div>
 <!-- C) Disclaimer -->

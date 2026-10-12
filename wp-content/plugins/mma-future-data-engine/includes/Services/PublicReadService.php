@@ -74,19 +74,30 @@ final class PublicReadService extends AbstractRestController {
 		return array_merge($state,$this->dates($active),array('board'=>$board,'formula_version'=>$active['formula_version'] ?? null,'generated_at'=>$active['calculated_at'] ?? null,'active_calculated_at'=>$active['calculated_at'] ?? null,'latest_completed_ranking_run_id'=>$state['latest_completed_run_id'],'page'=>$options['page'],'per_page'=>$options['per_page'],'total'=>$result['total'],'total_pages'=>(int)ceil($result['total']/$options['per_page']),'items'=>$items,'available_boards'=>$active?$this->public->boards((int)$active['id']):array(),'message'=>$active?null:'No active ranking run is available.'));
 	}
 
-	public function movers( string $board='overall', int $limit=3 ) {
+	public function movers( string $board='overall', int $limit=3, array $options=[] ) {
 		$board=self::board($board); if(!isset(self::board_labels()[$board])) { return new \WP_Error('mmaf_invalid_board','Unknown ranking board.',array('status'=>400)); }
 		$current=$this->read->active_ranking_run(); $previous=$current?$this->public->previous_activation((int)$current['id'],$board):null;
 		$response=array('board'=>$board,'active_ranking_run_id'=>$current?(int)$current['id']:null,'previous_ranking_run_id'=>$previous?(int)$previous['id']:null,'current_activated_at'=>$this->dates($current)['ranking_activated_at'],'previous_activated_at'=>$this->utc($previous['activated_at'] ?? null),'current_calculated_at'=>$this->utc($current['calculated_at'] ?? null),'previous_calculated_at'=>$this->utc($previous['calculated_at'] ?? null),'status'=>'unavailable','message'=>'Comparison unavailable.','items'=>array(),'new_fighter_ids'=>array(),'new_entries'=>array());
 		if(!$current || !$previous || $current['formula_version']!==$previous['formula_version'] || $this->json_value($current['formula_config_snapshot'])!==$this->json_value($previous['formula_config_snapshot']) || ($current['data_scope_version'] ?? 'legacy_partial_v1')!==($previous['data_scope_version'] ?? 'legacy_partial_v1') || !in_array($board,$this->public->boards((int)$previous['id']),true)) { return $response; }
-		$rows=$this->public->movers((int)$current['id'],(int)$previous['id'],$board); $this->prime(array_column($rows,'wp_post_id'));
+		$rows=$this->public->movers((int)$current['id'],(int)$previous['id'],$board,$limit); $this->prime(array_column($rows,'wp_post_id'));
 		foreach($rows as $r) {
-			if(null===$r['previous_rank']) { $response['new_fighter_ids'][]=(int)$r['fighter_id']; $p=$this->profile_data($r['wp_post_id']); $response['new_entries'][]=array('fighter_id'=>(int)$r['fighter_id'],'display_name'=>$r['display_name'],'current_rank'=>(int)$r['current_rank'],'previous_rank'=>null,'rank_change'=>null,'label'=>'New','permalink'=>$p['permalink']); continue; }
+
 			if((int)$r['rank_change']<=0 || count($response['items'])>=max(1,min(10,$limit))) { continue; }
 			$p=$this->profile_data($r['wp_post_id']); $response['items'][]=array('fighter_id'=>(int)$r['fighter_id'],'display_name'=>$r['display_name'],'current_rank'=>(int)$r['current_rank'],'previous_rank'=>(int)$r['previous_rank'],'rank_change'=>(int)$r['rank_change'],'permalink'=>$p['permalink'],'image'=>$p['image']);
 		}
+        $new=$this->public->new_entries((int)$current['id'],(int)$previous['id'],$board,$options);$this->prime(array_column($new['rows'],'wp_post_id'));
+        foreach($new['rows'] as $r){$response['new_fighter_ids'][]=(int)$r['fighter_id'];$p=$this->profile_data($r['wp_post_id']);$response['new_entries'][]=['fighter_id'=>(int)$r['fighter_id'],'display_name'=>$r['display_name'],'current_rank'=>(int)$r['current_rank'],'previous_rank'=>null,'rank_change'=>null,'label'=>'New','permalink'=>$p['permalink']];}
+        if(isset($options['new_page']) || isset($options['new_per_page'])){$response['new_total']=$new['total'];$response['new_page']=max(1,(int)($options['new_page']??1));$response['new_per_page']=min(100,max(1,(int)($options['new_per_page']??25)));$response['new_total_pages']=(int)ceil($new['total']/$response['new_per_page']);}
 		$response['status']=$response['items']?'available':'unchanged'; $response['message']=$response['items']?null:'No upward movement between these activations.'; return $response;
 	}
+
+    public function fighter_cards(array $posts): array {
+        $rows=$this->public->cards($posts);$this->prime(array_column($rows,'wp_post_id'));$out=[];
+        foreach($rows as $r){$id=(int)$r['id'];$fighter=$r;$fighter['id']=$id;$fighter['age']=$this->age($r['date_of_birth'],$r['birth_year']);$fighter['age_precision']=$r['date_of_birth']?'exact':($fighter['age']!==null?'approximate':'unknown');$stats=null;
+            if($r['wins']!==null){$stats=[];foreach(['wins','losses','draws','nc','pro_fights_count'] as $key){$stats[$key]=(int)$r[$key];}}
+            $out[(int)$r['wp_post_id']]=['fighter'=>$fighter,'profile'=>$this->profile_data($r['wp_post_id']),'stats'=>$stats,'career_coverage'=>['status'=>$r['coverage_status']??'unavailable'],'rankings'=>$r['rank_position']!==null?[['board'=>'overall','rank'=>(int)$r['rank_position']]]:[]];
+        }return $out;
+    }
 
 	public function coverage( int $id ): array {
 		$r=$this->public->coverage($id);

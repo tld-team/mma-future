@@ -97,7 +97,7 @@ function mmaf_render_rankings( $full = false, $block_id = '' ) {
  $data = $service->rankings( $options );
  if ( is_wp_error( $data ) ) { echo '<p>' . esc_html( $data->get_error_message() ) . '</p>'; return; }
  $data += array( 'sort' => $options['sort'] ?? 'rank', 'order' => $options['order'] ?? 'asc' );
- $movers = $full ? null : $service->movers( $options['board'], 3 );
+ $movers = $full ? null : $service->movers( $options['board'], 3, ['include_new'=>false] );
  mmaf_view( $full ? 'all-rankings' : 'home-rankings', compact( 'data', 'options', 'prefix', 'movers' ) );
 }
 

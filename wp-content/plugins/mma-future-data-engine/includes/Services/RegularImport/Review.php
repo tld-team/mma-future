@@ -16,6 +16,7 @@ final class Review {
             $existing=(int)$wpdb->insert_id;
         }
         if($job>0){(new Repository())->putItem($job,'review',$key,$source,'review',['type'=>$type,'context'=>$context],$existing);}
+        \MMAF\DataEngine\Services\Operations\ReviewLinks::record($existing,$context,$job);
         return $existing;
     }
     public static function stable(array $context): array {

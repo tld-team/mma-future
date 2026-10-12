@@ -1,7 +1,6 @@
 <?php
 namespace MMAF\DataEngine\CLI;
 
-use MMAF\DataEngine\Services\StatsRebuildService;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -17,12 +16,14 @@ final class StatsCommand {
 	}
 
 	/**
-	 * Rebuild all current fighter stats from canonical bouts and participants.
+	 * Queue a resumable statistics generation. Use --wait for up to 50 seconds,
+	 * or --operation-id=<id> to inspect/resume the same saved calculation.
 	 */
 	public function rebuild( array $args, array $assoc_args ): void {
 		try {
-			$service = new StatsRebuildService();
-			$summary = $service->rebuild_all( 0, 'Manual stats rebuild from WP-CLI' );
+			$job = CalculationCommand::run('stats', $assoc_args);
+			if ($job['status'] !== 'completed') { return; }
+			$summary = $job['summary'];
 		} catch ( \Throwable $error ) {
 			\WP_CLI::error( $error->getMessage() );
 			return;

@@ -244,6 +244,116 @@ final class RankingCalculatorService {
 		);
 	}
 
+	public function score_batch( array $fighters, string $reference_date, string $calculated_at, int $run_id=0 ): array {
+		$ranked              = array();
+		$eligible_count      = 0;
+		$ineligible_count    = 0;
+		$calculated_count    = 0;
+		$excluded_insufficient_sample = 0;
+		$min_scoring_bouts   = (int) ( FormulaRegistry::current_config()['eligibility']['min_scoring_bouts'] ?? 1 );
+		$total_missing_prefight = 0;
+		$total_warnings      = 0;
+		$structural_warnings = array();
+		$eligibility_reasons = array();
+
+		foreach ([$fighters] as $fighters) {
+			$eligible_ids=[];
+			foreach ($fighters as $candidate) { if (!empty($this->eligibility->evaluate($candidate,$this->stats_from_row($candidate),$reference_date)['eligible_for_calculation'])) { $eligible_ids[]=(int)$candidate['id']; } }
+			$source_types=$eligible_ids?$this->runs->source_types_by_fighter($eligible_ids):[];
+			$scoring_items=$eligible_ids?$this->scoring_items_by_fighter($eligible_ids):[];
+		foreach ( $fighters as $fighter ) {
+			$fighter_id = (int) $fighter['id'];
+			$stats      = $this->stats_from_row( $fighter );
+			$evaluation = $this->eligibility->evaluate( $fighter, $stats, $reference_date );
+			$warnings   = $evaluation['warnings'];
+
+			foreach ( $evaluation['reasons'] as $reason ) {
+				if ( ! isset( $eligibility_reasons[ $reason ] ) ) {
+					$eligibility_reasons[ $reason ] = 0;
+				}
+				++$eligibility_reasons[ $reason ];
+			}
+
+			if ( empty( $evaluation['eligible_for_calculation'] ) ) {
+				++$ineligible_count;
+				$total_warnings += count( $warnings );
+				continue;
+			}
+
+			$calculation = $this->score_fighter( $fighter, $stats, $evaluation, $scoring_items[ $fighter_id ] ?? array(), $source_types[ $fighter_id ] ?? array(), $calculated_at );
+			$warnings    = array_values( array_unique( array_merge( $warnings, $calculation['warnings'] ) ) );
+			$total_warnings += count( $warnings );
+			++$calculated_count;
+			$total_missing_prefight += (int) $calculation['source_summary']['prefight_records_missing_count'];
+			$actual_sample_size = (int) $calculation['breakdown']['sample_size'];
+
+			if ( $actual_sample_size < $min_scoring_bouts ) {
+				++$ineligible_count;
+				++$excluded_insufficient_sample;
+				if ( ! isset( $eligibility_reasons['insufficient_sample_size'] ) ) {
+					$eligibility_reasons['insufficient_sample_size'] = 0;
+				}
+				++$eligibility_reasons['insufficient_sample_size'];
+				continue;
+			}
+
+			if ( empty( $evaluation['eligible_for_current_ranking'] ) ) {
+				++$ineligible_count;
+				if ( in_array( 'insufficient_sample_size', (array) $evaluation['reasons'], true ) ) {
+					++$excluded_insufficient_sample;
+				}
+				continue;
+			}
+
+			++$eligible_count;
+
+			$ranked[] = array(
+				'fighter'      => $fighter,
+				'stats'        => $stats,
+				'total_score'  => $calculation['breakdown']['total_score'],
+				'raw_score'    => $calculation['breakdown']['raw_score'],
+				'normalized_score' => null,
+				'confidence_score' => null,
+				'sample_size'  => $calculation['breakdown']['sample_size'],
+				'quality_flags'=> $calculation['quality_flags'],
+				'breakdown'    => $calculation['breakdown'],
+				'eligibility'  => $evaluation,
+				'warnings'     => $warnings,
+				'source_summary' => $calculation['source_summary'],
+			);
+		}
+
+		}
+
+		$rows = $ranked;
+
+		$summary = array(
+			'ranking_run_id'      => $run_id,
+			'calculated_at'       => $calculated_at,
+			'formula_version'     => FormulaRegistry::current_version(),
+			'reference_date'      => $reference_date,
+			'status'              => 'draft',
+			'is_active'           => 0,
+			'eligible_fighters'   => $eligible_count,
+			'ineligible_fighters' => $ineligible_count,
+			'calculated_fighters' => $calculated_count,
+			'trusted_ranked_fighters' => $eligible_count,
+			'excluded_insufficient_sample' => $excluded_insufficient_sample,
+			'missing_prefight_count' => $total_missing_prefight,
+			'ranked_rows'         => 0,
+			'boards_generated'    => self::BOARD_KEYS,
+			'warnings_count'      => $total_warnings,
+			'eligibility_reasons' => $eligibility_reasons,
+			'structural_warnings' => array_filter( $structural_warnings ),
+			'storage_strategy'    => $this->storage_strategy(),
+		);
+
+		return array(
+			'rows'    => $rows,
+			'summary' => $summary,
+		);
+	}
+
 	private function rows_for_boards( array $ranked ): \Generator {
 
 		foreach ( self::BOARD_KEYS as $board_key ) {
@@ -260,7 +370,9 @@ final class RankingCalculatorService {
 
 	}
 
-	private function snapshot_row_for_item( array $item, string $board_key, int $position ): array {
+    public static function boards(): array { return self::BOARD_KEYS; }
+
+	public function snapshot_row_for_item( array $item, string $board_key, int $position ): array {
 		return array(
 			'board_key'              => $board_key,
 			'fighter_id'             => (int) $item['fighter']['id'],
@@ -281,7 +393,7 @@ final class RankingCalculatorService {
 		);
 	}
 
-	private function item_matches_board( array $item, string $board_key ): bool {
+	public function item_matches_board( array $item, string $board_key ): bool {
 		if ( 'overall' === $board_key ) {
 			return true;
 		}

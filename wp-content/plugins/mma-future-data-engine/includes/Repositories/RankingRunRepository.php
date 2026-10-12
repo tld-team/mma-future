@@ -62,7 +62,7 @@ final class RankingRunRepository {
 		$t = Schema::table_names();
 		$stats = $wpdb->get_row( "SELECT COUNT(*) AS fighters,SUM(pro_fights_count) AS participant_results,SUM(wins) AS wins,SUM(losses) AS losses,SUM(draws) AS draws,SUM(nc) AS no_contests,MAX(calculated_at) AS latest_calculated_at FROM {$t['fighter_stats_current']}", ARRAY_A );
 		$coverage = $wpdb->get_results( "SELECT status,COUNT(*) AS total FROM {$t['fighter_career_coverage']} GROUP BY status ORDER BY status", ARRAY_A );
-		return array( 'history_scope' => get_option( 'mmaf_history_data_scope', 'legacy_partial_v1' ), 'stats_updated_at' => ( new RestReadRepository() )->health_summary()['latest_stats_rebuild_time'], 'statistics' => $stats, 'career_coverage' => $coverage, 'public_data_revision' => get_option( 'mmaf_public_data_revision', '' ) );
+		return array( 'activation_tracking' => version_compare((string)get_option('mmaf_db_version'),'1.8.0','>=')?'ledger_v1':null, 'history_scope' => get_option( 'mmaf_history_data_scope', 'legacy_partial_v1' ), 'stats_updated_at' => ( new RestReadRepository() )->health_summary()['latest_stats_rebuild_time'], 'statistics' => $stats, 'career_coverage' => $coverage, 'public_data_revision' => get_option( 'mmaf_public_data_revision', '' ) );
 	}
 	public function update( int $run_id, array $data ): void {
 		global $wpdb;

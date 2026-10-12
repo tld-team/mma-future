@@ -74,7 +74,8 @@
     "assets/dist/fonts/sora/Sora-Thin.woff2": "b90c6dea1d1f8af28c6524f710a23e80c30592df8b120c37b518f32d3e7264a0",
     "assets/dist/fonts/sora/stylesheet.css": "77226a2901e14487c9abcf68354d10345b80669f277e1613b64108465711b601",
     "assets/dist/images/fighter-background.png": "73ac335121219f86f3e39acc8c483d04421e8bdf9c54cebd9a283e75b08aadd0",
-    "assets/dist/js/integration.js": "2d826f3e792e62b5b5c15f14f192844408eb5b618bd09eedf0b55e3cac7f707d",
-    "assets/dist/js/main.js": "83a574fee1f65a2c1bee1dd116cfa87ecaa483540d4226808df0a22f5458a070"
+    "assets/dist/js/integration.js": "faeaf3b71cb67185dcfd6c3af65196231d637c60c7bb6d5908dd80a93689fee4",
+    "assets/dist/js/integration.js.LICENSE.txt": "8c9946dfc859a2bfb26cc541125631cd96e7110fa20a702eb19275c9d1658805",
+    "assets/dist/js/main.js": "d469f5b8a8a3017957fc16513d0d2c06490fa427b6e970ef48d2b2eb85558c9a"
   }
 }

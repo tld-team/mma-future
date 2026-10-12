@@ -27,20 +27,20 @@ final class CareerHistory {
 		}
 		return array( 'schema_version' => 'mmaf_career_targets_v1', 'site_url' => home_url( '/' ), 'created_at' => gmdate( 'c' ), 'targets' => array_values( $targets ), 'excluded_identity_review' => array_values( $review ), 'hash' => hash( 'sha256', wp_json_encode( array_values( $targets ) ) ) );
 	}
-	public function verify_target( array $profile ): array {
+	public function verify_target( array $profile, int $operation=0 ): array {
 		$id = (int) ( $profile['fighter_id'] ?? 0 ); $fighter = ( new FighterRepository() )->find( $id );
 		$identity = TapologyFighterUrl::parse( (string) ( $profile['source_url'] ?? '' ) );
 		if ( ! $identity || $identity['source_fighter_id'] !== ( $profile['source_fighter_id'] ?? '' ) ) { throw new ImportException( 'Career profile URL does not match its declared source identity.', 'identity' ); }
 		$source = ( new FighterSourceRepository() )->find_by_source( 'tapology', $profile['source_fighter_id'] ?? '' );
-		if ( ! $fighter || ! empty( $fighter['deleted_soft'] ) || ( empty( $fighter['is_public'] ) && ( empty( $fighter['is_rankable'] ) || 'rankable' !== $fighter['rankability_status'] ) ) || ! $source || (int) $source['fighter_id'] !== $id ) { throw new ImportException( 'Career target no longer matches its canonical identity or approved scope: ' . $id, 'identity' ); }
+		if ( ! $fighter || ! empty( $fighter['deleted_soft'] ) || ( empty( $fighter['is_public'] ) && ( empty( $fighter['is_rankable'] ) || 'rankable' !== $fighter['rankability_status'] ) && !\MMAF\DataEngine\Services\Operations\Authority::allows($operation,$id) ) || ! $source || (int) $source['fighter_id'] !== $id ) { throw new ImportException( 'Career target no longer matches its canonical identity or approved scope: ' . $id, 'identity' ); }
 		return $fighter;
 	}
-	public function process( array $profile, int $job, int $actor, bool $apply ): array {
+	public function process( array $profile, int $job, int $actor, bool $apply, int $operation=0 ): array {
 		$profile['_job_id'] = $job;
-		$this->verify_target($profile);
+		$this->verify_target($profile,$operation);
 		$retained=$this->retained_coverage($profile);
 		if ($retained) { return ['fighter_id'=>(int)$profile['fighter_id'],'source_fighter_id'=>$profile['source_fighter_id'],'items'=>[],'facts'=>['changes'=>[],'skipped'=>[]],'coverage'=>$retained,'retained_newer'=>true]; }
-		$fighter = $this->verify_target( $profile ); $facts = $this->enrich_facts( $fighter, $profile, $actor, $apply ); $id = (int) $fighter['id']; $items = array(); $accepted = array(); $seen = array(); $conflicts = 0; $unresolved = 0;
+		$fighter = $this->verify_target( $profile,$operation ); $facts = $this->enrich_facts( $fighter, $profile, $actor, $apply ); $id = (int) $fighter['id']; $items = array(); $accepted = array(); $seen = array(); $conflicts = 0; $unresolved = 0;
 		$signatures = array(); $duplicate_conflicts = array();
 		foreach ( $profile['rows'] ?? array() as $candidate ) {
 			$source_key = (string) ( $candidate['source_bout_id'] ?? '' );
@@ -66,6 +66,26 @@ final class CareerHistory {
 		if ( $apply ) { $this->save_coverage( $profile, $coverage, $job, $actor, count( $seen ), $conflicts, $unresolved, array_keys( $accepted ) ); }
 		return array( 'fighter_id' => $id, 'source_fighter_id' => $profile['source_fighter_id'], 'items' => $items, 'facts' => $facts, 'coverage' => $coverage );
 	}
+    /** Each career chunk and its caller checkpoint share the same outer transaction. */
+    public function process_chunk(array $profile,int $job,int $actor,int $operation,array $checkpoint=[],int $limit=50): array {
+        $this->verify_target($profile,$operation);
+        $retained=$this->retained_coverage($profile);if($retained){return ['fighter_id'=>(int)$profile['fighter_id'],'coverage'=>$retained,'facts'=>[],'done'=>true,'checkpoint'=>[]];}
+        $hash=hash('sha256',wp_json_encode($profile));
+        if(isset($checkpoint['source_hash']) && !hash_equals($checkpoint['source_hash'],$hash)){throw new ImportException('Stored career input changed between checkpoints.','identity');}
+        $checkpoint+=['source_hash'=>$hash,'offset'=>0,'seen'=>[],'accepted'=>[],'conflicts'=>0,'unresolved'=>0];
+        $signatures=[];$conflicts=[];
+        foreach($profile['rows']??[] as $candidate){$key=(string)($candidate['source_bout_id']??'');if(!$key){continue;}$signature=wp_json_encode([$candidate['result']??'',$candidate['opponent_source_id']??'',$candidate['source_event_id']??'',$candidate['fight_date']??'']);if(isset($signatures[$key]) && $signatures[$key]!==$signature){$conflicts[$key]=true;}$signatures[$key]=$signature;}
+        $chunk=array_slice($profile['rows']??[],(int)$checkpoint['offset'],$limit);$rows=[];
+        foreach($chunk as $row){$key=(string)($row['source_bout_id']??'');if(!$key){$key=hash('sha256',wp_json_encode([$row['source_event_id']??'',$row['opponent_source_id']??'',$row['fight_date']??'',$row['result']??'',$row['raw_text']??'']));}if(isset($checkpoint['seen'][$key])){continue;}$checkpoint['seen'][$key]=true;if(isset($conflicts[$key])){$row['source_conflict_reason']='The same source bout has contradictory profile rows.';}$rows[]=$row;}
+        $partial=$profile;$partial['rows']=$rows;$partial['history_exhausted']=false;
+        $result=$this->process($partial,$job,$actor,true,$operation);
+        foreach($result['items'] as $item){if($item['category']==='conflict'){++$checkpoint['conflicts'];}if($item['category']==='review'){++$checkpoint['unresolved'];}if(!empty($item['bout_id'])){$checkpoint['accepted'][(int)$item['bout_id']]=true;}}
+        $checkpoint['offset']+=count($chunk);$done=$checkpoint['offset']>=count($profile['rows']??[]);
+        $coverage=$this->coverage($done?$profile:$partial,(int)$checkpoint['conflicts'],(int)$checkpoint['unresolved'],true);
+        $this->save_coverage($profile,$coverage,$job,$actor,count($checkpoint['seen']),(int)$checkpoint['conflicts'],(int)$checkpoint['unresolved'],array_keys($checkpoint['accepted']));
+        return ['fighter_id'=>(int)$profile['fighter_id'],'source_fighter_id'=>$profile['source_fighter_id'],'coverage'=>$coverage,'facts'=>$result['facts'],'checkpoint'=>$checkpoint,'done'=>$done];
+    }
+
 	private function enrich_facts( array $fighter, array $profile, int $actor, bool $apply ): array {
 		$changes = array(); $skipped = array(); $provenance = new FieldProvenanceService();
 		$allowed = array( 'height_cm', 'height', 'reach_cm', 'stance', 'birthplace', 'fighting_out_of', 'team_name', 'coach_name' );

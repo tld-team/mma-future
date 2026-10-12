@@ -36,25 +36,50 @@ final class DatabaseState {
         $out['bouts_without_event']=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']} b LEFT JOIN {$t['events']} e ON e.id=b.event_id WHERE e.id IS NULL");
         $out['fighters_without_stats']=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['fighters']} f LEFT JOIN {$t['fighter_stats_current']} s ON s.fighter_id=f.id WHERE f.deleted_soft=0 AND s.fighter_id IS NULL");
         foreach(['fighters','events','bouts','bout_participants','fighter_stats_current'] as $key){$out[$key]=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t[$key]}");}
-        $out['ranking_hash']=hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['ranking_current']} ORDER BY id",ARRAY_A)));
+        $out['ranking_hash']=self::arrayHash(self::rows("SELECT * FROM {$t['ranking_current']} ORDER BY id"));
         if ($wpdb->last_error) { throw new \RuntimeException('Integrity check failed: '.$wpdb->last_error); }
         return $out;
     }
     public static function protectedState(?int $maxId=null): array {
         global $wpdb;$t=CanonicalSchema::table_names();
         $maxId=$maxId??(int)$wpdb->get_var("SELECT MAX(id) FROM {$t['fighters']}");
-        $rows=$wpdb->get_results($wpdb->prepare("SELECT f.id,f.is_public,f.is_rankable,f.status,f.rankability_status,f.deleted_soft,f.in_ufc,p.post_status FROM {$t['fighters']} f LEFT JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.id<=%d ORDER BY f.id",$maxId),ARRAY_A);
-        if($wpdb->last_error){throw new \RuntimeException('Cannot verify publication flags.');}
-        $manual=[];
-        $fields=$wpdb->get_results("SELECT entity_type,entity_id,field_name FROM {$t['field_provenance']} WHERE locked=1 OR source_type IN ('manual_verified','manual_admin','admin_override','admin_verified','admin_protected') ORDER BY entity_type,entity_id,field_name",ARRAY_A);
-        foreach($fields as $field){
-            $kind=['fighter'=>'fighters','event'=>'events','bout'=>'bouts'][$field['entity_type']]??null;
-            if(!$kind||!preg_match('/^[a-z_]+$/D',$field['field_name'])){continue;}
-            $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t[$kind]} WHERE id=%d",$field['entity_id']),ARRAY_A);
-            if($wpdb->last_error){throw new \RuntimeException('Cannot verify protected fields.');}
-            $manual[]=[$field,$row[$field['field_name']]??null];
-        }
-        return ['max_fighter_id'=>$maxId,'publication_hash'=>hash('sha256',wp_json_encode($rows)),'manual_hash'=>hash('sha256',wp_json_encode($manual))];
+        $flags=self::rows($wpdb->prepare("SELECT f.id,f.is_public,f.is_rankable,f.status,f.rankability_status,f.deleted_soft,f.in_ufc,p.post_status FROM {$t['fighters']} f LEFT JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.id<=%d ORDER BY f.id",$maxId),'f.id');
+        $manual=(static function()use($wpdb,$t){
+            $cursor=null;
+            do{
+                $after=$cursor?$wpdb->prepare(" AND (entity_type>%s OR (entity_type=%s AND entity_id>%d) OR (entity_type=%s AND entity_id=%d AND field_name>%s) OR (entity_type=%s AND entity_id=%d AND field_name=%s AND id>%d))",$cursor['entity_type'],$cursor['entity_type'],$cursor['entity_id'],$cursor['entity_type'],$cursor['entity_id'],$cursor['field_name'],$cursor['entity_type'],$cursor['entity_id'],$cursor['field_name'],$cursor['id']):'';
+                $fields=$wpdb->get_results("SELECT id,entity_type,entity_id,field_name FROM {$t['field_provenance']} FORCE INDEX (manual_protection) WHERE (locked=1 OR source_type IN ('manual_verified','manual_admin','admin_override','admin_verified','admin_protected')) $after ORDER BY entity_type,entity_id,field_name,id LIMIT 250",ARRAY_A);
+                if($wpdb->last_error){throw new \RuntimeException('Cannot verify protected fields.');}
+                $entities=[];
+                foreach(['fighter'=>'fighters','event'=>'events','bout'=>'bouts'] as $type=>$kind){
+                    $ids=array_unique(array_map('intval',array_column(array_filter($fields,static fn($f)=>$f['entity_type']===$type),'entity_id')));
+                    if(!$ids){continue;}
+                    $rows=$wpdb->get_results("SELECT * FROM {$t[$kind]} WHERE id IN (".implode(',',$ids).")",ARRAY_A);
+                    if($wpdb->last_error){throw new \RuntimeException('Cannot read protected entities.');}
+                    foreach($rows as $row){$entities[$type][(int)$row['id']]=$row;}
+                }
+                foreach($fields as $field){
+                    if(!isset(['fighter'=>1,'event'=>1,'bout'=>1][$field['entity_type']])||!preg_match('/^[a-z_]+$/D',$field['field_name'])){continue;}
+                    unset($field['id']);yield [$field,$entities[$field['entity_type']][(int)$field['entity_id']][$field['field_name']]??null];
+                }
+                if($fields){$cursor=end($fields);}
+            }while(count($fields)===250);
+        })();
+        return ['max_fighter_id'=>$maxId,'publication_hash'=>self::arrayHash($flags),'manual_hash'=>self::arrayHash($manual)];
+    }
+    /** Hash exactly the former JSON array, without retaining the complete result. */
+    public static function arrayHash(iterable $rows): string {
+        $hash=hash_init('sha256');hash_update($hash,'[');$first=true;
+        foreach($rows as $row){hash_update($hash,($first?'':',').wp_json_encode($row));$first=false;}
+        hash_update($hash,']');return hash_final($hash);
+    }
+    private static function rows(string $sql,string $key='id'): \Generator {
+        global $wpdb;$cursor=0;[$base,$order]=explode(' ORDER BY ',$sql,2);
+        do{
+            $rows=$wpdb->get_results($base.(str_contains($base,' WHERE ')?' AND ':' WHERE ').$key.'>'.(int)$cursor.' ORDER BY '.$order.' LIMIT 250',ARRAY_A);
+            if($wpdb->last_error){throw new \RuntimeException('Cannot read protected database state.');}
+            foreach($rows as $row){yield $row;$cursor=(int)$row['id'];}
+        }while(count($rows)===250);
     }
     public static function engines(): void {
         global $wpdb;

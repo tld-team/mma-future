@@ -42,6 +42,7 @@ final class Schema {
                 summary_json longtext NULL,
                 requested_at datetime NOT NULL,
                 finished_at datetime NULL,
+                retry_at datetime NULL,
                 PRIMARY KEY  (fighter_id),
                 KEY pending_job (status,import_job_id,fighter_id)
             ) ENGINE=InnoDB $charset;",

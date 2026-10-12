@@ -15,9 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify compatible foundation probes
-        run: python3 tests/unit/release-http.py
-      # Foundation preserves the exact committed theme assets. The full release adds npm ci/build.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: wp-content/themes/mma-future/package-lock.json
+      - name: Clean deterministic build
+        working-directory: wp-content/themes/mma-future
+        run: npm ci && npm run build
       - name: Build allowlisted package
         run: python3 ops/package.py --output /tmp/mmaf-release --commit "$GITHUB_SHA" --sequence "$GITHUB_RUN_NUMBER"
       - uses: actions/upload-artifact@v4

@@ -176,8 +176,116 @@ final class StatsRebuildService {
 	}
 
 	/** Materialize only one indexed fighter batch and its history at a time. */
-	private function stats_rows(): \Generator {
-		foreach ($this->stats->fighter_batches() as $ids) {
+    public function diagnostics_batch(iterable $bouts): array {
+		$warnings_count = 0;
+		$countable_bouts      = 0;
+		$skipped_bouts        = 0;
+		$malformed_bouts      = 0;
+		$participants_processed = 0;
+		$summary_warnings     = array(
+			'malformed_bout_skipped'       => 0,
+			'missing_fighter_id'           => 0,
+			'missing_fighter'              => 0,
+			'soft_deleted_fighter_skipped' => 0,
+			'invalid_result_for_fighter'   => 0,
+			'non_counted_result'           => 0,
+			'non_counted_bout_status'      => 0,
+			'bout_deleted_soft'            => 0,
+			'bout_missing_event'           => 0,
+			'missing_event_date'           => 0,
+			'missing_method_category'      => 0,
+			'missing_prefight_record'      => 0,
+		);
+
+		foreach ( $bouts as $bout ) {
+			$bout_id      = (int) $bout['id'];
+			$participants = $bout['_participants'];
+
+			if ( 2 !== count( $participants ) ) {
+				++$skipped_bouts;
+				++$malformed_bouts;
+				$this->increment_warning( $summary_warnings, 'malformed_bout_skipped', count( $participants ), $warnings_count );
+				continue;
+			}
+
+			if ( 1 === (int) $bout['deleted_soft'] || 'deleted_soft' === (string) $bout['status'] ) {
+				++$skipped_bouts;
+				$this->increment_warning( $summary_warnings, 'bout_deleted_soft', $bout_id, $warnings_count );
+				continue;
+			}
+
+			if ( ! in_array( (string) $bout['status'], self::COUNTABLE_STATUSES, true ) ) {
+				++$skipped_bouts;
+				$this->increment_warning( $summary_warnings, 'non_counted_bout_status', $bout_id, $warnings_count );
+				continue;
+			}
+
+			$bout_is_countable = false;
+			foreach ( $participants as $participant ) {
+				if ( in_array( (string) $participant['result_for_fighter'], self::COUNTABLE_RESULTS, true ) ) {
+					$bout_is_countable = true;
+					break;
+				}
+			}
+
+			if ( ! $bout_is_countable ) {
+				++$skipped_bouts;
+				$this->increment_warning( $summary_warnings, 'non_counted_result', $bout_id, $warnings_count );
+				continue;
+			}
+
+			if ( empty( $bout['event_exists'] ) ) {
+				$this->increment_warning( $summary_warnings, 'bout_missing_event', $bout_id, $warnings_count );
+			}
+
+			if ( empty( $bout['event_date'] ) ) {
+				$this->increment_warning( $summary_warnings, 'missing_event_date', $bout_id, $warnings_count );
+			}
+
+			++$countable_bouts;
+
+			foreach ( $participants as $participant ) {
+				++$participants_processed;
+				$fighter_id = (int) ( $participant['fighter_id'] ?? 0 );
+				$result     = (string) ( $participant['result_for_fighter'] ?? '' );
+
+				if ( $fighter_id <= 0 ) {
+					$this->increment_warning( $summary_warnings, 'missing_fighter_id', $bout_id, $warnings_count );
+					continue;
+				}
+
+				if ( empty( $participant['fighter_exists'] ) ) {
+					$this->increment_warning( $summary_warnings, 'missing_fighter', $fighter_id, $warnings_count );
+					continue;
+				}
+
+				if ( 1 === (int) $participant['fighter_deleted_soft'] ) {
+					$this->increment_warning( $summary_warnings, 'soft_deleted_fighter_skipped', $fighter_id, $warnings_count );
+					continue;
+				}
+
+				if ( ! in_array( $result, self::COUNTABLE_RESULTS, true ) ) {
+					$this->increment_warning( $summary_warnings, 'invalid_result_for_fighter', $bout_id, $warnings_count );
+					continue;
+				}
+
+				if ( $this->participant_missing_prefight_record( $participant ) ) {
+					$this->increment_warning( $summary_warnings, 'missing_prefight_record', $bout_id, $warnings_count );
+				}
+
+
+				if ( 'win' === $result && ( empty( $bout['method_category'] ) || 'unknown' === (string) $bout['method_category'] ) ) {
+					$this->increment_warning( $summary_warnings, 'missing_method_category', $bout_id, $warnings_count );
+				}
+
+			}
+		}
+
+        return ['warnings_count'=>$warnings_count,'countable_bouts'=>$countable_bouts,'skipped_bouts'=>$skipped_bouts,'malformed_bouts'=>$malformed_bouts,'participants_processed'=>$participants_processed,'warnings'=>array_filter($summary_warnings)];
+    }
+
+	public function stats_rows(?array $fighter_ids=null): \Generator {
+		foreach (null===$fighter_ids?$this->stats->fighter_batches():[$fighter_ids] as $ids) {
 			$rows=[]; foreach ($ids as $id) { $rows[$id]=$this->empty_fighter_stats($id); }
 			foreach ($this->stats->history_for_fighters($ids) as $bout) {
 				$id=(int)$bout['fighter_id']; $result=(string)$bout['result_for_fighter'];

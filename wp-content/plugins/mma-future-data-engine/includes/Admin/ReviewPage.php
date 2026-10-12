@@ -23,6 +23,7 @@ final class ReviewPage {
 		if ( ! current_user_can( Capabilities::MANAGE ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'mma-future-data-engine' ) );
 		}
+        if(!empty($_GET['fighter_id'])){self::render_fighter(absint($_GET['fighter_id']));return;}
 
 		$notice = null;
 		$preview = null;
@@ -77,8 +78,9 @@ final class ReviewPage {
 		<?php
 	}
 
-	public static function summary(): array {
+	public static function summary(bool $refresh=false): array {
 		global $wpdb;
+        if(!$refresh){return (array)get_option('mmaf_review_summary',['checked_at'=>null,'status'=>'Waiting for explicit review diagnostics.']);}
 
 		$tables = Schema::table_names();
 		$summary = array(
@@ -113,6 +115,7 @@ final class ReviewPage {
 		}
 
 		$duplicates = ( new FighterDuplicateAuditService() )->audit( 100 );
+        update_option('mmaf_review_duplicates',$duplicates,false);
 		$summary['duplicate_candidates'] = (int) ( $duplicates['likely_duplicates_count'] ?? 0 );
 
 		if ( self::table_exists( $tables['fighters'] ) && self::table_exists( $tables['fighter_sources'] ) ) {
@@ -180,8 +183,34 @@ final class ReviewPage {
 			+ $summary['provisional_tapology_fighters']
 			+ $summary['unresolved_source_mappings'];
 
+		$summary['checked_at']=gmdate('Y-m-d H:i:s');update_option('mmaf_review_summary',$summary,false);
 		return $summary;
 	}
+
+    private static function render_fighter(int $id): void {
+        global $wpdb;$t=Schema::table_names();$o=\MMAF\DataEngine\Services\Operations\Schema::tables();
+        $fighter=(new \MMAF\DataEngine\Repositories\FighterRepository())->find($id);
+        echo '<div class="wrap"><h1>Fighter review</h1>';
+        if(!$fighter){echo '<p>Fighter not found.</p></div>';return;}
+        $metadata=\MMAF\DataEngine\Services\DataPipeline\Processor::metadata([$id])[$id]??[];
+        $projection=\MMAF\DataEngine\Services\Operations\Readiness::read([$id])[$id]??[];
+        echo '<h2>#'.(int)$id.' '.esc_html($fighter['display_name']).'</h2><p><a class="button" href="'.esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.$id)).'">Edit confirmed facts</a> <a class="button" href="'.esc_url(admin_url('admin.php?page=mmaf-fighters&search='.$id)).'">Select and prepare a new preview</a></p>';
+        echo '<p>Career coverage: <strong>'.esc_html($metadata['coverage_status']??'Unavailable').'</strong> · '.esc_html($metadata['coverage_reason']??'').'</p>';
+        echo '<p>Saved source checked: '.esc_html(OperationsPage::date($metadata['source_fetched_at']??null)).' · Readiness checked: '.esc_html(OperationsPage::date($projection['checked_at']??null)).(!empty($projection['stale'])?' · stale':'').'</p>';
+        echo '<p class="description">Delimična istorija ostaje delimična. Konflikt identiteta se rešava pojedinačno uz dokaz; tehnička greška može da se ponovi kroz odgovarajuću operaciju.</p>';
+        $sources=$wpdb->get_results($wpdb->prepare("SELECT source_type,source_fighter_id,source_url,is_verified,is_primary FROM {$t['fighter_sources']} WHERE fighter_id=%d ORDER BY id",$id),ARRAY_A);
+        echo '<h3>Source identities</h3><ul>';foreach($sources as $source){echo '<li>'.esc_html($source['source_type'].' · '.$source['source_fighter_id']).' · <a href="'.esc_url($source['source_url']).'" target="_blank" rel="noopener noreferrer">Source profile</a></li>';}echo '</ul>';
+        if(!empty($metadata['identity_conflict'])){echo '<div class="notice notice-error inline"><p>Identity conflict: this source is linked to another canonical fighter. Do not publish until the mapping is resolved.</p></div>';}
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT i.operation_id,i.status,i.reason_code,i.updated_at,j.action FROM {$o['items']} i JOIN {$o['jobs']} j ON j.id=i.operation_id WHERE i.fighter_id=%d ORDER BY i.operation_id DESC LIMIT 25",$id),ARRAY_A);
+        echo '<h3>Preparation and review results</h3><table class="widefat striped"><thead><tr><th>Operation</th><th>Result</th><th>Reason / next step</th><th>Checked</th></tr></thead><tbody>';
+        foreach($rows as $row){echo '<tr><td><a href="'.esc_url(admin_url('admin.php?page=mmaf-operations&operation_id='.$row['operation_id'])).'">#'.(int)$row['operation_id'].' '.esc_html(\MMAF\DataEngine\Services\Operations\Presentation::label($row['action'])).'</a></td><td>'.esc_html(\MMAF\DataEngine\Services\Operations\Presentation::label($row['status'])).'</td><td>'.esc_html(\MMAF\DataEngine\Services\Operations\Presentation::label($row['reason_code']??'')).'</td><td>'.esc_html(OperationsPage::date($row['updated_at'])).'</td></tr>';}
+        if(!$rows){echo '<tr><td colspan="4">No recorded operation results for this fighter.</td></tr>';}echo '</tbody></table>';
+        $imports=$wpdb->get_results($wpdb->prepare("SELECT import_job_id,evidence,observed_at FROM {$o['membership']} WHERE fighter_id=%d ORDER BY import_job_id DESC LIMIT 25",$id),ARRAY_A);
+        echo '<h3>Proven import membership</h3><ul>';foreach($imports as $import){echo '<li><a href="'.esc_url(admin_url('admin.php?page=mmaf-regular-import&job_id='.$import['import_job_id'])).'">Import #'.(int)$import['import_job_id'].'</a> · '.esc_html($import['evidence']).'</li>';}if(!$imports){echo '<li>Legacy / unknown import</li>';}echo '</ul>';
+        $review=\MMAF\DataEngine\Services\Operations\ReviewLinks::for_fighter($id,max(1,absint($_GET['paged']??1)));
+        echo '<h3>Saved review evidence</h3>';foreach($review as $item){echo '<details><summary>#'.(int)$item['id'].' '.esc_html($item['status'].' · '.$item['action_taken']).'</summary><pre style="white-space:pre-wrap">'.esc_html($item['notes']??'').'</pre></details>';}
+        if(!$review){echo '<p>No separate legacy review record matched by confirmed identity.</p>';}echo '</div>';
+    }
 
 	private static function tabs(): array {
 		return array(
@@ -341,7 +370,8 @@ final class ReviewPage {
 
 	private static function render_overview(): void {
 		$summary = self::summary();
-		$health  = HealthPage::collect();
+		$latest_import = (new \MMAF\DataEngine\Repositories\SourceImportRunRepository())->latest_import();
+		$latest_stats = (new \MMAF\DataEngine\Repositories\FighterStatsRepository())->get_last_rebuild_summary();
 		$audit   = ( new DataQualityReportService() )->latest_stored_summary();
 		?>
 		<h2><?php echo esc_html__( 'Overview', 'mma-future-data-engine' ); ?></h2>
@@ -352,10 +382,10 @@ final class ReviewPage {
 		<?php self::render_key_value_table( is_array( $audit ) ? $audit : array( 'status' => __( 'No stored post-import audit summary found.', 'mma-future-data-engine' ) ) ); ?>
 
 		<h2><?php echo esc_html__( 'Latest Actual Import Summary', 'mma-future-data-engine' ); ?></h2>
-		<?php self::render_key_value_table( $health['phase_10'] ); ?>
+		<?php self::render_key_value_table( is_array($latest_import)?$latest_import:['status'=>'Not recorded'] ); ?>
 
 		<h2><?php echo esc_html__( 'Latest Stats Rebuild Summary', 'mma-future-data-engine' ); ?></h2>
-		<?php self::render_key_value_table( $health['phase_5'] ); ?>
+		<?php self::render_key_value_table( is_array($latest_stats)?$latest_stats:['status'=>'Not recorded'] ); ?>
 		<?php
 	}
 
@@ -1007,7 +1037,7 @@ final class ReviewPage {
 		$tables = Schema::table_names();
 		$rows = array();
 
-		$duplicates = ( new FighterDuplicateAuditService() )->audit( 100 );
+		$duplicates = (array)get_option('mmaf_review_duplicates',[]);
 		foreach ( (array) ( $duplicates['review_candidates'] ?? array() ) as $candidate ) {
 			$item_key = 'likely_match:' . (int) $candidate['scraped_fighter_id'] . ':' . (int) $candidate['existing_fighter_id'];
 			if ( empty( $filters['show_closed'] ) && self::is_review_closed( $item_key ) ) {
@@ -1063,7 +1093,7 @@ final class ReviewPage {
 	}
 
 	private static function duplicate_rows( array $filters = array() ): array {
-		$duplicates = ( new FighterDuplicateAuditService() )->audit( 100 );
+		$duplicates = (array)get_option('mmaf_review_duplicates',[]);
 		$rows = array();
 		$seen = array();
 
@@ -1534,12 +1564,14 @@ final class ReviewPage {
 
 		if ( $existing_id > 0 ) {
 			$wpdb->update( $tables['review_items'], $row, array( 'id' => $existing_id ), null, array( '%d' ) );
+			\MMAF\DataEngine\Services\Operations\ReviewLinks::record($existing_id,$row);
 			return;
 		}
 
 		$row['created_by'] = get_current_user_id() > 0 ? get_current_user_id() : null;
 		$row['created_at'] = $now;
 		$wpdb->insert( $tables['review_items'], $row );
+		\MMAF\DataEngine\Services\Operations\ReviewLinks::record((int)$wpdb->insert_id,$row);
 	}
 
 	private static function update_import_item_review( int $item_id, string $status, string $action_taken, ?string $notes = null ): void {

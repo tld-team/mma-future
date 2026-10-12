@@ -29,77 +29,49 @@ final class FighterDuplicateAuditService {
 			ARRAY_A
 		);
 
-		$scraped = $wpdb->get_results(
-			"
-			SELECT DISTINCT
-				f.id,
-				f.display_name,
-				f.normalized_name,
-				f.nationality,
-				f.weight_class,
-				f.status,
-				f.is_public,
-				f.is_rankable,
-				fs.source_fighter_id
-			FROM {$tables['fighters']} f
-			INNER JOIN {$tables['fighter_sources']} fs ON fs.fighter_id = f.id AND fs.source_type = 'tapology'
-			WHERE f.deleted_soft = 0
-				AND f.status = 'provisional'
-			ORDER BY f.id ASC
-			", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			ARRAY_A
-		);
-
-		$existing = $wpdb->get_results(
-			"
-			SELECT
-				f.id,
-				f.display_name,
-				f.normalized_name,
-				f.nationality,
-				f.weight_class,
-				f.status,
-				f.is_public,
-				f.is_rankable,
-				MAX(CASE WHEN fs.source_type = 'tapology' THEN 1 ELSE 0 END) AS has_tapology_source
-			FROM {$tables['fighters']} f
-			LEFT JOIN {$tables['fighter_sources']} fs ON fs.fighter_id = f.id
-			WHERE f.deleted_soft = 0
-			GROUP BY f.id
-			HAVING has_tapology_source = 0
-			ORDER BY f.id ASC
-			", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			ARRAY_A
-		);
-
-		$candidates = array();
-		$total      = 0;
-
-		foreach ( $scraped as $scraped_fighter ) {
-			foreach ( $existing as $existing_fighter ) {
-				$match = $this->match_reason( $scraped_fighter, $existing_fighter );
-				if ( null === $match ) {
-					continue;
-				}
-
-				++$total;
-
-				if ( count( $candidates ) >= $limit ) {
-					continue;
-				}
-
-				$candidates[] = array(
-					'scraped_fighter_id'       => (int) $scraped_fighter['id'],
-					'scraped_display_name'     => (string) $scraped_fighter['display_name'],
-					'scraped_source_fighter_id'=> (string) ( $scraped_fighter['source_fighter_id'] ?? '' ),
-					'existing_fighter_id'      => (int) $existing_fighter['id'],
-					'existing_display_name'    => (string) $existing_fighter['display_name'],
-					'reason'                   => $match['reason'],
-					'confidence'               => $match['confidence'],
-					'action'                   => 'review manually later',
-				);
-			}
-		}
+        // Materialize normalized identity keys in bounded batches. The former nested
+        // PHP scan kept every fighter in memory and compared every pair.
+        $suffix=bin2hex(random_bytes(6));$scraped_table='mmaf_audit_scraped_'.$suffix;$existing_table='mmaf_audit_existing_'.$suffix;
+        $definition="(id bigint unsigned NOT NULL,display_name varchar(255) NOT NULL,normalized_key varchar(255) NULL,surname varchar(255) NULL,first_initial varchar(1) NULL,nationality varchar(191) NOT NULL,weight_class varchar(191) NOT NULL,source_fighter_id varchar(255) NOT NULL,KEY normalized_key(normalized_key),KEY surname(surname),KEY fighter_id(id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin";
+        $candidates=[];$total=0;
+        try{
+            foreach([$scraped_table,$existing_table] as $temp){\MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->query("CREATE TEMPORARY TABLE $temp $definition"));}
+            $cursor=0;$max=(int)$wpdb->get_var("SELECT MAX(id) FROM {$tables['fighters']}");
+            do{
+                $rows=$wpdb->get_results($wpdb->prepare("SELECT id,display_name,normalized_name,nationality,weight_class,status FROM {$tables['fighters']} WHERE id>%d AND id<=%d AND deleted_soft=0 ORDER BY id LIMIT 250",$cursor,$max),ARRAY_A);
+                if(!$rows){break;}
+                $ids=implode(',',array_map('intval',array_column($rows,'id')));$sources=[];
+                foreach($wpdb->get_results("SELECT DISTINCT fighter_id,source_fighter_id FROM {$tables['fighter_sources']} WHERE fighter_id IN ($ids) AND source_type='tapology'",ARRAY_A) as $source){$sources[(int)$source['fighter_id']][]=$source['source_fighter_id'];}
+                $scraped_rows=[];$existing_rows=[];
+                foreach($rows as $fighter){
+                    $cursor=(int)$fighter['id'];$tokens=$this->tokens((string)$fighter['display_name']);$name=$this->normalized_name($fighter);
+                    $row=['id'=>$cursor,'display_name'=>$fighter['display_name'],'normalized_key'=>$name===''?null:$name,'surname'=>count($tokens)>=2?end($tokens):null,'first_initial'=>$tokens?substr($tokens[0],0,1):null,'nationality'=>strtolower(trim((string)$fighter['nationality'])),'weight_class'=>strtolower(trim((string)$fighter['weight_class'])),'source_fighter_id'=>''];
+                    if(!isset($sources[$cursor])){$existing_rows[]=$row;}
+                    elseif($fighter['status']==='provisional'){foreach($sources[$cursor] as $source){$row['source_fighter_id']=(string)$source;$scraped_rows[]=$row;}}
+                }
+                \MMAF\DataEngine\Services\Operations\BulkWriter::insert($scraped_table,$scraped_rows);
+                \MMAF\DataEngine\Services\Operations\BulkWriter::insert($existing_table,$existing_rows);
+            }while(count($rows)===250);
+            $metadata="((s.nationality<>'' AND s.nationality=e.nationality)+(s.weight_class<>'' AND s.weight_class=e.weight_class))";
+            $same_name="s.normalized_key=e.normalized_key";
+            $surname_where="(s.first_initial=e.first_initial OR $metadata>=2) AND COALESCE($same_name,0)=0";
+            $exact_join="$scraped_table s JOIN $existing_table e ON $same_name";
+            $surname_join="$scraped_table s JOIN $existing_table e ON s.surname=e.surname WHERE $surname_where";
+            $total=(int)$wpdb->get_var("SELECT COUNT(*) FROM $exact_join")+(int)$wpdb->get_var("SELECT COUNT(*) FROM $surname_join");
+            $columns="s.id scraped_fighter_id,s.display_name scraped_display_name,s.source_fighter_id scraped_source_fighter_id,e.id existing_fighter_id,e.display_name existing_display_name,COALESCE($same_name,0) exact_match,(s.first_initial=e.first_initial) initial_match,$metadata metadata_matches";
+            // MySQL temporary tables cannot be reopened in a UNION. Merge two
+            // already bounded result pages; no complete candidate set enters PHP.
+            $rows=[];
+            foreach([$exact_join,$surname_join] as $join){
+                $page=$wpdb->get_results($wpdb->prepare("SELECT $columns FROM $join ORDER BY s.id,e.id,s.source_fighter_id LIMIT %d",$limit),ARRAY_A);
+                if($wpdb->last_error){throw new \RuntimeException('Duplicate audit query failed.');}$rows=array_merge($rows,$page);
+            }
+            usort($rows,static fn($a,$b)=>[(int)$a['scraped_fighter_id'],(int)$a['existing_fighter_id'],$a['scraped_source_fighter_id']]<=>[(int)$b['scraped_fighter_id'],(int)$b['existing_fighter_id'],$b['scraped_source_fighter_id']]);$rows=array_slice($rows,0,$limit);
+            foreach($rows as $row){
+                $exact=(bool)$row['exact_match'];$initial=(bool)$row['initial_match'];$metadata_matches=(int)$row['metadata_matches'];
+                $candidates[]=['scraped_fighter_id'=>(int)$row['scraped_fighter_id'],'scraped_display_name'=>$row['scraped_display_name'],'scraped_source_fighter_id'=>$row['scraped_source_fighter_id'],'existing_fighter_id'=>(int)$row['existing_fighter_id'],'existing_display_name'=>$row['existing_display_name'],'reason'=>$exact?'same normalized_name':($initial?($metadata_matches>0?'same surname, first initial, and shared nationality/weight class':'same surname and first initial'):'same surname, nationality, and weight class'),'confidence'=>$exact?'high':($initial && $metadata_matches>0?'medium':'low'),'action'=>'review manually later'];
+            }
+        }finally{foreach([$scraped_table,$existing_table] as $temp){$wpdb->query("DROP TEMPORARY TABLE IF EXISTS $temp");}}
 
 		return array(
 			'exact_normalized_name_groups_count' => count( $exact_groups ),

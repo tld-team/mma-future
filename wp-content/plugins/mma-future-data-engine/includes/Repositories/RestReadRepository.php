@@ -363,6 +363,7 @@ final class RestReadRepository {
 
 		return array(
 			'status' => $rankings_available ? 'ok' : 'degraded',
+            'release' => array_intersect_key((array)get_option('mmaf_release',[]),array_flip(['commit','sequence','checked_at'])),
 			'rankings_available' => $rankings_available,
 			'active_ranking_run_id' => $ranking_state['active_ranking_run_id'],
 			'latest_completed_ranking_run_id' => $ranking_state['latest_completed_run_id'],

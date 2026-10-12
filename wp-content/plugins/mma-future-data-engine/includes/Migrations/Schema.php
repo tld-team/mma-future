@@ -71,6 +71,8 @@ final class Schema {
 				PRIMARY KEY  (id),
 				KEY wp_post_id (wp_post_id),
 				KEY normalized_name (normalized_name),
+				KEY page_updated (updated_at, created_at, id),
+				KEY page_newest (created_at, id),
 				KEY status (status),
 				KEY rankability_status (rankability_status),
 				KEY is_rankable (is_rankable),
@@ -260,6 +262,7 @@ final class Schema {
 				PRIMARY KEY  (id),
 				KEY entity_lookup (entity_type, entity_id),
 				KEY entity_field_source (entity_type, entity_id, field_name, source_type),
+				KEY manual_protection (entity_type, entity_id, field_name, id, locked, source_type),
 				KEY field_name (field_name),
 				KEY source_type (source_type),
 				KEY locked (locked)

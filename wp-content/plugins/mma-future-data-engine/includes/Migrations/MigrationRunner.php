@@ -7,24 +7,57 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class MigrationRunner {
 	public static function run(): void {
+        // A verified runner already owns the writer barrier and canonical lock.
+        // Paused historical jobs must not prevent an additive release migration.
+        if(!(function_exists('mmaf_runner_owns_write_lock') && mmaf_runner_owns_write_lock())){
+            \MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
+        }
 		\MMAF\DataEngine\Services\RegularImport\Mutex::run(static function() { self::migrate(); });
 	}
 
 	private static function migrate(): void {
-		if (version_compare((string) get_option('mmaf_db_version','0'), MMAF_DB_VERSION, '>')) {
+		$installed = (string) get_option('mmaf_db_version', '0');
+		if (version_compare($installed, MMAF_DB_VERSION, '>')) {
 			throw new \RuntimeException('An older release cannot downgrade the installed database schema.');
 		}
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-
-		foreach ( array_merge( Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql() ) as $statement ) {
+		global $wpdb;
+		$statements = array_merge(Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql(), \MMAF\DataEngine\Services\Operations\Schema::sql());
+		foreach ( $statements as $statement ) {
 			dbDelta( $statement );
-			global $wpdb;
-			if ($wpdb->last_error) { throw new \RuntimeException('Schema migration failed: '.$wpdb->last_error); }
+			if ($wpdb->last_error) { throw new \RuntimeException('Schema migration failed: ' . $wpdb->last_error); }
 		}
 
 		self::run_safe_alters();
-
+		foreach ($statements as $statement) {
+			preg_match('/CREATE TABLE\s+(\w+)/i', $statement, $match);
+			$table = $match[1] ?? '';
+			if (!$table) { throw new \RuntimeException('Invalid schema statement.'); }
+			$columns = $wpdb->get_col("SHOW COLUMNS FROM `$table`", 0);
+			if ($wpdb->last_error || !$columns) { throw new \RuntimeException('Required schema table is unavailable: ' . $table); }
+			preg_match_all('/^\s*([a-z][a-z0-9_]*)\s+(?:bigint|int|tinyint|smallint|varchar|char|text|longtext|mediumtext|datetime|date|decimal|double|float|timestamp|enum)\b/im', $statement, $expected);
+			if (array_diff($expected[1], $columns)) { throw new \RuntimeException('Required schema columns are missing: ' . $table); }
+			if(in_array($table,\MMAF\DataEngine\Services\Operations\Schema::tables(),true) || in_array($table,[Schema::table_names()['fighters'],Schema::table_names()['field_provenance']],true)){
+				self::verify_operational_indexes($table,$statement);
+			}
+		}
 		update_option( 'mmaf_db_version', MMAF_DB_VERSION, false );
+	}
+
+	/** Check the indexes that make operation manifests and worker pages reliable. */
+	private static function verify_operational_indexes(string $table,string $statement): void {
+		global $wpdb;$actual=[];
+		foreach($wpdb->get_results("SHOW INDEX FROM `$table`",ARRAY_A) as $row){
+			$actual[$row['Key_name']]['columns'][(int)$row['Seq_in_index']]=$row['Column_name'];
+			$actual[$row['Key_name']]['unique']=(int)$row['Non_unique']===0;
+		}
+		if($wpdb->last_error){throw new \RuntimeException('Cannot verify operational indexes: '.$table);}
+		preg_match_all('/^\s*(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY)\s*(\w+)?\s*\(([^)]+)\)/im',$statement,$matches,PREG_SET_ORDER);
+		foreach($matches as $match){
+			$primary=stripos($match[1],'PRIMARY')===0;$name=$primary?'PRIMARY':$match[2];
+			$columns=array_map('trim',explode(',',$match[3]));$found=$actual[$name]??[];if(isset($found['columns'])){ksort($found['columns']);}
+			if(array_values($found['columns']??[])!==$columns || (($primary || stripos($match[1],'UNIQUE')===0) && empty($found['unique']))){throw new \RuntimeException('Required operational index is missing or incompatible: '.$table.'.'.$name);}
+		}
 	}
 
 	private static function run_safe_alters(): void {
@@ -254,9 +287,11 @@ final class MigrationRunner {
 
 		return null !== $found;
 	}
-	private static function query(string $sql): void {
+	private static function query(string $sql) {
 		global $wpdb;
-		$wpdb->query($sql);
-		if ($wpdb->last_error) { throw new \RuntimeException('Schema migration failed: '.$wpdb->last_error); }
+		$result = $wpdb->query($sql);
+		if (false === $result) { throw new \RuntimeException('Schema change failed: ' . $wpdb->last_error); }
+		return $result;
 	}
+
 }

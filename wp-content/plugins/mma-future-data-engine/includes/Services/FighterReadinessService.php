@@ -233,12 +233,19 @@ final class FighterReadinessService {
 		return $indexed;
 	}
 
-	public function process_bulk_action( string $action, array $fighter_ids, int $user_id ): array {
+	public function process_bulk_action( string $action, array $fighter_ids, int $user_id, bool $operation_worker=false ): array {
 		global $wpdb;
 		\MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 
-		$fighter_ids = $this->normalize_ids( $fighter_ids );
-		$result = array(
+        $fighter_ids = $this->normalize_ids( $fighter_ids );
+        if (in_array($action,\MMAF\DataEngine\Services\Operations\Jobs::PREPARE_ACTIONS,true) && !$operation_worker && $fighter_ids) {
+            $job=\MMAF\DataEngine\Services\Operations\Jobs::create($action,['mode'=>'ids','ids'=>$fighter_ids],$user_id,wp_generate_uuid4());
+            return ['action'=>$action,'selected_count'=>count($fighter_ids),'updated_count'=>0,'ready_count'=>0,'blocked_count'=>0,'skipped_count'=>0,'queued_count'=>count($fighter_ids),'operation_id'=>(int)$job['id'],'updated'=>[],'ready'=>[],'blocked'=>[],'skipped'=>[],'reason_counts'=>[],'message'=>'Frozen operation preview queued. Confirm its manifest before preparation.','next_step'=>'Review operation #'.$job['id'].'; fighters remain unpublished until preparation and validation pass.'];
+        }
+        if (in_array($action,\MMAF\DataEngine\Services\Operations\Jobs::PREPARE_ACTIONS,true) && $operation_worker) {
+            foreach($fighter_ids as $fighter_id){if(!\MMAF\DataEngine\Services\Operations\Authority::can_publish(\MMAF\DataEngine\Services\Operations\Jobs::$current,$fighter_id)){throw new \RuntimeException('A confirmed, prepared publication item is required.');}}
+        }
+        $result = array(
 			'action'         => $action,
 			'selected_count' => count( $fighter_ids ),
 			'updated_count'  => 0,
@@ -363,7 +370,7 @@ final class FighterReadinessService {
 				$result['updated'][] = $this->result_row( $item, array() );
 			}
 
-			\MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh($user_id,true);
+			if (!$operation_worker) { \MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh($user_id,true); }
 			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 		} catch ( \Throwable $error ) {
 			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
@@ -405,6 +412,15 @@ final class FighterReadinessService {
 				if ($reasons) { return $this->blocked($reasons); }
 				if ($fighter['status']==='verified' && (int)$fighter['is_public']===1 && (int)$fighter['is_rankable']===1 && $fighter['rankability_status']==='rankable') { return $this->skipped(['already_rankable']); }
 				return $this->update(['status'=>'verified','is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable']);
+			case 'prepare_publish_profile':
+                $prepared=$item;$prepared['fighter']=array_merge($fighter,['status'=>'verified']);
+                $reasons=$this->public_blockers($prepared);
+                if($reasons){return $this->blocked($reasons);}
+                if($fighter['status']==='verified' && (int)$fighter['is_public']===1){return $this->skipped(['already_public']);}
+                $values=['status'=>'verified','is_public'=>1];
+                if(!(int)$fighter['is_rankable'] && $fighter['rankability_status']==='not_public'){$values['rankability_status']='pending_review';}
+                return $this->update($values);
+
 			case 'validate_selected_for_ranking':
 				$preview = $this->bulk_decision( 'approve_and_prepare', $item );
 				return 'blocked' === $preview['status'] ? $preview : $this->ready( array( 'ready_for_rankable_promotion' ) );

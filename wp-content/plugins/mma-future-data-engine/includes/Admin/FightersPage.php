@@ -20,6 +20,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class FightersPage {
 	private const PAGE_SLUG = 'mmaf-fighters';
 
+	/** Bulk redirects must finish before WordPress sends the admin page header. */
+	public static function handle_bulk_request(): void {
+		if (($_SERVER['REQUEST_METHOD']??'')!=='POST' || ($_GET['page']??'')!==self::PAGE_SLUG || ($_POST['mmaf_action']??'')!=='bulk_readiness') { return; }
+		if (!current_user_can(Capabilities::MANAGE)) { wp_die('Access denied.','',['response'=>403]); }
+		$error=self::handle_bulk_post();
+		wp_die(esc_html($error['message']??'Operation preview could not be created.'),'Operation preview',['response'=>409,'back_link'=>true]);
+	}
+
 	public static function enqueue_assets(): void {
 		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
 
@@ -254,14 +262,10 @@ final class FightersPage {
 		$bulk_action = isset( $_POST['bulk_action'] ) ? sanitize_key( wp_unslash( $_POST['bulk_action'] ) ) : '';
 		$fighter_ids = isset( $_POST['fighter_ids'] ) && is_array( $_POST['fighter_ids'] ) ? array_map( 'absint', wp_unslash( $_POST['fighter_ids'] ) ) : array();
 
-		try {
-			$result = ( new FighterReadinessService() )->process_bulk_action( $bulk_action, $fighter_ids, get_current_user_id() );
-
-			return array(
-				'type'        => $result['blocked_count'] > 0 ? 'warning' : 'success',
-				'message'     => $result['message'],
-				'bulk_result' => $result,
-			);
+        try {
+            $selection=['mode'=>($_POST['selection_mode']??'')==='filtered'?'filtered':'ids','ids'=>$fighter_ids,'search'=>sanitize_text_field(wp_unslash($_GET['s']??'')),'filters'=>self::current_filters()];
+            $operation=\MMAF\DataEngine\Services\Operations\Jobs::create($bulk_action,$selection,get_current_user_id(),sanitize_text_field(wp_unslash($_POST['request_key']??'')));
+            wp_safe_redirect(admin_url('admin.php?page=mmaf-operations&operation_id='.(int)$operation['id']));exit;
 		} catch ( \Throwable $error ) {
 			return array(
 				'type'    => 'error',
@@ -271,114 +275,65 @@ final class FightersPage {
 	}
 
 	private static function render_list(): void {
-		$repository = new FighterRepository();
-		$search     = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
-		$filters    = self::current_filters();
-		$per_page   = self::current_per_page();
-		$paged      = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
-		$total      = $repository->count( $search, $filters );
-		$total_pages = max( 1, (int) ceil( $total / $per_page ) );
-		$paged      = min( $paged, $total_pages );
-		$offset     = ( $paged - 1 ) * $per_page;
-		$fighters   = $repository->list( $search, $per_page, $offset, $filters );
-		$readiness_service = new FighterReadinessService();
-		$readiness_report  = $readiness_service->report(null,false);
-		$table_readiness   = $readiness_service->evaluate_fighters_for_table( $fighters );
-		$prepared_data=\MMAF\DataEngine\Services\DataPipeline\Processor::metadata(array_column($fighters,'id'));
-		$query_filters     = array_merge( array( 's' => $search ), self::filter_query_args( $filters ) );
-		?>
-		<p><a href="<?php echo esc_url( self::page_url( array( 'fighter_status' => 'provisional', 'public_state' => 'not_public', 'readiness_issue' => 'provisional_tapology', 'sort' => 'newest', 'per_page' => 100 ) ) ); ?>"><?php echo esc_html__( 'Review new import candidates', 'mma-future-data-engine' ); ?></a></p>
-		<form method="get" style="margin: 16px 0;">
-			<input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE_SLUG ); ?>">
-			<label class="screen-reader-text" for="mmaf-fighter-search"><?php echo esc_html__( 'Search fighters', 'mma-future-data-engine' ); ?></label>
-			<input id="mmaf-fighter-search" type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="<?php echo esc_attr__( 'Search display name', 'mma-future-data-engine' ); ?>">
-			<?php self::render_fighter_filters( $filters ); ?>
-			<?php self::render_per_page_select( $per_page ); ?>
-			<?php submit_button( __( 'Filter', 'mma-future-data-engine' ), 'secondary', '', false ); ?>
-		</form>
-
-		<?php self::render_readiness_report( $readiness_report, $readiness_service ); ?>
-
-		<?php self::render_pagination( $total, $paged, $per_page, $query_filters ); ?>
-
-		<form method="post" action="<?php echo esc_url( self::page_url( array_merge( $query_filters, array( 'per_page' => $per_page, 'paged' => $paged ) ) ) ); ?>">
-			<?php wp_nonce_field( 'mmaf_fighter_bulk_action', 'mmaf_fighter_bulk_nonce' ); ?>
-			<input type="hidden" name="mmaf_action" value="bulk_readiness">
-			<?php self::render_bulk_controls( 'top' ); ?>
-		<table class="widefat striped">
-			<thead>
-				<tr>
-					<th><input type="checkbox" id="mmaf-select-all-fighters" aria-label="<?php echo esc_attr__( 'Select all fighters on this page', 'mma-future-data-engine' ); ?>"></th>
-					<th><?php echo esc_html__( 'ID', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Display name', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Nickname', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Status', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Rankability status', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Public', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Rankable', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Tapology', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'DOB / Birth year', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Weight class', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Stats', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Stored source / preparation', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Last fight', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Approval preview', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Blockers', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'WP post', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Created at', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Updated at', 'mma-future-data-engine' ); ?></th>
-					<th><?php echo esc_html__( 'Actions', 'mma-future-data-engine' ); ?></th>
-				</tr>
-			</thead>
-			<tbody>
-				<?php if ( empty( $fighters ) ) : ?>
-					<tr><td colspan="20"><?php echo esc_html__( 'No canonical fighters found.', 'mma-future-data-engine' ); ?></td></tr>
-				<?php endif; ?>
-				<?php foreach ( $fighters as $fighter ) : ?>
-					<?php $post = ! empty( $fighter['wp_post_id'] ) ? get_post( (int) $fighter['wp_post_id'] ) : null; ?>
-					<?php $readiness = $table_readiness[ (int) $fighter['id'] ] ?? null; ?>
-					<tr>
-						<td><input type="checkbox" class="mmaf-fighter-row-checkbox" name="fighter_ids[]" value="<?php echo esc_attr( (string) $fighter['id'] ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Select %s', 'mma-future-data-engine' ), $fighter['display_name'] ) ); ?>"></td>
-						<td><?php echo esc_html( (string) $fighter['id'] ); ?></td>
-						<td><strong><?php echo esc_html( $fighter['display_name'] ); ?></strong></td>
-						<td><?php echo esc_html( (string) ( $fighter['nickname'] ?? '' ) ); ?></td>
-						<td><?php self::render_badge( (string) $fighter['status'], 'verified' === (string) $fighter['status'] ? 'good' : 'warn' ); ?></td>
-						<td><?php self::render_badge( (string) $fighter['rankability_status'], 'rankable' === (string) $fighter['rankability_status'] ? 'good' : 'warn' ); ?></td>
-						<td><?php self::render_badge( self::yes_no( $fighter['is_public'] ), (int) $fighter['is_public'] ? 'good' : 'warn' ); ?></td>
-						<td><?php self::render_badge( self::yes_no( $fighter['is_rankable'] ), (int) $fighter['is_rankable'] ? 'good' : 'warn' ); ?></td>
-						<td><?php self::render_badge( $readiness && $readiness['has_tapology_source'] ? __( 'Present', 'mma-future-data-engine' ) : __( 'Missing', 'mma-future-data-engine' ), $readiness && $readiness['has_tapology_source'] ? 'good' : 'bad' ); ?></td>
-						<td><?php echo esc_html( self::empty_marker( trim( (string) $fighter['date_of_birth'] . ' / ' . (string) $fighter['birth_year'], ' /' ) ) ); ?></td>
-						<td><?php echo esc_html( self::empty_marker( (string) $fighter['weight_class'] ) ); ?></td>
-						<td><?php self::render_badge( $readiness && $readiness['has_stats'] ? __( 'Present', 'mma-future-data-engine' ) : __( 'Missing', 'mma-future-data-engine' ), $readiness && $readiness['has_stats'] ? 'good' : 'bad' ); ?></td>
-						<td><?php
-							$prepared=$prepared_data[(int)$fighter['id']]??[];
-							if ((int)($prepared['source_count']??0)>1) { echo esc_html__('Source identity needs review','mma-future-data-engine'); }
-							elseif (!empty($prepared['source_fetched_at'])) { echo esc_html(get_date_from_gmt($prepared['source_fetched_at'],'Y-m-d H:i')); }
-							else { echo esc_html__('No dated stored source','mma-future-data-engine'); }
-							if (!empty($prepared['preparation_status']) || !empty($prepared['coverage_status'])) { echo '<br>'.esc_html(trim(($prepared['preparation_status']??'').' / '.($prepared['coverage_status']??''),' /')); }
-							if (!empty($prepared['last_attempt_status']) && $prepared['last_attempt_status']!=='success') { echo '<br><small>'.esc_html('Latest source attempt: '.$prepared['last_attempt_status']).'</small>'; }
-							if (!empty($prepared['error_message']) || !empty($prepared['coverage_reason'])) { echo '<br><small>'.esc_html($prepared['error_message']?:$prepared['coverage_reason']).'</small>'; }
-						?></td>
-						<td><?php echo esc_html( $readiness && $readiness['has_last_fight'] ? (string) $readiness['stats']['last_fight_date'] : '-' ); ?></td>
-						<td><?php self::render_badge( $readiness && empty( $readiness['approval_blocker_codes'] ) ? __( 'Ready', 'mma-future-data-engine' ) : __( 'Blocked', 'mma-future-data-engine' ), $readiness && empty( $readiness['approval_blocker_codes'] ) ? 'good' : 'bad' ); ?></td>
-						<td><?php echo esc_html( $readiness ? (string) $readiness['approval_blocker_summary'] : '-' ); ?></td>
-						<td><?php self::render_post_link( $post ); ?></td>
-						<td><?php echo esc_html( (string) $fighter['created_at'] ); ?></td>
-						<td><?php echo esc_html( (string) $fighter['updated_at'] ); ?></td>
-						<td>
-							<a href="<?php echo esc_url( self::page_url( array( 'action' => 'edit', 'fighter_id' => (int) $fighter['id'] ) ) ); ?>"><?php echo esc_html__( 'Edit', 'mma-future-data-engine' ); ?></a>
-							<?php if ( $post instanceof \WP_Post ) : ?>
-								| <a href="<?php echo esc_url( get_permalink( $post ) ); ?>"><?php echo esc_html__( 'View WP post', 'mma-future-data-engine' ); ?></a>
-							<?php endif; ?>
-						</td>
-					</tr>
-				<?php endforeach; ?>
-			</tbody>
-		</table>
-		</form>
-		<?php self::render_pagination( $total, $paged, $per_page, $query_filters ); ?>
-		<?php
-	}
+        $repository=new FighterRepository(); $search=sanitize_text_field(wp_unslash($_GET['s']??'')); $filters=self::current_filters();
+        $per_page=self::current_per_page(); $total=$repository->count($search,$filters); $paged=min(max(1,absint($_GET['paged']??1)),max(1,(int)ceil($total/$per_page)));
+        $fighters=$repository->list($search,$per_page,($paged-1)*$per_page,$filters);$ids=array_column($fighters,'id');
+        $projection=\MMAF\DataEngine\Services\Operations\Readiness::read($ids);
+        $records=(new FighterStatsRepository())->records_for_fighters($ids);
+        $metadata=\MMAF\DataEngine\Services\DataPipeline\Processor::metadata($ids);
+        $membership=\MMAF\DataEngine\Services\Operations\Membership::for_page($ids);
+        $query_filters=array_merge(['s'=>$search],self::filter_query_args($filters));
+        $latest=\MMAF\DataEngine\Services\Operations\Membership::latest();
+        echo '<nav class="subsubsub" style="float:none;margin-bottom:12px">';
+        foreach(['Latest import'=>['import_job'=>$latest],'Ready for preparation'=>['preparation'=>'ready'],'Preparing'=>['preparation'=>'preparing'],'Needs review'=>['preparation'=>'review'],'Failed'=>['preparation'=>'failed'],'Public'=>['public_state'=>'public'],'Rankable'=>['rankable_state'=>'rankable']] as $label=>$args){echo '<a style="margin-right:16px" href="'.esc_url(self::page_url($args)).'">'.esc_html($label).'</a>';}
+        echo '</nav>';
+        ?>
+        <form method="get" style="margin:16px 0">
+            <input type="hidden" name="page" value="mmaf-fighters">
+            <label class="screen-reader-text" for="mmaf-fighter-search">Name or canonical ID</label>
+            <input id="mmaf-fighter-search" type="search" name="s" value="<?php echo esc_attr($search); ?>" placeholder="Name or #ID">
+            <?php self::render_fighter_filters($filters);self::render_per_page_select($per_page);submit_button('Filter','secondary','',false); ?>
+        </form>
+        <p class="description">Readiness is checked in the background. A dated, stale or missing check never substitutes for the final live validation. <a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-operations')); ?>">Operations and results</a></p>
+        <?php self::render_pagination($total,$paged,$per_page,$query_filters); ?>
+        <form method="post" action="<?php echo esc_url(self::page_url(array_merge($query_filters,['per_page'=>$per_page,'paged'=>$paged]))); ?>">
+            <?php wp_nonce_field('mmaf_fighter_bulk_action','mmaf_fighter_bulk_nonce'); ?>
+            <input type="hidden" name="mmaf_action" value="bulk_readiness">
+            <input type="hidden" name="request_key" value="<?php echo esc_attr(wp_generate_uuid4()); ?>">
+            <?php self::render_bulk_controls('top'); ?>
+            <p><label><input type="checkbox" name="selection_mode" value="filtered"> Select all <?php echo esc_html(number_format_i18n($total)); ?> matching fighters across every page</label></p>
+            <table class="widefat striped">
+                <thead><tr><th><input type="checkbox" id="mmaf-select-all-fighters" aria-label="Select displayed page"></th><th>Fighter</th><th>Status</th><th>Division</th><th>Record</th><th>Preparation / career</th><th>Blockers</th><th>Import series</th><th>Details</th></tr></thead>
+                <tbody>
+                <?php if(!$fighters){echo '<tr><td colspan="9">No matching fighters.</td></tr>';} ?>
+                <?php foreach($fighters as $fighter): $id=(int)$fighter['id'];$check=$projection[$id]??[];$meta=$metadata[$id]??[];
+                    $stats=$records[$id]??null;
+                    $state=['pending'=>'Preparing','completed'=>'Prepared','review'=>'Needs review','failed'=>'Failed'][$meta['preparation_status']??'']
+                        ?? ['ready'=>'Ready for preparation','preparing'=>'Preparing','review'=>'Needs review','failed'=>'Failed'][$check['preparation']['state']??''] ?? 'Not checked';
+                    $reason=$check['preparation']['reason']??'';
+                    $live=\MMAF\DataEngine\Services\Operations\Readiness::decision($fighter,$meta);
+                    if(in_array($live['state'],['review','failed','preparing'],true)){$state=['review'=>'Needs review','failed'=>'Failed','preparing'=>'Preparing'][$live['state']];$reason=$live['reason']??'';}
+                    if(!empty($meta['identity_conflict'])){$state='Needs review';$reason='identity_conflict';}
+                    if($reason){$reason=\MMAF\DataEngine\Services\Operations\Presentation::label($reason);}
+                    $import=$membership[$id]??0;
+                ?>
+                    <tr>
+                        <td><input class="mmaf-fighter-row-checkbox" type="checkbox" name="fighter_ids[]" value="<?php echo esc_attr($id); ?>" aria-label="<?php echo esc_attr('Select '.$fighter['display_name']); ?>"></td>
+                        <td><strong><a href="<?php echo esc_url(self::page_url(['action'=>'edit','fighter_id'=>$id])); ?>"><?php echo esc_html($fighter['display_name']); ?></a></strong><br><small>#<?php echo esc_html($id); ?></small></td>
+                        <td><?php echo esc_html($fighter['status'].' / '.$fighter['rankability_status']); ?><br><?php echo esc_html(($fighter['is_public']?'Public':'Private').' / '.($fighter['is_rankable']?'Ranking approved':'Ranking not approved')); ?><br><small><?php echo esc_html(empty($meta['active_board_count'])?'Not in active ranking':'Active ranking #'.$meta['active_ranking_run_id'].' · '.$meta['active_board_count'].' boards'); ?></small></td>
+                        <td><?php echo esc_html(trim(($fighter['gender']??'').' / '.($fighter['weight_class']??''),' /')?:'Unknown'); ?></td>
+                        <td><?php echo esc_html($stats?self::record_summary($stats):'Not checked'); ?></td>
+                        <td><?php echo esc_html($state.' / '.($meta['coverage_status']??'Unknown')); ?><br><small><?php echo esc_html($check['checked_at']??'Waiting for background check'); ?><?php if(!empty($check['stale'])){echo ' · stale';} ?></small></td>
+                        <td><?php echo esc_html($reason?:($meta['coverage_reason']??'')); ?><br><small><?php echo esc_html($check['approval_blocker_summary']??''); ?></small></td>
+                        <td><?php if($import): ?><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-regular-import&job_id='.$import)); ?>">Import #<?php echo esc_html($import); ?></a><?php else: ?>Legacy / unknown import<?php endif; ?></td>
+                        <td><details><summary>Technical details</summary><p><?php echo esc_html('DOB / year: '.($fighter['date_of_birth']??'').' / '.($fighter['birth_year']??'')); ?></p><p><?php echo esc_html('Last successful profile: '.($meta['source_fetched_at']??'Unknown')); ?></p><p><?php echo esc_html('Last attempt: '.($meta['last_attempt_at']??'Unknown').' · '.($meta['last_attempt_status']??'Unknown')); ?></p><p><?php echo esc_html('Updated: '.($fighter['updated_at']??'')); ?></p><?php self::render_post_link(!empty($fighter['wp_post_id'])?get_post((int)$fighter['wp_post_id']):null); ?><p><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-review&fighter_id='.$id)); ?>">Review evidence</a></p></details></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </form>
+        <?php self::render_pagination($total,$paged,$per_page,$query_filters);
+    }
 
 	private static function render_readiness_report( array $report, FighterReadinessService $readiness_service ): void {
 		$counts = $report['counts'] ?? array();
@@ -474,17 +429,17 @@ final class FightersPage {
 					<option value="approve_and_prepare"><?php echo esc_html__( 'Approve & prepare (verified, public, rankable)', 'mma-future-data-engine' ); ?></option>
 					<option value="validate_selected_for_ranking"><?php echo esc_html__( 'Check selected without changes', 'mma-future-data-engine' ); ?></option>
 					<option value="mark_verified"><?php echo esc_html__( 'Mark as verified', 'mma-future-data-engine' ); ?></option>
-					<option value="mark_public"><?php echo esc_html__( 'Mark as public', 'mma-future-data-engine' ); ?></option>
+					<option value="prepare_publish_profile">Prepare &amp; publish profile</option><option value="mark_public"><?php echo esc_html__( 'Mark as public', 'mma-future-data-engine' ); ?></option>
 					<option value="mark_not_public"><?php echo esc_html__( 'Mark as not public', 'mma-future-data-engine' ); ?></option>
 					<option value="mark_rankable"><?php echo esc_html__( 'Mark as rankable', 'mma-future-data-engine' ); ?></option>
 					<option value="mark_not_rankable"><?php echo esc_html__( 'Mark as not rankable', 'mma-future-data-engine' ); ?></option>
 					<option value="move_to_provisional"><?php echo esc_html__( 'Move to provisional / pending review', 'mma-future-data-engine' ); ?></option>
 				</select>
-				<?php submit_button( __( 'Apply to selected', 'mma-future-data-engine' ), 'action mmaf-apply-fighters', '', false ); ?>
-				<span id="mmaf-selected-count" role="status" aria-live="polite" data-label="<?php echo esc_attr__( '%d selected on this page', 'mma-future-data-engine' ); ?>"></span>
+				<?php submit_button( __( 'Prepare operation preview', 'mma-future-data-engine' ), 'action mmaf-apply-fighters', '', false ); ?>
+				<span id="mmaf-selected-count" role="status" aria-live="polite" data-label="<?php echo esc_attr__( '%d selected on this page', 'mma-future-data-engine' ); ?>" data-filtered-label="<?php echo esc_attr__( 'All matching fighters selected', 'mma-future-data-engine' ); ?>"></span>
 			</div>
 			<br class="clear">
-			<p class="description"><?php echo esc_html__( 'Select up to 100 reviewed candidates on this page. Approve & prepare combines verification, public profile publication and ranking approval; stored history, statistics and one draft are then prepared in the background. Missing data and eligibility conflicts remain blocked. Activate the resulting ranking separately.', 'mma-future-data-engine' ); ?></p>
+			<p class="description"><?php echo esc_html__( 'Choose this page or all matching results. A frozen manifest is previewed in the background, then explicitly confirmed. New fighters are prepared before publication. The resulting ranking draft remains inactive.', 'mma-future-data-engine' ); ?></p>
 		</div>
 		<?php
 	}
@@ -579,7 +534,7 @@ final class FightersPage {
 			<?php self::render_fighter_stats_dashboard( $fighter_id ); ?>
 		<?php endif; ?>
 
-		<form method="post" action="<?php echo esc_url( self::page_url( $is_edit ? array( 'action' => 'edit', 'fighter_id' => $fighter_id ) : array( 'action' => 'new' ) ) ); ?>">
+		<form data-mmaf-facts-form method="post" action="<?php echo esc_url( self::page_url( $is_edit ? array( 'action' => 'edit', 'fighter_id' => $fighter_id ) : array( 'action' => 'new' ) ) ); ?>">
 			<?php wp_nonce_field( 'mmaf_save_fighter', 'mmaf_fighter_nonce' ); ?>
 			<input type="hidden" name="mmaf_action" value="<?php echo esc_attr( $is_edit ? 'update' : 'create' ); ?>">
 			<input type="hidden" name="fighter_id" value="<?php echo esc_attr( (string) $fighter_id ); ?>">
@@ -616,18 +571,11 @@ final class FightersPage {
 			<?php self::close_section(); ?>
 
 			<?php self::open_section( __( 'Ranking/publication status', 'mma-future-data-engine' ) ); ?>
-				<p><?php echo esc_html__( 'Final age, inactivity, fight-count, UFC, and loss-limit eligibility will be enforced by the ranking/eligibility engine later. This admin form only stores current manual flags and guardrails.', 'mma-future-data-engine' ); ?></p>
-				<p><?php echo esc_html__( 'Ranking exclusion is not deletion: ineligible fighters stay in mmaf_fighters with source mappings, aliases, audit/provenance history, and linked WP posts unless an admin explicitly hides or unpublishes them. deleted_soft is only for true removal/hiding cases, not normal ranking ineligibility.', 'mma-future-data-engine' ); ?></p>
-				<table class="form-table" role="presentation">
-					<tbody>
-						<?php self::select_row( 'status', __( 'Status', 'mma-future-data-engine' ), $fighter['status'], Sanitizer::FIGHTER_STATUSES, self::status_help_text() ); ?>
-						<?php self::select_row( 'rankability_status', __( 'Rankability status', 'mma-future-data-engine' ), $fighter['rankability_status'], Sanitizer::RANKABILITY_STATUSES, self::rankability_status_help_text() ); ?>
-						<?php self::checkbox_row( 'is_public', __( 'Public', 'mma-future-data-engine' ), $fighter['is_public'], __( 'Controls whether the linked WP fighter profile post is published.', 'mma-future-data-engine' ) ); ?>
-						<?php self::checkbox_row( 'is_rankable', __( 'Rankable', 'mma-future-data-engine' ), $fighter['is_rankable'], __( 'Controls whether the fighter may appear in ranking outputs.', 'mma-future-data-engine' ) ); ?>
-						<?php self::checkbox_row( 'in_ufc', __( 'In UFC', 'mma-future-data-engine' ), $fighter['in_ufc'], __( 'Marks fighter as UFC roster/ineligible for MMA Future prospect rankings.', 'mma-future-data-engine' ) ); ?>
-						<?php self::checkbox_row( 'deleted_soft', __( 'Deleted soft', 'mma-future-data-engine' ), $fighter['deleted_soft'], __( 'Use only for true removal or hiding cases, not ordinary ranking ineligibility.', 'mma-future-data-engine' ) ); ?>
-					</tbody>
-				</table>
+                <p class="description">Save čuva činjenice. Odobravanje, objava i ranking status menjaju se kroz zasebne operacije posle pripreme.</p>
+                <p><strong>Approval:</strong> <?php echo esc_html($fighter['status']); ?> · <strong>Visibility:</strong> <?php echo esc_html($fighter['is_public']?'Public':'Private'); ?> · <strong>Ranking permission:</strong> <?php echo esc_html($fighter['is_rankable']?'Approved':'Not approved'); ?> · <?php echo esc_html($fighter['rankability_status']); ?></p>
+                <table class="form-table"><tbody>
+                    <?php self::checkbox_row('in_ufc','In UFC',$fighter['in_ufc'],'Činjenica za proveru podobnosti; ne objavljuje profil.'); ?>
+                </tbody></table>
 			<?php self::close_section(); ?>
 
 			<?php self::open_section( __( 'External source profile', 'mma-future-data-engine' ) ); ?>
@@ -664,10 +612,26 @@ final class FightersPage {
 				</table>
 			<?php self::close_section(); ?>
 
-			<?php submit_button( $is_edit ? __( 'Update Fighter', 'mma-future-data-engine' ) : __( 'Create Fighter', 'mma-future-data-engine' ) ); ?>
+            <details><summary>Confirm selected facts</summary><p>Označi samo činjenice koje si izričito proverio. Neizmenjena polja ne dobijaju novu ručnu zaštitu običnim Save-om.</p>
+                <?php foreach (FighterService::FACT_FIELDS as $field): ?>
+                    <label style="display:block"><input type="checkbox" name="confirm_fact_fields[]" value="<?php echo esc_attr($field); ?>"> <?php echo esc_html(ucwords(str_replace('_',' ',$field)).': '.($fighter[$field] ?? 'Unknown')); ?></label>
+                <?php endforeach; ?>
+            </details>
+			<?php submit_button( $is_edit ? __( 'Save facts and confirmations', 'mma-future-data-engine' ) : __( 'Create Fighter', 'mma-future-data-engine' ) ); ?>
 		</form>
+        <?php if($is_edit): self::render_single_operations($fighter_id); endif; ?>
 		<?php
 	}
+
+    private static function render_single_operations(int $id): void {
+        echo '<section><h2>Approval and publication</h2><p>Operacije koriste sačuvane podatke. Prvo sačuvaj izmene, zatim pregledaj i potvrdi obuhvat.</p><p data-mmaf-unsaved-notice hidden role="status">Save changes first</p>';
+        foreach(['approve_and_prepare'=>'Approve & prepare','prepare_publish_profile'=>'Prepare & publish profile','mark_verified'=>'Prepare verified status','mark_not_public'=>'Hide public profile','mark_not_rankable'=>'Remove ranking permission','move_to_provisional'=>'Return to provisional'] as $action=>$label){
+            echo '<form data-mmaf-single-operation method="post" style="display:inline-block;margin:0 8px 8px 0" action="'.esc_url(self::page_url(['action'=>'edit','fighter_id'=>$id])).'">';
+            wp_nonce_field('mmaf_fighter_bulk_action','mmaf_fighter_bulk_nonce');
+            echo '<input type="hidden" name="mmaf_action" value="bulk_readiness"><input type="hidden" name="bulk_action" value="'.esc_attr($action).'"><input type="hidden" name="request_key" value="'.esc_attr(wp_generate_uuid4()).'"><input type="hidden" name="fighter_ids[]" value="'.$id.'"><button class="button">'.esc_html($label).'</button></form>';
+        }
+        echo '</section>';
+    }
 
 	private static function render_fighter_stats_dashboard( int $fighter_id ): void {
 		$stats_repository = new FighterStatsRepository();
@@ -759,7 +723,7 @@ final class FightersPage {
 				<tbody>
 					<tr>
 						<th><?php echo esc_html__( 'Eligibility preview', 'mma-future-data-engine' ); ?></th>
-						<td><?php self::render_badge( $readiness && 'ready' === (string) $readiness['eligibility_preview'] ? __( 'Ready', 'mma-future-data-engine' ) : __( 'Blocked', 'mma-future-data-engine' ), $readiness && 'ready' === (string) $readiness['eligibility_preview'] ? 'good' : 'bad' ); ?></td>
+						<td><?php self::render_badge( $readiness && 'ready' === (string) $readiness['eligibility_preview'] ? __( 'Currently eligible', 'mma-future-data-engine' ) : __( 'Currently ineligible', 'mma-future-data-engine' ), $readiness && 'ready' === (string) $readiness['eligibility_preview'] ? 'good' : 'bad' ); ?></td>
 						<th><?php echo esc_html__( 'Readiness bucket / score', 'mma-future-data-engine' ); ?></th>
 						<td><?php echo esc_html( $readiness ? (string) $readiness['readiness_bucket'] . ' / ' . (string) $readiness['readiness_score'] : '-' ); ?></td>
 					</tr>
@@ -1139,6 +1103,12 @@ final class FightersPage {
 		}
 
 		return array(
+			'import_job' => sanitize_text_field(wp_unslash($_GET['import_job']??'')),
+            'preparation' => sanitize_key(wp_unslash($_GET['preparation']??'')),
+            'reason' => sanitize_key(wp_unslash($_GET['reason']??'')),
+            'coverage' => sanitize_key(wp_unslash($_GET['coverage']??'')),
+            'gender' => sanitize_key(wp_unslash($_GET['gender']??'')),
+            'weight_class' => sanitize_text_field(wp_unslash($_GET['weight_class']??'')),
 			'status'             => $status,
 			'rankability_status' => $rankability_status,
 			'public_state'       => $public_state,
@@ -1152,6 +1122,7 @@ final class FightersPage {
 		$args = array();
 		foreach (
 			array(
+				'import_job'=>'import_job','preparation'=>'preparation','reason'=>'reason','coverage'=>'coverage','gender'=>'gender','weight_class'=>'weight_class',
 				'status'             => 'fighter_status',
 				'rankability_status' => 'rankability_status',
 				'public_state'       => 'public_state',
@@ -1169,6 +1140,15 @@ final class FightersPage {
 	}
 
 	private static function render_fighter_filters( array $filters ): void {
+        global $wpdb;$table=\MMAF\DataEngine\Services\Operations\Schema::tables()['membership'];$imports=['legacy'=>'Legacy / unknown import'];
+        foreach($wpdb->get_col("SELECT DISTINCT import_job_id FROM $table ORDER BY import_job_id DESC LIMIT 100") as $id){$imports[(string)$id]='Import #'.$id;}
+        self::filter_select('import_job','Import series',(string)($filters['import_job']??''),$imports);
+        self::filter_select('preparation','Preparation',(string)($filters['preparation']??''),['ready'=>'Ready for preparation','preparing'=>'Preparing','review'=>'Needs review','failed'=>'Failed']);
+        self::filter_select('coverage','Career coverage',(string)($filters['coverage']??''),['complete'=>'Complete','partial'=>'Partial','conflict'=>'Conflict','unavailable'=>'Unavailable']);
+        self::filter_select('gender','Gender',(string)($filters['gender']??''),['male'=>'Men','female'=>'Women','unknown'=>'Unknown']);
+        self::filter_select('reason','Reason',(string)($filters['reason']??''),['identity_conflict'=>'Identity conflict','stored_profile_missing'=>'No stored profile','excluded_identity'=>'Excluded identity','technical_failure'=>'Technical failure']);
+        echo '<label>Division <input type="text" name="weight_class" value="'.esc_attr($filters['weight_class']??'').'" size="12"></label> ';
+
 		self::filter_select( 'sort', __( 'Order', 'mma-future-data-engine' ), (string) ( $filters['sort'] ?? '' ), array( 'newest' => __( 'Newest imported first', 'mma-future-data-engine' ) ) );
 		self::filter_select( 'fighter_status', __( 'Status', 'mma-future-data-engine' ), (string) ( $filters['status'] ?? '' ), Sanitizer::FIGHTER_STATUSES );
 		self::filter_select( 'rankability_status', __( 'Rankability', 'mma-future-data-engine' ), (string) ( $filters['rankability_status'] ?? '' ), Sanitizer::RANKABILITY_STATUSES );
