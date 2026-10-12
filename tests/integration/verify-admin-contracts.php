@@ -32,6 +32,9 @@ try{
     admin_assert(!isset($removeArgs['fighter_status'],$removeArgs['paged']) && $removeArgs['s']==='Admin identity fixture A' && $removeArgs['import_job']==='987654321' && $removeArgs['per_page']==='25','removing one filter preserves the other filters and page size while resetting pagination');
     $clear=$xpath->query('//a[@class="mmaf-clear-filters"]')->item(0);parse_str(parse_url(html_entity_decode($clear->getAttribute('href')),PHP_URL_QUERY),$clearArgs);
     admin_assert($clearArgs===['page'=>'mmaf-fighters','per_page'=>'25'] && $xpath->query('//input[@name="mmaf_fighter_bulk_nonce"]')->length===1,'clear filters preserves page size and the native bulk form retains its security token');
+    Repository::check($wpdb->replace($o['readiness'],['fighter_id'=>$a,'preparation_state'=>'review','reason_code'=>'identity_conflict','input_hash'=>str_repeat('0',64),'data_revision'=>'fixture','rules_version'=>Readiness::rules(),'checked_at'=>gmdate('Y-m-d H:i:s'),'expires_at'=>gmdate('Y-m-d H:i:s',time()+3600),'dirty'=>0,'projection_json'=>wp_json_encode(['approval_blocker_codes'=>[],'approval_blocker_summary'=>'Ready'])]));
+    $_GET=['s'=>'Admin identity fixture A'];try{ob_start();$render->invoke(null);$readyHtml=ob_get_clean();}finally{$_GET=$savedGet;}
+    admin_assert(!str_contains($readyHtml,'<summary>Ranking checks</summary>') && str_contains($readyHtml,'Identity conflict'),'the Ready summary is not presented as a ranking blocker while actual identity conflicts stay visible');
     Jobs::work(10);$job=Jobs::get((int)$job['id']);
     admin_assert($job['status']==='ready' && (int)$job['summary']['review']===1 && (int)$job['summary']['ranking_blocked']===1,'preview keeps source readiness separate from current ranking blockers');
     ob_start();MMAF\DataEngine\Admin\OperationsPage::progress($job,Jobs::items((int)$job['id']));$progress=ob_get_clean();
