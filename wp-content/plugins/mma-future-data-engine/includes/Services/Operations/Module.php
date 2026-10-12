@@ -56,6 +56,7 @@ final class Module {
             if(empty($result['worked'])){$result=Calculation::work();}
             if(empty($result['worked'])){$result=FactProtectionReport::work();}
             $result['readiness_refreshed']=Readiness::work(250);
+            $result['worked']=!empty($result['worked']) || $result['readiness_refreshed']>0;
             $result['cache_retry']=\MMAF\DataEngine\Services\PublicCacheService::retry_invalidation();
             $progress=(array)get_option('mmaf_membership_backfill',[]);
             if(empty($progress['done'])){$progress=Membership::backfill((int)($progress['cursor']??0));update_option('mmaf_membership_backfill',$progress,false);}
