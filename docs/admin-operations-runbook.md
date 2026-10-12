@@ -21,6 +21,14 @@ A failed first fetch means **Stored profile unavailable**. A later failed attemp
 
 **Operations → Review existing fact protections** creates a paginated background evidence report. It compares existing protected facts with available saved evidence and field audits. Unknown intent stays unknown. The report never unlocks facts, modifies fighters or starts a ranking calculation. Its read failures retry at one/five minutes, then stop after three attempts.
 
+## Ranking review
+
+**MMA Future → Rankings** separates the live ranking from the latest calculation. **Ranking run**, **Category** and **Per page** choose a saved snapshot; selection and pagination never calculate or activate rankings. **Score breakdown** opens stored component values, and **Warning details** opens recorded source limitations. Historical formulas keep their own score contract.
+
+**Calculation history** provides preview links and a separate disclosure for manual activation. The activation form names the exact run and retains its existing nonce and confirmation. A completed calculation with rows is technically activatable; this does not certify source quality. **Calculate Ranking Draft** queues the existing resumable calculation and opens Operations.
+
+**Diagnostics** runs the existing detailed warning/integrity queries only after **Compute diagnostics** is requested. Counts across categories are row occurrences, not unique fighters. Large diagnostic scans are separate from ordinary paginated preview requests.
+
 ## Worker and diagnosis
 
 The staging supervisor owns MMA Future processing; WordPress core cron runs separately. Preparation is bounded to ten fighters; calculation steps to 250 rows and a byte budget. Do not launch competing worker scripts.

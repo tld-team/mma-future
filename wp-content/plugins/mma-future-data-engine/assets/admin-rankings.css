@@ -1,0 +1,105 @@
+/* WordPress admin only: saved rankings, review and explicit actions. */
+.mmaf-rankings-admin { --mmaf-border: #dcdcde; --mmaf-muted: #646970; }
+.mmaf-rankings-admin .mmaf-page-intro { color: #50575e; margin: 16px 0; }
+.mmaf-rankings-admin .mmaf-page-intro a { margin-left: 8px; }
+.mmaf-rankings-admin .mmaf-section-nav { display: flex; flex-wrap: wrap; gap: 18px; margin: 16px 0; }
+.mmaf-rankings-admin .mmaf-section-nav a { text-decoration: none; }
+.mmaf-rankings-admin .mmaf-run-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.mmaf-rankings-admin .mmaf-run-card { background: #fff; border: 1px solid var(--mmaf-border); border-radius: 5px; padding: 18px 20px; }
+.mmaf-rankings-admin .mmaf-card-heading,
+.mmaf-rankings-admin .mmaf-panel-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.mmaf-rankings-admin .mmaf-card-heading h2 { margin: 0; font-size: 14px; color: #50575e; }
+.mmaf-rankings-admin .mmaf-status { display: inline-block; border-radius: 3px; background: #eaf1f8; color: #234c73; padding: 3px 7px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.mmaf-rankings-admin .mmaf-status-live { background: #e7f3ed; color: #1e5b39; }
+.mmaf-rankings-admin .mmaf-run-id { font-size: 28px; font-weight: 600; line-height: 1.3; margin-top: 12px; }
+.mmaf-rankings-admin .mmaf-run-id span { font-size: 13px; font-weight: 400; margin-left: 6px; color: var(--mmaf-muted); }
+.mmaf-rankings-admin .mmaf-run-counts { margin: 8px 0 12px; }
+.mmaf-rankings-admin .mmaf-run-dates { display: grid; grid-template-columns: max-content 1fr; gap: 5px 14px; margin: 0 0 12px; font-size: 12px; }
+.mmaf-rankings-admin .mmaf-run-dates dt { color: var(--mmaf-muted); }
+.mmaf-rankings-admin .mmaf-run-dates dd { margin: 0; }
+.mmaf-rankings-admin .mmaf-calculation-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 16px 0 20px; padding: 12px 16px; border: 1px solid var(--mmaf-border); background: #f6f7f7; border-radius: 5px; }
+.mmaf-rankings-admin .mmaf-calculation-toolbar p { margin: 0; color: #50575e; }
+.mmaf-rankings-admin .mmaf-calculation-toolbar form { flex-shrink: 0; }
+.mmaf-rankings-admin .mmaf-ranking-panel { margin-top: 18px; padding: 20px; border: 1px solid var(--mmaf-border); background: #fff; border-radius: 5px; scroll-margin-top: 50px; }
+.mmaf-rankings-admin .mmaf-panel-heading h2 { margin: 0; font-size: 18px; }
+.mmaf-rankings-admin .mmaf-panel-heading p { color: var(--mmaf-muted); margin: 7px 0 16px; }
+.mmaf-rankings-admin .mmaf-ranking-filters { display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 1fr) 90px auto; gap: 16px; align-items: end; padding: 14px 16px; background: #f6f7f7; border: 1px solid #e8e8eb; border-radius: 4px; }
+.mmaf-rankings-admin .mmaf-filter-field { display: flex; flex-direction: column; min-width: 0; gap: 5px; }
+.mmaf-rankings-admin .mmaf-filter-field label { font-weight: 600; }
+.mmaf-rankings-admin .mmaf-filter-field select { width: 100%; max-width: none; min-height: 36px; margin: 0; padding-right: 30px; background-position: right 10px top 55%; }
+.mmaf-rankings-admin .mmaf-ranking-filters > .button { min-height: 36px; margin: 0; }
+.mmaf-rankings-admin .mmaf-preview-summary { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; margin: 14px 0; font-size: 12px; color: #50575e; }
+.mmaf-rankings-admin .mmaf-inline-warning { color: #694600; padding: 10px 12px; background: #fcf0d7; border-radius: 3px; }
+.mmaf-rankings-admin .mmaf-table-scroll { overflow-x: auto; border: 1px solid var(--mmaf-border); border-radius: 4px; }
+.mmaf-rankings-admin .mmaf-table-scroll table { border: 0; }
+.mmaf-rankings-admin .mmaf-ranking-results { table-layout: fixed; min-width: 800px; }
+.mmaf-rankings-admin .mmaf-ranking-results th { font-weight: 600; padding: 12px; background: #fff; }
+.mmaf-rankings-admin .mmaf-ranking-results td { padding: 14px 12px; vertical-align: top; border-top: 1px solid #e8e8eb; overflow-wrap: anywhere; }
+.mmaf-rankings-admin .mmaf-ranking-results tbody tr:hover { background: #f0f6fc; }
+.mmaf-rankings-admin .mmaf-rank-col { width: 5%; font-variant-numeric: tabular-nums; font-weight: 600; }
+.mmaf-rankings-admin .mmaf-name-col { width: 25%; }
+.mmaf-rankings-admin .mmaf-score-col { width: 12%; font-variant-numeric: tabular-nums; }
+.mmaf-rankings-admin .mmaf-sample-col { width: 11%; }
+.mmaf-rankings-admin .mmaf-checks-col { width: 19%; }
+.mmaf-rankings-admin .mmaf-breakdown-col { width: 28%; }
+.mmaf-rankings-admin .mmaf-score-col strong { font-size: 15px; }
+.mmaf-rankings-admin .mmaf-fighter-name { font-size: 14px; font-weight: 600; text-decoration: none; }
+.mmaf-rankings-admin .mmaf-muted { color: var(--mmaf-muted); font-size: 12px; }
+.mmaf-rankings-admin .mmaf-line { display: block; margin-top: 5px; }
+.mmaf-rankings-admin .mmaf-warning-text { font-size: 12px; color: #694600; }
+.mmaf-rankings-admin .mmaf-row-details { margin-top: 6px; font-size: 12px; }
+.mmaf-rankings-admin summary { cursor: pointer; }
+.mmaf-rankings-admin .mmaf-row-details summary,
+.mmaf-rankings-admin .mmaf-method-details summary { color: #135e96; }
+.mmaf-rankings-admin .mmaf-row-details ul { padding-left: 18px; list-style: disc; }
+.mmaf-rankings-admin .mmaf-score-details { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; margin: 12px 0 0; font-variant-numeric: tabular-nums; }
+.mmaf-rankings-admin .mmaf-score-details dd { margin: 0; }
+.mmaf-rankings-admin .mmaf-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0; }
+.mmaf-rankings-admin .mmaf-pagination .alignleft { float: none; }
+.mmaf-rankings-admin .mmaf-pagination .tablenav-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.mmaf-rankings-admin .mmaf-pagination .page-numbers { display: inline-block; padding: 5px 9px; border: 1px solid var(--mmaf-border); border-radius: 3px; text-decoration: none; }
+.mmaf-rankings-admin .mmaf-pagination .current { color: #fff; background: #2271b1; border-color: #2271b1; }
+.mmaf-rankings-admin .mmaf-method-details { font-size: 12px; margin-top: 16px; }
+.mmaf-rankings-admin .mmaf-panel-disclosure { padding: 0; }
+.mmaf-rankings-admin .mmaf-panel-disclosure > summary { padding: 18px 20px; font-weight: 600; font-size: 15px; }
+.mmaf-rankings-admin .mmaf-panel-disclosure > summary span { margin-left: 10px; font-size: 12px; font-weight: 400; color: var(--mmaf-muted); }
+.mmaf-rankings-admin .mmaf-panel-content { padding: 0 20px 20px; }
+.mmaf-rankings-admin .mmaf-panel-content > p:first-child { margin-top: 0; color: var(--mmaf-muted); }
+.mmaf-rankings-admin .mmaf-history-table { min-width: 850px; }
+.mmaf-rankings-admin .mmaf-history-table td,
+.mmaf-rankings-admin .mmaf-history-table th { padding: 12px; vertical-align: top; }
+.mmaf-rankings-admin .mmaf-history-table th { font-weight: 600; }
+.mmaf-rankings-admin .mmaf-activation { margin-top: 12px; max-width: 300px; }
+.mmaf-rankings-admin .mmaf-activation summary { color: #8a2424; font-size: 12px; }
+.mmaf-rankings-admin .mmaf-activation p { font-size: 12px; }
+.mmaf-rankings-admin .mmaf-diagnostic-summary { display: flex; flex-wrap: wrap; gap: 12px 32px; }
+.mmaf-rankings-admin .mmaf-diagnostic-content { overflow-x: auto; margin: 18px 0; }
+.mmaf-rankings-admin .mmaf-diagnostic-content table { min-width: 700px; }
+.mmaf-rankings-admin .mmaf-diagnostic-content th { font-weight: 600; width: auto; }
+.mmaf-rankings-admin .mmaf-diagnostic-content td,
+.mmaf-rankings-admin .mmaf-diagnostic-content th { padding: 10px 12px; }
+.mmaf-rankings-admin .mmaf-empty-state { padding: 32px 20px; text-align: center; color: #50575e; }
+.mmaf-rankings-admin .mmaf-table-scroll:focus-visible,
+.mmaf-rankings-admin summary:focus-visible { outline: 2px solid #2271b1; outline-offset: 3px; }
+@media (max-width: 1100px) {
+ .mmaf-rankings-admin .mmaf-ranking-filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 90px; }
+ .mmaf-rankings-admin .mmaf-ranking-filters > .button { justify-self: start; }
+}
+@media (max-width: 782px) {
+ .mmaf-rankings-admin .mmaf-run-overview { grid-template-columns: 1fr; }
+ .mmaf-rankings-admin .mmaf-calculation-toolbar { flex-direction: column; align-items: start; }
+ .mmaf-rankings-admin .mmaf-ranking-panel { padding: 16px; }
+ .mmaf-rankings-admin .mmaf-panel-disclosure { padding: 0; }
+ .mmaf-rankings-admin .mmaf-panel-content { padding: 0 16px 16px; }
+ .mmaf-rankings-admin .mmaf-ranking-filters { grid-template-columns: minmax(0, 1fr) 90px; }
+ .mmaf-rankings-admin .mmaf-ranking-filters .mmaf-filter-field:first-of-type { grid-column: 1 / -1; }
+ .mmaf-rankings-admin .mmaf-ranking-filters > .button { grid-column: 1 / -1; }
+ .mmaf-rankings-admin .mmaf-filter-field select { min-height: 40px; }
+ .mmaf-rankings-admin .mmaf-pagination { flex-direction: column; align-items: start; gap: 8px; }
+}
+@media (max-width: 480px) {
+ .mmaf-rankings-admin .mmaf-ranking-filters { grid-template-columns: 1fr; }
+ .mmaf-rankings-admin .mmaf-ranking-filters > .button { justify-self: stretch; }
+ .mmaf-rankings-admin .mmaf-panel-heading { flex-wrap: wrap; }
+ .mmaf-rankings-admin .mmaf-run-id span { display: block; margin: 4px 0 0; }
+}
