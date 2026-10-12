@@ -25,6 +25,8 @@ A failed first fetch means **Stored profile unavailable**. A later failed attemp
 
 The staging supervisor owns MMA Future processing; WordPress core cron runs separately. Preparation is bounded to ten fighters; calculation steps to 250 rows and a byte budget. Do not launch competing worker scripts.
 
+Readiness projection steps also stop at a three-second budget, leaving remaining rows for the next step. A human POST waits up to five seconds for the current atomic unit; system workers yield immediately when the shared lock is busy. Longer frozen calculations can still reject a competing edit with a clear retry/pause message.
+
 Check **Operations / Health** for status, phase, heartbeat, progress and error reason. No heartbeat for five minutes is a warning, ten minutes is critical. Heartbeat without progress may still indicate a stalled job. Critical mail is sent to `luka.m@tldteam.com`; actual receipt must be verified during staging acceptance.
 
 Human CLI preview/control and fact-report commands require `--user=ADMIN_ID` with MMA Future management permission. The server supervisor uses its existing trusted system worker context. Status reads do not require a promotion authority.
