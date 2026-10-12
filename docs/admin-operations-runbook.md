@@ -4,22 +4,30 @@ This delivery focuses on preparation, resumable calculations and verified stagin
 
 ## Administrator workflow
 
+**Save facts and confirmations** only saves the editor. It preserves approval/public/ranking decisions. Only a changed normalized fact or an explicitly checked **Confirm selected facts** receives manual protection; intentionally clearing a populated value is protected too. A photo, aliases or an unchanged Save do not request career preparation or a ranking draft. Save unsaved changes before opening an operation.
+
 1. Open **MMA Future → Fighters**. Combine the import, preparation and status filters. `Legacy / unknown import` means there is no saved evidence of historical membership.
 2. Select individual fighters (up to 100), the page, or all results of the current filter. Choose **Approve & prepare** and open its preview.
 3. Review the exact frozen selection, exclusions and blockers. Confirm that manifest. Later imports cannot silently enter it.
 4. Follow **Operations**. Preparation uses saved profiles, preserves verified manual facts, checks source identity, imports accepted career rows, rebuilds statistics and checks eligibility before publication.
-5. Inspect review items through their fighter/import/operation links. A documented partial career stays partial. A conflict is reviewed individually; technical failure can be retried. A public profile can be approved without ranking eligibility.
+5. Inspect review items through their fighter/import/operation links. A documented partial career stays partial. A conflict is reviewed individually; technical failure can be retried. **Prepare & publish profile** uses the same confirmed preparation pipeline, sets verified/public after its checks, and preserves existing ranking permission. **Approve & prepare** never silently falls back to profile-only publication after a ranking failure.
 6. A completed scope produces one inactive ranking draft. Review it separately. This workflow does not activate it.
 
 Pause stops future units; completed changes remain recorded. Resume continues checkpoints. Cancel does not undo already committed changes. Retry targets technical failures and rechecks current inputs. Historical jobs copied to local cannot be resumed as staging jobs.
 
 The preview separates **saved-profile readiness** from **current ranking checks**. An available profile does not guarantee ranking eligibility. Current blockers appear beside each fighter; preparation may change the input, so final checks run again before publication. **Check selected without changes** does not apply public/verified/rankable statuses.
 
+A failed first fetch means **Stored profile unavailable**. A later failed attempt retains the previous successful profile and shows both dates/statuses. Preview dates are saved for reference; a new calendar day alone does not change the content fingerprint. Final eligibility uses the current site date. Unfinished manifests from the older fingerprint format require **Create a fresh preview** and a new confirmation; completed changes stay recorded.
+
+**Operations → Review existing fact protections** creates a paginated background evidence report. It compares existing protected facts with available saved evidence and field audits. Unknown intent stays unknown. The report never unlocks facts, modifies fighters or starts a ranking calculation. Its read failures retry at one/five minutes, then stop after three attempts.
+
 ## Worker and diagnosis
 
 The staging supervisor owns MMA Future processing; WordPress core cron runs separately. Preparation is bounded to ten fighters; calculation steps to 250 rows and a byte budget. Do not launch competing worker scripts.
 
 Check **Operations / Health** for status, phase, heartbeat, progress and error reason. No heartbeat for five minutes is a warning, ten minutes is critical. Heartbeat without progress may still indicate a stalled job. Critical mail is sent to `luka.m@tldteam.com`; actual receipt must be verified during staging acceptance.
+
+Human CLI preview/control and fact-report commands require `--user=ADMIN_ID` with MMA Future management permission. The server supervisor uses its existing trusted system worker context. Status reads do not require a promotion authority.
 
 Before retrying, resolve an identity or source-data conflict. A repeated conflict is not a transport error. Preserve the original saved profile and import evidence.
 

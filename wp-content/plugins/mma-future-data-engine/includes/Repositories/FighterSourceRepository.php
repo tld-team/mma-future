@@ -58,20 +58,11 @@ final class FighterSourceRepository {
 			}
 		}
 
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$this->table} WHERE source_type = %s AND source_url IS NOT NULL AND source_url <> ''", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$source_type
-			),
-			ARRAY_A
-		);
-
-		$matches = array();
-		foreach ( (array) $rows as $row ) {
-			if ( TapologyFighterUrl::normalize( (string) ( $row['source_url'] ?? '' ) ) === $normalized_url ) {
-				$matches[] = $row;
-			}
-		}
+        $matches=array();$cursor=0;
+        do {
+            $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM {$this->table} WHERE source_type=%s AND id>%d AND source_url IS NOT NULL AND source_url<>'' ORDER BY id LIMIT 250",$source_type,$cursor),ARRAY_A);
+            foreach($rows as $row){$cursor=(int)$row['id'];if(TapologyFighterUrl::normalize((string)$row['source_url'])===$normalized_url){$matches[]=$row;}}
+        } while(count($rows)===250);
 
 		return $matches;
 	}

@@ -14,24 +14,15 @@ Coverage `complete` requires verified professional MMA scope, source exhaustion,
 
 ## Administrator workflow
 
-1. Import and inspect a regular ZIP in **MMA Future → Import**. Importing does not approve all discovered fighters.
-2. Open **Canonical Fighters → Review new import candidates**. This filters provisional, nonpublic Tapology candidates and orders them by creation date. It is a candidate view, not a claim that every row is from the last package. Use search, filters and 25/50/100 rows per page to narrow the selection.
-3. Select reviewed fighters on the current page. **Check selected without changes** previews the combined decision. **Approve & prepare (verified, public, rankable)** executes all three approvals, synchronizes published canonical profiles and queues stored data preparation. Select-all affects the current page only; the counter reports the exact selection. Each request is capped at 100 fighters; background preparation handles 10 per batch by default.
-4. The result reports every updated, blocked and unchanged fighter with reasons. Missing birth/weight/history data, hidden/deleted/merged/retired states and v1.5 eligibility failures remain blocked. Individual verified/public/rankable controls remain available for decisions that should not be combined.
-5. Read **Stored source / preparation** and the preparation notice. They show the per-profile source date, career coverage, failed source attempts, processing failures and draft ID. Failed preparation is retryable; incomplete source evidence requires review. No repeat scraping happens during approval.
-6. Review the resulting ranking draft and activate it separately. Approval is an administrative permission, not a guarantee of formula eligibility after complete history changes. No import or worker activates a ranking.
+The approval and deployment instructions in the earlier integration delivery are historical. Use [the current operations runbook](admin-operations-runbook.md) for daily administration, cron and releases.
+
+Import stores profiles without publishing discovered fighters. Save preserves administrative decisions and protects only changed or explicitly confirmed facts. Single and filtered-set approval use a frozen operation manifest, explicit confirmation, saved JSON preparation, statistics and final checks before publication. Profile-only publication is a separate action. One completed changed scope creates one inactive draft; activation stays manual.
 
 Public profiles can display recorded fights before a career is confirmed complete. Known zero values stay zero; unknown values stay null. The active ranking's calculation/activation dates and current statistics date remain separate.
 
 ## Worker and one-time migration
 
-The existing supervised runner runs regular import first, then stored profile preparation, under the same write coordination. Use a server cron every minute with the runner's three arguments: WordPress root, PHP executable and WP-CLI executable. Keep logs outside the web root. WordPress also schedules bounded preparation as a fallback; an external cron provides predictable processing without visitor traffic.
-
-```sh
-bash wp-content/plugins/mma-future-data-engine/bin/regular-import-runner.sh /path/to/staging /path/to/php /path/to/wp
-wp --path=/path/to/staging mmaf data-process status
-wp --path=/path/to/staging mmaf data-process work --limit=10
-```
+The staging server supervisor owns MMA Future work and runs once per minute. With `MMAF_SERVER_SUPERVISOR=true`, the legacy MMA Future WP-Cron callbacks do not run. Core WordPress cron runs separately. Do not run the historical regular-import shell runner alongside the operations supervisor. The [current runbook](admin-operations-runbook.md) describes release and recovery commands.
 
 After backing up the target database and deploying code, seed already existing private exports once. This copies their last-success snapshots, not the local database, and does not fetch profiles or approve fighters. Streaming validation precedes writes, batches commit 100 profiles, and a file hash/checkpoint makes reruns resumable and idempotent.
 
@@ -44,7 +35,7 @@ wp --path=/path/to/staging mmaf data-process seed --file=/private/career-history
 
 ## Local validation
 
-Source CI validates PHP, JavaScript, ACF JSON, shell syntax, JSON document framing and scraper regression tests before FTP deployment. Integration tests require an **isolated local fixture database** and do not run against staging or production.
+Source CI validates PHP, JavaScript, ACF JSON, shell syntax, JSON document framing and scraper regression tests before verified FTPS deployment. Integration tests require an **isolated local fixture database** and do not run against staging or production.
 
 Provide an external WordPress bootstrap using database `mmaf_frontend_dev` (a staging clone) or `mmaf_frontend_test` and environment `local`. Store credentials and exported fixtures outside Git. The bootstrap must define `ABSPATH`, the isolated database constants, local URLs, a private import directory and load `wp-settings.php`. Disable WP cron during tests. The pipeline and performance fixtures specifically require the staging-clone database. Run database-mutating fixtures sequentially; they use enclosing transactions and rollback.
 

@@ -11,8 +11,8 @@ use MMAF\DataEngine\Services\AuditLogService;
 /** Immutable DB manifest. No PHP array containing a complete filtered population. */
 final class Jobs {
     public static int $current=0;
-    public const PREPARE_ACTIONS=['approve_and_prepare','mark_public','mark_verified','mark_rankable'];
-    public const ACTIONS=['approve_and_prepare','validate_selected_for_ranking','mark_verified','mark_public','mark_not_public','mark_rankable','mark_not_rankable','move_to_provisional'];
+    public const PREPARE_ACTIONS=['approve_and_prepare','prepare_publish_profile','mark_public','mark_verified','mark_rankable'];
+    public const ACTIONS=['approve_and_prepare','prepare_publish_profile','validate_selected_for_ranking','mark_verified','mark_public','mark_not_public','mark_rankable','mark_not_rankable','move_to_provisional'];
     public static function get(int $id): ?array {
         global $wpdb; $table=Schema::tables()['jobs'];
         $row=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d",$id),ARRAY_A);
@@ -25,7 +25,7 @@ final class Jobs {
         if(version_compare((string)get_option('mmaf_db_version'),'1.9.0','>=') && (isset($data['checkpoint']) || isset($data['phase']))){$data['progress_at']=$data['updated_at'];}
         foreach(['selection','checkpoint','summary'] as $name){if(array_key_exists($name,$data)){$data[$name.'_json']=wp_json_encode($data[$name]);unset($data[$name]);}}
         Repository::check($wpdb->update($table,$data,['id'=>$id]));
-        if(isset($data['status'])){
+        if(isset($data['status']) && $wpdb->get_var($wpdb->prepare("SELECT kind FROM $table WHERE id=%d",$id))==='fighters'){
             $t=Schema::tables();Repository::check($wpdb->query($wpdb->prepare("UPDATE {$t['readiness']} r JOIN {$t['items']} i ON i.fighter_id=r.fighter_id SET r.dirty=1 WHERE i.operation_id=%d",$id)));
         }
     }
@@ -40,7 +40,7 @@ final class Jobs {
             if($old){$job=self::get((int)$old);if($job['action']!==$action || $job['selection']!==$selection || (int)$job['actor_user_id']!==$actor){throw new \RuntimeException('Request key was already used for another selection.');}return $job;}
             return Transaction::run(static function() use($action,$selection,$actor,$key,$wpdb,$t){
                 $now=gmdate('Y-m-d H:i:s');
-                Repository::check($wpdb->insert($t['jobs'],['request_key'=>$key,'kind'=>'fighters','action'=>$action,'status'=>'previewing','phase'=>'preview','actor_user_id'=>$actor,'selection_json'=>wp_json_encode($selection),'created_at'=>$now,'updated_at'=>$now]));$id=(int)$wpdb->insert_id;
+                Repository::check($wpdb->insert($t['jobs'],['request_key'=>$key,'kind'=>'fighters','action'=>$action,'status'=>'previewing','phase'=>'preview','actor_user_id'=>$actor,'selection_json'=>wp_json_encode($selection),'checkpoint_json'=>wp_json_encode(['fingerprint_version'=>Readiness::FINGERPRINT_VERSION,'preview_reference_date'=>current_time('Y-m-d')]),'created_at'=>$now,'updated_at'=>$now]));$id=(int)$wpdb->insert_id;
                 $repo=new FighterRepository();
                 $scope=$selection['mode']==='filtered'?$repo->selection_sql($selection['search'],$selection['filters']):"SELECT id FROM ".Canonical::table_names()['fighters']." WHERE id IN (".implode(',',$selection['ids']).")";
                 // A single statement freezes the population at creation, including unchanged candidates.
@@ -60,8 +60,14 @@ final class Jobs {
         return Mutex::run(static function() use($id,$command,$actor,$manifest,$ids){
             WriteGuard::assertAllowed(true); global $wpdb; $t=Schema::tables();$job=self::get($id);if(!$job){throw new \RuntimeException('Operation not found.');}
             if(!empty($job['checkpoint']['local_copy_paused']) && $command!=='cancel'){throw new \RuntimeException('This is a historical staging operation. Create a new local operation after checking its saved packages.');}
+            if($job['kind']==='fighters' && (int)($job['checkpoint']['fingerprint_version']??1)!==Readiness::FINGERPRINT_VERSION && !in_array($command,['cancel','pause','repreview'],true)){throw new \RuntimeException('This manifest uses older checks. Create and confirm a fresh preview.');}
             return Transaction::run(static function() use($id,$command,$actor,$manifest,$ids,$wpdb,$t,$job){
                 switch($command){
+                    case 'repreview':
+                        $existing=(int)$wpdb->get_var($wpdb->prepare("SELECT id FROM {$t['jobs']} WHERE request_key=%s",'repreview:'.$id));if($existing){return self::get($existing);}
+                        if($job['kind']!=='fighters' || in_array($job['status'],['completed','cancelled'],true) || (int)($job['checkpoint']['fingerprint_version']??1)===Readiness::FINGERPRINT_VERSION){throw new \RuntimeException('Only an unfinished legacy manifest needs a fresh preview.');}
+                        self::cancel_children($job);self::save($id,['status'=>'cancelled','finished_at'=>gmdate('Y-m-d H:i:s'),'error_message'=>'Replaced by an explicitly requested fresh preview. Completed changes remain recorded.']);
+                        $replacement=self::create($job['action'],$job['selection'],$actor,'repreview:'.$id);self::audit($id,'operation_repreview',['replacement'=>(int)$replacement['id']],$actor);return $replacement;
                     case 'start':
                         if($job['status']==='running' && hash_equals((string)$job['manifest_hash'],$manifest)){break;}
                         if($job['status']!=='ready' || !$manifest || !hash_equals((string)$job['manifest_hash'],$manifest)){throw new \RuntimeException('Confirm the prepared manifest before starting.');}
@@ -76,6 +82,7 @@ final class Jobs {
                         if(!in_array($job['status'],['completed','cancelled'],true)){self::save($id,['status'=>'cancelled','finished_at'=>gmdate('Y-m-d H:i:s')]);}break;
                     case 'retry_job':
                         if($job['status']!=='failed'){throw new \RuntimeException('Only a failed operation can be retried.');}
+                        if($job['kind']==='fact_protection_report'){self::save($id,['status'=>'running','attempts'=>0,'retry_at'=>null,'error_message'=>null]);break;}
                         if($job['kind']!=='fighters'){if(!hash_equals($job['checkpoint']['input_revision'],Calculation::revision())){throw new \RuntimeException('Input changed. Create a new calculation.');}self::save($id,['status'=>'running','attempts'=>0,'retry_at'=>null,'error_message'=>null]);break;}
                         self::cancel_children($job);
                         $cp=array_diff_key($job['checkpoint'],array_flip(['stats_job','ranking_job']));$cp['cycle']=(int)($cp['cycle']??0)+1;
@@ -128,7 +135,9 @@ final class Jobs {
             $id=(int)$wpdb->get_var("SELECT id FROM {$t['jobs']} WHERE kind='fighters' AND status IN ('previewing','running') AND (retry_at IS NULL OR retry_at<=UTC_TIMESTAMP()) ORDER BY id LIMIT 1");if(!$id){return ['worked'=>false];}
             $activeCalc=(int)$wpdb->get_var("SELECT id FROM {$t['jobs']} WHERE kind IN ('stats','ranking') AND status='running' ORDER BY id LIMIT 1");
             if($activeCalc){$calc=self::get($activeCalc);if((int)($calc['checkpoint']['parent']??0)!==$id){return ['worked'=>false];}}
-            $job=self::get($id);$start=microtime(true);self::save($id,['heartbeat_at'=>gmdate('Y-m-d H:i:s')]);
+            $job=self::get($id);
+            if((int)($job['checkpoint']['fingerprint_version']??1)!==Readiness::FINGERPRINT_VERSION){self::cancel_children($job);self::save($id,['status'=>'paused','error_message'=>'This manifest uses older checks. Create and confirm a fresh preview.']);return ['worked'=>true,'operation'=>self::get($id)];}
+            $start=microtime(true);self::save($id,['heartbeat_at'=>gmdate('Y-m-d H:i:s')]);
             self::$current=$id;
             try {
                 if($job['status']==='previewing'){self::preview($job,min(250,max(1,$limit*25)));}
@@ -143,7 +152,7 @@ final class Jobs {
         global $wpdb; $t=Schema::tables();$id=(int)$job['id'];
         $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM {$t['items']} WHERE operation_id=%d AND status='preview_pending' ORDER BY fighter_id LIMIT %d",$id,$limit),ARRAY_A);
         $fighters=(new FighterRepository())->find_many(array_column($rows,'fighter_id'));$metadata=Processor::metadata(array_column($rows,'fighter_id'));
-        $evaluated=(new FighterReadinessService())->evaluate_fighters_for_table($fighters);
+        $evaluated=(new FighterReadinessService())->evaluate_fighters_for_table($fighters,$job['checkpoint']['preview_reference_date']);
         foreach($fighters as $fighter){$fid=(int)$fighter['id'];$decision=Readiness::decision($fighter,$metadata[$fid]??[]);
             Transaction::run(static function()use($id,$fid,$decision,$fighter,$evaluated){
                 self::item($id,$fid,['status'=>'pending','input_hash'=>Readiness::fingerprint($fid),'reason_code'=>$decision['reason'],'result'=>['preview'=>$decision,'already_public'=>(bool)$fighter['is_public'],'already_rankable'=>(bool)$fighter['is_rankable'],'ranking_blockers'=>$evaluated[$fid]['approval_blocker_codes']??[],'ranking_blocker_summary'=>$evaluated[$fid]['approval_blocker_summary']??'']]);

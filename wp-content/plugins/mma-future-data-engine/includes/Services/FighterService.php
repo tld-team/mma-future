@@ -39,7 +39,7 @@ final class FighterService {
 		'women_featherweight',
 	);
 
-	private const PROVENANCE_FIELDS = array(
+	public const FACT_FIELDS = array(
 		'display_name',
 		'nickname',
 		'gender',
@@ -56,12 +56,10 @@ final class FighterService {
 		'team_name',
 		'coach_name',
 		'last_weigh_in',
-		'status',
-		'rankability_status',
-		'is_public',
-		'is_rankable',
 		'in_ufc',
 	);
+	private const DECISION_FIELDS = array('status'=>'provisional','rankability_status'=>'pending_review','is_public'=>0,'is_rankable'=>0,'deleted_soft'=>0);
+	private const SPORTS_FIELDS = array('gender','date_of_birth','birth_year','weight_class','in_ufc');
 
 	private FighterRepository $fighters;
 	private FighterSourceRepository $sources;
@@ -103,7 +101,7 @@ final class FighterService {
 			$fighter['wp_post_id']   = $post_id;
 			$payload['fighter']['wp_post_id'] = $post_id;
 
-			$this->save_related_data( $fighter_id, $payload, $user_id );
+			$this->save_related_data( $fighter_id, $payload, $user_id, array() );
 			$after = $this->fighters->find( $fighter_id );
 
 			$this->audit_log->write(
@@ -146,7 +144,11 @@ final class FighterService {
 		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
 
 		try {
-			$this->fighters->update( $fighter_id, $payload['fighter'] );
+			$changes = array();
+			foreach ($payload['fighter'] as $field=>$value) {
+				if (!self::same_value($before[$field] ?? null,$value)) { $changes[$field]=$value; }
+			}
+			if ($changes) { $this->fighters->update( $fighter_id, $changes ); }
 
 			$current = $this->fighters->find( $fighter_id );
 			if ( ! $current ) {
@@ -157,10 +159,10 @@ final class FighterService {
 			$current['wp_post_id']  = $post_id;
 			$payload['fighter']['wp_post_id'] = $post_id;
 
-			$this->save_related_data( $fighter_id, $payload, $user_id );
+			$related = $this->save_related_data( $fighter_id, $payload, $user_id, $before );
 			$after = $this->fighters->find( $fighter_id );
 
-			$this->audit_log->write(
+			if ($changes || array_filter($related)) { $this->audit_log->write(
 				'fighter_updated',
 				'fighter',
 				$fighter_id,
@@ -168,11 +170,15 @@ final class FighterService {
 				$after,
 				'Manual fighter update',
 				$user_id
-			);
+			); }
 
-			FighterLifecycleService::changed($fighter_id,$user_id,$before,$after ?: $current,false);
+			if ($related['source_identity'] || array_intersect(array_keys($changes),self::SPORTS_FIELDS)) {
+				FighterLifecycleService::changed($fighter_id,$user_id,$before,$after ?: $current,false);
+			} elseif ($changes || $related['aliases'] || $related['source'] || $related['confirmations']) {
+				\MMAF\DataEngine\Services\Operations\Readiness::invalidate($fighter_id);
+			}
 			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
-			do_action( 'mmaf_public_data_changed', 'fighter' );
+			if ($changes || array_filter($related)) { do_action( 'mmaf_public_data_changed', 'fighter' ); }
 
 			$result                  = $after ?: $current;
 			$result['_mmaf_notices'] = $this->last_notices;
@@ -185,6 +191,17 @@ final class FighterService {
 	}
 
 	public function prepare_payload( array $input, bool $is_new, int $fighter_id = 0 ): array {
+		$before = $fighter_id ? ($this->fighters->find($fighter_id) ?: array()) : array();
+		foreach (self::DECISION_FIELDS as $field=>$default) {
+			$expected=$before[$field] ?? $default;
+			if (array_key_exists($field,$input) && !self::same_value($input[$field],$expected)) {
+				throw new \InvalidArgumentException('Save cannot change approval or publication decisions. Use a separate fighter operation: '.$field.'.');
+			}
+			$input[$field]=$expected;
+		}
+		foreach (self::FACT_FIELDS as $field) {
+			if (!array_key_exists($field,$input) && array_key_exists($field,$before) && !($field==='in_ufc' && isset($input['mmaf_action']))) { $input[$field]=$before[$field]; }
+		}
 		$display_name = Sanitizer::text_or_null( $input['display_name'] ?? '' );
 
 		if ( null === $display_name ) {
@@ -239,11 +256,11 @@ final class FighterService {
 			throw new \InvalidArgumentException( __( 'Tapology Profile URL is required before a fighter can be saved manually.', 'mma-future-data-engine' ) );
 		}
 
-		$this->validate_gender_weight_request( $input, $fighter );
-		$this->validate_rankable_request( $input, $fighter, $fighter_id );
-		$this->validate_public_request( $input, $fighter, $source, $fighter_id );
-
-		$guardrails = $this->apply_guardrails( $fighter );
+		$this->validate_gender_weight_request( array_merge($input,array('is_rankable'=>0)), $fighter );
+		// Publication and rankability gates belong to the confirmed operation, not Save.
+		$guardrails = array('fighter'=>$fighter,'notices'=>array());
+		$confirmed = array_values(array_unique(array_map('sanitize_key',(array)($input['confirm_fact_fields'] ?? array()))));
+		if (array_diff($confirmed,self::FACT_FIELDS)) { throw new \InvalidArgumentException('Unsupported fact confirmation.'); }
 
 		return array(
 			'fighter' => $guardrails['fighter'],
@@ -251,12 +268,16 @@ final class FighterService {
 			'aliases' => $this->prepare_aliases( $input['aliases'] ?? '' ),
 			'image'   => $this->prepare_image( $input ),
 			'notices' => array_merge( $birth_year['notices'], $guardrails['notices'] ),
+			'confirmed_facts' => $confirmed,
 		);
 	}
 
-	private function save_related_data( int $fighter_id, array $payload, int $user_id ): void {
+	private function save_related_data( int $fighter_id, array $payload, int $user_id, array $before ): array {
+		$changed = array('source'=>false,'source_identity'=>false,'aliases'=>false,'image'=>false,'confirmations'=>false);
 		if ( null !== $payload['source'] ) {
 			$source_before = $this->sources->find_for_fighter( $fighter_id, $payload['source']['source_type'] );
+			$changed['source_identity']=!$source_before || !self::same_value($source_before['source_fighter_id'] ?? null,$payload['source']['source_fighter_id']) || !self::same_value($source_before['source_url'] ?? null,$payload['source']['source_url']);
+			if (!$changed['source_identity']) { $payload['source']['confidence']=$source_before['confidence'] ?? null; }
 			$existing_source = $this->sources->find_by_source(
 				$payload['source']['source_type'],
 				$payload['source']['source_fighter_id']
@@ -292,10 +313,15 @@ final class FighterService {
 				}
 			}
 
-			$this->sources->upsert_for_fighter( $fighter_id, $payload['source'] );
+			$source_changed=false;
+			foreach ($payload['source'] as $key=>$value) {
+				if (!self::same_value($source_before[$key] ?? null,$value)) { $source_changed=true; }
+			}
+			if ($source_changed) { $this->sources->upsert_for_fighter( $fighter_id, $payload['source'] ); }
 			$source_after = $this->sources->find_for_fighter( $fighter_id, $payload['source']['source_type'] );
 
 			if ( $source_before !== $source_after ) {
+				$changed['source']=true;
 				$this->audit_log->write(
 					$source_before ? 'fighter_source_mapping_updated' : 'fighter_source_mapping_attached',
 					'fighter',
@@ -308,10 +334,21 @@ final class FighterService {
 			}
 		}
 
-		$this->aliases->replace_for_fighter( $fighter_id, $payload['aliases'] );
-		$this->save_image( $payload['fighter']['wp_post_id'] ?? 0, $payload['image'] );
+		$aliases=array_column($this->aliases->list_by_fighter($fighter_id),'alias','normalized_alias');
+		foreach ($payload['aliases'] as $alias) {
+			if (($aliases[$alias['normalized_alias']] ?? null)!==$alias['alias']) { $changed['aliases']=true; }
+		}
+		if ($changed['aliases']) { $this->aliases->replace_for_fighter( $fighter_id, $payload['aliases'] ); }
+		$post_id=(int)($payload['fighter']['wp_post_id'] ?? 0);
+		$image_before=(int)get_post_thumbnail_id($post_id);
+		$this->save_image($post_id,$payload['image']);
+		$changed['image']=$image_before!==(int)get_post_thumbnail_id($post_id);
 
-		foreach ( self::PROVENANCE_FIELDS as $field_name ) {
+		foreach ( self::FACT_FIELDS as $field_name ) {
+			$value=$payload['fighter'][$field_name] ?? null;
+			$explicit=in_array($field_name,$payload['confirmed_facts'],true);
+			if (!$explicit && self::same_value($before[$field_name] ?? ($field_name==='in_ufc'?0:null),$value)) { continue; }
+			$changed['confirmations']=true;
 			$this->provenance->upsert(
 				'fighter',
 				$fighter_id,
@@ -319,7 +356,14 @@ final class FighterService {
 				$payload['fighter'][ $field_name ] ?? null,
 				$user_id
 			);
+			$this->audit_log->write($explicit?'fighter_fact_confirmed':'fighter_fact_changed','fighter',$fighter_id,array($field_name=>$before[$field_name] ?? null),array($field_name=>$value),'Explicit manual fact change or confirmation',$user_id);
 		}
+		return $changed;
+	}
+
+	private static function same_value($a,$b): bool {
+		$a=$a===''?null:$a; $b=$b===''?null:$b;
+		return $a===null || $b===null ? $a===$b : (string)$a===(string)$b;
 	}
 
 	private function prepare_birth_year( ?string $date_raw, $year_input ): array {
@@ -406,7 +450,7 @@ final class FighterService {
 		}
 
 		$attachment_id = (int) ( $image['attachment_id'] ?? 0 );
-		if ( $attachment_id <= 0 ) {
+		if ( $attachment_id <= 0 || $attachment_id === (int)get_post_thumbnail_id($post_id) ) {
 			return;
 		}
 

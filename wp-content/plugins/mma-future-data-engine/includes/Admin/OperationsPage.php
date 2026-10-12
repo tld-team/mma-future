@@ -9,6 +9,7 @@ final class OperationsPage {
         global $wpdb;$id=absint($_GET['operation_id']??0);$table=Schema::tables()['jobs'];
         echo '<div class="wrap"><h1>MMA Future Operations</h1><p><a href="'.esc_url(admin_url('admin.php?page=mmaf-fighters')).'">Fighters</a> · <a href="'.esc_url(admin_url('admin.php?page=mmaf-regular-import')).'">Imports</a> · <a href="'.esc_url(admin_url('admin.php?page=mmaf-review')).'">Review</a> · <a href="'.esc_url(admin_url('admin.php?page=mmaf-health')).'">Operations overview</a></p>';
         if(!$id){
+            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';wp_nonce_field('mmaf_fact_report');echo '<input type="hidden" name="action" value="mmaf_fact_report"><button class="button">Review existing fact protection</button><p>Izveštaj se priprema u pozadini. Postojeće potvrde ostaju zaštićene; izveštaj ništa ne otključava.</p></form>';
             $page=max(1,absint($_GET['paged']??1));
             $rows=$wpdb->get_results($wpdb->prepare("SELECT id,kind,action,status,phase,total,updated_at,error_message FROM $table ORDER BY id DESC LIMIT 26 OFFSET %d",($page-1)*25),ARRAY_A);
             $more=count($rows)>25;
@@ -33,6 +34,7 @@ final class OperationsPage {
         return $value?wp_date('M j, Y H:i',strtotime($value.' UTC')):'Not recorded';
     }
     public static function progress(array $job,array $result): void {
+        if($job['kind']==='fact_protection_report'){self::fact_report($job,$result);return;}
         $view=Presentation::progress($job,$result['counts']);$commands=$view['allowed_commands'];
         echo '<h2>Operation #'.(int)$job['id'].' · '.esc_html(Presentation::label($job['action'])).'</h2>';
         echo '<p role="status"><strong>'.esc_html($view['status_label']).'</strong> · '.esc_html($view['phase']).'</p>';
@@ -42,6 +44,7 @@ final class OperationsPage {
         foreach($result['counts'] as $status=>$count){echo '<li><strong>'.(int)$count.'</strong> '.esc_html(Presentation::label($status)).'</li>';}
         echo '</ul><p>Processing time '.esc_html(number_format((int)$job['duration_ms']/1000,1)).' s · peak '.esc_html(size_format((int)$job['peak_memory'])).'</p>';
         if($job['error_message']){echo '<div class="notice notice-error inline"><p>'.esc_html($job['error_message']).'</p></div>';}
+        if(!empty($job['checkpoint']['preview_reference_date'])){echo '<p>Preview date: '.esc_html($job['checkpoint']['preview_reference_date']).'. Final eligibility is checked again before approval.</p>';}
         if($job['status']==='ready'){
             echo '<div class="notice notice-info inline"><p>Saved-profile readiness: '.(int)($job['summary']['ready']??0).' ready for preparation; '.(int)($job['summary']['review']??0).' need review; '.(int)($job['summary']['failed']??0).' technical failures; '.(int)($job['summary']['already_public']??0).' already public; '.(int)($job['summary']['already_rankable']??0).' already rankable.</p>';
             if(isset($job['summary']['ranking_ready'],$job['summary']['ranking_blocked'])){echo '<p>Current ranking checks: '.(int)$job['summary']['ranking_ready'].' pass; '.(int)$job['summary']['ranking_blocked'].' have blockers. Checks run again after preparation; this preview does not publish fighters.</p>';}
@@ -68,6 +71,14 @@ final class OperationsPage {
         if(!$result['items']){echo '<tr><td colspan="'.($retry?4:3).'">No fighter results on this page.</td></tr>';}
         echo '</tbody></table>';
         if($retry){echo '<p><button class="button">Retry selected technical failures</button></p></form>';}
+    }
+    private static function fact_report(array $job,array $result): void {
+        echo '<h2>Existing fact protection · #'.(int)$job['id'].'</h2><p>'.esc_html(Presentation::label($job['status'])).' · '.(int)($job['summary']['processed']??0).' / '.(int)$job['total'].' fighters checked. Existing protection is unchanged.</p>';
+        foreach(Presentation::commands($job) as $command=>$label){self::button($job,$command,$label);}
+        echo '<table class="widefat striped"><thead><tr><th>Fighter / fact</th><th>Current / source suggestion</th><th>Protection / checked</th><th>Evidence / next step</th></tr></thead><tbody>';
+        foreach($result['items'] as $row){foreach($row['result']['facts']??[] as $fact){
+            echo '<tr><td><a href="'.esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.$row['fighter_id'])).'">#'.(int)$row['fighter_id'].' '.esc_html($row['display_name']??'').'</a><br>'.esc_html(ucwords(str_replace('_',' ',$fact['field']))).'</td><td>'.esc_html($fact['current_value']===null?'Unknown':(string)$fact['current_value']).'<br>Source suggestion: '.esc_html($fact['source_suggestion']??'Unavailable').'</td><td>'.esc_html($fact['protection']).'<br>'.esc_html($fact['verified_at']??'Unknown').'<br>Source: '.esc_html($fact['source_fetched_at']??'Unknown').'</td><td>'.esc_html($fact['evidence']).($fact['audit_id']?' · Audit #'.(int)$fact['audit_id']:'').'<br>Review evidence individually; no automatic unlocking.</td></tr>';
+        }}echo '</tbody></table>';
     }
     private static function button(array $job,string $command,string $label): void {
         echo '<form style="display:inline-block;margin-right:8px" method="post" action="'.esc_url(admin_url('admin-post.php')).'">';wp_nonce_field('mmaf_operation');

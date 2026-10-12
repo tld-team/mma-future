@@ -412,6 +412,15 @@ final class FighterReadinessService {
 				if ($reasons) { return $this->blocked($reasons); }
 				if ($fighter['status']==='verified' && (int)$fighter['is_public']===1 && (int)$fighter['is_rankable']===1 && $fighter['rankability_status']==='rankable') { return $this->skipped(['already_rankable']); }
 				return $this->update(['status'=>'verified','is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable']);
+			case 'prepare_publish_profile':
+                $prepared=$item;$prepared['fighter']=array_merge($fighter,['status'=>'verified']);
+                $reasons=$this->public_blockers($prepared);
+                if($reasons){return $this->blocked($reasons);}
+                if($fighter['status']==='verified' && (int)$fighter['is_public']===1){return $this->skipped(['already_public']);}
+                $values=['status'=>'verified','is_public'=>1];
+                if(!(int)$fighter['is_rankable'] && $fighter['rankability_status']==='not_public'){$values['rankability_status']='pending_review';}
+                return $this->update($values);
+
 			case 'validate_selected_for_ranking':
 				$preview = $this->bulk_decision( 'approve_and_prepare', $item );
 				return 'blocked' === $preview['status'] ? $preview : $this->ready( array( 'ready_for_rankable_promotion' ) );

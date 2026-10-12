@@ -11,9 +11,9 @@ final class Presentation {
             'preview'=>'Checking selected fighters','preview_manifest'=>'Freezing preview and summary','prepare'=>'Preparing profiles and careers',
             'stats'=>'Updating statistics','validate'=>'Validating publication and ranking','ranking'=>'Preparing inactive ranking draft',
             'approve_and_prepare'=>'Approve & prepare','validate_selected_for_ranking'=>'Check ranking eligibility',
-            'mark_public'=>'Prepare public profiles','mark_verified'=>'Prepare verified status','mark_rankable'=>'Prepare ranking eligibility',
-            'mark_not_public'=>'Hide public profiles','mark_not_rankable'=>'Remove ranking eligibility','move_to_provisional'=>'Return to provisional',
-            'stored_profile_missing'=>'Saved profile is missing','identity_conflict'=>'Source identity belongs to more than one fighter',
+            'prepare_publish_profile'=>'Prepare & publish profile','mark_public'=>'Prepare public profiles','mark_verified'=>'Prepare verified status','mark_rankable'=>'Prepare ranking eligibility',
+            'fact_protection_report'=>'Review existing fact protection','fact_evidence'=>'Collecting fact protection evidence','mark_not_public'=>'Hide public profiles','mark_not_rankable'=>'Remove ranking eligibility','move_to_provisional'=>'Return to provisional',
+            'stored_profile_missing'=>'Stored profile unavailable','identity_conflict'=>'Source identity belongs to more than one fighter',
             'excluded_identity'=>'Identity is hidden, merged or excluded','technical_failure'=>'Preparation failed; technical retry is available',
             'changed_since_preview'=>'Data changed after preview; create a new preview','changed_after_preparation'=>'Data changed after preparation; review before publication',
             'identity_changed'=>'Saved source identity changed','identity_or_facts_review'=>'Source identity or facts need individual review',
@@ -23,6 +23,7 @@ final class Presentation {
     public static function commands(array $job): array {
         $out=[];$status=$job['status'];
         if(!empty($job['checkpoint']['local_copy_paused'])){return in_array($status,['completed','cancelled'],true)?[]:['cancel'=>'Close historical operation'];}
+        if($job['kind']==='fighters' && (int)($job['checkpoint']['fingerprint_version']??1)!==Readiness::FINGERPRINT_VERSION && !in_array($status,['completed','cancelled'],true)){return ['repreview'=>'Create fresh preview','cancel'=>'Cancel future steps'];}
         if($status==='ready'){$out['start']='Confirm manifest and start';}
         if(in_array($status,['previewing','running'],true)){$out['pause']='Pause';}
         if($status==='paused'){$out['resume']='Resume';}
@@ -33,7 +34,8 @@ final class Presentation {
     }
     public static function progress(array $job,array $counts): array {
         $done=array_sum(array_intersect_key($counts,array_flip(['completed','noop','review','failed'])));
-        return ['phase'=>$job['status']==='ready'?'Review frozen selection':self::label($job['phase']),'processed'=>$done,'total'=>(int)$job['total'],'counts'=>$counts,
+        $phase=$job['status']==='ready'?'Review frozen selection':($job['status']==='cancelled'?'No further steps will run':self::label($job['phase']));
+        return ['phase'=>$phase,'processed'=>$done,'total'=>(int)$job['total'],'counts'=>$counts,
             'status_label'=>$job['status']==='completed' && (($counts['review']??0)+($counts['failed']??0)>0)?'Completed with issues':self::label($job['status']),
             'allowed_commands'=>self::commands($job)];
     }

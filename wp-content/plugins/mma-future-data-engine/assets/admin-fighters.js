@@ -2,6 +2,11 @@
 	'use strict';
 
 	$(function () {
+        var $factsForm = $('[data-mmaf-facts-form]');
+        $factsForm.on('input change', function () {
+            $('[data-mmaf-single-operation] button').prop('disabled', true);
+            $('[data-mmaf-unsaved-notice]').prop('hidden', false);
+        });
 		var mediaFrame = null;
 		var $imageId = $('#fighter_image_id');
 		var $removeImage = $('#remove_fighter_image');
@@ -162,7 +167,7 @@
 			mediaFrame.on('select', function () {
 				var attachment = mediaFrame.state().get('selection').first().toJSON();
 
-				$imageId.val(attachment.id);
+				$imageId.val(attachment.id).trigger('change');
 				$removeImage.val('0');
 				setPreview(attachment);
 				$removeButton.show();
@@ -174,7 +179,7 @@
 		$removeButton.on('click', function (event) {
 			event.preventDefault();
 
-			$imageId.val('');
+			$imageId.val('').trigger('change');
 			$removeImage.val('1');
 			$preview.empty();
 			$removeButton.hide();

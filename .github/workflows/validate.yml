@@ -105,6 +105,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-pipeline.php
           php -d memory_limit=256M tests/integration/verify-operations.php
           php -d memory_limit=256M tests/integration/verify-admin-contracts.php
+          php -d memory_limit=256M tests/integration/verify-closeout.php
           php -d memory_limit=256M tests/integration/verify-review-audit.php
           php -d memory_limit=256M tests/integration/verify-retention.php
       - name: Actual synthetic staging-to-local transfer

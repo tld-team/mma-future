@@ -8,7 +8,8 @@ use MMAF\DataEngine\Services\RegularImport\Repository;
 
 /** Admin GETs only read projections. Decisions re-evaluate live input under the write lock. */
 final class Readiness {
-    public const RULES='preparation-v2';
+    public const RULES='preparation-v3';
+    public const FINGERPRINT_VERSION=2;
     public static function rules(): string { return self::RULES.'|'.\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_version(); }
     public static function fingerprint(int $id,bool $include_stats=true): string {
         global $wpdb; $t=Canonical::table_names(); $p=Pipeline::tables();
@@ -16,7 +17,7 @@ final class Readiness {
         $sources=$wpdb->get_results($wpdb->prepare("SELECT source_type,source_fighter_id,source_url,identity_hash,is_primary FROM {$t['fighter_sources']} WHERE fighter_id=%d ORDER BY id",$id),ARRAY_A);
         $profiles=$wpdb->get_results($wpdb->prepare("SELECT DISTINCT p.id,p.content_hash,p.source_fetched_at FROM {$p['profiles']} p JOIN {$t['fighter_sources']} fs ON fs.source_type=p.source_type AND (fs.source_fighter_id=p.source_fighter_id OR fs.source_url=p.source_url) WHERE fs.fighter_id=%d ORDER BY p.id",$id),ARRAY_A);
         $stats=$include_stats?$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighter_stats_current']} WHERE fighter_id=%d",$id),ARRAY_A):null;
-        return hash('sha256',wp_json_encode([$fighter,$sources,$profiles,$stats,self::bindings($id),self::rules(),gmdate('Y-m-d')]));
+        return hash('sha256',wp_json_encode([$fighter,$sources,$profiles,$stats,self::bindings($id),self::rules(),self::FINGERPRINT_VERSION]));
     }
     public static function invalidate(int $id=0): void {
         global $wpdb; $table=Schema::tables()['readiness'];
@@ -39,7 +40,7 @@ final class Readiness {
     public static function decision(array $fighter,array $metadata): array {
         if (!$fighter || !empty($fighter['deleted_soft']) || in_array($fighter['status'],['hidden','merged','retired','deleted_soft'],true)) { return ['state'=>'review','reason'=>'excluded_identity']; }
         if (!empty($metadata['identity_conflict']) || (int)($metadata['source_count']??0)>1) { return ['state'=>'review','reason'=>'identity_conflict']; }
-        if ((int)($metadata['source_count']??0)!==1) { return ['state'=>'review','reason'=>'stored_profile_missing']; }
+        if ((int)($metadata['successful_profile_count']??0)!==1) { return ['state'=>'review','reason'=>'stored_profile_missing']; }
         if (($metadata['preparation_status']??'')==='failed') { return ['state'=>'failed','reason'=>'technical_failure']; }
         if (($metadata['preparation_status']??'')==='pending') { return ['state'=>'preparing','reason'=>null]; }
         return ['state'=>'ready','reason'=>null];
