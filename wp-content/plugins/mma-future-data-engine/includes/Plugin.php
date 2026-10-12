@@ -56,10 +56,12 @@ final class Plugin {
 
 		if ( is_admin() ) {
 			add_action( 'admin_init', array( \MMAF\DataEngine\Admin\FightersPage::class, 'handle_bulk_request' ) );
+			add_action( 'admin_init', array( \MMAF\DataEngine\Admin\RankingsPage::class, 'handle_calculation_request' ) );
 			add_action( 'admin_menu', array( AdminMenu::class, 'register' ) );
 			add_action( 'admin_post_mmaf_rebuild_stats', array( \MMAF\DataEngine\Admin\StatsPage::class, 'handle_admin_post' ) );
 			add_action( 'admin_post_mmaf_system_snapshot_export', array( \MMAF\DataEngine\Admin\ImportPage::class, 'handle_snapshot_export' ) );
 			add_action( 'admin_enqueue_scripts', array( \MMAF\DataEngine\Admin\FightersPage::class, 'enqueue_assets' ) );
+			add_action( 'admin_enqueue_scripts', array( \MMAF\DataEngine\Admin\RankingsPage::class, 'enqueue_assets' ) );
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {

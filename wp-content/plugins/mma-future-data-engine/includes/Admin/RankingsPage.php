@@ -15,292 +15,177 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class RankingsPage {
 	private const PAGE_SLUG = 'mmaf-rankings';
 
-	public static function render(): void {
-		if ( ! current_user_can( Capabilities::MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'mma-future-data-engine' ) );
-		}
-
-		$notice = null;
-		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
-			$notice = self::handle_post();
-		}
-
-		$runs             = new RankingRunRepository();
-		$rankings         = new RankingCurrentRepository();
-		$latest_run       = $runs->latest();
-		$active_run       = $runs->active();
-		$summary          = $runs->get_last_calculation_summary();
-		$activation       = $runs->get_last_activation_summary();
-		$recent_runs      = $runs->recent( 10 );
-		$integrity        = $rankings->current_integrity();
-		$current_count    = $rankings->current_count();
-		$latest_run_id    = $latest_run ? (int) $latest_run['id'] : 0;
-		$active_run_id    = $active_run ? (int) $active_run['id'] : 0;
-		$draft_rows_count = $latest_run_id > 0 ? $rankings->snapshot_count_for_run( $latest_run_id ) : 0;
-		$draft_boards_count = $latest_run_id > 0 ? $rankings->snapshot_board_count_for_run( $latest_run_id ) : 0;
-		$draft_unique_fighters = $latest_run_id > 0 ? $rankings->snapshot_unique_fighter_count_for_run( $latest_run_id ) : 0;
-		$available_boards = $latest_run_id > 0 ? $rankings->snapshot_boards_for_run( $latest_run_id ) : array();
-		$selected_board = self::selected_board( $available_boards );
-		$selected_board_rows_count = $latest_run_id > 0 && '' !== $selected_board ? $rankings->snapshot_count_for_run_board( $latest_run_id, $selected_board ) : 0;
-		$selected_board_unique_fighters = $latest_run_id > 0 && '' !== $selected_board ? $rankings->snapshot_unique_fighter_count_for_run_board( $latest_run_id, $selected_board ) : 0;
-		$preview_per_page = self::current_preview_per_page();
-		$preview_paged    = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
-		$preview_total_pages = max( 1, (int) ceil( $selected_board_rows_count / $preview_per_page ) );
-		$preview_paged    = min( $preview_paged, $preview_total_pages );
-		$preview_offset   = ( $preview_paged - 1 ) * $preview_per_page;
-		$preview_rows     = $latest_run_id > 0 ? $rankings->latest_preview( $latest_run_id, $preview_per_page, $selected_board, $preview_offset ) : array();
-		$latest_summary   = $latest_run ? ( self::summary_from_run( $latest_run ) ?: $summary ) : $summary;
-		$latest_formula_version = $latest_run ? (string) $latest_run['formula_version'] : FormulaRegistry::current_version();
-		$latest_uses_direct_scores = FormulaRegistry::uses_direct_scores( $latest_formula_version );
-		$latest_warnings  = $latest_run_id > 0 ? $rankings->snapshot_warning_diagnostics( $latest_run_id ) : null;
-		$active_warnings  = $active_run_id > 0 ? $rankings->current_warning_diagnostics( $active_run_id ) : null;
-		?>
-		<div class="wrap">
-			<h1><?php echo esc_html__( 'Rankings', 'mma-future-data-engine' ); ?></h1>
-
-			<?php if ( $notice ) : ?>
-				<div class="<?php echo esc_attr( 'error' === $notice['type'] ? 'notice notice-error' : 'notice notice-success' ); ?>">
-					<p><?php echo esc_html( $notice['message'] ); ?></p>
-				</div>
-			<?php endif; ?>
-
-			<h2><?php echo esc_html__( 'Ranking State', 'mma-future-data-engine' ); ?></h2>
-			<table class="widefat striped" style="max-width: 920px;">
-				<tbody>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Ranking runs count', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) $runs->count() ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Active ranking run', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( $active_run ? self::format_run( $active_run ) : __( 'None found', 'mma-future-data-engine' ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Latest ranking run', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( $latest_run ? self::format_run( $latest_run ) : __( 'None found', 'mma-future-data-engine' ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Latest draft newer than active', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( $latest_run_id > 0 && $active_run_id > 0 && $latest_run_id > $active_run_id ? __( 'Yes', 'mma-future-data-engine' ) : __( 'No', 'mma-future-data-engine' ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Current live ranking rows', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) $current_count ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Current live boards', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) $integrity['current_boards_count'] ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Latest draft rows', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) $draft_rows_count ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Latest draft boards', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) $draft_boards_count ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Latest draft unique fighters', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) $draft_unique_fighters ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Eligible fighters from latest run', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) ( $latest_summary['eligible_fighters'] ?? 0 ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Ineligible fighters from latest run', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) ( $latest_summary['ineligible_fighters'] ?? 0 ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Warnings from latest run', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) ( $latest_summary['warnings_count'] ?? 0 ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Latest calculation summary', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( self::format_summary( $summary ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Storage strategy', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( (string) ( $summary['storage_strategy'] ?? __( 'Draft rows use ranking snapshots. Live activation is deferred.', 'mma-future-data-engine' ) ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Tie-breaker policy', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( self::tie_breaker_policy_text( $latest_formula_version ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Latest activation summary', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( self::format_activation_summary( $activation ) ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php echo esc_html__( 'Current ranking integrity', 'mma-future-data-engine' ); ?></th>
-						<td><?php echo esc_html( self::format_integrity( $integrity ) ); ?></td>
-					</tr>
-				</tbody>
-			</table>
-
-			<?php if ( $latest_run_id > 0 && 0 === $draft_rows_count ) : ?>
-				<div class="notice notice-info">
-					<p><?php echo esc_html__( 'No ranked rows in latest draft. Imported legacy fighters are not rankable by default.', 'mma-future-data-engine' ); ?></p>
-				</div>
-			<?php endif; ?>
-
-			<?php self::render_activation_guidance( $latest_run, $draft_rows_count, $latest_summary ); ?>
-
-			<?php self::render_warning_diagnostics( __( 'Latest Draft Warning Breakdown', 'mma-future-data-engine' ), $latest_run, $latest_warnings ); ?>
-			<?php self::render_warning_diagnostics( __( 'Active Live Warning Breakdown', 'mma-future-data-engine' ), $active_run, $active_warnings ); ?>
-
-			<form method="post" style="margin-top: 18px;">
-				<?php wp_nonce_field( 'mmaf_calculate_ranking_draft', 'mmaf_rankings_nonce' ); ?>
-				<input type="hidden" name="mmaf_action" value="calculate_draft">
-				<?php submit_button( __( 'Calculate Ranking Draft', 'mma-future-data-engine' ), 'primary', 'submit', false ); ?>
-			</form>
-
-			<?php if ( ! empty( $recent_runs ) ) : ?>
-				<h2><?php echo esc_html__( 'Recent Ranking Runs', 'mma-future-data-engine' ); ?></h2>
-				<table class="widefat striped">
-					<thead>
-						<tr>
-							<th scope="col"><?php echo esc_html__( 'Run ID', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Status', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Formula', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Reference date', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Calculated at', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Active', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Draft rows', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Action', 'mma-future-data-engine' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ( $recent_runs as $run ) : ?>
-							<?php
-							$run_id         = (int) $run['id'];
-							$run_draft_rows = $rankings->snapshot_count_for_run( $run_id );
-							$can_activate   = 'completed' === (string) $run['status'] && $run_draft_rows > 0;
-							?>
-							<tr>
-								<td><?php echo esc_html( (string) $run_id ); ?></td>
-								<td><?php echo esc_html( (string) $run['status'] ); ?></td>
-								<td><?php echo esc_html( (string) $run['formula_version'] ); ?></td>
-								<td><?php echo esc_html( (string) $run['reference_date'] ); ?></td>
-								<td><?php echo esc_html( (string) $run['calculated_at'] ); ?></td>
-								<td><?php echo esc_html( 1 === (int) $run['is_active'] ? __( 'Yes', 'mma-future-data-engine' ) : __( 'No', 'mma-future-data-engine' ) ); ?></td>
-								<td><?php echo esc_html( (string) $run_draft_rows ); ?></td>
-								<td>
-									<?php if ( $can_activate ) : ?>
-										<form method="post" onsubmit="return window.confirm('<?php echo esc_js( __( 'Activate this ranking run and replace live current rankings?', 'mma-future-data-engine' ) ); ?>');">
-											<?php wp_nonce_field( 'mmaf_activate_ranking_' . $run_id, 'mmaf_rankings_activation_nonce' ); ?>
-											<input type="hidden" name="mmaf_action" value="activate_run">
-											<input type="hidden" name="ranking_run_id" value="<?php echo esc_attr( (string) $run_id ); ?>">
-											<?php submit_button( __( 'Activate', 'mma-future-data-engine' ), 'secondary small', 'submit', false ); ?>
-											<p class="description"><?php echo esc_html__( 'Manual only. Activation is technically allowed because draft rows exist, but it does not certify production readiness.', 'mma-future-data-engine' ); ?></p>
-										</form>
-									<?php else : ?>
-										<?php echo esc_html__( 'Not activatable', 'mma-future-data-engine' ); ?>
-									<?php endif; ?>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
-			<?php endif; ?>
-
-			<?php if ( ! empty( $available_boards ) ) : ?>
-				<h2><?php echo esc_html__( 'Latest Draft Preview', 'mma-future-data-engine' ); ?></h2>
-				<form method="get" style="margin: 8px 0 12px;">
-					<input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE_SLUG ); ?>">
-					<label for="mmaf-board-filter"><strong><?php echo esc_html__( 'Board', 'mma-future-data-engine' ); ?></strong></label>
-					<select id="mmaf-board-filter" name="mmaf_board">
-						<?php foreach ( $available_boards as $board ) : ?>
-							<?php $board_key = (string) $board['board_key']; ?>
-							<option value="<?php echo esc_attr( $board_key ); ?>" <?php selected( $selected_board, $board_key ); ?>>
-								<?php
-								echo esc_html(
-									sprintf(
-										'%1$s (%2$d rows, %3$d fighters)',
-										$board_key,
-										(int) $board['rows_count'],
-										(int) $board['unique_fighters']
-									)
-								);
-								?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-					<?php self::render_preview_per_page_select( $preview_per_page ); ?>
-					<?php submit_button( __( 'Filter', 'mma-future-data-engine' ), 'secondary small', 'submit', false ); ?>
-				</form>
-				<p class="description">
-					<?php
-					echo esc_html(
-						sprintf(
-							/* translators: 1: run ID, 2: run status, 3: active/draft label, 4: board key, 5: board rows, 6: unique fighters. */
-							__( 'Showing latest draft run %1$d (%2$s, %3$s) for board %4$s: %5$d board rows, %6$d unique fighters. Default board is overall; ranks are board-specific.', 'mma-future-data-engine' ),
-							$latest_run_id,
-							$latest_run ? (string) $latest_run['status'] : '',
-							$latest_run_id > 0 && $latest_run_id === $active_run_id ? __( 'also active live run', 'mma-future-data-engine' ) : __( 'not active live run', 'mma-future-data-engine' ),
-							$selected_board,
-							$selected_board_rows_count,
-							$selected_board_unique_fighters
-						)
-					);
-					?>
-				</p>
-				<p class="description"><?php echo esc_html( self::preview_score_description( $latest_formula_version ) ); ?></p>
-			<?php endif; ?>
-
-			<?php if ( ! empty( $preview_rows ) ) : ?>
-				<?php self::render_preview_pagination( $selected_board_rows_count, $preview_paged, $preview_per_page, $selected_board ); ?>
-				<table class="widefat striped">
-					<thead>
-						<tr>
-							<th scope="col"><?php echo esc_html__( 'Rank', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Fighter', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Board', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html( $latest_uses_direct_scores ? __( 'Direct score', 'mma-future-data-engine' ) : __( 'Total (0-100)', 'mma-future-data-engine' ) ); ?></th>
-							<?php if ( ! $latest_uses_direct_scores ) : ?>
-								<th scope="col"><?php echo esc_html__( 'Performance Raw', 'mma-future-data-engine' ); ?></th>
-								<th scope="col"><?php echo esc_html__( 'Adjusted Raw', 'mma-future-data-engine' ); ?></th>
-								<th scope="col"><?php echo esc_html__( 'Confidence', 'mma-future-data-engine' ); ?></th>
-							<?php endif; ?>
-							<th scope="col"><?php echo esc_html__( 'Sample', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Score breakdown', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Eligibility', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Warnings', 'mma-future-data-engine' ); ?></th>
-							<th scope="col"><?php echo esc_html__( 'Quality flags', 'mma-future-data-engine' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ( $preview_rows as $row ) : ?>
-							<?php
-							$eligibility = json_decode( (string) $row['eligibility_json'], true );
-							$warnings    = json_decode( (string) $row['warnings_json'], true );
-							$breakdown   = json_decode( (string) ( $row['breakdown_json'] ?? '' ), true );
-							$quality_flags = json_decode( (string) ( $row['quality_flags_json'] ?? '' ), true );
-							?>
-							<tr>
-								<td><?php echo esc_html( (string) $row['rank_position'] ); ?></td>
-								<td><?php echo esc_html( (string) ( $row['display_name'] ?? ( 'Fighter #' . $row['fighter_id'] ) ) ); ?></td>
-								<td><?php echo esc_html( (string) $row['board_key'] ); ?></td>
-								<td><?php echo esc_html( (string) $row['total_score'] ); ?></td>
-								<?php if ( ! $latest_uses_direct_scores ) : ?>
-									<td><?php echo esc_html( self::format_score_part( $breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null ) ); ?></td>
-									<td><?php echo esc_html( (string) ( $row['raw_score'] ?? '' ) ); ?></td>
-									<td><?php echo esc_html( (string) ( $row['confidence_score'] ?? '' ) ); ?></td>
-								<?php endif; ?>
-								<td><?php echo esc_html( (string) ( $row['sample_size'] ?? '' ) ); ?></td>
-								<td><?php echo esc_html( self::format_score_breakdown( (string) ( $row['breakdown_json'] ?? '' ), $latest_formula_version ) ); ?></td>
-								<td><?php echo esc_html( ! empty( $eligibility['eligible'] ) ? __( 'Eligible', 'mma-future-data-engine' ) : __( 'Ineligible', 'mma-future-data-engine' ) ); ?></td>
-								<td><?php echo esc_html( (string) count( is_array( $warnings['warnings'] ?? null ) ? $warnings['warnings'] : array() ) ); ?></td>
-								<td><?php echo esc_html( empty( $quality_flags ) || ! is_array( $quality_flags ) ? '-' : implode( ', ', $quality_flags ) ); ?></td>
-							</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
-				<?php self::render_preview_pagination( $selected_board_rows_count, $preview_paged, $preview_per_page, $selected_board ); ?>
-			<?php endif; ?>
-		</div>
-		<?php
+	/** Queue calculation and redirect before WordPress renders the admin header. */
+	public static function handle_calculation_request(): void {
+		if ( ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || ($_GET['page'] ?? '') !== self::PAGE_SLUG || ($_POST['mmaf_action'] ?? '') !== 'calculate_draft' ) { return; }
+		if ( ! current_user_can( Capabilities::MANAGE ) ) { wp_die( 'Access denied.', '', array( 'response' => 403 ) ); }
+		$notice = self::handle_calculate_post();
+		wp_die( esc_html( $notice['message'] ), 'Ranking calculation', array( 'response' => 409, 'back_link' => true ) );
 	}
+
+	public static function enqueue_assets(): void {
+		if ( sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ) !== self::PAGE_SLUG ) { return; }
+		wp_enqueue_style( 'mmaf-rankings-admin', plugins_url( 'assets/admin-rankings.css', MMAF_PLUGIN_FILE ), array(), (string) filemtime( MMAF_PLUGIN_DIR . 'assets/admin-rankings.css' ) );
+	}
+
+	public static function render(): void {
+        if (!current_user_can(Capabilities::MANAGE)) { wp_die(esc_html__('You do not have permission to access this page.', 'mma-future-data-engine')); }
+        $notice = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' ? self::handle_post() : null;
+        $runs = new RankingRunRepository(); $rankings = new RankingCurrentRepository();
+        $latest = $runs->latest(); $active = $runs->active(); $recent = $runs->recent(10);
+        $latest_id = (int) ($latest['id'] ?? 0); $active_id = (int) ($active['id'] ?? 0);
+        $requested = absint(wp_unslash($_GET['mmaf_run'] ?? 0)) ?: $latest_id;
+        $selected = $requested === $latest_id ? $latest : ($requested === $active_id ? $active : $runs->find($requested));
+        $selected_id = (int) ($selected['id'] ?? 0);
+        $boards = $selected_id ? $rankings->snapshot_boards_for_run($selected_id) : [];
+        $board = self::selected_board($boards); $board_count = 0;
+        foreach ($boards as $item) { if ($item['board_key'] === $board) { $board_count = (int) $item['rows_count']; } }
+        $per_page = self::current_preview_per_page();
+        $paged = min(max(1, absint($_GET['paged'] ?? 1)), max(1, (int) ceil($board_count / $per_page)));
+        $rows = $selected_id && $board !== '' ? $rankings->latest_preview($selected_id, $per_page, $board, ($paged - 1) * $per_page) : [];
+        $formula = (string) ($selected['formula_version'] ?? FormulaRegistry::current_version());
+        $summary = $latest ? self::summary_from_run($latest) : null;
+        $latest_boards = $selected_id === $latest_id ? $boards : ($latest_id ? $rankings->snapshot_boards_for_run($latest_id) : []);
+        $latest_rows = array_sum(array_column($latest_boards, 'rows_count'));
+        $current_rows = $rankings->current_count(); $current_boards = $rankings->board_count();
+        $activation = $runs->get_last_activation_summary();
+        $choices = [];
+        foreach (array_merge([$latest, $active, $selected], $recent) as $run) { if ($run) { $choices[(int) $run['id']] = $run; } }
+        krsort($choices);
+        $diagnostics_requested = ($_GET['mmaf_diagnostics'] ?? '') === '1';
+        ?>
+        <div class="wrap mmaf-rankings-admin">
+            <h1 class="wp-heading-inline">Rankings</h1>
+            <hr class="wp-header-end">
+            <?php if ($notice): ?><div class="notice inline <?php echo $notice['type'] === 'error' ? 'notice-error' : 'notice-success'; ?>"><p><?php echo esc_html($notice['message']); ?></p></div><?php endif; ?>
+            <p class="mmaf-page-intro">Pregledaj sačuvane obračune i kategorije pre ručne aktivacije. <a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-operations')); ?>">Operations and results</a></p>
+            <nav class="mmaf-section-nav" aria-label="Rankings sections"><a href="#mmaf-ranking-preview">Ranked fighters</a><a href="#mmaf-ranking-history">Calculation history</a><a href="#mmaf-ranking-diagnostics">Diagnostics</a></nav>
+            <section class="mmaf-run-overview" aria-label="Ranking overview">
+                <?php self::render_run_card('Live ranking', $active, $current_rows, $current_boards, $active_id, $activation); ?>
+                <?php self::render_run_card('Latest calculation', $latest, (int) $latest_rows, count($latest_boards), $active_id); ?>
+            </section>
+            <div class="mmaf-calculation-toolbar">
+                <p>Calculate pravi novi neaktivan draft u pozadini. Sam pregled ili izbor liste ne menja javno rangiranje.</p>
+                <form method="post"><?php wp_nonce_field('mmaf_calculate_ranking_draft', 'mmaf_rankings_nonce'); ?><input type="hidden" name="mmaf_action" value="calculate_draft"><button class="button" type="submit">Calculate Ranking Draft</button></form>
+            </div>
+            <section class="mmaf-ranking-panel" id="mmaf-ranking-preview" aria-labelledby="mmaf-preview-title">
+                <div class="mmaf-panel-heading"><div><h2 id="mmaf-preview-title">Ranked fighters</h2><p>Snapshot pregled čuva izračunate rangove i skorove iz izabranog obračuna.</p></div><?php if ($selected): ?><span class="mmaf-status <?php echo $selected_id === $active_id ? 'mmaf-status-live' : ''; ?>"><?php echo esc_html('#' . $selected_id . ($selected_id === $active_id ? ' · Live' : ' · Not live')); ?></span><?php endif; ?></div>
+                <?php if (!$selected && $requested): ?><div class="notice notice-warning inline"><p>Ranking run not found. <a href="<?php echo esc_url(self::preview_url($latest_id)); ?>">Open latest calculation</a></p></div><?php endif; ?>
+                <?php if ($choices): ?>
+                    <form method="get" class="mmaf-ranking-filters">
+                        <input type="hidden" name="page" value="<?php echo esc_attr(self::PAGE_SLUG); ?>">
+                        <div class="mmaf-filter-field"><label for="mmaf-run-filter">Ranking run</label><select id="mmaf-run-filter" name="mmaf_run"><?php if (!$selected): ?><option value="<?php echo esc_attr($requested); ?>" selected>Run not found</option><?php endif; ?><?php foreach ($choices as $id => $run): ?><option value="<?php echo esc_attr($id); ?>" <?php selected($selected_id, $id); ?>><?php echo esc_html('#' . $id . ' · ' . ($id === $active_id ? 'Live' : ucfirst($run['status']) . ' · Not live') . ' · ' . $run['reference_date']); ?></option><?php endforeach; ?></select></div>
+                        <div class="mmaf-filter-field"><label for="mmaf-board-filter">Category</label><select id="mmaf-board-filter" name="mmaf_board" <?php disabled(!$boards); ?>><?php if (!$boards): ?><option value="">No categories available</option><?php endif; ?><?php foreach ($boards as $item): ?><option value="<?php echo esc_attr($item['board_key']); ?>" <?php selected($board, $item['board_key']); ?>><?php echo esc_html(self::board_label($item['board_key']) . ' · ' . number_format_i18n($item['rows_count']) . ' fighters'); ?></option><?php endforeach; ?></select></div>
+                        <div class="mmaf-filter-field"><?php self::render_preview_per_page_select($per_page); ?></div>
+                        <button class="button button-primary" type="submit">Apply filters</button>
+                    </form>
+                <?php endif; ?>
+                <?php if ($selected): ?>
+                    <div class="mmaf-preview-summary"><span><strong><?php echo esc_html(self::board_label($board) ?: 'No category'); ?></strong> · <?php echo esc_html(number_format_i18n($board_count)); ?> fighters</span><span><?php echo esc_html($formula); ?> · <?php echo esc_html(ucfirst($selected['status'])); ?> · Calculated <?php echo esc_html(self::display_time($selected['calculated_at'])); ?></span></div>
+                <?php endif; ?>
+                <?php if ($selected && $selected['status'] !== 'completed'): ?><p class="mmaf-inline-warning">This calculation is <?php echo esc_html($selected['status']); ?>. Available snapshot rows may be incomplete; activation requires a completed calculation.</p><?php endif; ?>
+                <?php if ($rows): ?>
+                    <?php self::render_preview_pagination($board_count, $paged, $per_page, $board, $selected_id); ?>
+                    <div class="mmaf-table-scroll" role="region" aria-label="Ranking results" tabindex="0"><table class="widefat striped mmaf-ranking-results"><caption class="screen-reader-text"><?php echo esc_html('Saved ranking #' . $selected_id . ', ' . self::board_label($board)); ?></caption><thead><tr><th scope="col" class="mmaf-rank-col">Rank</th><th scope="col" class="mmaf-name-col">Fighter</th><th scope="col" class="mmaf-score-col"><?php echo FormulaRegistry::uses_direct_scores($formula) ? 'Direct score' : 'Total (0–100)'; ?></th><th scope="col" class="mmaf-sample-col">Scoring bouts</th><th scope="col" class="mmaf-checks-col">Checks</th><th scope="col" class="mmaf-breakdown-col">Score details</th></tr></thead><tbody>
+                        <?php foreach ($rows as $row): self::render_preview_row($row, $formula); endforeach; ?>
+                    </tbody></table></div>
+                    <?php self::render_preview_pagination($board_count, $paged, $per_page, $board, $selected_id); ?>
+                    <details class="mmaf-method-details"><summary>How to read these scores</summary><p><?php echo esc_html(self::preview_score_description($formula)); ?></p></details>
+                <?php elseif ($selected): ?>
+                    <div class="mmaf-empty-state"><strong>No ranked fighters in this calculation</strong><p>Ovaj snapshot nema rezultate za prikaz. Proveri status obračuna i njegove podatke pre novog obračuna.</p></div>
+                <?php elseif (!$requested): ?>
+                    <div class="mmaf-empty-state"><strong>No ranking calculations yet</strong><p>Pripremi podatke boraca, zatim pokreni Calculate Ranking Draft. Aktivacija je zaseban ručni korak.</p></div>
+                <?php endif; ?>
+            </section>
+            <details class="mmaf-ranking-panel mmaf-panel-disclosure" id="mmaf-ranking-history"><summary>Calculation history <span><?php echo esc_html(number_format_i18n($runs->count())); ?> runs</span></summary>
+                <div class="mmaf-panel-content"><p>Preview samo otvara sačuvane rezultate. Activate zamenjuje javnu listu i zahteva postojeću ručnu potvrdu.</p>
+                <?php if ($recent): ?>
+                    <div class="mmaf-table-scroll" role="region" aria-label="Recent ranking calculations" tabindex="0"><table class="widefat striped mmaf-history-table"><thead><tr><th scope="col">Run / status</th><th scope="col">Formula</th><th scope="col">Reference date</th><th scope="col">Calculated</th><th scope="col">Snapshot rows</th><th scope="col">Actions</th></tr></thead><tbody>
+                    <?php foreach ($recent as $run): $id = (int) $run['id']; $count = $rankings->snapshot_count_for_run($id); $can_activate = $run['status'] === 'completed' && $count > 0; ?>
+                        <tr><td><strong>#<?php echo esc_html($id); ?></strong> <span class="mmaf-status <?php echo $id === $active_id ? 'mmaf-status-live' : ''; ?>"><?php echo $id === $active_id ? 'Live' : esc_html(ucfirst($run['status'])); ?></span></td><td><?php echo esc_html($run['formula_version']); ?></td><td><?php echo esc_html($run['reference_date']); ?></td><td><?php echo esc_html(self::display_time($run['calculated_at'])); ?></td><td><?php echo esc_html(number_format_i18n($count)); ?></td><td><a class="button button-small" href="<?php echo esc_url(self::preview_url($id, 'overall', $per_page)); ?>">Preview #<?php echo esc_html($id); ?></a>
+                            <?php if ($id === $active_id): ?><span class="mmaf-muted mmaf-line">Currently live</span><?php elseif ($can_activate): ?>
+                                <details class="mmaf-activation"><summary>Activate #<?php echo esc_html($id); ?></summary><p>Zamenjuje aktivnu javnu listu ovim snapshot-om. Pre toga pregledaj rezultate i upozorenja. Dostupnost akcije nije potvrda kvaliteta izvora.</p>
+                                    <form method="post" onsubmit="return window.confirm('<?php echo esc_js('Activate ranking run #' . $id . ' and replace live current rankings?'); ?>');"><?php wp_nonce_field('mmaf_activate_ranking_' . $id, 'mmaf_rankings_activation_nonce'); ?><input type="hidden" name="mmaf_action" value="activate_run"><input type="hidden" name="ranking_run_id" value="<?php echo esc_attr($id); ?>"><button type="submit" class="button">Activate ranking #<?php echo esc_html($id); ?></button></form>
+                                </details>
+                            <?php else: ?><span class="mmaf-muted mmaf-line">Activation unavailable</span><?php endif; ?>
+                        </td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                    <p class="description">Showing the ten most recent calculations. Raniji obračun možeš otvoriti iz njegovog sačuvanog admin linka.</p>
+                <?php else: ?><p>No calculations are available.</p><?php endif; ?>
+                </div>
+            </details>
+            <section class="mmaf-ranking-panel" id="mmaf-ranking-diagnostics" aria-labelledby="mmaf-diagnostics-title">
+                <div class="mmaf-panel-heading"><div><h2 id="mmaf-diagnostics-title">Diagnostics</h2><p>Upozorenja o kvalitetu izvora i tehničke provere računaju se na eksplicitan zahtev.</p></div></div>
+                <?php if ($selected): ?>
+                    <div class="mmaf-diagnostic-summary"><span>Selected run <strong>#<?php echo esc_html($selected_id); ?></strong></span><span>Warnings recorded by calculation: <strong><?php $selected_summary = self::summary_from_run($selected); echo esc_html(self::display_count($selected_summary['warnings_count'] ?? null)); ?></strong></span></div>
+                    <p class="description">Broj upozorenja nije broj jedinstvenih boraca. Jedan borac može imati više upozorenja i biti na više kategorija.</p>
+                    <?php if ($diagnostics_requested): ?>
+                        <div class="mmaf-diagnostic-content">
+                            <?php self::render_warning_diagnostics('Selected snapshot warning breakdown', $selected, $rankings->snapshot_warning_diagnostics($selected_id)); ?>
+                            <?php if ($selected_id === $active_id): self::render_warning_diagnostics('Live rows warning breakdown', $active, $rankings->current_warning_diagnostics($active_id)); endif; ?>
+                            <?php $integrity = $rankings->current_integrity(); ?>
+                            <h3>Live ranking integrity</h3><p><?php echo esc_html(self::format_integrity($integrity)); ?></p>
+                            <details><summary>Calculation and activation metadata</summary><p><?php echo esc_html(self::format_summary($selected_summary)); ?></p><p><?php echo esc_html(self::format_activation_summary($activation)); ?></p><p><?php echo esc_html(self::tie_breaker_policy_text($formula)); ?></p></details>
+                        </div>
+                        <a class="button" href="<?php echo esc_url(self::preview_url($selected_id, $board, $per_page) . '#mmaf-ranking-diagnostics'); ?>">Close diagnostics</a>
+                    <?php else: ?>
+                        <a class="button" href="<?php echo esc_url(add_query_arg('mmaf_diagnostics', '1', self::preview_url($selected_id, $board, $per_page)) . '#mmaf-ranking-diagnostics'); ?>">Compute diagnostics for #<?php echo esc_html($selected_id); ?></a>
+                    <?php endif; ?>
+                <?php else: ?><p>Choose an available calculation to inspect diagnostics.</p><?php endif; ?>
+            </section>
+        </div>
+        <?php
+    }
+
+    private static function render_run_card(string $title, ?array $run, int $rows, int $boards, int $active_id, ?array $activation = null): void {
+        $id = (int) ($run['id'] ?? 0); $live = $id && $id === $active_id; $summary = $run ? self::summary_from_run($run) : null;
+        ?>
+        <article class="mmaf-run-card"><div class="mmaf-card-heading"><h2><?php echo esc_html($title); ?></h2><?php if ($run): ?><span class="mmaf-status <?php echo $live ? 'mmaf-status-live' : ''; ?>"><?php echo $live ? 'Live' : 'Not live'; ?></span><?php endif; ?></div>
+            <?php if ($run): ?>
+                <div class="mmaf-run-id">#<?php echo esc_html($id); ?> <span><?php echo esc_html($run['formula_version']); ?> · <?php echo esc_html(ucfirst($run['status'])); ?></span></div>
+                <p class="mmaf-run-counts"><strong><?php echo esc_html(number_format_i18n($rows)); ?></strong> board rows · <strong><?php echo esc_html(number_format_i18n($boards)); ?></strong> categories</p>
+                <dl class="mmaf-run-dates"><dt>Reference date</dt><dd><?php echo esc_html($run['reference_date']); ?></dd><dt>Calculated</dt><dd><?php echo esc_html(self::display_time($run['calculated_at'])); ?></dd><?php if ($activation && (int) ($activation['ranking_run_id'] ?? 0) === $id): ?><dt>Activated</dt><dd><?php echo esc_html(self::display_time($activation['activated_at'] ?? null)); ?></dd><?php endif; ?></dl>
+                <?php if (!$live): ?><p class="mmaf-muted">Eligible: <?php echo esc_html(self::display_count($summary['eligible_fighters'] ?? null)); ?> · Ineligible: <?php echo esc_html(self::display_count($summary['ineligible_fighters'] ?? null)); ?> · Warnings: <?php echo esc_html(self::display_count($summary['warnings_count'] ?? null)); ?></p><?php endif; ?>
+                <a href="<?php echo esc_url(self::preview_url($id)); ?>"><?php echo $live ? 'View live snapshot' : 'Review calculation'; ?></a>
+            <?php else: ?><p class="mmaf-muted"><?php echo $title === 'Live ranking' ? 'No ranking has been activated.' : 'No calculation is available.'; ?></p><?php endif; ?>
+        </article>
+        <?php
+    }
+
+    private static function render_preview_row(array $row, string $formula): void {
+        $eligibility = json_decode((string) $row['eligibility_json'], true);
+        $warnings = json_decode((string) $row['warnings_json'], true);
+        $codes = is_array($warnings['warnings'] ?? null) ? $warnings['warnings'] : [];
+        $flags = json_decode((string) ($row['quality_flags_json'] ?? ''), true); $flags = is_array($flags) ? $flags : [];
+        $breakdown = json_decode((string) ($row['breakdown_json'] ?? ''), true); $breakdown = is_array($breakdown) ? $breakdown : [];
+        ?>
+        <tr><td class="mmaf-rank-col"><?php echo esc_html($row['rank_position']); ?></td><td><a class="mmaf-fighter-name" href="<?php echo esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id=' . (int) $row['fighter_id'])); ?>"><?php echo esc_html($row['display_name'] ?? ('Fighter #' . $row['fighter_id'])); ?></a><small class="mmaf-muted mmaf-line">#<?php echo esc_html($row['fighter_id']); ?></small></td><td class="mmaf-score-col"><strong><?php echo esc_html(self::format_score_part($row['total_score'])); ?></strong></td><td><?php echo esc_html($row['sample_size'] ?? 'Unknown'); ?></td>
+            <td><span><?php echo esc_html(isset($eligibility['eligible']) ? ($eligibility['eligible'] ? 'Eligible' : 'Ineligible') : 'Not recorded'); ?></span><span class="mmaf-line <?php echo $codes ? 'mmaf-warning-text' : 'mmaf-muted'; ?>"><?php echo esc_html(count($codes) . ' warnings'); ?></span><?php if ($codes || $flags): ?><details class="mmaf-row-details"><summary><?php echo $codes ? 'Warning details' : 'Quality details'; ?></summary><?php if ($codes): ?><ul><?php foreach ($codes as $code): ?><li><?php echo esc_html(ucfirst(str_replace('_', ' ', (string) $code))); ?></li><?php endforeach; ?></ul><?php endif; ?><?php if ($flags): ?><p>Quality flags: <?php echo esc_html(implode(', ', array_map(static fn($flag) => str_replace('_', ' ', (string) $flag), $flags))); ?></p><?php endif; ?></details><?php endif; ?></td>
+            <td><details class="mmaf-row-details"><summary>Score breakdown</summary><dl class="mmaf-score-details">
+                <?php foreach (['base_record_points' => 'Base record', 'finishes_points' => 'Finishes', 'age_adjustment_points' => 'Age adjustment', 'opponent_differential_points' => 'Opponent differential', 'loss_quality_penalty_points' => 'Loss quality'] as $key => $label): ?><dt><?php echo esc_html($label); ?></dt><dd><?php echo esc_html(self::format_score_part($breakdown[$key] ?? null)); ?></dd><?php endforeach; ?>
+                <?php if (!FormulaRegistry::uses_direct_scores($formula)): ?><dt>Performance raw</dt><dd><?php echo esc_html(self::format_score_part($breakdown['performance_raw_score'] ?? $breakdown['raw_score_before_confidence'] ?? null)); ?></dd><dt>Adjusted raw</dt><dd><?php echo esc_html(self::format_score_part($row['raw_score'] ?? null)); ?></dd><dt>Confidence (%)</dt><dd><?php echo esc_html(self::format_score_part($row['confidence_score'] ?? null)); ?></dd><?php endif; ?>
+                <dt>Total score</dt><dd><strong><?php echo esc_html(self::format_score_part($row['total_score'])); ?></strong></dd></dl></details></td>
+        </tr>
+        <?php
+    }
+
+    private static function preview_url(int $run, string $board = 'overall', int $per_page = 25): string {
+        return add_query_arg(['page' => self::PAGE_SLUG, 'mmaf_run' => $run, 'mmaf_board' => $board, 'per_page' => $per_page], admin_url('admin.php'));
+    }
+
+    private static function board_label(string $key): string {
+        return ['overall' => 'Overall', 'male' => 'Men', 'female' => 'Women', 'under_30' => 'Under 30', 'over_30_to_34' => 'Age 30–34'][$key] ?? ucwords(str_replace('_', ' ', $key));
+    }
+
+    private static function display_time(?string $value): string {
+        $time = $value ? strtotime($value . ' UTC') : false;
+        return $time === false ? 'Unknown' : wp_date('M j, Y · H:i', $time);
+    }
+
+    private static function display_count($value): string {
+        return is_numeric($value) ? number_format_i18n((int) $value) : 'Unknown';
+    }
 
 	private static function selected_board( array $available_boards ): string {
 		if ( empty( $available_boards ) ) {
@@ -328,7 +213,7 @@ final class RankingsPage {
 
 	private static function render_preview_per_page_select( int $per_page ): void {
 		?>
-		<label for="mmaf-rankings-per-page" style="margin-left: 8px;"><?php echo esc_html__( 'Per page', 'mma-future-data-engine' ); ?></label>
+		<label for="mmaf-rankings-per-page"><?php echo esc_html__( 'Per page', 'mma-future-data-engine' ); ?></label>
 		<select id="mmaf-rankings-per-page" name="per_page">
 			<?php foreach ( array( 25, 50, 100 ) as $option ) : ?>
 				<option value="<?php echo esc_attr( (string) $option ); ?>" <?php selected( $per_page, $option ); ?>><?php echo esc_html( (string) $option ); ?></option>
@@ -337,10 +222,11 @@ final class RankingsPage {
 		<?php
 	}
 
-	private static function render_preview_pagination( int $total, int $paged, int $per_page, string $board ): void {
+	private static function render_preview_pagination( int $total, int $paged, int $per_page, string $board, int $run_id ): void {
 		$total_pages = max( 1, (int) ceil( $total / $per_page ) );
 		$args        = array(
 			'page'     => self::PAGE_SLUG,
+            'mmaf_run' => $run_id,
 			'per_page' => $per_page,
 		);
 
@@ -348,7 +234,7 @@ final class RankingsPage {
 			$args['mmaf_board'] = $board;
 		}
 
-		echo '<div class="tablenav top" style="margin: 10px 0;">';
+		echo '<div class="mmaf-pagination">';
 		echo '<div class="alignleft actions"><span class="displaying-num">' . esc_html( sprintf( _n( '%s ranked row', '%s ranked rows', $total, 'mma-future-data-engine' ), number_format_i18n( $total ) ) ) . '</span></div>';
 
 		if ( $total_pages > 1 ) {
@@ -367,7 +253,7 @@ final class RankingsPage {
 			) . '</div>';
 		}
 
-		echo '<br class="clear"></div>';
+		echo '</div>';
 	}
 
 	private static function render_activation_guidance( ?array $latest_run, int $draft_rows_count, ?array $summary ): void {
@@ -375,7 +261,7 @@ final class RankingsPage {
 		$status   = $latest_run ? (string) $latest_run['status'] : '';
 		$activatable = $latest_run && 'completed' === $status && $draft_rows_count > 0;
 
-		echo '<div class="notice notice-info"><p><strong>' . esc_html__( 'Activation guidance:', 'mma-future-data-engine' ) . '</strong> ';
+		echo '<div class="notice notice-info inline"><p><strong>' . esc_html__( 'Activation guidance:', 'mma-future-data-engine' ) . '</strong> ';
 		echo esc_html__( 'No ranking is activated automatically by this page. Draft calculation writes draft snapshots only; live rankings change only after manual activation.', 'mma-future-data-engine' );
 		echo '</p>';
 
