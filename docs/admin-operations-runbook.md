@@ -31,7 +31,7 @@ For now, **manually check cPanel Statistics before each staging release**. Recor
 
 The private runner verifies checksums and schema compatibility, waits for the worker checkpoint, prevents new writes, creates a checked backup, enters short maintenance, applies explicit migrations and verifies the site before reopening. CI success requires a receipt for the exact commit, sequence and package hash; uploaded/queued alone is not success.
 
-If the hosting TLS virtual host uses its default server certificate on `127.0.0.1`, set `probe_scheme: http` for the strictly loopback-only private probe. The public URL stays HTTPS and receives a separate TLS/status check without the private probe token. Do not disable certificate verification or send the private header to a public address.
+If the hosting virtual host binds to a shared server IP, set `probe_destination` to that IP. The runner verifies that the destination is locally assigned and binds the request source to `127.0.0.1` (or `::1` for IPv6). HTTPS certificate verification stays enabled; private probes never follow redirects or use a proxy. The public URL receives a separate TLS/status check without the private header.
 
 Do not enable the new main workflow before the private launcher, gate, backup and compatible fallback have been installed and verified. Existing FTP secrets remain unchanged during the transition.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Private runner; locks, journals and backups survive code/runtime replacement."""
-import argparse, contextlib, datetime, fcntl, gzip, hashlib, json, os, re, secrets, shutil, stat, subprocess, sys, tempfile, time, zipfile
+import argparse, contextlib, datetime, fcntl, gzip, hashlib, ipaddress, json, os, re, secrets, shutil, socket, stat, subprocess, sys, tempfile, time, zipfile
 from pathlib import Path
 from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -150,23 +150,30 @@ class Runner:
     def http_check(self,manifest):
         host=self.c.get('probe_host');address=self.c.get('probe_address','127.0.0.1');base=self.c['url'].rstrip('/')
         if not host or not re.fullmatch(r'[a-zA-Z0-9.-]+',host) or address not in {'127.0.0.1','::1'}: raise ValueError('Explicit loopback probe host required')
-        public=urlsplit(base);scheme=self.c.get('probe_scheme',public.scheme)
-        if public.hostname!=host or public.scheme not in {'http','https'} or scheme not in {'http','https'} or public.port or public.query or public.fragment or public.username or public.password:raise ValueError('Invalid public or loopback probe URL')
-        probe_base=scheme+'://'+public.netloc+public.path
+        public=urlsplit(base)
+        if public.hostname!=host or public.scheme not in {'http','https'} or public.port or public.query or public.fragment or public.username or public.password:raise ValueError('Invalid public or loopback probe URL')
+        destination=ipaddress.ip_address(self.c.get('probe_destination',address))
+        if destination.version!=ipaddress.ip_address(address).version or destination.is_unspecified or destination.is_multicast:raise ValueError('Probe destination must be a locally assigned address')
+        # Some hosts bind the site to a local shared IP rather than 127.0.0.1.
+        # Verify local ownership, keep the source loopback and preserve HTTPS/TLS.
+        if not destination.is_loopback:
+            try:
+                with socket.socket(socket.AF_INET if destination.version==4 else socket.AF_INET6,socket.SOCK_STREAM) as check:check.bind((str(destination),0))
+            except OSError as error:raise ValueError('Probe destination must be a locally assigned address') from error
         token=self.root/'probe.token';token.write_text(secrets.token_hex(32));token.chmod(0o600)
-        port=443 if scheme=='https' else 80
+        port=443 if public.scheme=='https' else 80
         # Header secret goes through a private curl config, never argv/logs.
         config=self.root/'probe.curl';config.write_text('header = "X-MMAF-Release-Probe: '+token.read_text()+'"\n');config.chmod(0o600)
-        common=['curl','--config',str(config),'--fail','--silent','--show-error','--max-time','20','--resolve',host+':'+str(port)+':'+address]
+        resolved='['+str(destination)+']' if destination.version==6 else str(destination)
+        common=['curl','--config',str(config),'--interface',address,'--noproxy','*','--fail','--silent','--show-error','--max-time','20','--resolve',host+':'+str(port)+':'+resolved]
         try:
             for route in ['/','/all-rankings/','/wp-json/mma-future/v1/health']:
-                local_check=subprocess.run(common+['--output','/dev/null','--write-out','%{http_code}',probe_base+route],capture_output=True,text=True)
+                local_check=subprocess.run(common+['--output','/dev/null','--write-out','%{http_code}',base+route],capture_output=True,text=True)
                 if local_check.returncode or local_check.stdout.strip()!='200':raise ValueError('Local release route check failed: '+route)
             name='wp-content/themes/mma-future/assets/dist/css/output.css'
-            response=subprocess.check_output(common+[probe_base+'/'+name],stderr=subprocess.PIPE)
+            response=subprocess.check_output(common+[base+'/'+name],stderr=subprocess.PIPE)
             if hashlib.sha256(response).hexdigest()!=manifest['files'][name]: raise ValueError('Public asset checksum mismatch')
-            # Shared hosting may present its default TLS certificate on loopback. The private
-            # probe can use local HTTP; public HTTPS still verifies TLS without the private token.
+            # The public check has no private header and must verify maintenance/TLS too.
             public_check=subprocess.run(['curl','--silent','--show-error','--max-time','20','--output','/dev/null','--write-out','%{http_code}',base+'/'],capture_output=True,text=True)
             expected='503' if (self.root/'maintenance.flag').exists() else '200'
             if public_check.returncode or public_check.stdout.strip()!=expected:raise ValueError('Public TLS or maintenance status check failed')
