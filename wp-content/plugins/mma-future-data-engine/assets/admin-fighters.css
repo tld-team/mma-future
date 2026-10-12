@@ -1,0 +1,103 @@
+/* Scoped to the canonical Fighters admin screen; public theme assets are unchanged. */
+.mmaf-fighters-admin { --mmaf-border: #dcdcde; --mmaf-muted: #646970; }
+.mmaf-fighters-admin .mmaf-page-intro { margin: 16px 0; color: #50575e; }
+.mmaf-fighters-admin .mmaf-page-intro a { margin-left: 8px; }
+.mmaf-fighters-admin .mmaf-quick-views { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 14px; }
+.mmaf-fighters-admin .mmaf-quick-views a { padding: 7px 12px; border: 1px solid transparent; border-radius: 4px; text-decoration: none; }
+.mmaf-fighters-admin .mmaf-quick-views a:hover { background: #fff; border-color: var(--mmaf-border); }
+.mmaf-fighters-admin .mmaf-quick-views a.is-current { background: #fff; border-color: #2271b1; color: #135e96; font-weight: 600; }
+.mmaf-fighters-admin .mmaf-filter-panel { padding: 18px 20px 12px; background: #fff; border: 1px solid var(--mmaf-border); border-radius: 5px; }
+.mmaf-fighters-admin .mmaf-primary-filters { display: grid; grid-template-columns: minmax(220px, 1.5fr) minmax(170px, 1fr) minmax(170px, 1fr) auto; align-items: end; gap: 16px; }
+.mmaf-fighters-admin .mmaf-filter-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.mmaf-fighters-admin .mmaf-filter-field label { font-weight: 600; }
+.mmaf-fighters-admin .mmaf-filter-field input,
+.mmaf-fighters-admin .mmaf-filter-field select { width: 100%; max-width: none; margin: 0; min-height: 36px; }
+.mmaf-fighters-admin .mmaf-filter-field select { padding-right: 30px; background-position: right 10px top 55%; }
+.mmaf-fighters-admin .mmaf-primary-filters > .button { min-height: 36px; margin: 0; }
+.mmaf-fighters-admin .mmaf-more-filters { margin-top: 16px; border-top: 1px solid #f0f0f1; }
+.mmaf-fighters-admin summary { cursor: pointer; }
+.mmaf-fighters-admin summary:focus-visible,
+.mmaf-fighters-admin .mmaf-table-scroll:focus-visible { outline: 2px solid #2271b1; outline-offset: 3px; }
+.mmaf-fighters-admin .mmaf-more-filters > summary { width: fit-content; padding: 12px 0; font-weight: 600; color: #135e96; }
+.mmaf-fighters-admin .mmaf-filter-count { margin-left: 7px; font-size: 12px; font-weight: 400; color: var(--mmaf-muted); }
+.mmaf-fighters-admin .mmaf-advanced-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 22px; padding: 4px 0 18px; }
+.mmaf-fighters-admin .mmaf-advanced-apply { margin-bottom: 16px; }
+.mmaf-fighters-admin .mmaf-filter-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid #f0f0f1; padding-top: 12px; }
+.mmaf-fighters-admin .mmaf-filter-footer .description { max-width: 580px; margin: 0; }
+.mmaf-fighters-admin .mmaf-display-options { display: flex; gap: 12px; flex-shrink: 0; }
+.mmaf-fighters-admin .mmaf-display-options .mmaf-filter-field { flex-direction: row; align-items: center; gap: 8px; }
+.mmaf-fighters-admin .mmaf-display-options label { font-weight: 400; white-space: nowrap; }
+.mmaf-fighters-admin .mmaf-display-options select { width: auto; min-height: 30px; font-size: 12px; }
+.mmaf-fighters-admin .mmaf-active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 0 2px; }
+.mmaf-fighters-admin .mmaf-filter-chip { border: 1px solid #c3c4c7; border-radius: 3px; padding: 4px 8px; text-decoration: none; background: #f6f7f7; color: #2c3338; }
+.mmaf-fighters-admin .mmaf-filter-chip:hover { color: #135e96; border-color: #2271b1; }
+.mmaf-fighters-admin .mmaf-filter-chip span { margin-left: 6px; }
+.mmaf-fighters-admin .mmaf-clear-filters { margin-left: 4px; }
+.mmaf-fighters-admin .mmaf-pagination { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 16px 0; min-height: 28px; }
+.mmaf-fighters-admin .mmaf-pagination .actions { float: none; }
+.mmaf-fighters-admin .mmaf-pagination .tablenav-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.mmaf-fighters-admin .mmaf-pagination .page-numbers { display: inline-block; padding: 5px 9px; border: 1px solid var(--mmaf-border); border-radius: 3px; background: #fff; text-decoration: none; }
+.mmaf-fighters-admin .mmaf-pagination .current { background: #2271b1; color: #fff; border-color: #2271b1; }
+.mmaf-fighters-admin .mmaf-bulk-panel { padding: 14px 16px; margin-bottom: 12px; border: 1px solid var(--mmaf-border); border-radius: 5px; background: #f6f7f7; }
+.mmaf-fighters-admin .mmaf-bulk-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.mmaf-fighters-admin .mmaf-bulk-toolbar .mmaf-filter-field { max-width: 380px; flex: 1 1 280px; }
+.mmaf-fighters-admin .mmaf-bulk-toolbar .button { min-height: 36px; margin: 0; }
+.mmaf-fighters-admin #mmaf-selected-count { align-self: center; margin-top: 20px; color: var(--mmaf-muted); }
+.mmaf-fighters-admin .mmaf-selection-options { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 12px 24px; margin-top: 14px; }
+.mmaf-fighters-admin .mmaf-filtered-selection { display: block; }
+.mmaf-fighters-admin .mmaf-bulk-help { max-width: 470px; }
+.mmaf-fighters-admin .mmaf-bulk-help > summary { color: #135e96; font-size: 12px; }
+.mmaf-fighters-admin .mmaf-bulk-panel .description { margin: 10px 0 0; }
+.mmaf-fighters-admin .mmaf-bulk-panel.is-filtered { border-color: #2271b1; background: #f0f6fc; }
+.mmaf-fighters-admin .mmaf-table-scroll { overflow-x: auto; border: 1px solid var(--mmaf-border); border-radius: 4px; }
+.mmaf-fighters-admin .mmaf-fighters-table { border: 0; min-width: 960px; table-layout: fixed; }
+.mmaf-fighters-admin .mmaf-fighters-table th { background: #fff; font-weight: 600; padding: 12px; }
+.mmaf-fighters-admin .mmaf-fighters-table td { vertical-align: top; padding: 14px 12px; border-top: 1px solid #e8e8eb; overflow-wrap: anywhere; }
+.mmaf-fighters-admin .mmaf-fighters-table tbody tr:hover { background: #f0f6fc; }
+.mmaf-fighters-admin .mmaf-fighters-table .mmaf-select-cell { width: 30px; padding-right: 4px; text-align: center; }
+.mmaf-fighters-admin .mmaf-select-cell input { margin: 3px 0 0; }
+.mmaf-fighters-admin .mmaf-name-cell { width: 22%; }
+.mmaf-fighters-admin .mmaf-status-cell { width: 18%; }
+.mmaf-fighters-admin .mmaf-record-cell { width: 15%; }
+.mmaf-fighters-admin .mmaf-preparation-cell { width: 19%; }
+.mmaf-fighters-admin .mmaf-attention-cell { width: 22%; }
+.mmaf-fighters-admin .mmaf-fighter-name { font-size: 14px; font-weight: 600; text-decoration: none; }
+.mmaf-fighters-admin .mmaf-line { display: block; margin-top: 4px; }
+.mmaf-fighters-admin .mmaf-muted { color: var(--mmaf-muted); font-size: 12px; }
+.mmaf-fighters-admin .mmaf-record { font-variant-numeric: tabular-nums; margin-top: 7px; }
+.mmaf-fighters-admin .mmaf-record-cell small { display: block; font-weight: 400; color: var(--mmaf-muted); }
+.mmaf-fighters-admin .mmaf-badge { display: inline-block; padding: 3px 7px; border-radius: 3px; font-size: 12px; font-weight: 600; }
+.mmaf-fighters-admin .mmaf-badge-warning { background: #fcf0d7; color: #694600; }
+.mmaf-fighters-admin .mmaf-badge-success { background: #e7f3ed; color: #1e5b39; }
+.mmaf-fighters-admin .mmaf-badge-neutral { background: #eaf1f8; color: #234c73; }
+.mmaf-fighters-admin .mmaf-stale { color: #694600; }
+.mmaf-fighters-admin .mmaf-row-details { margin-top: 9px; font-size: 12px; }
+.mmaf-fighters-admin .mmaf-row-details summary { color: #135e96; width: fit-content; }
+.mmaf-fighters-admin .mmaf-row-details dl { margin: 10px 0; }
+.mmaf-fighters-admin .mmaf-row-details dt { font-weight: 600; margin-top: 8px; }
+.mmaf-fighters-admin .mmaf-row-details dd { margin: 2px 0 0; }
+.mmaf-fighters-admin .mmaf-next-action { margin-top: 9px; font-size: 12px; }
+.mmaf-fighters-admin .mmaf-empty-state { padding: 32px !important; text-align: center; }
+@media (max-width: 1200px) {
+ .mmaf-fighters-admin .mmaf-filter-footer { align-items: flex-start; flex-direction: column; gap: 12px; }
+ .mmaf-fighters-admin .mmaf-primary-filters { grid-template-columns: minmax(180px, 1.3fr) minmax(150px, 1fr) minmax(150px, 1fr); }
+ .mmaf-fighters-admin .mmaf-primary-filters > .button { justify-self: start; }
+}
+@media (max-width: 782px) {
+ .mmaf-fighters-admin .mmaf-filter-panel { padding: 16px; }
+ .mmaf-fighters-admin .mmaf-primary-filters, .mmaf-fighters-admin .mmaf-advanced-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .mmaf-fighters-admin .mmaf-search-field { grid-column: 1 / -1; }
+ .mmaf-fighters-admin .mmaf-primary-filters > .button { grid-column: 1 / -1; }
+ .mmaf-fighters-admin .mmaf-filter-field select, .mmaf-fighters-admin .mmaf-filter-field input { min-height: 40px; }
+ .mmaf-fighters-admin .mmaf-bulk-toolbar { align-items: flex-start; flex-direction: column; }
+ .mmaf-fighters-admin .mmaf-bulk-toolbar .mmaf-filter-field { flex: auto; width: 100%; max-width: none; }
+ .mmaf-fighters-admin #mmaf-selected-count { margin: 0; align-self: flex-start; }
+ .mmaf-fighters-admin .mmaf-pagination { align-items: flex-start; flex-direction: column; gap: 8px; }
+ .mmaf-fighters-admin .mmaf-display-options { flex-wrap: wrap; }
+ .mmaf-fighters-admin .mmaf-table-scroll { max-width: 100%; }
+}
+@media (max-width: 480px) {
+ .mmaf-fighters-admin .mmaf-primary-filters, .mmaf-fighters-admin .mmaf-advanced-grid { grid-template-columns: 1fr; }
+ .mmaf-fighters-admin .mmaf-primary-filters > .button { justify-self: stretch; }
+ .mmaf-fighters-admin .mmaf-quick-views a { padding: 8px 10px; }
+}

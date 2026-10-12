@@ -191,11 +191,14 @@
 		function syncSelection() {
 			var count = $fighterRows.filter(':checked').length;
 			var filtered = $filteredSelection.prop('checked');
+			$fighterRows.prop('disabled', filtered);
+			$selectAll.prop('disabled', filtered || $fighterRows.length === 0);
+			$('.mmaf-bulk-panel').toggleClass('is-filtered', !!filtered);
 			$selectAll.prop('checked', count > 0 && count === $fighterRows.length)
 				.prop('indeterminate', count > 0 && count < $fighterRows.length);
 			var $counter = $('#mmaf-selected-count');
 			$counter.text(filtered ? $counter.attr('data-filtered-label') : ($counter.attr('data-label') || '').replace('%d', count));
-			$('.mmaf-apply-fighters').prop('disabled', !filtered && count === 0);
+			$('.mmaf-apply-fighters').prop('disabled', (!filtered && count === 0) || !$('#mmaf-fighter-bulk-action-top').val());
 		}
 		$selectAll.on('change', function () {
 			$fighterRows.prop('checked', $(this).prop('checked'));
@@ -203,6 +206,7 @@
 		});
 		$fighterRows.on('change', syncSelection);
 		$filteredSelection.on('change', syncSelection);
-		if ($fighterRows.length) { syncSelection(); }
+		$('#mmaf-fighter-bulk-action-top').on('change', syncSelection);
+		if ($('.mmaf-bulk-form').length) { syncSelection(); }
 	});
 }(jQuery));

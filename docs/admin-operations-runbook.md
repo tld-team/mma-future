@@ -6,7 +6,7 @@ This delivery focuses on preparation, resumable calculations and verified stagin
 
 **Save facts and confirmations** only saves the editor. It preserves approval/public/ranking decisions. Only a changed normalized fact or an explicitly checked **Confirm selected facts** receives manual protection; intentionally clearing a populated value is protected too. A photo, aliases or an unchanged Save do not request career preparation or a ranking draft. Save unsaved changes before opening an operation.
 
-1. Open **MMA Future → Fighters**. Combine the import, preparation and status filters. `Legacy / unknown import` means there is no saved evidence of historical membership.
+1. Open **MMA Future → Fighters**. Search, preparation and import filters are visible immediately; **More filters** contains facts, publication and ranking criteria. Active filters appear as removable labels; **Clear filters** preserves the page size. Quick views start a fresh scope. `Legacy / unknown import` means there is no saved evidence of historical membership. Fighter **Details** contains source/check dates, import evidence and WordPress links; **Ranking checks** expands the recorded blockers.
 2. Select individual fighters (up to 100), the page, or all results of the current filter. Choose **Approve & prepare** and open its preview.
 3. Review the exact frozen selection, exclusions and blockers. Confirm that manifest. Later imports cannot silently enter it.
 4. Follow **Operations**. Preparation uses saved profiles, preserves verified manual facts, checks source identity, imports accepted career rows, rebuilds statistics and checks eligibility before publication.
