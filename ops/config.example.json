@@ -8,5 +8,6 @@
   "url": "https://staging.example.com",
   "probe_host": "staging.example.com",
   "probe_address": "127.0.0.1",
+  "probe_scheme": "https",
   "environment": "staging"
 }
