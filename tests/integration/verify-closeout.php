@@ -62,6 +62,9 @@ try{
     for($n=0;$n<100;++$n){FactProtectionReport::work();if(Jobs::get($report['id'])['status']==='completed'){break;}}
     closeout_check(Jobs::get($report['id'])['status']==='completed' && $before===$wpdb->get_results("SELECT * FROM {$t['field_provenance']} ORDER BY id",ARRAY_A) && $revision===Revision::current() && $runs===(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}"),'background protection report never unlocks facts, changes canonical input or creates rankings');
     $result=Jobs::items($report['id']);closeout_check(!str_contains(wp_json_encode($result),'payload_json') && !str_contains(wp_json_encode($result),'fight_history'),'report and paginated results omit private source payloads');
+    $wpdb->query('DELETE FROM '.Operations::tables()['readiness'].' WHERE fighter_id IN ('.implode(',',[$id,$failed['fighter_id']]).')');
+    $refreshed=Readiness::refresh([$id,$failed['fighter_id']],0);
+    closeout_check($refreshed===1 && count(Readiness::read([$id,$failed['fighter_id']]))===1 && Readiness::refresh([$id,$failed['fighter_id']])===2,'readiness time budget leaves unprocessed rows available for a later bounded step');
     ob_start();MMAF\DataEngine\Admin\OperationsPage::progress(Jobs::get($report['id']),$result);$html=ob_get_clean();closeout_check(str_contains($html,'Explicit confirmation recorded') && str_contains($html,'no automatic unlocking'),'protection evidence is readable without raw JSON');
     $method=new ReflectionMethod(MMAF\DataEngine\Admin\FightersPage::class,'render_form');ob_start();$method->invoke(null,$id);$html=ob_get_clean();
     closeout_check(str_contains($html,'name="bulk_action" value="approve_and_prepare"') && str_contains($html,'Prepare &amp; publish profile') && !str_contains($html,'name="is_public"'),'single editor exposes the same frozen operation actions instead of editable publication flags');

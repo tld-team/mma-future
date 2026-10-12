@@ -30,6 +30,7 @@ jobs:
           python3 tests/unit/release-receipt.py
           python3 tests/unit/release-http.py
           python3 tests/unit/runtime-gate.py
+          python3 tests/unit/write-mutex.py
           python3 tests/unit/monitor.py
           python3 tests/unit/integration-bootstrap.py
           python3 -m compileall -q ops
