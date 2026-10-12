@@ -581,8 +581,6 @@ final class FightersPage {
 			$alias_lines = isset( $input['aliases'] ) ? (string) wp_unslash( $input['aliases'] ) : $alias_lines;
 		}
 		?>
-		<hr class="wp-header-end">
-
 		<?php if ( $is_edit ) : ?>
 			<?php self::render_fighter_stats_dashboard( $fighter_id ); ?>
 		<?php endif; ?>
