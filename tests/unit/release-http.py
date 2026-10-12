@@ -22,7 +22,7 @@ class HttpTests(unittest.TestCase):
         commands=[]
         def run(command,**kwargs):
             commands.append(command)
-            return subprocess.CompletedProcess(command,tls_exit if '--write-out' in command else 0,stdout=status,stderr='')
+            return subprocess.CompletedProcess(command,0 if '--config' in command else tls_exit,stdout='200' if '--config' in command else status,stderr='')
         with patch('runner.subprocess.run',side_effect=run),patch('runner.subprocess.check_output',return_value=self.css) as output:
             self.runner.http_check(self.manifest)
             commands.extend(call.args[0] for call in output.call_args_list)
@@ -30,7 +30,7 @@ class HttpTests(unittest.TestCase):
     def test_http_is_loopback_only_and_public_maintenance_verifies_tls(self):
         (self.runner.root/'maintenance.flag').touch()
         commands=self.run_checks()
-        private=[c for c in commands if '--config' in c];public=[c for c in commands if '--write-out' in c]
+        private=[c for c in commands if '--config' in c];public=[c for c in commands if '--config' not in c]
         self.assertEqual(len(private),4);self.assertEqual(len(public),1)
         for command in private:
             self.assertIn('fixture.test:80:127.0.0.1',command);self.assertTrue(command[-1].startswith('http://fixture.test/'))

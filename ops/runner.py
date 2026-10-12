@@ -160,7 +160,8 @@ class Runner:
         common=['curl','--config',str(config),'--fail','--silent','--show-error','--max-time','20','--resolve',host+':'+str(port)+':'+address]
         try:
             for route in ['/','/all-rankings/','/wp-json/mma-future/v1/health']:
-                subprocess.run(common+[probe_base+route],stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,check=True)
+                local_check=subprocess.run(common+['--output','/dev/null','--write-out','%{http_code}',probe_base+route],capture_output=True,text=True)
+                if local_check.returncode or local_check.stdout.strip()!='200':raise ValueError('Local release route check failed: '+route)
             name='wp-content/themes/mma-future/assets/dist/css/output.css'
             response=subprocess.check_output(common+[probe_base+'/'+name],stderr=subprocess.PIPE)
             if hashlib.sha256(response).hexdigest()!=manifest['files'][name]: raise ValueError('Public asset checksum mismatch')
