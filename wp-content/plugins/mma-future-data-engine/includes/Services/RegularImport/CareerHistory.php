@@ -22,7 +22,9 @@ final class CareerHistory {
 		foreach ( $rows as $row ) {
 			$id = (int) $row['id']; if ( isset( $targets[$id] ) ) { continue; }
 			$identity = TapologyFighterUrl::parse( (string) $row['source_url'] );
-			if ( ! $identity || ( $row['source_fighter_id'] && $identity['source_fighter_id'] !== $row['source_fighter_id'] ) ) { $review[$id] = array( 'fighter_id' => $id, 'reason' => 'Missing or conflicting source identity.' ); continue; }
+			$key = $identity ? ( $identity['source_fighter_id'] ?: 'tapology_fighter_url_' . substr( $identity['source_url_hash'], 0, 24 ) ) : null;
+			if ( ! $identity || ( $row['source_fighter_id'] && $key !== $row['source_fighter_id'] ) ) { $review[$id] = array( 'fighter_id' => $id, 'reason' => 'Missing or conflicting source identity.' ); continue; }
+			$row['source_fighter_id'] = $key;
 			$row['fighter_id'] = $id; unset( $row['id'] ); $targets[$id] = $row; unset( $review[$id] );
 		}
 		return array( 'schema_version' => 'mmaf_career_targets_v1', 'site_url' => home_url( '/' ), 'created_at' => gmdate( 'c' ), 'targets' => array_values( $targets ), 'excluded_identity_review' => array_values( $review ), 'hash' => hash( 'sha256', wp_json_encode( array_values( $targets ) ) ) );
@@ -30,8 +32,14 @@ final class CareerHistory {
 	public function verify_target( array $profile, int $operation=0 ): array {
 		$id = (int) ( $profile['fighter_id'] ?? 0 ); $fighter = ( new FighterRepository() )->find( $id );
 		$identity = TapologyFighterUrl::parse( (string) ( $profile['source_url'] ?? '' ) );
-		if ( ! $identity || $identity['source_fighter_id'] !== ( $profile['source_fighter_id'] ?? '' ) ) { throw new ImportException( 'Career profile URL does not match its declared source identity.', 'identity' ); }
-		$source = ( new FighterSourceRepository() )->find_by_source( 'tapology', $profile['source_fighter_id'] ?? '' );
+		$key = $identity ? ( $identity['source_fighter_id'] ?: 'tapology_fighter_url_' . substr( $identity['source_url_hash'], 0, 24 ) ) : null;
+		if ( ! $identity || $key !== ( $profile['source_fighter_id'] ?? '' ) ) { throw new ImportException( 'Career profile URL does not match its declared source identity.', 'identity' ); }
+		$sources = new FighterSourceRepository();
+		$source = $sources->find_by_source( 'tapology', $key );
+		if ( ! $source ) {
+			$matches = $sources->find_by_normalized_source_url( 'tapology', $identity['canonical_url'] );
+			$source = count( $matches ) === 1 ? $matches[0] : null;
+		}
 		if ( ! $fighter || ! empty( $fighter['deleted_soft'] ) || ( empty( $fighter['is_public'] ) && ( empty( $fighter['is_rankable'] ) || 'rankable' !== $fighter['rankability_status'] ) && !\MMAF\DataEngine\Services\Operations\Authority::allows($operation,$id) ) || ! $source || (int) $source['fighter_id'] !== $id ) { throw new ImportException( 'Career target no longer matches its canonical identity or approved scope: ' . $id, 'identity' ); }
 		return $fighter;
 	}

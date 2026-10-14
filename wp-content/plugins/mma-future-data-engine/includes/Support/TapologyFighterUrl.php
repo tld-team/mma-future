@@ -35,9 +35,9 @@ final class TapologyFighterUrl {
 			return null;
 		}
 
-		if ( preg_match( '~^(\d+)-(.+)$~', $path_slug, $slug_matches ) ) {
+		if ( preg_match( '~^(\d+)(?:-(.+))?$~', $path_slug, $slug_matches ) ) {
 			$numeric_id  = (string) $slug_matches[1];
-			$source_slug = sanitize_title( (string) $slug_matches[2] );
+			$source_slug = sanitize_title( (string) ( $slug_matches[2] ?? '' ) );
 		}
 
 		$normalized_url = 'https://www.tapology.com/fightcenter/fighters/' . $path_slug;
