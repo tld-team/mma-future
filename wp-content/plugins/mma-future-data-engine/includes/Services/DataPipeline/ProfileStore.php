@@ -12,6 +12,8 @@ final class ProfileStore {
         $raw=['source_fighter_id'=>$profile['source_fighter_id'],'source_url'=>$profile['source_url'],'status'=>$profile['source_status']??'unavailable','scraped_at'=>$profile['scraped_at']??null,'fight_history'=>$profile['rows']??[],'history_scope'=>$profile['history_scope']??'unknown','history_scope_verified'=>$profile['history_scope_verified']??false,'history_exhausted'=>$profile['history_exhausted']??false,'verified_facts'=>$profile['verified_facts']??[],'record_summary'=>$profile['expected_record']??[]];
         $raw['record_summary']['no_contests']=$raw['record_summary']['nc']??null;
         unset($raw['record_summary']['nc']);
+        foreach(['career_record_evidence','period_evidence','parser_version','current_roster'] as $field){if(isset($profile[$field])){$raw[$field]=$profile[$field];}}
+        if(isset($profile['record_raw'])){$raw['record_summary']['pro_record_raw']=$profile['record_raw'];}
         return $raw;
     }
     public static function date($value): ?string {
@@ -67,6 +69,7 @@ final class ProfileStore {
                 if($changed){$changed['updated_at']=$now;Repository::check($wpdb->update($table,$changed,['id'=>$old['id']]));}
             }
             else { $data+=['created_at'=>$now,'last_attempt_status'=>(string)($profile['status']??'unknown')]; Repository::check($wpdb->insert($table,$data)); }
+            if($fighter && $replace){(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->observe($fighter,$profile,$hash);}
             if($fighter && (!$old || !empty($changed))){\MMAF\DataEngine\Services\Operations\Readiness::invalidate($fighter);}
             return ['status'=>$status,'fighter_id'=>$fighter,'source_fighter_id'=>$key,'has_success'=>$replace || !empty($old['payload_json']),'hash'=>$replace?$hash:($old['content_hash']??null)];
         });
@@ -103,6 +106,6 @@ final class ProfileStore {
             $row['is_professional']=($row['is_professional']??false)===true;
             if (empty($row['opponent_record_raw'])) { unset($row['prefight_record_raw']); }
         } unset($row);
-        return ['fighter_id'=>$id,'source_fighter_id'=>$raw['source_fighter_id'],'source_url'=>$raw['source_url'],'scraped_at'=>$raw['scraped_at']??$raw['profile_scraped_at']??null,'source_status'=>$raw['status']??'unavailable','source_error_reason'=>$raw['error_reason']??null,'expected_record'=>in_array(null,$expected,true)?null:$expected,'history_scope'=>$raw['history_scope']??'unknown','history_scope_verified'=>($raw['history_scope_verified']??false)===true,'history_exhausted'=>($raw['history_exhausted']??false)===true,'verified_facts'=>$raw['verified_facts']??[],'rows'=>$rows];
+        return ['current_roster'=>$raw['current_roster']??null,'career_record_evidence'=>$raw['career_record_evidence']??null,'period_evidence'=>$raw['period_evidence']??null,'record_raw'=>$record['pro_record_raw']??null,'parser_version'=>$raw['parser_version']??null,'fighter_id'=>$id,'source_fighter_id'=>$raw['source_fighter_id'],'source_url'=>$raw['source_url'],'scraped_at'=>$raw['scraped_at']??$raw['profile_scraped_at']??null,'source_status'=>$raw['status']??'unavailable','source_error_reason'=>$raw['error_reason']??null,'expected_record'=>in_array(null,$expected,true)?null:$expected,'history_scope'=>$raw['history_scope']??'unknown','history_scope_verified'=>($raw['history_scope_verified']??false)===true,'history_exhausted'=>($raw['history_exhausted']??false)===true,'verified_facts'=>$raw['verified_facts']??[],'rows'=>$rows];
     }
 }

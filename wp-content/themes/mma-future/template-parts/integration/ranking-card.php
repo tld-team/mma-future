@@ -3,7 +3,7 @@
 <div class="rk-card rounded-2xl p-4" data-fighter-id="<?php echo esc_attr( $r['fighter_id'] ); ?>" style="background:#fff;border:1px solid rgba(226,232,240,0.7)">
 <div class="flex items-center gap-3">
 <div class="text-center shrink-0" style="min-width:2rem">
-<div class="rk-rank-num font-black tabular-nums" style="font-size:1.2rem;line-height:1;color:#0f172a"><?php echo esc_html( $r['rank'] ); ?></div>
+<div class="rk-rank-num font-black tabular-nums" style="font-size:1.2rem;line-height:1;color:#0f172a"><?php echo esc_html( $r['rank']??'—' ); ?></div>
 
 </div>
 <a class="shrink-0 block w-11 h-11 rounded-full overflow-hidden" href="<?php echo esc_url( $r['permalink'] ); ?>" style="border:1px solid #e2e8f0"><?php mmaf_opponent_image( array( 'image' => $r['image'] ) ); ?></a>
@@ -18,7 +18,7 @@
 </div>
 </div>
 <div class="flex flex-wrap items-center gap-2 mt-3 text-xs" style="color:#64748b">
-<span class="font-mono tabular-nums"><?php echo esc_html( mmaf_record( $r['record'] ) ); ?></span>
+<span class="font-mono tabular-nums"><?php echo esc_html( mmaf_record( mmaf_display_record($r) ) ); ?></span>
 <span style="color:#e2e8f0">|</span>
 <span class="rk-streak" data-streak="<?php echo esc_attr( substr( $r['streak'] ?? '', 0, 1 ) ); ?>"><?php echo esc_html( $r['streak'] ?: '—' ); ?></span>
 <span style="color:#e2e8f0">|</span>

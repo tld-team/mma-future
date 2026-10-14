@@ -121,3 +121,5 @@ tests/**/__pycache__/
 tests/**/*.pyc
 
 !tests/fixtures/import-pipeline/*.json
+
+!tests/fixtures/scoring-period/*.json

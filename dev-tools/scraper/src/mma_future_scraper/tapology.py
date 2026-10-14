@@ -865,13 +865,21 @@ class TapologyScraper:
         fallback_name: str | None,
         event_date: str | None,
         fetched_at: str,
+        known_results: list[dict] | None = None,
     ) -> dict[str, Any] | None:
         entry = self._persistent_profile_cache_entry(profile_url)
         if not entry:
             return None
+        from .scoring_evidence import needs_refresh
+        source_profile = deepcopy(entry.get("profile") or {})
+        source_profile["scraped_at"] = entry.get("cache_scraped_at")
+        if needs_refresh(source_profile, known_results=known_results):
+            self._cache_counts["profile_cache_hits"] -= 1
+            self._cache_counts["profile_cache_expired"] += 1
+            return None
         cache_scraped_at = entry.get("cache_scraped_at") or fetched_at
         # A newly completed event must not reuse a profile from before that event,
-        # even if the generic 60-day TTL has not expired.
+        # even if the seven-day TTL has not expired.
         if event_date:
             try:
                 fight_day = date.fromisoformat(str(event_date)[:10])
@@ -927,9 +935,7 @@ class TapologyScraper:
         return self._persistent_profile_cache
 
     def _persistent_profile_cache_entry_fresh(self, entry: dict[str, Any]) -> bool:
-        ttl_days = self.config.profile_cache_ttl_days
-        if ttl_days is None:
-            return True
+        ttl_days = min(7, self.config.profile_cache_ttl_days or 7)
         cache_scraped_at = entry.get("cache_scraped_at")
         if not cache_scraped_at:
             return False
@@ -3475,6 +3481,7 @@ class TapologyScraper:
                     event_date=event.get("event_date"),
                     fetched_at=scraped_at,
                     run_dir=run_dir,
+                    known_results=self._known_profile_results(event, source_id),
                 )
             except Exception as exc:
                 self._record_failed_profile(
@@ -3569,6 +3576,19 @@ class TapologyScraper:
                 counts["skipped_non_mma_profiles"] += 1
         return counts
 
+    @staticmethod
+    def _known_profile_results(event: dict, source_id: str | None) -> list[dict]:
+        known = []
+        for bout in event.get("bouts", []):
+            for role in ("fighter_a", "fighter_b"):
+                if bout.get(role, {}).get("source_fighter_id") != source_id:
+                    continue
+                result_type = bout.get("result_type")
+                result = ("win" if bout.get("winner") == role else "loss") if result_type == "win_loss" else {"draw": "draw", "no_contest": "no_contest"}.get(result_type)
+                if result:
+                    known.append({"source_bout_id": bout.get("source_bout_id"), "fight_date": event.get("event_date"), "result": result})
+        return known
+
     def _fetch_event_fighter_profile(
         self,
         context: Any,
@@ -3578,10 +3598,13 @@ class TapologyScraper:
         event_date: str | None,
         fetched_at: str,
         run_dir: Path,
+        known_results: list[dict] | None = None,
     ) -> dict[str, Any]:
         cache_key = self._profile_cache_key(profile_url)
         if cache_key and cache_key in self._fighter_profile_cache:
-            return self._fighter_profile_cache[cache_key]
+            from .scoring_evidence import needs_refresh
+            if not known_results or not needs_refresh(self._fighter_profile_cache[cache_key], known_results=known_results):
+                return self._fighter_profile_cache[cache_key]
         if not profile_url:
             profile = failed_profile("", "navigation_failed", "profile_fetch_failed:missing_url")
             normalized = normalize_profile_for_event_output(
@@ -3597,6 +3620,7 @@ class TapologyScraper:
             fallback_name=fallback_name,
             event_date=event_date,
             fetched_at=fetched_at,
+            known_results=known_results,
         )
         if cached:
             key = cache_key or cached.get("source_fighter_id") or profile_url

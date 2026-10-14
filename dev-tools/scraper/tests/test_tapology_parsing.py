@@ -293,7 +293,7 @@ def test_profile_enrichment_does_not_fetch_amateur_skipped_bout_profiles(tmp_pat
     }
     calls = []
 
-    def fake_fetch(_context, profile_url, *, fallback_name, event_date, fetched_at, run_dir):
+    def fake_fetch(_context, profile_url, *, fallback_name, event_date, fetched_at, run_dir, known_results=None):
         calls.append(profile_url)
         return {
             "source_fighter_id": source_fighter_id_from_url(profile_url),
@@ -1018,7 +1018,7 @@ def test_slug_only_fighter_url_profile_ref_matches_enriched_profile_key(tmp_path
         "skipped_bouts": [],
     }
 
-    def fake_fetch(_context, profile_url, *, fallback_name, event_date, fetched_at, run_dir):
+    def fake_fetch(_context, profile_url, *, fallback_name, event_date, fetched_at, run_dir, known_results=None):
         source_id = source_fighter_id_from_url(profile_url)
         return {
             "source_fighter_id": source_id,
@@ -1119,7 +1119,9 @@ def _write_latest_profile_cache(store, *, url, scraped_at, display_name="Cached 
             "date_of_birth": "1990-01-01",
             "height_cm": 170,
         },
-        "record_summary": {"pro_record_raw": "10-2-0"},
+        "record_summary": {"pro_record_raw": "10-2-0", "wins":10, "losses":2,"draws":0,"no_contests":0},
+        "career_record_evidence": {"verified": True, "scope": "professional_mma", "record_raw":"10-2-0", "label":"Pro MMA Record", "evidence":"explicit_mma_record_label"},
+        "period_evidence": {"start_date":"2026-05-09", "checked_through": datetime.fromisoformat(scraped_at).astimezone(timezone.utc).date().isoformat(), "scope_verified": True, "first_page_verified": True,"load_complete": True, "chronological_descending": True, "history_exhausted": True},
         "fight_history": [],
         "warnings": [],
     }

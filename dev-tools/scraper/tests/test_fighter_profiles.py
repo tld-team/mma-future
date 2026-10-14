@@ -1851,6 +1851,7 @@ def test_build_fighter_profile_queue_strict_daily_filters_to_changed_events(tmp_
 def test_build_fighter_profile_queue_classifies_refresh_priority_and_freshness(tmp_path, monkeypatch):
     monkeypatch.setattr(fighter_profile_queue, "_utc_today", lambda: fighter_profile_queue.date(2026, 6, 9))
 
+    monkeypatch.setattr(fighter_profile_queue, "_utc_now", lambda: fighter_profile_queue.datetime(2026,6,9,13,tzinfo=fighter_profile_queue.timezone.utc))
     latest_dir = tmp_path / "latest"
     latest_dir.mkdir()
     results_path = latest_dir / "results.json"
@@ -1890,6 +1891,9 @@ def test_build_fighter_profile_queue_classifies_refresh_priority_and_freshness(t
                         "source_url": "https://www.tapology.com/fightcenter/fighters/100-fresh-fighter",
                         "status": "success",
                         "scraped_at": "2026-06-09T12:00:00+00:00",
+                        "record_summary":{"pro_record_raw":"1-0-0","wins":1,"losses":0,"draws":0,"no_contests":0},
+                        "career_record_evidence":{"scope":"professional_mma","verified":True,"record_raw":"1-0-0","label":"Pro MMA Record","evidence":"explicit_mma_record_label"},
+                        "period_evidence":{"start_date":"2026-05-09","checked_through":"2026-06-09","scope_verified":True,"first_page_verified":True,"load_complete":True,"chronological_descending":True,"history_exhausted":True},
                         "warnings": [],
                     }
                 ],

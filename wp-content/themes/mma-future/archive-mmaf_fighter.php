@@ -32,7 +32,7 @@ $page_number = max( 1, (int) get_query_var( 'paged' ) );
 						<div><p class="mmaf-profile-card__division"><?php echo esc_html( $facts['Division'] ?: 'MMA fighter' ); ?></p><h2><?php echo esc_html( $context['fighter']['display_name'] ); ?></h2><?php if ( $facts['Nationality'] ) : ?><p class="mmaf-profile-card__country"><?php echo esc_html( $facts['Nationality'] ); ?></p><?php endif; ?></div>
 					</div>
 					<dl class="mmaf-profile-card__stats">
-						<div><dt><?php echo 'complete' === $context['career_coverage']['status'] ? 'Pro record' : 'Recorded fights'; ?></dt><dd><?php echo esc_html( mmaf_fighter_record_available( $context ) ? mmaf_record( $context['stats'] ) : 'Not available' ); ?></dd></div>
+						<div><dt><?php echo mmaf_record_label($context); ?></dt><dd><?php echo esc_html( mmaf_fighter_record_available( $context ) ? mmaf_record( mmaf_display_record($context) ) : 'Not available' ); ?></dd></div>
 						<div><dt>Overall rank</dt><dd><?php echo esc_html( $overall ? '#' . $overall['rank'] : 'Unranked' ); ?></dd></div>
 					</dl>
 					<div class="mmaf-profile-card__footer"><span>View profile</span><?php mmaf_view( 'icon-arrow' ); ?></div>

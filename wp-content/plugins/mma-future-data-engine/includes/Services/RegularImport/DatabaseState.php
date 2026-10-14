@@ -24,6 +24,8 @@ final class DatabaseState {
             if($wpdb->last_error){throw new \RuntimeException('Could not check career coverage revision.');}
             foreach($rows ?: [] as $row){hash_update($hash,wp_json_encode($row));$last=(int)$row['fighter_id'];}
         }while(count($rows ?: [])===250);
+        $table=\MMAF\DataEngine\Services\Scoring\Schema::tables()['career'];
+        foreach(self::rows("SELECT * FROM $table ORDER BY id") as $row){hash_update($hash,wp_json_encode($row));}
         return hash_final($hash);
     }
     public static function integrity(): array {
@@ -40,7 +42,7 @@ final class DatabaseState {
         if ($wpdb->last_error) { throw new \RuntimeException('Integrity check failed: '.$wpdb->last_error); }
         return $out;
     }
-    /** Inputs that affect statistics, readiness or ranking; source observations are excluded. */
+    /** Freshness and protected career decisions are calculation inputs in v1.6. */
     public static function calculationRevision(): string {
         $t=CanonicalSchema::table_names();$hash=hash_init('sha256');
         $queries=[
@@ -51,6 +53,10 @@ final class DatabaseState {
             ['overrides',"SELECT * FROM {$t['fighter_stats_overrides']} ORDER BY id",'id'],
             ['coverage',"SELECT fighter_id,status,accepted_bouts_count,expected_record_json FROM {$t['fighter_career_coverage']} ORDER BY fighter_id",'fighter_id'],
         ];
+        $career=\MMAF\DataEngine\Services\Scoring\Schema::tables()['career'];
+        $profiles=\MMAF\DataEngine\Services\DataPipeline\Schema::tables()['profiles'];
+        $queries[]=['career_records',"SELECT * FROM $career ORDER BY id",'id'];
+        $queries[]=['source_verifications',"SELECT id,content_hash,source_fetched_at FROM $profiles ORDER BY id",'id'];
         foreach($queries as [$name,$sql,$key]){hash_update($hash,$name);foreach(self::rows($sql,$key) as $row){unset($row['created_at'],$row['updated_at']);hash_update($hash,wp_json_encode($row));}}
         return hash_final($hash);
     }
@@ -82,7 +88,9 @@ final class DatabaseState {
                 if($fields){$cursor=end($fields);}
             }while(count($fields)===250);
         })();
-        return ['max_fighter_id'=>$maxId,'publication_hash'=>self::arrayHash($flags),'manual_hash'=>self::arrayHash($manual)];
+        $career=\MMAF\DataEngine\Services\Scoring\Schema::tables()['career'];
+        $protectedCareer=self::rows("SELECT * FROM $career WHERE protected=1 ORDER BY id");
+        return ['max_fighter_id'=>$maxId,'publication_hash'=>self::arrayHash($flags),'manual_hash'=>self::arrayHash($manual),'protected_career_hash'=>self::arrayHash($protectedCareer)];
     }
     /** Hash exactly the former JSON array, without retaining the complete result. */
     public static function arrayHash(iterable $rows): string {

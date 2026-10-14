@@ -177,8 +177,8 @@ def build_parser() -> argparse.ArgumentParser:
     profile_cache.add_argument(
         "--profile-cache-ttl-days",
         type=positive_int,
-        default=60,
-        help="Use successful latest/fighter_profiles.json entries this many days before fetching profiles again.",
+        default=7,
+        help="Reuse verified source profiles for at most seven days; uncovered relevant results always force refresh.",
     )
     profile_cache.add_argument(
         "--no-profile-cache",

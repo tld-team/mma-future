@@ -12,7 +12,7 @@ $queueTable=PipelineSchema::tables()['queue'];
 if(!(int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")){
     Repository::check($wpdb->query("ALTER TABLE $queueTable DROP COLUMN processed_context_hash"));update_option('mmaf_db_version','1.9.0',false);
     MigrationRunner::run();
-    check(get_option('mmaf_db_version')==='1.10.0' && $wpdb->get_row("SHOW COLUMNS FROM $queueTable LIKE 'processed_context_hash'"),'explicit upgrade from the prior queue schema adds the context column');
+    check(get_option('mmaf_db_version')===MMAF_DB_VERSION && $wpdb->get_row("SHOW COLUMNS FROM $queueTable LIKE 'processed_context_hash'"),'explicit upgrade from the prior queue schema adds the context column');
     MigrationRunner::run();check((int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")===0,'additive schema upgrade is idempotent');
 }
 $archive=getenv('MMAF_PIPELINE_FIXTURE');if(!$archive||!is_file($archive)){throw new RuntimeException('Generate the parser/cycle/ZIP fixture first.');}
@@ -28,8 +28,8 @@ try{
     $contract=json_decode(file_get_contents(__DIR__.'/../fixtures/import-pipeline/contracts.json'),true);
     foreach($contract['digest_cases'] as $case){check(\MMAF\DataEngine\Services\RegularImport\InputDigest::hash($case['input'])===$case['sha256'],'shared JSON digest contract preserves floats, Unicode, empty maps and volatile observations');}
     foreach($contract['url_cases'] as $case){$identity=\MMAF\DataEngine\Support\TapologyFighterUrl::parse($case['url']);$source=$identity?($identity['source_fighter_id']?:'tapology_fighter_url_'.substr($identity['source_url_hash'],0,24)):null;check(($identity['source_url']??null)===$case['normalized'] && $source===$case['source_fighter_id'],'shared URL contract: '.$case['url']);}
-    $a=fixture_fighter(94981101,'Synthetic A',['is_public'=>1]);
-    $b=fixture_fighter(94981102,'Synthetic B',['is_public'=>1]);
+    $a=fixture_fighter(94981101,'Synthetic A',['is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable','status'=>'verified']);
+    $b=fixture_fighter(94981102,'Synthetic B',['is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable','status'=>'verified']);
     $job=$repo->create('synthetic-parser-cycle.zip',filesize($archive),1);$dir=Storage::job($job);copy($archive,$dir.'/bundle.zip');
     $repo->update($job,['phase'=>'prepare','status'=>'queued']);
     for($n=0;$n<100;$n++){
@@ -53,6 +53,9 @@ try{
     check($units['bootstraps']===1 && $units['units']>1,'supported worker reuses one WordPress bootstrap for multiple atomic units');
     check((new Engine())->profileChanges($job)['snapshot_new']===2,'raw snapshot counters are separate from profile fact changes');
     check(!empty($current['meta']['performance']['stored_career']['units']),'phase performance is recorded durably');
+    $draft=Processor::status()['calculation']['draft']['ranking_run_id']??0;
+    $assessmentTable=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
+    check($draft && (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $assessmentTable WHERE ranking_run_id=%d AND fighter_id IN (%d,%d) AND status='main'",$draft,$a['fighter_id'],$b['fighter_id']))===2,'real parser → ZIP → import → frozen period assessment → inactive v1.6 ranking draft covers both perspectives');
     if(getenv('MMAF_PIPELINE_METRICS')){file_put_contents(getenv('MMAF_PIPELINE_METRICS'),wp_json_encode(['worker'=>$units,'phases'=>$current['meta']['performance'],'source_readiness'=>$current['meta']['package']['readiness'],'environment'=>'isolated local synthetic database; two profiles; backup covered separately'],JSON_PRETTY_PRINT));}
     $receipt=Storage::read($dir.'/receipt.json');
     check(\MMAF\DataEngine\Services\RegularImport\Receipt::validate($receipt)['job_id']===$job,'committed destination receipt is accepted as a delta base');
@@ -78,7 +81,7 @@ try{
     $profile=(new ProfileStore())->for_fighter($a['fighter_id']);$raw=$profile['profile'];
     $invalid=$raw;$invalid['history_scope_verified']='false';$invalid['history_exhausted']='false';$adapted=ProfileStore::career_profile($invalid,$a['fighter_id']);
     check(!$adapted['history_scope_verified'] && !$adapted['history_exhausted'] && !$adapted['rows'][0]['is_professional'],'string false cannot masquerade as verified scope or complete history');
-    $raw['last_attempt']=['at'=>'2026-10-11T10:00:00Z','status'=>'failed_parse','error_reason'=>'Synthetic timeout'];
+    $raw['last_attempt']=['at'=>gmdate('c',strtotime($profile['source_fetched_at'].' UTC')+1),'status'=>'failed_parse','error_reason'=>'Synthetic timeout'];
     (new ProfileStore())->put($raw,'tapology_fighter_profiles_v0_1');$saved=(new ProfileStore())->for_fighter($a['fighter_id']);
     check($saved['content_hash']===$profile['content_hash'] && $saved['last_attempt_status']==='failed_parse' && $saved['profile']['status']==='success','a newer failed attempt is visible without changing the retained success content hash');
     Processor::enqueue($a['fighter_id'],1,$job);

@@ -201,19 +201,21 @@ final class FighterStatsRepository {
 	public function history_for_fighters(array $ids): array {
 		global $wpdb; $in=implode(',',array_map('intval',$ids));
 		if (!$in) { return []; }
-		$rows=$wpdb->get_results("SELECT p.*,b.id,b.bout_order,b.status,b.deleted_soft,b.method_category,e.id AS event_exists,e.event_date FROM {$this->participants_table} p JOIN {$this->bouts_table} b ON b.id=p.bout_id LEFT JOIN {$this->events_table} e ON e.id=b.event_id AND e.deleted_soft=0 WHERE p.fighter_id IN ($in) ORDER BY p.fighter_id,b.id",ARRAY_A);
+		$rows=$wpdb->get_results("SELECT p.*,b.id,b.bout_order,b.status,b.deleted_soft,b.method_category,b.result_type,b.is_scoring_candidate,e.id AS event_exists,e.event_date FROM {$this->participants_table} p JOIN {$this->bouts_table} b ON b.id=p.bout_id LEFT JOIN {$this->events_table} e ON e.id=b.event_id AND e.deleted_soft=0 WHERE p.fighter_id IN ($in) ORDER BY p.fighter_id,b.id",ARRAY_A);
 		if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
 		if (!$rows) { return []; }
 		// Aggregate once for this batch. Correlated counts can cause repeated full
 		// scans when the optimizer estimates a large IN selection inaccurately.
 		$bout_ids=implode(',',array_unique(array_map('intval',array_column($rows,'id'))));
-		$counts=$wpdb->get_results("SELECT bout_id,COUNT(*) AS participant_count,SUM(result_for_fighter IN ('win','loss','draw','no_contest')) AS countable_participants FROM {$this->participants_table} WHERE bout_id IN ($bout_ids) GROUP BY bout_id",ARRAY_A);
+		$counts=$wpdb->get_results("SELECT p.bout_id,COUNT(*) AS participant_count,SUM(p.result_for_fighter IN ('win','loss','draw','no_contest')) AS countable_participants,COUNT(DISTINCT p.fighter_id)=2 AND ((SUM(p.result_for_fighter='win')=1 AND SUM(p.result_for_fighter='loss')=1) OR SUM(p.result_for_fighter='draw')=2 OR SUM(p.result_for_fighter='no_contest')=2) AS reciprocal_results,SUM(EXISTS(SELECT 1 FROM {$this->participants_table} other WHERE other.bout_id=p.bout_id AND other.fighter_id=p.opponent_fighter_id AND other.opponent_fighter_id=p.fighter_id AND other.fighter_id<>p.fighter_id))=2 AS reciprocal_identities FROM {$this->participants_table} p WHERE p.bout_id IN ($bout_ids) GROUP BY p.bout_id",ARRAY_A);
 		if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
 		$by_bout=[]; foreach ($counts as $count) { $by_bout[(int)$count['bout_id']]=$count; }
 		foreach ($rows as &$row) {
 			$count=$by_bout[(int)$row['id']]??[];
 			$row['participant_count']=(int)($count['participant_count']??0);
 			$row['countable_participants']=(int)($count['countable_participants']??0);
+			$row['reciprocal_results']=(int)($count['reciprocal_results']??0);
+			$row['reciprocal_identities']=(int)($count['reciprocal_identities']??0);
 		} unset($row);
 		return $rows;
 	}

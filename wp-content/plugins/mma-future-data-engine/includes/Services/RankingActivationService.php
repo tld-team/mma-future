@@ -141,6 +141,11 @@ final class RankingActivationService {
         global $wpdb;$t=\MMAF\DataEngine\Migrations\Schema::table_names();
         $groups=$wpdb->get_results($wpdb->prepare("SELECT board_key,COUNT(*) n,COUNT(DISTINCT fighter_id) fighters,COUNT(DISTINCT rank_position) ranks,MIN(rank_position) first_rank,MAX(rank_position) last_rank FROM {$t['ranking_snapshots']} WHERE ranking_run_id=%d GROUP BY board_key",$run),ARRAY_A);
         if(!$groups){throw new \RuntimeException('Ranking run has no draft snapshot rows to activate.');}
+        if($formula==='v1.6'){
+            $assessment=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
+            $invalid=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['ranking_snapshots']} r LEFT JOIN $assessment a ON a.ranking_run_id=r.ranking_run_id AND a.fighter_id=r.fighter_id WHERE r.ranking_run_id=%d AND (a.fighter_id IS NULL OR a.status<>'main' OR a.total_score IS NULL OR a.total_score<>r.total_score OR a.sample_size<>r.sample_size OR a.period_start<>'2026-05-09' OR JSON_UNQUOTE(JSON_EXTRACT(a.assessment_json,'$.coverage'))<>'confirmed' OR JSON_LENGTH(JSON_EXTRACT(a.assessment_json,'$.reasons'))<>0)",$run));
+            if($wpdb->last_error || $invalid){throw new \RuntimeException('Main snapshots must match their immutable, confirmed v1.6 assessments.');}
+        }
         $out=['total'=>0,'boards'=>[],'warnings'=>0];
         foreach($groups as $g){
             if(!$g['board_key']){throw new \RuntimeException('Snapshot row has an empty board key.');}

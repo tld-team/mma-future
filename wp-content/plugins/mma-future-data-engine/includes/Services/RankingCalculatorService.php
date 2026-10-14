@@ -53,8 +53,13 @@ final class RankingCalculatorService {
 	private EligibilityService $eligibility;
 	private FormulaV15 $formula;
 	private AuditLogService $audit_log;
+    private string $version;
+    private array $config;
 
-	public function __construct() {
+	public function __construct(?string $version=null) {
+        $this->version=$version??FormulaRegistry::current_version();
+        if(!in_array($this->version,['v1.5','v1.6'],true)){throw new \InvalidArgumentException('Only v1.5 and v1.6 calculation engines are supported.');}
+        $this->config=FormulaRegistry::config_for_version($this->version);
 		$this->runs       = new RankingRunRepository();
 		$this->rankings   = new RankingCurrentRepository();
 		$this->eligibility = new EligibilityService();
@@ -63,13 +68,14 @@ final class RankingCalculatorService {
 	}
 
 	public function calculate_draft( int $actor_user_id = 0, ?string $reference_date = null, string $reason = 'Manual draft ranking calculation' ): array {
+        if($this->version==='v1.6' && version_compare((string)get_option('mmaf_db_version','0'),'1.11.0','<')){throw new \RuntimeException('Migrate the additive schema before creating Formula v1.6 ranking drafts.');}
 		\MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		$reference_date = $reference_date ? $reference_date : current_time( 'Y-m-d' );
 		$calculated_at  = DateTime::mysql_now();
-		$config         = FormulaRegistry::current_config();
+		$config         = $this->config;
 		$previous       = $this->runs->get_last_calculation_summary();
 		$run_id         = $this->runs->create(
-			FormulaRegistry::current_version(),
+			$this->version,
 			$config,
 			$reference_date,
 			$calculated_at,
@@ -108,7 +114,7 @@ final class RankingCalculatorService {
 			$summary = array(
 				'ranking_run_id'      => $run_id,
 				'calculated_at'       => $calculated_at,
-				'formula_version'     => FormulaRegistry::current_version(),
+				'formula_version'     => $this->version,
 				'reference_date'      => $reference_date,
 				'status'              => 'failed',
 				'eligible_fighters'   => 0,
@@ -134,123 +140,28 @@ final class RankingCalculatorService {
 	}
 
 	private function build_result( int $run_id, string $reference_date, string $calculated_at ): array {
-		$ranked              = array();
-		$eligible_count      = 0;
-		$ineligible_count    = 0;
-		$calculated_count    = 0;
-		$excluded_insufficient_sample = 0;
-		$min_scoring_bouts   = (int) ( FormulaRegistry::current_config()['eligibility']['min_scoring_bouts'] ?? 1 );
-		$total_missing_prefight = 0;
-		$total_warnings      = 0;
-		$structural_warnings = array();
-		$eligibility_reasons = array();
-
-		foreach ($this->runs->fighter_batches_with_stats() as $fighters) {
-			$eligible_ids=[];
-			foreach ($fighters as $candidate) { if (!empty($this->eligibility->evaluate($candidate,$this->stats_from_row($candidate),$reference_date)['eligible_for_calculation'])) { $eligible_ids[]=(int)$candidate['id']; } }
-			$source_types=$eligible_ids?$this->runs->source_types_by_fighter($eligible_ids):[];
-			$scoring_items=$eligible_ids?$this->scoring_items_by_fighter($eligible_ids):[];
-		foreach ( $fighters as $fighter ) {
-			$fighter_id = (int) $fighter['id'];
-			$stats      = $this->stats_from_row( $fighter );
-			$evaluation = $this->eligibility->evaluate( $fighter, $stats, $reference_date );
-			$warnings   = $evaluation['warnings'];
-
-			foreach ( $evaluation['reasons'] as $reason ) {
-				if ( ! isset( $eligibility_reasons[ $reason ] ) ) {
-					$eligibility_reasons[ $reason ] = 0;
-				}
-				++$eligibility_reasons[ $reason ];
-			}
-
-			if ( empty( $evaluation['eligible_for_calculation'] ) ) {
-				++$ineligible_count;
-				$total_warnings += count( $warnings );
-				continue;
-			}
-
-			$calculation = $this->score_fighter( $fighter, $stats, $evaluation, $scoring_items[ $fighter_id ] ?? array(), $source_types[ $fighter_id ] ?? array(), $calculated_at );
-			$warnings    = array_values( array_unique( array_merge( $warnings, $calculation['warnings'] ) ) );
-			$total_warnings += count( $warnings );
-			++$calculated_count;
-			$total_missing_prefight += (int) $calculation['source_summary']['prefight_records_missing_count'];
-			$actual_sample_size = (int) $calculation['breakdown']['sample_size'];
-
-			if ( $actual_sample_size < $min_scoring_bouts ) {
-				++$ineligible_count;
-				++$excluded_insufficient_sample;
-				if ( ! isset( $eligibility_reasons['insufficient_sample_size'] ) ) {
-					$eligibility_reasons['insufficient_sample_size'] = 0;
-				}
-				++$eligibility_reasons['insufficient_sample_size'];
-				continue;
-			}
-
-			if ( empty( $evaluation['eligible_for_current_ranking'] ) ) {
-				++$ineligible_count;
-				if ( in_array( 'insufficient_sample_size', (array) $evaluation['reasons'], true ) ) {
-					++$excluded_insufficient_sample;
-				}
-				continue;
-			}
-
-			++$eligible_count;
-
-			$ranked[] = array(
-				'fighter'      => $fighter,
-				'stats'        => $stats,
-				'total_score'  => $calculation['breakdown']['total_score'],
-				'raw_score'    => $calculation['breakdown']['raw_score'],
-				'normalized_score' => null,
-				'confidence_score' => null,
-				'sample_size'  => $calculation['breakdown']['sample_size'],
-				'quality_flags'=> $calculation['quality_flags'],
-				'breakdown'    => $calculation['breakdown'],
-				'eligibility'  => $evaluation,
-				'warnings'     => $warnings,
-				'source_summary' => $calculation['source_summary'],
-			);
-		}
-
-		}
-		$this->sort_ranked( $ranked );
-
-		$rows = $this->rows_for_boards( $ranked );
-
-		$summary = array(
-			'ranking_run_id'      => $run_id,
-			'calculated_at'       => $calculated_at,
-			'formula_version'     => FormulaRegistry::current_version(),
-			'reference_date'      => $reference_date,
-			'status'              => 'draft',
-			'is_active'           => 0,
-			'eligible_fighters'   => $eligible_count,
-			'ineligible_fighters' => $ineligible_count,
-			'calculated_fighters' => $calculated_count,
-			'trusted_ranked_fighters' => $eligible_count,
-			'excluded_insufficient_sample' => $excluded_insufficient_sample,
-			'missing_prefight_count' => $total_missing_prefight,
-			'ranked_rows'         => 0,
-			'boards_generated'    => self::BOARD_KEYS,
-			'warnings_count'      => $total_warnings,
-			'eligibility_reasons' => $eligibility_reasons,
-			'structural_warnings' => array_filter( $structural_warnings ),
-			'storage_strategy'    => $this->storage_strategy(),
-		);
-
-		return array(
-			'rows'    => $rows,
-			'summary' => $summary,
-		);
-	}
+        $ranked=[];$summary=[];
+        foreach($this->runs->fighter_batches_with_stats() as $fighters){
+            $result=$this->score_batch($fighters,$reference_date,$calculated_at,$run_id);
+            foreach($result['rows'] as $item){$ranked[]=$item;}
+            foreach($result['summary'] as $key=>$value){
+                if(in_array($key,['eligible_fighters','ineligible_fighters','provisional_fighters','calculated_fighters','trusted_ranked_fighters','excluded_insufficient_sample','missing_prefight_count','warnings_count'],true)){$summary[$key]=($summary[$key]??0)+$value;}
+                elseif(in_array($key,['eligibility_reasons','structural_warnings'],true)){foreach($value as $reason=>$count){$summary[$key][$reason]=($summary[$key][$reason]??0)+$count;}}
+                else{$summary[$key]=$value;}
+            }
+        }
+        $this->sort_ranked($ranked);
+        return ['rows'=>$this->rows_for_boards($ranked),'summary'=>$summary+['ranking_run_id'=>$run_id,'calculated_at'=>$calculated_at,'formula_version'=>$this->version,'reference_date'=>$reference_date,'status'=>'draft','is_active'=>0,'ranked_rows'=>0,'boards_generated'=>self::BOARD_KEYS]];
+    }
 
 	public function score_batch( array $fighters, string $reference_date, string $calculated_at, int $run_id=0 ): array {
+        if($this->version===\MMAF\DataEngine\Services\Formula\FormulaV16::VERSION){return $this->score_period_batch($fighters,$reference_date,$calculated_at,$run_id);}
 		$ranked              = array();
 		$eligible_count      = 0;
 		$ineligible_count    = 0;
 		$calculated_count    = 0;
 		$excluded_insufficient_sample = 0;
-		$min_scoring_bouts   = (int) ( FormulaRegistry::current_config()['eligibility']['min_scoring_bouts'] ?? 1 );
+		$min_scoring_bouts   = (int) ( $this->config['eligibility']['min_scoring_bouts'] ?? 1 );
 		$total_missing_prefight = 0;
 		$total_warnings      = 0;
 		$structural_warnings = array();
@@ -330,7 +241,7 @@ final class RankingCalculatorService {
 		$summary = array(
 			'ranking_run_id'      => $run_id,
 			'calculated_at'       => $calculated_at,
-			'formula_version'     => FormulaRegistry::current_version(),
+			'formula_version'     => $this->version,
 			'reference_date'      => $reference_date,
 			'status'              => 'draft',
 			'is_active'           => 0,
@@ -354,6 +265,66 @@ final class RankingCalculatorService {
 		);
 	}
 
+    private function score_period_batch(array $fighters,string $reference_date,string $calculated_at,int $run_id): array {
+        $records=(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters(array_column($fighters,'id'));
+        $ids=[];$preliminary=[];
+        foreach($fighters as $fighter){
+            $id=(int)$fighter['id'];$career=$records[$id]??null;
+            $preliminary[$id]=$this->hard_ineligibility($this->eligibility->evaluate($fighter,$this->stats_from_row($fighter),$reference_date,($career['status']??'')==='accepted'?$career['record']:null,true));
+            if(!$preliminary[$id]){$ids[]=$id;}
+        }
+        $histories=[];foreach((new \MMAF\DataEngine\Repositories\FighterStatsRepository())->history_for_fighters($ids) as $row){$histories[(int)$row['fighter_id']][]=$row;}
+        $items=$ids?$this->scoring_items_by_fighter($ids):[];$sources=$ids?$this->runs->source_types_by_fighter($ids):[];
+        $period=new \MMAF\DataEngine\Services\Scoring\PeriodAssessment();$rows=[];$assessments=[];
+        $summary=['ranking_run_id'=>$run_id,'calculated_at'=>$calculated_at,'formula_version'=>$this->version,'reference_date'=>$reference_date,'status'=>'draft','is_active'=>0,'eligible_fighters'=>0,'ineligible_fighters'=>0,'provisional_fighters'=>0,'calculated_fighters'=>0,'trusted_ranked_fighters'=>0,'excluded_insufficient_sample'=>0,'missing_prefight_count'=>0,'warnings_count'=>0,'ranked_rows'=>0,'boards_generated'=>self::BOARD_KEYS,'eligibility_reasons'=>[],'structural_warnings'=>[],'storage_strategy'=>'Immutable career and period inputs; main board snapshots and separate provisional assessments.'];
+        foreach($fighters as $fighter){
+            $id=(int)$fighter['id'];$career=$records[$id]??null;$history=$histories[$id]??[];
+            $stats=$period::stats($history,$reference_date);
+            $evaluation=$this->eligibility->evaluate($fighter,$stats,$reference_date,($career['status']??'')==='accepted'?$career['record']:null,true);
+            $hard=array_values(array_unique(array_merge($preliminary[$id],$this->hard_ineligibility($evaluation))));
+            $assessment=$hard?['status'=>'ineligible','period'=>['start'=>\MMAF\DataEngine\Services\Formula\FormulaV16::PERIOD_START,'end'=>$reference_date,'inclusive'=>true],'sample_size'=>$stats['wins']+$stats['losses'],'period_stats'=>$stats,'coverage'=>'not_assessed','verified_at'=>null,'career_verified_at'=>$career['verified_at']??null,'reasons'=>array_values($hard),'warnings'=>[],'total_score'=>null,'rank_position'=>null,'input_profile_hash'=>null]:$period->evaluate($id,$history,$career,$reference_date,$calculated_at);
+            $source_inputs=$assessment['_source_inputs']??null;unset($assessment['_source_inputs']);
+            if(!empty($assessment['source_current_roster'])){
+                // A verified current UFC roster signal is an eligibility input;
+                // do not overwrite canonical or manually protected publication facts.
+                $effective=$fighter;$effective['in_ufc']=1;
+                $evaluation=$this->eligibility->evaluate($effective,$stats,$reference_date,($career['status']??'')==='accepted'?$career['record']:null,true);
+                $hard=array_values(array_unique(array_merge($hard,$this->hard_ineligibility($evaluation))));
+            }
+            $assessment['reasons']=array_values(array_unique(array_merge($assessment['reasons'],$evaluation['reasons'])));
+            if($hard){$assessment['status']='ineligible';}
+            elseif($assessment['reasons']){$assessment['status']='provisional';}
+            $accepted_ids=array_column(array_filter($history,[$period,'accepted']),'bout_id');
+            $scoring=array_values(array_filter($items[$id]??[],static fn($item)=>in_array($item['bout_id'],$accepted_ids,true) && $period::valid_date($item['event_date']??null) && $item['event_date']>=\MMAF\DataEngine\Services\Formula\FormulaV16::PERIOD_START && $item['event_date']<=$reference_date));
+            $assessment['sample_size']=count($scoring);
+            if(!$scoring){$assessment['reasons']=array_values(array_unique(array_merge($assessment['reasons'],['insufficient_sample_size'])));}
+            if(!$scoring || $evaluation['age']===null){$assessment['status']=$hard?'ineligible':'provisional';}
+            $can_score=$scoring && $evaluation['age']!==null;
+            $calculation=$can_score?$this->score_fighter($fighter,$stats,$evaluation,$scoring,$sources[$id]??[],$calculated_at):null;
+            $assessment['total_score']=$calculation?$calculation['breakdown']['total_score']:null;
+            $assessment['warnings']=array_values(array_unique(array_merge($assessment['warnings'],$evaluation['warnings'],$calculation['warnings']??[])));
+            $assessment['eligibility']=$evaluation;
+            $assessment['career_record_used']=$career['record']??null;
+            $assessments[$id]=$assessment;
+            $assessment['boards']=[];foreach(self::BOARD_KEYS as $board){if($this->item_matches_board(['fighter'=>$fighter,'eligibility'=>$evaluation],$board)){$assessment['boards'][]=$board;}}
+            $period->save($run_id,$id,$assessment,['career_record'=>$career,'recorded_stats'=>$this->stats_from_row($fighter),'period_stats'=>$stats,'fighter'=>$fighter,'accepted_period_bouts'=>$scoring,'breakdown'=>$calculation['breakdown']??null,'profile_hash'=>$assessment['input_profile_hash'],'source_evidence'=>$source_inputs,'formula_config'=>$this->config],$calculated_at);
+            ++$summary[$assessment['status']==='main'?'eligible_fighters':($assessment['status']==='provisional'?'provisional_fighters':'ineligible_fighters')];
+            $summary['warnings_count']+=count($assessment['warnings']);
+            if($calculation){++$summary['calculated_fighters'];$summary['missing_prefight_count']+=$calculation['source_summary']['prefight_records_missing_count'];}
+            foreach($assessment['reasons'] as $reason){$summary['eligibility_reasons'][$reason]=($summary['eligibility_reasons'][$reason]??0)+1;}
+            if(in_array('insufficient_sample_size',$assessment['reasons'],true)){++$summary['excluded_insufficient_sample'];}
+            if($assessment['status']!=='main' || !$calculation){continue;}
+            $calculation['source_summary']['career_record']=$career;$calculation['source_summary']['scoring_assessment']=$assessment;
+            $calculation['quality_flags']=array_values(array_diff($calculation['quality_flags'],['provisional_sample_size']));
+            if($assessment['sample_size']<3){$calculation['quality_flags'][]='small_scoring_sample';}
+            ++$summary['trusted_ranked_fighters'];
+            $rows[]=['fighter'=>$fighter,'stats'=>$stats,'total_score'=>$assessment['total_score'],'raw_score'=>$calculation['breakdown']['raw_score'],'normalized_score'=>null,'confidence_score'=>null,'sample_size'=>$assessment['sample_size'],'quality_flags'=>$calculation['quality_flags'],'breakdown'=>$calculation['breakdown'],'eligibility'=>$evaluation,'warnings'=>$assessment['warnings'],'source_summary'=>$calculation['source_summary']];
+        }
+        return ['rows'=>$rows,'summary'=>$summary,'assessments'=>$assessments];
+    }
+    private function hard_ineligibility(array $evaluation): array {
+        return array_values(array_filter($evaluation['reasons'],static fn($r)=>in_array($r,['deleted_soft','not_rankable_flag','rankability_status_not_rankable','ineligible_too_many_fights','ineligible_loss_limit','ineligible_ufc','ineligible_age_35_plus'],true) || strpos($r,'ineligible_status_')===0));
+    }
 	private function rows_for_boards( array $ranked ): \Generator {
 
 		foreach ( self::BOARD_KEYS as $board_key ) {
@@ -558,9 +529,9 @@ final class RankingCalculatorService {
 			'quality_flags'                    => $quality_flags,
 			'source_types_linked_to_fighter'   => $source_types,
 			'generated_by'                     => 'ranking_engine',
-			'formula_version'                  => FormulaRegistry::current_version(),
+			'formula_version'                  => $this->version,
 			'generated_at'                     => $calculated_at,
-			'tie_breaker_order'                => (array) ( FormulaRegistry::current_config()['tie_breakers'] ?? array() ),
+			'tie_breaker_order'                => (array) ( $this->config['tie_breakers'] ?? array() ),
 		);
 
 		return array(
@@ -572,7 +543,7 @@ final class RankingCalculatorService {
 	}
 
 	private function quality_flags( int $sample_size, int $prefight_missing, int $method_missing, array $eligibility ): array {
-		$config = FormulaRegistry::current_config();
+		$config = $this->config;
 		$flags  = array();
 
 		if ( $sample_size < (int) $config['eligibility']['min_scoring_bouts'] ) {
@@ -701,7 +672,7 @@ final class RankingCalculatorService {
 			'age'             => null === ( $eligibility['age'] ?? null ) ? null : (int) $eligibility['age'],
 			'last_fight_date' => is_array( $stats ) ? ( $stats['last_fight_date'] ?? null ) : null,
 			'fighter_id'      => (int) ( $fighter['id'] ?? 0 ),
-			'order'           => (array) ( FormulaRegistry::current_config()['tie_breakers'] ?? array() ),
+			'order'           => (array) ( $this->config['tie_breakers'] ?? array() ),
 		);
 	}
 

@@ -88,7 +88,7 @@ final class Processor {
                     Transaction::run(function() use($wpdb,$queue,$row,$job) {
                         $result=$this->prepare((int)$row['fighter_id'],(int)$row['actor_user_id'],$job ?: (int)$row['import_job_id'],0,json_decode($row['summary_json']??'',true)?:[]);
                         $result['done']=$result['done']??true;
-                        $status=empty($result['done'])?'pending':((!empty($result['review']) || ($result['coverage']['status']??'complete')!=='complete')?'review':'completed');
+                        $status=empty($result['done'])?'pending':((!empty($result['review']) || (($result['scoring_assessment']['status']??'')!=='main' && ($result['coverage']['status']??'complete')!=='complete'))?'review':'completed');
                         do_action('mmaf_profile_preparation_before_checkpoint',(int)$row['fighter_id'],$result);
                         Repository::check($wpdb->update($queue,['status'=>$status,'processed_hash'=>empty($result['done'])?$row['processed_hash']:($result['hash']??null),'processed_context_hash'=>empty($result['done'])?($row['processed_context_hash']??null):PreparationFingerprint::for_fighter((int)$row['fighter_id'],$result['hash']??null),'summary_json'=>wp_json_encode($result),'error_message'=>null,'finished_at'=>empty($result['done'])?null:gmdate('Y-m-d H:i:s')],['fighter_id'=>$row['fighter_id']]));
                     });
@@ -136,6 +136,7 @@ final class Processor {
         $saved=(new ProfileStore())->for_fighter($id);
         if (!$saved) { return ['review'=>true,'reason'=>'No unambiguous successful stored source profile is available. Existing canonical data is retained.']; }
         $raw=$saved['profile']; $raw['scraped_at']=$saved['source_fetched_at'];
+        (new \MMAF\DataEngine\Services\Scoring\CareerRecords())->observe($id,$raw,$saved['content_hash'],$actor);
         $fields=(new FighterProfileEnrichmentApplyService())->apply_all_safe_json_string(wp_json_encode(['schema_version'=>'tapology_fighter_profiles_v0_1','source'=>'tapology','profiles'=>[$raw],'profiles_total'=>1]),'Stored source profile',$actor,true);
         if (!empty($fields['summary']['profiles_failed'])) { throw new \RuntimeException('Saved source facts could not be applied.'); }
         $coverage=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighter_career_coverage']} WHERE fighter_id=%d",$id),ARRAY_A);
@@ -144,16 +145,21 @@ final class Processor {
         }
         $career=ProfileStore::career_profile($raw,$id);
         $result=(new CareerHistory())->process_chunk($career,$job,$actor,$operation,$progress['checkpoint']??[]);
+        if(!empty($result['done'])){
+            $records=(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters([$id]);
+            $result['scoring_assessment']=(new \MMAF\DataEngine\Services\Scoring\PeriodAssessment())->evaluate($id,(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->history_for_fighters([$id]),$records[$id]??null,current_time('Y-m-d'),gmdate('Y-m-d H:i:s'));
+            unset($result['scoring_assessment']['_source_inputs']);
+        }
         if ($job) {
             $repo=new Repository();
-            $repo->putItem($job,'actual_stored_career_profile',(string)$id,$raw['source_fighter_id'],$result['coverage']['status']==='complete'?'unchanged':'review',$result);
+            $repo->putItem($job,'actual_stored_career_profile',(string)$id,$raw['source_fighter_id'],(($result['scoring_assessment']['status']??'')==='main' || $result['coverage']['status']==='complete')?'unchanged':'review',$result);
         }
         $needsReview=false;
         foreach ($fields['rows']??[] as $fieldResult) {
             $reviewFields=array_filter($fieldResult['skipped']??[],static fn($reason)=>$reason==='skip_existing_value');
             if ($reviewFields) { $needsReview=true; Review::upsert($job,'profile_field_difference',$raw['source_fighter_id'],['fighter_id'=>$id,'fields'=>array_keys($reviewFields),'reason'=>'Source facts differ from canonical values requiring review.'],$actor); }
         }
-        return ['hash'=>$saved['content_hash'],'fields'=>$fields['summary'],'coverage'=>$result['coverage'],'facts'=>$result['facts'],'review'=>$needsReview,'checkpoint'=>$result['checkpoint']??null,'done'=>$result['done']??true];
+        return ['hash'=>$saved['content_hash'],'fields'=>$fields['summary'],'coverage'=>$result['coverage'],'scoring_assessment'=>$result['scoring_assessment']??null,'facts'=>$result['facts'],'review'=>$needsReview,'checkpoint'=>$result['checkpoint']??null,'done'=>$result['done']??true];
     }
     public static function refresh_import_coverage(int $job,int $cursor,int $limit=10): array {
         global $wpdb; $repo=new Repository(); $career=new CareerHistory(); $queue=Schema::tables()['queue'];
@@ -163,8 +169,11 @@ final class Processor {
             $saved=(new ProfileStore())->for_fighter($id);
             if (!$saved) { throw new \RuntimeException('Stored career verification has no source snapshot.'); }
             $result['coverage']=$career->refresh_coverage(ProfileStore::career_profile($saved['profile'],$id),$job,0);
-            $repo->putItem($job,'actual_stored_career_profile',(string)$id,$result['source_fighter_id'],$result['coverage']['status']==='complete'?'unchanged':'review',$result);
-            if ($result['coverage']['status']!=='complete') { Repository::check($wpdb->update($queue,['status'=>'review'],['fighter_id'=>$id])); }
+            $record=(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters([$id])[$id]??null;
+            $result['scoring_assessment']=(new \MMAF\DataEngine\Services\Scoring\PeriodAssessment())->evaluate($id,(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->history_for_fighters([$id]),$record,current_time('Y-m-d'),gmdate('Y-m-d H:i:s'));
+            unset($result['scoring_assessment']['_source_inputs']);
+            $repo->putItem($job,'actual_stored_career_profile',(string)$id,$result['source_fighter_id'],(($result['scoring_assessment']['status']??'')==='main' || $result['coverage']['status']==='complete')?'unchanged':'review',$result);
+            if (($result['scoring_assessment']['status']??'')!=='main' && $result['coverage']['status']!=='complete') { Repository::check($wpdb->update($queue,['status'=>'review'],['fighter_id'=>$id])); }
             Repository::check($wpdb->update($queue,['processed_context_hash'=>PreparationFingerprint::for_fighter($id,$saved['content_hash'])],['fighter_id'=>$id]));
             $cursor=(int)$row['id'];
         }

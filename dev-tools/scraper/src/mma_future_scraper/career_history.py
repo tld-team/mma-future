@@ -49,9 +49,14 @@ def compile_history(manifest: dict, snapshots: list[dict], bout_snapshots: list[
                 expected_record=expected if all(v is not None for v in expected.values()) else None,
                 history_scope="professional_mma" if explicit else parsed.get("history_scope","unknown"),
                 history_scope_verified=explicit or parsed.get("history_scope_verified",False),
-                history_exhausted=bool(snapshot.get("history_exhausted")),
+                history_exhausted=snapshot.get("history_exhausted") is True,
                 rows=parsed.get("fight_history", []),
                 verified_facts=explicit_profile_facts(snapshot, parsed.get("profile_summary", {})),
+                career_record_evidence=parsed.get("career_record_evidence"),
+                period_evidence=parsed.get("period_evidence"),
+                parser_version=parsed.get("parser_version"),
+                record_raw=record.get("pro_record_raw"),
+                current_roster=parsed.get("current_roster"),
             )
             for row in profile["rows"]:
                 # A solitary unlabelled record is ambiguous. Do not invent the

@@ -671,6 +671,7 @@ final class FightersPage {
 			<?php submit_button( $is_edit ? __( 'Save facts and confirmations', 'mma-future-data-engine' ) : __( 'Create Fighter', 'mma-future-data-engine' ) ); ?>
 		</form>
         <?php if($is_edit): self::render_single_operations($fighter_id); endif; ?>
+        <?php if($is_edit): \MMAF\DataEngine\Services\Scoring\Admin::render($fighter_id); endif; ?>
 		<?php
 	}
 

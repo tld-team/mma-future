@@ -15,6 +15,7 @@ final class Revision {
             $t=Canonical::table_names();$tracked=[];
             foreach(['fighters','fighter_sources','fighter_aliases','events','event_sources','bouts','bout_sources','bout_participants','fighter_stats_overrides'] as $key){$tracked[]=$t[$key];}
             $tracked[]=\MMAF\DataEngine\Services\DataPipeline\Schema::tables()['profiles'];
+            $tracked[]=\MMAF\DataEngine\Services\Scoring\Schema::tables()['career'];
             if(!preg_match('/^\s*(?:INSERT\s+(?:IGNORE\s+)?INTO|REPLACE\s+INTO|UPDATE|DELETE\s+FROM)\s+`?('.implode('|',array_map(static fn($v)=>preg_quote($v,'/'),$tracked)).')`?(?:\s|\()/i',$sql)){return $sql;}
             // Check options only after matching a canonical write. Reading an
             // uncached option also runs this query filter and must not recurse.

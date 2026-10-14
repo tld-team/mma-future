@@ -2,7 +2,7 @@
 from __future__ import annotations
 from collections import Counter
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime, timezone
 from urllib.parse import urlsplit
 import hashlib, json, re, struct, math
 from .fighter_profile_queue import normalize_tapology_fighter_url
@@ -89,7 +89,7 @@ def row_issues(row,profile=None):
     return reasons
 
 
-def build_readiness(document):
+def build_readiness(document, *, verification_now=None):
     profiles=document.get('profiles',[]); totals=Counter(); row_counts=Counter(); queue=[]; seen=set(); reasons=Counter(); parsers=Counter(); actions=Counter()
     shared={};conflicts={};profile_conflicts={}
     inverse={'win':'loss','loss':'win','draw':'draw','no_contest':'no_contest'}
@@ -134,11 +134,37 @@ def build_readiness(document):
         if any(not isinstance(expected.get(k),int) or isinstance(expected.get(k),bool) or expected[k]<0 for k in RESULTS.values()):
             issues['aggregate_record_missing']+=1
         elif any(expected[k]!=records[k] for k in RESULTS.values()): issues['record_mismatch']+=1
+        period_issues=Counter();outside_issues=Counter();detail_warnings=Counter()
+        from .scoring_evidence import PERIOD_START, needs_refresh, career_record_verified
+        for row in p.get('fight_history',[]):
+            why=row_issues(row,p)
+            if why==['excluded']:continue
+            day=row.get('fight_date')
+            target=outside_issues if day and day<PERIOD_START else period_issues
+            target.update(why)
+            if day and day>=PERIOD_START and not why:
+                if row.get('method_category') in (None,'','unknown'):detail_warnings['missing_method_category']+=1
+                if not row.get('opponent_record_raw'):detail_warnings['missing_prefight_record']+=1
+        evidence=p.get('period_evidence') or {}
+        proof=evidence.get('scope_verified') is True and evidence.get('first_page_verified') is True and evidence.get('load_complete') is True and evidence.get('chronological_descending') is True and (evidence.get('boundary_crossed') is True or evidence.get('history_exhausted') is True)
+        if not proof:period_issues['period_coverage_unconfirmed']+=1
+        if not career_record_verified(p):period_issues['career_record_scope_unconfirmed']+=1
+        fresh=not needs_refresh(p,now=verification_now or datetime.now(timezone.utc))
+        if not fresh:period_issues['source_refresh_required']+=1
+        period_conflicts=[r.get('source_bout_id') for r in p.get('fight_history',[]) if r.get('fight_date') and r['fight_date']>=PERIOD_START and r.get('source_bout_id') in profile_conflicts.get(key,[])]
+        if period_conflicts:period_issues['source_conflict']+=len(period_conflicts)
+        totals['period_needing_enrichment' if period_issues else 'period_ready_candidates']+=1
+        totals['history_outside_period_gaps']+=bool(outside_issues or issues['record_mismatch'] or issues['history_not_exhausted'])
         if issues:
             totals['careers_needing_enrichment']+=1
-            action='review_conflict' if issues['source_conflict'] else 'refresh_source_evidence'
+            action='review_conflict' if period_issues['source_conflict'] else ('refresh_source_evidence' if period_issues else 'history_outside_period')
             actions[action]+=1;reasons.update(issues.keys())
-            queue.append({'source_fighter_id':key,'source_url':p['source_url'],'content_hash':content_hash(p),'reasons':dict(issues),'conflicting_bouts':profile_conflicts.get(key,[]),'action':action})
+            queue.append({'source_fighter_id':key,'source_url':p['source_url'],'content_hash':content_hash(p),'reasons':dict(issues),'period_reasons':dict(period_issues),'outside_period_reasons':dict(outside_issues),'formula_warnings':dict(detail_warnings),'conflicting_bouts':profile_conflicts.get(key,[]),'action':action})
+        elif period_issues:
+            action='review_conflict' if period_issues['source_conflict'] else 'refresh_source_evidence'
+            actions[action]+=1
+            queue.append({'source_fighter_id':key,'source_url':p['source_url'],'content_hash':content_hash(p),'reasons':dict(period_issues),'period_reasons':dict(period_issues),'formula_warnings':dict(detail_warnings),'conflicting_bouts':period_conflicts,'action':action})
+            totals['career_ready_candidates']+=1
         else: totals['career_ready_candidates']+=1
         attempt=p.get('last_attempt') or {}
         if not attempt:totals['last_attempt_unknown']+=1
@@ -152,6 +178,8 @@ def format_readiness(report):
             f"Profiles: {report['profiles_total']}\n\n"
             f"Safe profile candidates: {p.get('facts_ready',0)}\n\n"
             f"Career candidates with complete source evidence: {p.get('career_ready_candidates',0)}\n\n"
+            f"Period candidates with current source evidence from 9 May 2026: {p.get('period_ready_candidates',0)}\n\n"
+            f"Period candidates needing refresh/review: {p.get('period_needing_enrichment',0)}; older history gaps (separate): {p.get('history_outside_period_gaps',0)}\n\n"
             f"Careers needing source evidence or conflict review: {p.get('careers_needing_enrichment',0)}\n\n"
             f"Legacy profiles: {p.get('legacy_profiles',0)}; recorded failed latest attempts: {p.get('last_attempt_failed',0)}; latest attempt not recorded: {p.get('last_attempt_unknown',0)}\n\n"
             f"Last merged batch: {json.dumps(report.get('last_batch',{}),ensure_ascii=False)}\n\n"

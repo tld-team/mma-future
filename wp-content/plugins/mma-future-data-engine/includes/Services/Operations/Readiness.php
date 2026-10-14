@@ -17,7 +17,8 @@ final class Readiness {
         $sources=$wpdb->get_results($wpdb->prepare("SELECT source_type,source_fighter_id,source_url,identity_hash,is_primary FROM {$t['fighter_sources']} WHERE fighter_id=%d ORDER BY id",$id),ARRAY_A);
         $profiles=$wpdb->get_results($wpdb->prepare("SELECT DISTINCT p.id,p.content_hash,p.source_fetched_at FROM {$p['profiles']} p JOIN {$t['fighter_sources']} fs ON fs.source_type=p.source_type AND (fs.source_fighter_id=p.source_fighter_id OR fs.source_url=p.source_url) WHERE fs.fighter_id=%d ORDER BY p.id",$id),ARRAY_A);
         $stats=$include_stats?$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighter_stats_current']} WHERE fighter_id=%d",$id),ARRAY_A):null;
-        return hash('sha256',wp_json_encode([$fighter,$sources,$profiles,$stats,self::bindings($id),self::rules(),self::FINGERPRINT_VERSION]));
+        $career=(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters([$id])[$id]??null;
+        return hash('sha256',wp_json_encode([$fighter,$sources,$profiles,$stats,$career,self::bindings($id),self::rules(),self::FINGERPRINT_VERSION]));
     }
     public static function invalidate(int $id=0): void {
         global $wpdb; $table=Schema::tables()['readiness'];

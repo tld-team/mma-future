@@ -268,6 +268,14 @@ class _QueueBuilder:
                         event_internal_id=event_internal_id,
                         event_source_id=event_source_id,
                     )
+                    url=normalize_tapology_fighter_url(fighter.get("url"))
+                    entry=self.entries.get(url)
+                    result_type=bout.get("result_type")
+                    result=("win" if bout.get("winner")==fighter_key else "loss") if result_type=="win_loss" else {"draw":"draw","no_contest":"no_contest"}.get(result_type)
+                    if entry is not None and result and kind!="upcoming":
+                        known={"source_bout_id":bout.get("source_bout_id"),"fight_date":event.get("event_date"),"result":result}
+                        if known not in entry.setdefault("known_results",[]):entry["known_results"].append(known)
+                        self._apply_existing_profile_metadata(entry)
 
     def collect_derived_index(self, path: Path) -> None:
         payload = _read_json(path)
@@ -484,6 +492,10 @@ class _QueueBuilder:
         entry["days_since_scraped"] = age_days
         entry["is_stale"] = age_days >= ttl_days
         entry["should_refresh"] = entry["is_stale"]
+        from .scoring_evidence import needs_refresh
+        if not entry["is_stale"] and needs_refresh(existing,now=_utc_now(),known_results=entry.get("known_results")):
+            entry.update(is_stale=True,should_refresh=True,stale_reason="career_or_period_evidence_refresh_required",refresh_ttl_days=7)
+            entry["priority"]=max(int(entry.get("priority") or 0),90)
         if not entry["is_stale"]:
             entry["priority"] = 0
             entry["stale_reason"] = "fresh"
@@ -533,9 +545,13 @@ def _existing_profiles(path: Path) -> dict[str, dict[str, dict[str, Any]]]:
             "source_url": url,
             "source_fighter_id": source_fighter_id,
             "status": profile.get("status"),
-            "scraped_at": profile.get("scraped_at") or payload.get("scraped_at"),
+            "scraped_at": profile.get("scraped_at"),
             "warnings": list(profile.get("warnings") or []),
             "last_attempt": profile.get('last_attempt') or {},
+            "record_summary": profile.get('record_summary') or {},
+            "career_record_evidence": profile.get('career_record_evidence') or {},
+            "period_evidence": profile.get('period_evidence') or {},
+            "fight_history": profile.get('fight_history') or [],
         }
         if url:
             by_url[url] = normalized
@@ -597,7 +613,7 @@ def _refresh_policy(
         if days_until_upcoming >= -7:
             return 3, "upcoming_or_recent_event_last_7_days", 65
     if latest_seen_date is None:
-        return 60, "dataset_background_refresh", 20
+        return 7, "dataset_background_refresh", 20
     if latest_seen_date > last_scraped_date:
         return 0, "newer_dataset_fight_after_profile_scrape", 95
     if warning_retry:
@@ -608,8 +624,8 @@ def _refresh_policy(
     if recency_days <= 7:
         return 3, "recent_event_last_7_days", 60
     if recency_days <= 30:
-        return 14, "active_dataset_last_30_days", 40
-    return 60, "inactive_dataset_over_30_days", 10
+        return 7, "active_dataset_last_30_days", 40
+    return 7, "inactive_dataset_over_30_days", 10
 
 
 def _parse_iso_date(value: Any) -> date | None:
@@ -628,3 +644,7 @@ def _parse_iso_date(value: Any) -> date | None:
 
 def _utc_today() -> date:
     return datetime.now(timezone.utc).date()
+
+
+def _utc_now():
+    return datetime.now(timezone.utc)

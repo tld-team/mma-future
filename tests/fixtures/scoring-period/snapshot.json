@@ -1,0 +1,77 @@
+{
+  "url": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
+  "title": "Synthetic A MMA Fighter",
+  "headings": [
+    "Synthetic A"
+  ],
+  "body_text": "Synthetic A Pro MMA Record: 10-3-0",
+  "lines": [
+    "Synthetic A",
+    "Pro MMA Record: 10-3-0"
+  ],
+  "scraped_at": "2026-10-10T10:00:00Z",
+  "history_scope": "professional_mma",
+  "history_scope_verified": true,
+  "history_exhausted": false,
+  "rows": [
+    {
+      "raw_text": "W DEC Synthetic B 0-0-0 Synthetic Event October 05, 2026",
+      "history_scope": "professional_mma",
+      "row_boundary_verified": true,
+      "links": [
+        {
+          "href": "https://www.tapology.com/fightcenter/fighters/94981102-fixture-b",
+          "text": "Synthetic B"
+        },
+        {
+          "href": "https://www.tapology.com/fightcenter/events/94981401-fixture",
+          "text": "Synthetic Event"
+        },
+        {
+          "href": "https://www.tapology.com/fightcenter/bouts/94981501-fixture",
+          "text": "Decision"
+        }
+      ]
+    },
+    {
+      "raw_text": "W DEC Synthetic B 0-0-0 Synthetic Event May 09, 2026",
+      "history_scope": "professional_mma",
+      "row_boundary_verified": true,
+      "links": [
+        {
+          "href": "https://www.tapology.com/fightcenter/fighters/94981102-fixture-b",
+          "text": "Synthetic B"
+        },
+        {
+          "href": "https://www.tapology.com/fightcenter/events/94981402-fixture",
+          "text": "Synthetic Event"
+        },
+        {
+          "href": "https://www.tapology.com/fightcenter/bouts/94981502-fixture",
+          "text": "Decision"
+        }
+      ]
+    },
+    {
+      "raw_text": "L DEC Synthetic B 0-0-0 Synthetic Event May 08, 2026",
+      "history_scope": "professional_mma",
+      "row_boundary_verified": true,
+      "links": [
+        {
+          "href": "https://www.tapology.com/fightcenter/fighters/94981102-fixture-b",
+          "text": "Synthetic B"
+        },
+        {
+          "href": "https://www.tapology.com/fightcenter/events/94981403-fixture",
+          "text": "Synthetic Event"
+        },
+        {
+          "href": "https://www.tapology.com/fightcenter/bouts/94981503-fixture",
+          "text": "Decision"
+        }
+      ]
+    }
+  ],
+  "history_first_page_verified": true,
+  "history_load_complete": true
+}
