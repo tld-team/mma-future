@@ -27,8 +27,10 @@ KEY_PROFILE_FIELDS = [
 ]
 
 
-def add_profile_completeness_scores(document: dict[str, Any]) -> dict[str, Any]:
-    document = deepcopy(document)
+def add_profile_completeness_scores(document: dict[str, Any], *, copy_history: bool = True) -> dict[str, Any]:
+    # Report generation only adds one top-level score. Preserve the public
+    # deep-copy behavior, while avoiding a second complete history in reports.
+    document = deepcopy(document) if copy_history else {**document,'profiles':[dict(p) if isinstance(p,dict) else p for p in document.get('profiles',[])]}
     for profile in document.get("profiles", []):
         if isinstance(profile, dict):
             profile["profile_completeness_score"] = profile_completeness_score(profile)
@@ -72,7 +74,7 @@ def profile_completeness_score(profile: dict[str, Any]) -> int:
 
 
 def build_profile_enrichment_report(document: dict[str, Any]) -> dict[str, Any]:
-    scored_document = add_profile_completeness_scores(document)
+    scored_document = add_profile_completeness_scores(document,copy_history=False)
     profiles = [profile for profile in scored_document.get("profiles", []) if isinstance(profile, dict)]
     successful_profiles = [profile for profile in profiles if profile.get("status") == "success"]
     failed_profiles = [profile for profile in profiles if profile.get("status") != "success"]

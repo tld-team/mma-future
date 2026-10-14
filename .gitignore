@@ -119,3 +119,5 @@ tests/**/*.log
 tests/**/private/
 tests/**/__pycache__/
 tests/**/*.pyc
+
+!tests/fixtures/import-pipeline/*.json

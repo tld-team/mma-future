@@ -7,19 +7,5 @@ wp_cli="${3:?WP CLI path required}"
 # Kernel lock is released even if the supervisor is killed. PHP also locks each step.
 exec 9<"$0"
 flock -n 9 || exit 0
-end=$((SECONDS + 50))
-while (( SECONDS < end )); do
-    result=$("$php_bin" -d memory_limit=512M -d max_execution_time=0 "$wp_cli" --path="$wp_root" mmaf import-job work --once)
-    case "$result" in
-        *'"worked":true'*) printf '%s\n' "$result" ;;
-        *)
-            # The same supervisor also prepares stored profiles and one coalesced draft.
-            result=$("$php_bin" -d memory_limit=512M -d max_execution_time=0 "$wp_cli" --path="$wp_root" mmaf data-process work --limit=10)
-            case "$result" in
-                *'"worked":true'*) printf '%s\n' "$result" ;;
-                *) break ;;
-            esac
-            ;;
-    esac
-done
+"$php_bin" -d memory_limit=512M -d max_execution_time=0 "$wp_cli" --path="$wp_root" mmaf background work --seconds=35 --memory-mb=256 --max-steps=500
 "$php_bin" -d memory_limit=512M "$wp_cli" --path="$wp_root" mmaf import-job cleanup >/dev/null

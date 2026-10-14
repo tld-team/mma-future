@@ -11,6 +11,7 @@ final class Controller {
             '/import-jobs/(?P<id>\d+)'=>['GET','detail'],
             '/import-jobs/(?P<id>\d+)/(?P<operation>approve|pause|resume|discard)'=>['POST','action'],
             '/import-setup'=>['GET','setup'],
+            '/import-capacity'=>['POST','capacity'],
         ];
         foreach($routes as $path=>[$method,$handler]){
             register_rest_route('mma-future/v1',$path,['methods'=>$method,'permission_callback'=>$permission,'callback'=>static function($request) use($handler){
@@ -98,9 +99,10 @@ final class Controller {
         foreach(['zip','pdo_mysql','zlib'] as $ext){if(!extension_loaded($ext)){$problems[]='PHP extension missing: '.$ext;}}
         $seen=get_option('mmaf_import_worker_seen');
         if(!$seen||strtotime($seen)<time()-180){$problems[]='Background worker has not checked in within three minutes.';}
-        try{DatabaseState::engines();}catch(\Throwable $e){$problems[]=$e->getMessage();}
-        return ['ready'=>!$problems,'problems'=>$problems,'worker_seen'=>$seen?:null,'storage'=>$storage,'free_bytes'=>$storage?disk_free_space($storage):null,'site_url'=>home_url('/'),'environment'=>wp_get_environment_type(),'zip_limit'=>Storage::ZIP_LIMIT,'chunk_size'=>Storage::CHUNK_SIZE,'runner_script'=>MMAF_PLUGIN_DIR.'bin/regular-import-runner.sh','wordpress_root'=>ABSPATH];
+        $preflight=Preflight::inspect();$problems=array_merge($problems,$preflight['problems']);
+        return ['ready'=>!$problems,'problems'=>$problems,'preflight'=>$preflight,'managed_supervisor'=>defined('MMAF_SERVER_SUPERVISOR')&&MMAF_SERVER_SUPERVISOR,'worker_seen'=>$seen?:null,'storage'=>$storage,'free_bytes'=>$storage?disk_free_space($storage):null,'site_url'=>home_url('/'),'environment'=>wp_get_environment_type(),'zip_limit'=>Storage::ZIP_LIMIT,'chunk_size'=>Storage::CHUNK_SIZE,'runner_script'=>MMAF_PLUGIN_DIR.'bin/regular-import-runner.sh','wordpress_root'=>ABSPATH];
     }
+    public static function capacity($request): array {Preflight::recordCapacity((array)$request->get_json_params());return self::setup(null);}
     public static function view(array $job): array {
         $repo=new Repository();$id=(int)$job['id'];$meta=$job['meta'];$batches=$repo->batches($id);$progress=['checked'=>0,'completed'=>0,'total'=>count($batches)];
         foreach($batches as $batch){$progress['checked']+=(int)$batch['checked'];$progress['completed']+=(int)$batch['completed'];}
@@ -108,16 +110,21 @@ final class Controller {
         if(is_file($heartbeatFile)){$heartbeat=Storage::read($heartbeatFile)['at']??$heartbeat;}
         $view=array_intersect_key($job,array_flip(['id','filename','status','phase','created_at','finished_at','attempts','retry_at','pause_requested','writes_started','error','bundle_hash']));
         $view+=['progress'=>$progress,'last_activity'=>$heartbeat,'notice'=>$meta['notice']??null,'package'=>array_intersect_key($meta['package']??[],array_flip(['counts','date_from','date_to'])),'plan'=>$meta['plan']??$repo->planCounts($id),'actual'=>(new Engine())->actualCounts($id),'approval_token'=>$job['status']==='awaiting_approval'?($meta['approval_token']??null):null,'backup'=>isset($meta['backup'])?array_intersect_key($meta['backup'],array_flip(['bytes','created_at','sha256'])):null,'stats'=>$meta['stats']??null,'integrity'=>$meta['integrity']??null,'peak_memory_mb'=>$meta['peak_memory_mb']??null,'artifact_expired'=>!empty($meta['artifact_expired']),'site_url'=>$meta['site_url']??home_url('/')];
+        $view['phase_progress']=Progress::forJob($job);
+        $view['readiness']=$meta['package']['readiness']??null;
+        $view['performance']=$meta['performance']??null;
+        $view['profile_changes']=(new Engine())->profileChanges($id,$batches);
+        $view['preparation']=\MMAF\DataEngine\Services\DataPipeline\Processor::status();
         $view['review_url']=add_query_arg(['page'=>'mmaf-review','tab'=>'needs_review','import_job_id'=>$id],admin_url('admin.php'));
-        foreach(['backup','report'] as $kind){$view[$kind.'_url']=html_entity_decode(wp_nonce_url(add_query_arg(['action'=>'mmaf_regular_import_download','job_id'=>$id,'kind'=>$kind],admin_url('admin-post.php')),'mmaf_import_download_'.$id.'_'.$kind),ENT_QUOTES,'UTF-8');}
+        foreach(['backup','report','readiness','source_enrichment'] as $kind){$view[$kind.'_url']=html_entity_decode(wp_nonce_url(add_query_arg(['action'=>'mmaf_regular_import_download','job_id'=>$id,'kind'=>$kind],admin_url('admin-post.php')),'mmaf_import_download_'.$id.'_'.$kind),ENT_QUOTES,'UTF-8');}
         return $view;
     }
     public static function download(): void {
         if(!current_user_can('manage_options')){wp_die('Not allowed','',['response'=>403]);}
         $id=absint($_GET['job_id']??0);$kind=sanitize_key($_GET['kind']??'');
         check_admin_referer('mmaf_import_download_'.$id.'_'.$kind);
-        if(!in_array($kind,['backup','report'],true)){wp_die('Unknown artifact','',['response'=>400]);}
-        $job=(new Repository())->get($id);$file=Storage::root().'/job-'.$id.'/'.($kind==='backup'?'before-import.sql.gz':'report.json');
+        if(!in_array($kind,['backup','report','readiness','source_enrichment'],true)){wp_die('Unknown artifact','',['response'=>400]);}
+        $job=(new Repository())->get($id);$names=['backup'=>'before-import.sql.gz','report'=>'report.json','readiness'=>'source/readiness_report.json','source_enrichment'=>'source/source_enrichment_queue.json'];$file=Storage::root().'/job-'.$id.'/'.$names[$kind];
         if(!is_file($file)||($kind==='backup'&&empty($job['meta']['backup']))){wp_die('This file is not available.','',['response'=>404]);}
         nocache_headers();header('X-Content-Type-Options: nosniff');header('Content-Type: '.($kind==='backup'?'application/gzip':'application/json'));header('Content-Disposition: attachment; filename="mmaf-import-'.$id.'-'.$kind.($kind==='backup'?'.sql.gz':'.json').'"');header('Content-Length: '.filesize($file));readfile($file);exit;
     }

@@ -1,0 +1,85 @@
+{
+  "digest_cases": [
+    {
+      "input": {
+        "empty": {},
+        "list": []
+      },
+      "sha256": "5c6b9adb97c77f612497793e9bdea140367a5abd0be1149ebda5829cf1da3482"
+    },
+    {
+      "input": {
+        "nested": {
+          "Ž": "red / blue ok",
+          "b": true,
+          "a": null
+        },
+        "count": 9007199254740993
+      },
+      "sha256": "af5b1fa9d233f24ff13a75ea6d2aacf2ffa44d8ea5675e91ae95835436809f55"
+    },
+    {
+      "input": {
+        "float": 1.0,
+        "small": 1e-09,
+        "zero": -0.0,
+        "large": 1e+30
+      },
+      "sha256": "ac7fa685d4bd896d6090ab60fa959c7358254cb4c5943007047d70632099a601"
+    },
+    {
+      "input": {
+        "name": "A",
+        "scraped_at": "2026-01-01",
+        "diagnostics": {
+          "a": 1
+        },
+        "rows": [
+          {
+            "b": 2,
+            "a": 1,
+            "fetched_at": "ignored"
+          }
+        ]
+      },
+      "sha256": "cb330b7e61b726270e17bc85ea885bcfe9452e0f8b4eb40587e83305b91f4a52"
+    }
+  ],
+  "url_cases": [
+    {
+      "url": "https://www.tapology.com/fightcenter/fighters/123-jane-doe",
+      "normalized": "https://www.tapology.com/fightcenter/fighters/123-jane-doe",
+      "source_fighter_id": "tapology_fighter_123"
+    },
+    {
+      "url": "http://tapology.com/fightcenter/fighters/123/?foo=1#top",
+      "normalized": "https://www.tapology.com/fightcenter/fighters/123",
+      "source_fighter_id": "tapology_fighter_123"
+    },
+    {
+      "url": "https://www.tapology.com/fightcenter/fighters/rin-nakai/",
+      "normalized": "https://www.tapology.com/fightcenter/fighters/rin-nakai",
+      "source_fighter_id": "tapology_fighter_url_1a25e2de845296ccf70f86c8"
+    },
+    {
+      "url": "https://TAPOLOGY.COM/fightcenter/fighters/123-Jane-Doe",
+      "normalized": "https://www.tapology.com/fightcenter/fighters/123-jane-doe",
+      "source_fighter_id": "tapology_fighter_123"
+    },
+    {
+      "url": "https://other.example/fightcenter/fighters/123",
+      "normalized": null,
+      "source_fighter_id": null
+    },
+    {
+      "url": "ftp://tapology.com/fightcenter/fighters/123",
+      "normalized": null,
+      "source_fighter_id": null
+    },
+    {
+      "url": "https://user@tapology.com/fightcenter/fighters/123",
+      "normalized": null,
+      "source_fighter_id": null
+    }
+  ]
+}

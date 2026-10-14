@@ -7,6 +7,7 @@ from copy import deepcopy
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .config import DATA_DIR, LATEST_DIR, RUNS_DIR
 from .storage import atomic_write_json
@@ -163,10 +164,17 @@ def collect_fighter_profile_urls_from_queue(
             "skip_already_enriched": skip_already_enriched,
         }
     document = json.loads(queue_path.read_text(encoding="utf-8"))
+    queue=document.get('queue',[])
+    existing={};generated=None
+    if document.get('schema_version')=='mmaf_source_enrichment_v1':
+        queue=[item for item in document.get('items',[]) if isinstance(item,dict) and item.get('action')=='refresh_source_evidence']
+        generated=_attempt_time(document.get('generated_at'))
+        if generated:existing=_existing_profiles(LATEST_DIR/'fighter_profiles.json')['by_id']
     urls: list[str] = []
     skipped_already_enriched = 0
     skipped_fresh = 0
-    for item in document.get("queue", []):
+    skipped_attempted=0;seen=set()
+    for item in queue:
         if not isinstance(item, dict):
             continue
         if skip_already_enriched and item.get("already_enriched"):
@@ -178,6 +186,13 @@ def collect_fighter_profile_urls_from_queue(
         url = normalize_tapology_fighter_url(item.get("source_url"))
         if not url:
             continue
+        source=source_fighter_id_from_url(url)
+        attempt=existing.get(source,{})
+        attempted=_attempt_time((attempt.get('last_attempt') or {}).get('at') or attempt.get('scraped_at'))
+        if generated and attempted and attempted>=generated:
+            skipped_attempted+=1;continue
+        if source in seen:continue
+        seen.add(source)
         urls.append(url)
         if len(urls) >= limit:
             break
@@ -185,11 +200,12 @@ def collect_fighter_profile_urls_from_queue(
         "mode": "queue",
         "queue_file": str(queue_path),
         "queue_schema_version": document.get("schema_version"),
-        "available_queue_urls": len([item for item in document.get("queue", []) if isinstance(item, dict)]),
+        "available_queue_urls": len([item for item in queue if isinstance(item, dict)]),
         "selected_for_enrichment": len(urls),
         "skip_already_enriched": skip_already_enriched,
         "skipped_already_enriched": skipped_already_enriched,
         "skipped_fresh": skipped_fresh,
+        "skipped_attempted_since_queue": skipped_attempted,
     }
     return urls, metadata
 
@@ -200,7 +216,7 @@ def normalize_tapology_fighter_url(url: str | None) -> str | None:
         return None
     if not re.match(r"^https?://(?:www\.)?tapology\.com/fightcenter/fighters/[^/?#]+$", url, re.I):
         return None
-    return url
+    return 'https://www.tapology.com'+urlsplit(url).path.lower()
 
 
 class _QueueBuilder:
@@ -519,12 +535,20 @@ def _existing_profiles(path: Path) -> dict[str, dict[str, dict[str, Any]]]:
             "status": profile.get("status"),
             "scraped_at": profile.get("scraped_at") or payload.get("scraped_at"),
             "warnings": list(profile.get("warnings") or []),
+            "last_attempt": profile.get('last_attempt') or {},
         }
         if url:
             by_url[url] = normalized
         if source_fighter_id:
             by_id[str(source_fighter_id)] = normalized
     return {"by_url": by_url, "by_id": by_id}
+
+def _attempt_time(value):
+    if not isinstance(value,str):return None
+    try:
+        parsed=datetime.fromisoformat(value.replace('Z','+00:00'))
+        return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+    except ValueError:return None
 
 
 def _input_json_items(payload: Any) -> list[Any]:

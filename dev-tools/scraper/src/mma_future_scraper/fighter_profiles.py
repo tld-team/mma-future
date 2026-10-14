@@ -430,6 +430,10 @@ class FighterProfileEnricher:
                     last_profile = failed_profile(source_url, "http_error", "profile_fetch_failed:http_error", page, diagnostics=diagnostics)
                 else:
                     snapshot = snapshot_profile_page(page)
+                    snapshot['scraped_at']=utc_now()
+                    snapshot_path=run_dir/'profile_snapshots'/(source_fighter_id_from_url(source_url)+'.json')
+                    atomic_write_json(snapshot_path,snapshot)
+
                     body_text = normalize_space(snapshot.get("body_text"))
                     diagnostics["body_text_length"] = len(body_text)
                     if not body_text:
@@ -438,6 +442,7 @@ class FighterProfileEnricher:
                         last_profile = failed_profile(source_url, "empty_html", "profile_fetch_failed:empty_html", page, diagnostics=diagnostics)
                     else:
                         profile = parse_profile_snapshot(snapshot, source_url)
+                        profile['scraped_at']=snapshot['scraped_at']
                         if profile["status"] != "success":
                             profile.setdefault("warnings", []).append("profile_parse_empty_required_sections")
                             profile["warnings"] = sorted(set(profile.get("warnings") or []))
@@ -605,7 +610,9 @@ def merge_fighter_profiles_documents(
             continue
 
         if existing_profile is not None and existing_profile.get("status") == "success":
-            merged_profiles.append(existing_profile)
+            retained = deepcopy(existing_profile)
+            retained['last_attempt'] = {'status': profile.get('status'), 'at': profile.get('scraped_at'), 'error_reason': profile.get('error_reason')}
+            merged_profiles.append(retained)
             merge_stats["retained_previous_success_on_failure"] += 1
             continue
 
@@ -671,6 +678,7 @@ def _stamp_profile_metadata(profile: dict[str, Any], *, scraped_at: str) -> dict
     normalized["source_fighter_id"] = source_fighter_id
     normalized["scraped_at"] = normalize_space(normalized.get("scraped_at")) or scraped_at
     normalized["status"] = normalize_space(normalized.get("status")) or "failed_parse"
+    normalized.setdefault('last_attempt', {'status': normalized['status'], 'at': normalized['scraped_at'], 'error_reason': normalized.get('error_reason')})
     normalized.setdefault("display_name", None)
     normalized.setdefault("warnings", [])
     normalized.setdefault("profile_summary", {})
@@ -858,7 +866,7 @@ def snapshot_profile_page(page: Any) -> dict[str, Any]:
               href: abs(a.getAttribute('href') || '')
             })).filter((link) => link.href || link.text);
             const cells = Array.from(el.querySelectorAll('th,td')).map((cell) => clean(cell.innerText)).filter(Boolean);
-            return { raw_text: clean(el.innerText), cells, links, history_scope: rowScope(el), data_bout_id: el.getAttribute('data-bout-id'), data_sport: el.getAttribute('data-sport'), data_division: el.getAttribute('data-division'), data_status: el.getAttribute('data-status') };
+            return { raw_text: clean(el.innerText), cells, links, history_scope: rowScope(el), row_boundary_verified: identities(el, '/fightcenter/bouts/').size === 1 && identities(el, '/fightcenter/events/').size <= 1 && identities(el, '/fightcenter/fighters/').size <= 2, data_bout_id: el.getAttribute('data-bout-id'), data_sport: el.getAttribute('data-sport'), data_division: el.getAttribute('data-division'), data_status: el.getAttribute('data-status') };
           }).filter((row) => row.raw_text);
           return {
             url: location.href.replace(/[?#].*$/, ''),
@@ -890,6 +898,8 @@ def parse_profile_snapshot(snapshot: dict[str, Any], source_url: str) -> dict[st
     # downstream consumers don't treat the index page as a successful profile.
     if landed_url and not re.search(r"/fightcenter/fighters/[^/?#]+", landed_url, re.I):
         return failed_profile(source_url, "failed_parse", "redirected_to_fightcenter_index")
+    if landed_url and source_fighter_id_from_url(landed_url)!=source_fighter_id_from_url(source_url):
+        return failed_profile(source_url, "failed_parse", "redirected_to_different_fighter")
     warnings: list[str] = []
     display_name = _extract_display_name(snapshot, source_url)
     if not display_name:
@@ -904,8 +914,8 @@ def parse_profile_snapshot(snapshot: dict[str, Any], source_url: str) -> dict[st
             non_mma = bool(re.search(r"\b(?:Grappling|Boxing|Muay\s*Thai|Bare\s*Knuckle|Kickboxing|Modified\s*Rules)\b", raw, re.I))
             if not row.get("discipline"):
                 row["discipline"] = "other" if non_mma else "mma"
-            if not row.get("source_division") and not row.get("is_amateur") and row.get("discipline") == "mma":
-                row["is_professional"] = True
+            if not row.get("classification_evidence"):
+                row["is_professional"] = False
     if not fight_history:
         warnings.append("no_fight_history_extracted")
 
@@ -1998,6 +2008,10 @@ def _parse_fight_history_row(row: dict[str, Any], raw_text: str, source_url: str
         "raw_text": raw_text[:1000],
         "warnings": warnings,
     }
+    if not item.get('classification_evidence') and row.get('row_boundary_verified') is True and row.get('history_scope') == 'professional_mma' and bout_url:
+        item.update(source_sport='mma', discipline='mma', source_division='pro', is_professional=True,
+                    classification_evidence='profile_section_classification',
+                    classification_proof={'section':'professional_mma','row_boundary_verified':True})
     return {key: value for key, value in item.items() if value is not None and value != []}
 
 

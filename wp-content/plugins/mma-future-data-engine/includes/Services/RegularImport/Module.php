@@ -13,6 +13,10 @@ final class Module {
                 try{$result=(new Engine())->work();\WP_CLI::line(wp_json_encode($result));}
                 catch(ImportException $e){if($e->reason==='busy'){\WP_CLI::line('{"worked":false,"busy":true}');return;}\WP_CLI::error($e->getMessage());}
             });
+            \WP_CLI::add_command('mmaf background work',static function($args,$assoc){
+                try{\WP_CLI::line(wp_json_encode(Worker::run((int)($assoc['seconds']??35),(int)($assoc['memory-mb']??256),(int)($assoc['max-steps']??500))));}
+                catch(\Throwable $e){\WP_CLI::error($e->getMessage());}
+            });
             \WP_CLI::add_command('mmaf import-job cleanup',static function(){Cleanup::run();\WP_CLI::success('Import retention checked.');});
         }
     }

@@ -40,6 +40,23 @@ final class DatabaseState {
         if ($wpdb->last_error) { throw new \RuntimeException('Integrity check failed: '.$wpdb->last_error); }
         return $out;
     }
+    /** Inputs that affect statistics, readiness or ranking; source observations are excluded. */
+    public static function calculationRevision(): string {
+        $t=CanonicalSchema::table_names();$hash=hash_init('sha256');
+        $queries=[
+            ['fighters',"SELECT id,date_of_birth,gender,weight_class,status,is_public,is_rankable,rankability_status,in_ufc,deleted_soft FROM {$t['fighters']} ORDER BY id",'id'],
+            ['events',"SELECT id,event_date,status,deleted_soft FROM {$t['events']} ORDER BY id",'id'],
+            ['bouts',"SELECT * FROM {$t['bouts']} ORDER BY id",'id'],
+            ['participants',"SELECT * FROM {$t['bout_participants']} ORDER BY id",'id'],
+            ['overrides',"SELECT * FROM {$t['fighter_stats_overrides']} ORDER BY id",'id'],
+            ['coverage',"SELECT fighter_id,status,accepted_bouts_count,expected_record_json FROM {$t['fighter_career_coverage']} ORDER BY fighter_id",'fighter_id'],
+        ];
+        foreach($queries as [$name,$sql,$key]){hash_update($hash,$name);foreach(self::rows($sql,$key) as $row){unset($row['created_at'],$row['updated_at']);hash_update($hash,wp_json_encode($row));}}
+        return hash_final($hash);
+    }
+    public static function calculationPolicy(): string {
+        return hash('sha256',wp_json_encode([MMAF_DB_VERSION,\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_version(),\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_config()]));
+    }
     public static function protectedState(?int $maxId=null): array {
         global $wpdb;$t=CanonicalSchema::table_names();
         $maxId=$maxId??(int)$wpdb->get_var("SELECT MAX(id) FROM {$t['fighters']}");
@@ -74,11 +91,11 @@ final class DatabaseState {
         hash_update($hash,']');return hash_final($hash);
     }
     private static function rows(string $sql,string $key='id'): \Generator {
-        global $wpdb;$cursor=0;[$base,$order]=explode(' ORDER BY ',$sql,2);
+        global $wpdb;$cursor=0;[$base,$order]=explode(' ORDER BY ',$sql,2);$parts=explode('.',$key);$column=end($parts);
         do{
             $rows=$wpdb->get_results($base.(str_contains($base,' WHERE ')?' AND ':' WHERE ').$key.'>'.(int)$cursor.' ORDER BY '.$order.' LIMIT 250',ARRAY_A);
             if($wpdb->last_error){throw new \RuntimeException('Cannot read protected database state.');}
-            foreach($rows as $row){yield $row;$cursor=(int)$row['id'];}
+            foreach($rows as $row){yield $row;$cursor=(int)$row[$column];}
         }while(count($rows)===250);
     }
     public static function engines(): void {

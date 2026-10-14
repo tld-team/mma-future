@@ -40,7 +40,7 @@ final class ProfileStore {
         $observed=self::date($profile['scraped_at']??$profile['profile_scraped_at']??null);
         $success=($profile['status']??'')==='success';
         $content=$profile;
-        foreach (['scraped_at','profile_scraped_at','fetched_at','diagnostics','profile_cache_hit','profile_cache_source','profile_cache_scraped_at'] as $field) { unset($content[$field]); }
+        foreach (['scraped_at','profile_scraped_at','fetched_at','diagnostics','profile_cache_hit','profile_cache_source','profile_cache_scraped_at','last_attempt'] as $field) { unset($content[$field]); }
         $payload=wp_json_encode($profile); $encoded=wp_json_encode(self::stable($content));
         if ($payload===false || $encoded===false || strlen($payload)>4*1024*1024) { return ['status'=>'review','reason'=>'Invalid or oversized profile payload.']; }
         $hash=hash('sha256',$encoded); $table=Schema::tables()['profiles']; $now=gmdate('Y-m-d H:i:s');
@@ -48,11 +48,12 @@ final class ProfileStore {
             $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE source_type='tapology' AND source_fighter_id=%s FOR UPDATE",$key),ARRAY_A);
             $fighter=$this->resolve($identity);
             \MMAF\DataEngine\Services\Operations\Membership::record($job,$fighter,'stored_profile');
-            if($fighter){\MMAF\DataEngine\Services\Operations\Readiness::invalidate($fighter);}
             $data=['source_type'=>'tapology','source_fighter_id'=>$key,'source_url'=>$identity['source_url'],'fighter_id'=>$fighter?:null,'schema_version'=>$schema,'updated_at'=>$now];
-            $attempt=$observed;
+            $lastAttempt=$profile['last_attempt']??[];
+            $attempt=self::date($lastAttempt['at']??null)??$observed;
             if (!$old || ($attempt && (!$old['last_attempt_at'] || $attempt>=$old['last_attempt_at']))) {
-                $data+=['last_attempt_at'=>$attempt,'last_attempt_status'=>(string)($profile['status']??'unknown'),'last_error'=>$success?null:substr(sanitize_text_field($profile['error_reason']??'Source profile unavailable.'),0,255)];
+                $attemptStatus=(string)($lastAttempt['status']??$profile['status']??'unknown');
+                $data+=['last_attempt_at'=>$attempt,'last_attempt_status'=>$attemptStatus,'last_error'=>$attemptStatus==='success'?null:substr(sanitize_text_field($lastAttempt['error_reason']??$profile['error_reason']??'Source profile unavailable.'),0,255)];
             }
             $replace=$success && (!$old || !$old['payload_json'] || ($observed && (!$old['source_fetched_at'] || $observed>$old['source_fetched_at'])));
             $status=$success?'unchanged':'retained_previous';
@@ -61,8 +62,12 @@ final class ProfileStore {
             }
             if ($replace) { $data+=['payload_json'=>$payload,'content_hash'=>$hash,'source_fetched_at'=>$observed,'import_job_id'=>$job?:null]; $status=(!$old || !$old['payload_json'])?'created':(hash_equals($old['content_hash'],$hash)?'unchanged':'updated'); }
             elseif ($success && $old && $old['source_fetched_at'] && (!$observed || $observed<$old['source_fetched_at'])) { $status='older_ignored'; }
-            if ($old) { Repository::check($wpdb->update($table,$data,['id'=>$old['id']])); }
+            if ($old) {
+                $changed=[];foreach($data as $field=>$value){if($field!=='updated_at' && ($old[$field]===null?$value!==null:(string)$old[$field] !== (string)$value)){$changed[$field]=$value;}}
+                if($changed){$changed['updated_at']=$now;Repository::check($wpdb->update($table,$changed,['id'=>$old['id']]));}
+            }
             else { $data+=['created_at'=>$now,'last_attempt_status'=>(string)($profile['status']??'unknown')]; Repository::check($wpdb->insert($table,$data)); }
+            if($fighter && (!$old || !empty($changed))){\MMAF\DataEngine\Services\Operations\Readiness::invalidate($fighter);}
             return ['status'=>$status,'fighter_id'=>$fighter,'source_fighter_id'=>$key,'has_success'=>$replace || !empty($old['payload_json']),'hash'=>$replace?$hash:($old['content_hash']??null)];
         });
     }
@@ -87,13 +92,17 @@ final class ProfileStore {
         $rows=$raw['fight_history']??[];
         foreach ($rows as &$row) {
             $row['source_sport']=$row['source_sport']??$row['discipline']??null;
-            if (!$row['source_sport'] || empty($row['classification_evidence'])) {
+            if(($row['classification_evidence']??'')==='profile_section_classification' && (($raw['history_scope_verified']??false)!==true || ($raw['history_scope']??'')!=='professional_mma' || ($row['classification_proof']['section']??'')!=='professional_mma' || ($row['classification_proof']['row_boundary_verified']??false)!==true)){
+                unset($row['classification_evidence']);
+            }
+            if (!$row['source_sport'] || !in_array($row['classification_evidence']??'', ['profile_dom_classification','profile_section_classification','bout_dom_classification'],true)) {
                 // Old text-parser booleans cannot exclude an existing canonical bout.
                 foreach (['is_amateur','is_cancelled','is_exhibition','source_division'] as $field) { unset($row[$field]); }
                 $row['is_professional']=false;
             }
+            $row['is_professional']=($row['is_professional']??false)===true;
             if (empty($row['opponent_record_raw'])) { unset($row['prefight_record_raw']); }
         } unset($row);
-        return ['fighter_id'=>$id,'source_fighter_id'=>$raw['source_fighter_id'],'source_url'=>$raw['source_url'],'scraped_at'=>$raw['scraped_at']??$raw['profile_scraped_at']??null,'source_status'=>$raw['status']??'unavailable','source_error_reason'=>$raw['error_reason']??null,'expected_record'=>in_array(null,$expected,true)?null:$expected,'history_scope'=>$raw['history_scope']??'unknown','history_scope_verified'=>!empty($raw['history_scope_verified']),'history_exhausted'=>!empty($raw['history_exhausted']),'verified_facts'=>$raw['verified_facts']??[],'rows'=>$rows];
+        return ['fighter_id'=>$id,'source_fighter_id'=>$raw['source_fighter_id'],'source_url'=>$raw['source_url'],'scraped_at'=>$raw['scraped_at']??$raw['profile_scraped_at']??null,'source_status'=>$raw['status']??'unavailable','source_error_reason'=>$raw['error_reason']??null,'expected_record'=>in_array(null,$expected,true)?null:$expected,'history_scope'=>$raw['history_scope']??'unknown','history_scope_verified'=>($raw['history_scope_verified']??false)===true,'history_exhausted'=>($raw['history_exhausted']??false)===true,'verified_facts'=>$raw['verified_facts']??[],'rows'=>$rows];
     }
 }

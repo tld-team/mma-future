@@ -31,7 +31,7 @@ A failed first fetch means **Stored profile unavailable**. A later failed attemp
 
 ## Worker and diagnosis
 
-The staging supervisor owns MMA Future processing; WordPress core cron runs separately. Preparation is bounded to ten fighters; calculation steps to 250 rows and a byte budget. Do not launch competing worker scripts.
+The staging supervisor owns MMA Future processing; WordPress core cron runs separately. Schema 1.10.0 uses one bounded WordPress session per worker dispatch, checking the time/memory budget and release flags between existing atomic units. Preparation units process up to ten fighters (five during regular import); calculation steps retain their 250-row/byte budget. Do not launch competing worker scripts. See [the import pipeline runbook](import-pipeline.md) for cycle finalization, targeted recovery, capacity entry and destination receipts.
 
 Readiness projection steps also stop at a three-second budget, leaving remaining rows for the next step. A human POST waits up to five seconds for the current atomic unit; system workers yield immediately when the shared lock is busy. Longer frozen calculations can still reject a competing edit with a clear retry/pause message.
 

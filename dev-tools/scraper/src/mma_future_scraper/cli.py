@@ -333,6 +333,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     export = subparsers.add_parser("export-import-bundle", help="Create a health-checked ZIP for WordPress regular import")
     export.add_argument("--output", type=Path, required=True)
+    export.add_argument("--base-receipt",type=Path,help="Completed destination report/receipt for a delta package")
     export.add_argument("--latest-dir", type=Path, default=LATEST_DIR)
     export.add_argument("--expected-pages", type=positive_int, default=None)
     export.add_argument("--max-event-fetch-failures", type=non_negative_int, default=0)
@@ -465,11 +466,79 @@ def build_parser() -> argparse.ArgumentParser:
         default=25,
         help="Number of rows included in the sample_rows section of the report",
     )
+    for command in [run, enrich]:
+        command.add_argument('--cycle-id', help='Registered import cycle')
+        command.add_argument('--cycle-task', help='Declared task, e.g. events-1 or profiles-1')
+        command.add_argument('--finalize-import', action='store_true', help='Publish the ZIP automatically once all cycle tasks finish')
+        command.add_argument('--import-output-dir', type=Path, default=Path('output/import-ready'))
+    recovery=subparsers.add_parser('prepare-import-recovery',help='Reparse exact saved DOM snapshots and prepare targeted source enrichment')
+    recovery.add_argument('--source-profiles',type=Path,required=True)
+    recovery.add_argument('--snapshots-dir',type=Path,required=True)
+    recovery.add_argument('--output-dir',type=Path,required=True)
+    for name in ['begin-import-cycle','record-import-run','retry-import-task','finalize-import']:
+        command=subparsers.add_parser(name)
+        command.add_argument('--cycle-id', required=True)
+        command.add_argument('--latest-dir', type=Path, default=LATEST_DIR)
+        if name=='begin-import-cycle':
+            command.add_argument('--event-runs',type=positive_int,default=1)
+            command.add_argument('--profile-runs',type=non_negative_int,default=1)
+            command.add_argument('--expected-pages',type=positive_int)
+            command.add_argument('--max-event-fetch-failures',type=non_negative_int,default=0)
+            command.add_argument('--min-profile-success-rate',type=failure_rate_float,default=0.99)
+        elif name in ['record-import-run','retry-import-task']:
+            command.add_argument('--cycle-task',required=True)
+            if name=='record-import-run':command.add_argument('--run-dir',type=Path,required=True)
+        else:
+            command.add_argument('--output-dir',type=Path,default=Path('output/import-ready'))
+            command.add_argument('--base-receipt',type=Path)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    from .import_cycle import ImportCycle, writer_lock
+    latest=getattr(args,'latest_dir',LATEST_DIR)
+    cycle=None; started=False
+    try:
+        with writer_lock(latest.parent):
+            if args.command in ('begin-import-cycle','record-import-run','retry-import-task','finalize-import'):
+                cycle=ImportCycle(args.cycle_id,latest)
+                if args.command=='begin-import-cycle':
+                    result=cycle.begin(args.event_runs,args.profile_runs,expected_pages=args.expected_pages,max_event_fetch_failures=args.max_event_fetch_failures,min_profile_success_rate=args.min_profile_success_rate)
+                elif args.command=='record-import-run':
+                    cycle.adopt(args.cycle_task,args.run_dir);result=cycle.read()
+                elif args.command=='retry-import-task':
+                    value=cycle.read();task=value['tasks'].get(args.cycle_task)
+                    if value['status']!='open' or not task or task['status'] not in ('running','failed'):raise ValueError('Only an interrupted or failed task can be retried.')
+                    task['status']='pending'
+                    from .storage import atomic_write_json
+                    atomic_write_json(cycle.path,value);result=value
+                else: result=cycle.finalize(args.output_dir,json.loads(args.base_receipt.read_text()) if args.base_receipt else None)
+                print(json.dumps(result,ensure_ascii=False,indent=2));return 0
+            if getattr(args,'cycle_id',None):
+                if not args.cycle_task:raise ValueError('--cycle-task is required with --cycle-id')
+                if args.command=='run' and args.upcoming_only:raise ValueError('An import cycle event task must include results.')
+                cycle=ImportCycle(args.cycle_id,latest)
+                cycle.start(args.cycle_task,'events' if args.command=='run' else 'profiles');started=True
+            elif getattr(args,'finalize_import',False):raise ValueError('--finalize-import requires a registered cycle')
+            result=_dispatch(args)
+            if cycle:
+                cycle.finish(args.cycle_task,result);started=False
+                if result==0 and args.finalize_import and all(t['status']=='completed' for t in cycle.read()['tasks'].values()):
+                    print(json.dumps(cycle.finalize(args.import_output_dir),ensure_ascii=False,indent=2))
+            return result
+    except (ValueError,RuntimeError,OSError) as exc:
+        if cycle and started:cycle.finish(args.cycle_task,2)
+        log('error','import_pipeline_failed',error=str(exc));return 2
+    except BaseException:
+        if cycle and started:cycle.finish(args.cycle_task,2)
+        raise
+
+
+def _dispatch(args) -> int:
+    if args.command=='prepare-import-recovery':
+        from .import_recovery import prepare_recovery
+        print(json.dumps(prepare_recovery(args.source_profiles,args.snapshots_dir,args.output_dir),ensure_ascii=False,indent=2));return 0
 
     if args.command == "inspect-filters":
         scraper = TapologyScraper(
@@ -509,7 +578,7 @@ def main(argv: list[str] | None = None) -> int:
             result = export_import_bundle(args.output, latest_dir=args.latest_dir,
                 expected_pages=args.expected_pages,
                 max_event_fetch_failures=args.max_event_fetch_failures,
-                min_profile_success_rate=args.min_profile_success_rate)
+                min_profile_success_rate=args.min_profile_success_rate,base_receipt=json.loads(args.base_receipt.read_text()) if args.base_receipt else None)
         except (ValueError, OSError) as error:
             print(json.dumps({"ready_for_import": False, "error": str(error)}, indent=2))
             return 1

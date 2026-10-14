@@ -18,6 +18,9 @@ final class TapologyFighterUrl {
 		}
 
 		$host = strtolower( (string) $parts['host'] );
+		if ( ! in_array( strtolower( (string) ( $parts['scheme'] ?? '' ) ), array( 'http', 'https' ), true ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || isset( $parts['port'] ) ) {
+			return null;
+		}
 		if ( ! in_array( $host, array( 'tapology.com', 'www.tapology.com' ), true ) ) {
 			return null;
 		}

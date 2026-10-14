@@ -58,7 +58,7 @@ final class Processor {
         if (!$fighter || $fighter['deleted_soft'] || (!$fighter['is_public'] && (!$fighter['is_rankable'] || $fighter['rankability_status']!=='rankable'))) { return; }
         $profile=(new ProfileStore())->for_fighter($id); $hash=$profile['content_hash']??null;
         $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM $queue WHERE fighter_id=%d",$id),ARRAY_A);
-        if ($old && $hash && $old['processed_hash']===$hash && in_array($old['status'],['completed','review'],true)) { return; }
+        if ($old && $hash && $old['processed_hash']===$hash && hash_equals((string)($old['processed_context_hash']??''),PreparationFingerprint::for_fighter($id,$hash)) && in_array($old['status'],['completed','review'],true)) { return; }
         Repository::check($wpdb->query($wpdb->prepare("INSERT INTO $queue (fighter_id,status,requested_hash,import_job_id,actor_user_id,attempts,requested_at) VALUES (%d,'pending',NULLIF(%s,''),%d,%d,0,%s) ON DUPLICATE KEY UPDATE status='pending',requested_hash=VALUES(requested_hash),import_job_id=VALUES(import_job_id),actor_user_id=VALUES(actor_user_id),attempts=0,error_message=NULL,requested_at=VALUES(requested_at),finished_at=NULL,retry_at=NULL,summary_json=NULL",$id,$hash??'',$job,$actor,gmdate('Y-m-d H:i:s'))));
         self::schedule();
     }
@@ -90,7 +90,7 @@ final class Processor {
                         $result['done']=$result['done']??true;
                         $status=empty($result['done'])?'pending':((!empty($result['review']) || ($result['coverage']['status']??'complete')!=='complete')?'review':'completed');
                         do_action('mmaf_profile_preparation_before_checkpoint',(int)$row['fighter_id'],$result);
-                        Repository::check($wpdb->update($queue,['status'=>$status,'processed_hash'=>empty($result['done'])?$row['processed_hash']:($result['hash']??null),'summary_json'=>wp_json_encode($result),'error_message'=>null,'finished_at'=>empty($result['done'])?null:gmdate('Y-m-d H:i:s')],['fighter_id'=>$row['fighter_id']]));
+                        Repository::check($wpdb->update($queue,['status'=>$status,'processed_hash'=>empty($result['done'])?$row['processed_hash']:($result['hash']??null),'processed_context_hash'=>empty($result['done'])?($row['processed_context_hash']??null):PreparationFingerprint::for_fighter((int)$row['fighter_id'],$result['hash']??null),'summary_json'=>wp_json_encode($result),'error_message'=>null,'finished_at'=>empty($result['done'])?null:gmdate('Y-m-d H:i:s')],['fighter_id'=>$row['fighter_id']]));
                     });
                     ++$processed;
                 } catch (\Throwable $e) {
@@ -165,6 +165,7 @@ final class Processor {
             $result['coverage']=$career->refresh_coverage(ProfileStore::career_profile($saved['profile'],$id),$job,0);
             $repo->putItem($job,'actual_stored_career_profile',(string)$id,$result['source_fighter_id'],$result['coverage']['status']==='complete'?'unchanged':'review',$result);
             if ($result['coverage']['status']!=='complete') { Repository::check($wpdb->update($queue,['status'=>'review'],['fighter_id'=>$id])); }
+            Repository::check($wpdb->update($queue,['processed_context_hash'=>PreparationFingerprint::for_fighter($id,$saved['content_hash'])],['fighter_id'=>$id]));
             $cursor=(int)$row['id'];
         }
         return ['cursor'=>$cursor,'done'=>count($rows)<$limit];
@@ -235,7 +236,7 @@ final class Processor {
         elseif (!empty($state['draft']['ranking_run_id'])) { $text.=' Prepared draft #'.(int)$state['draft']['ranking_run_id'].'.'; }
         if (!empty($state['error'])) { $text.=' Calculation needs attention: '.$state['error']; }
         $text.=' Ranking activation remains a separate action.';
-        echo '<div class="notice notice-info"><p>'.esc_html($text).'</p></div>';
+        echo '<div class="notice notice-info" id="mmaf-preparation-notice"><p>'.esc_html($text).'</p></div>';
         if (($counts['failed']??0)>0 || !empty($state['error'])) {
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
             wp_nonce_field('mmaf_retry_preparation');

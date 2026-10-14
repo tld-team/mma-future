@@ -33,6 +33,7 @@ jobs:
           python3 tests/unit/write-mutex.py
           python3 tests/unit/monitor.py
           python3 tests/unit/integration-bootstrap.py
+          python3 tests/unit/import-operations.py
           python3 -m compileall -q ops
           php tests/unit/json-document.php
   scraper:
@@ -99,12 +100,24 @@ jobs:
           php /tmp/wp-cli.phar plugin activate mma-future-data-engine --path=/tmp/mmaf-wp
           php /tmp/wp-cli.phar theme activate mma-future --path=/tmp/mmaf-wp
           php /tmp/wp-cli.phar mmaf system migrate --path=/tmp/mmaf-wp
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build real Python parser and finalizer fixture
+        run: |
+          python -m pip install -e 'dev-tools/scraper[test]'
+          python tests/integration/build-import-fixture.py /tmp/mmaf-import-pipeline-fixture
       - name: Synthetic database integration
+        env:
+          MMAF_PIPELINE_FIXTURE: /tmp/mmaf-import-pipeline-fixture/ready/fixture/package.zip
+          MMAF_PIPELINE_LATEST: /tmp/mmaf-import-pipeline-fixture/data/latest
+          MMAF_TEST_PYTHON: python
         run: |
           php -d memory_limit=256M tests/integration/verify-career.php
           php -d memory_limit=256M tests/integration/verify-bulk.php
           php -d memory_limit=256M tests/integration/verify-pipeline.php
           php -d memory_limit=256M tests/integration/verify-import-career-evidence.php
+          php -d memory_limit=256M tests/integration/verify-import-pipeline.php
           php -d memory_limit=256M tests/integration/verify-operations.php
           php -d memory_limit=256M tests/integration/verify-admin-contracts.php
           php -d memory_limit=256M tests/integration/verify-rankings-admin.php
