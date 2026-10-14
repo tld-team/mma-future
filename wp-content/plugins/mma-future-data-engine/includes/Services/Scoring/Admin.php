@@ -1,0 +1,55 @@
+<?php
+namespace MMAF\DataEngine\Services\Scoring;
+
+use MMAF\DataEngine\Support\Capabilities;
+use MMAF\DataEngine\Repositories\{FighterRepository,RankingRunRepository};
+use MMAF\DataEngine\Services\RankingCalculatorService;
+
+final class Admin {
+    public static function register(): void {add_action('admin_post_mmaf_protect_career',[self::class,'save']);}
+    public static function save(): void {
+        if(!current_user_can(Capabilities::MANAGE)){wp_die('Access denied.','',['response'=>403]);}
+        check_admin_referer('mmaf_protect_career');
+        $id=absint($_POST['fighter_id']??0);$fighter=(new FighterRepository())->find($id);
+        if(!$fighter || $fighter['deleted_soft']){wp_die('Unknown fighter.','',['response'=>404]);}
+        try {
+            if(($_POST['professional_mma_confirmed']??'')!=='1'){throw new \InvalidArgumentException('Explicit professional MMA confirmation is required.');}
+            $record=[];
+            foreach(['wins','losses','draws','nc'] as $key){$value=wp_unslash($_POST[$key]??'');if(!is_string($value) || !preg_match('/^\d{1,4}$/D',$value)){throw new \InvalidArgumentException('Enter non-negative integer career counts.');}$record[$key]=(int)$value;}
+            (new CareerRecords())->protect($id,$record,sanitize_text_field(wp_unslash($_POST['observed_at']??'')),esc_url_raw(wp_unslash($_POST['evidence_url']??'')),sanitize_textarea_field(wp_unslash($_POST['reason']??'')),get_current_user_id());
+            \MMAF\DataEngine\Services\Operations\Readiness::invalidate($id);
+            \MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh(get_current_user_id(),false);
+        }catch(\Throwable $error){wp_die(esc_html($error->getMessage()),'Career record review',['response'=>409,'back_link'=>true]);}
+        wp_safe_redirect(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.$id.'&mmaf_notice='.rawurlencode('Protected professional MMA career correction saved. Ranking activation remains separate.')));exit;
+    }
+    public static function render(int $id): void {
+        $fighter=(new FighterRepository())->find($id);if(!$fighter){return;}
+        $career=(new CareerRecords())->for_fighters([$id])[$id]??null;
+        $known=(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->find_stat_by_fighter($id);
+        $assessment=(new RankingCalculatorService())->score_batch((new RankingRunRepository())->list_fighters_with_stats([$id]),current_time('Y-m-d'),gmdate('Y-m-d H:i:s'))['assessments'][$id]??null;
+        echo '<div class="postbox"><div class="inside"><h2>Career record and scoring period</h2><p>Career facts cover all professional MMA results. Recorded statistics cover accepted individual bouts. MMA Future points cover fights from 9 May 2026 through the calculation reference date.</p><table class="widefat striped"><tbody>';
+        foreach(['Professional MMA career'=>$career['record']??null,'Recorded individual results'=>$known] as $label=>$value){$record=$value?implode('–',array_map(static fn($key)=>(int)($value[$key]??0),['wins','losses','draws','nc'])):'Unavailable';echo '<tr><th>'.esc_html($label).'</th><td>'.esc_html($record).'</td></tr>';}
+        echo '<tr><th>Career acceptance / source observation</th><td>'.esc_html(($career['status']??'unavailable').' · '.($career['verified_at']??'unknown').' UTC').'</td></tr><tr><th>Current period assessment</th><td>'.esc_html(($assessment['status']??'unavailable').' · coverage '.($assessment['coverage']??'unconfirmed').' · sample '.($assessment['sample_size']??0).' · score '.($assessment['total_score']??'unavailable')).'</td></tr><tr><th>Period source checked</th><td>'.esc_html(($assessment['verified_at']??'unknown').' UTC').'</td></tr></tbody></table>';
+        if(!empty($assessment['reasons'])){echo '<p><strong>Next tasks:</strong> '.esc_html(implode('; ',array_map([self::class,'task'],$assessment['reasons']))).'</p>';}
+        echo '<details><summary>Confirm and protect a career correction</summary><p>This creates an audited professional MMA career decision used for eligibility. Display-only overrides stay separate. Verify the source and enter its real check time in UTC.</p><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
+        wp_nonce_field('mmaf_protect_career');echo '<input type="hidden" name="action" value="mmaf_protect_career"><input type="hidden" name="fighter_id" value="'.esc_attr($id).'">';
+        foreach(['wins'=>'Wins','losses'=>'Losses','draws'=>'Draws','nc'=>'No contests'] as $key=>$label){echo '<p><label>'.esc_html($label).' <input type="number" min="0" max="1000" name="'.esc_attr($key).'" required value="'.esc_attr($career['record'][$key]??'').'"></label></p>';}
+        echo '<p><label>Verified at (UTC) <input type="datetime-local" name="observed_at" step="1" required></label></p><p><label>Evidence URL <input type="url" name="evidence_url" class="large-text" required></label></p><p><label>Reason <textarea name="reason" class="large-text" required></textarea></label></p><p><label><input type="checkbox" name="professional_mma_confirmed" value="1" required> I verified that this aggregate covers the full professional MMA career.</label></p>';
+        submit_button('Save protected career correction');echo '</form></details></div></div>';
+    }
+    public static function render_run(int $id): void {
+        global $wpdb;$run=(new RankingRunRepository())->find($id);if(!$run || $run['formula_version']!=='v1.6'){return;}
+        $table=Schema::tables()['assessments'];$fighters=\MMAF\DataEngine\Migrations\Schema::table_names()['fighters'];
+        $view=sanitize_key($_GET['mmaf_assessment_view']??'provisional');if(!in_array($view,['main','provisional','ineligible'],true)){$view='provisional';}
+        $page=max(1,absint($_GET['mmaf_assessment_page']??1));$counts=$wpdb->get_results($wpdb->prepare("SELECT a.status,COUNT(*) total FROM $table a JOIN $fighters f ON f.id=a.fighter_id WHERE a.ranking_run_id=%d AND (f.is_public=1 OR f.is_rankable=1) GROUP BY a.status",$id),ARRAY_A);
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT a.*,f.display_name,JSON_EXTRACT(a.inputs_json,'$.career_record.record') career_record FROM $table a JOIN $fighters f ON f.id=a.fighter_id WHERE a.ranking_run_id=%d AND a.status=%s AND (f.is_public=1 OR f.is_rankable=1) ORDER BY a.total_score IS NULL,a.total_score DESC,a.fighter_id LIMIT 50 OFFSET %d",$id,$view,($page-1)*50),ARRAY_A);
+        echo '<section class="mmaf-ranking-panel"><h2>Career and period assessments — saved run #'.esc_html($id).'</h2><p>'.esc_html(PublicAssessments::methodology($run)['score_label']).' · through '.esc_html($run['reference_date']).'. Public or ranking-approved candidates:</p><p>';
+        $total=0;foreach($counts as $count){if($count['status']===$view){$total=(int)$count['total'];}echo '<a class="button" href="'.esc_url(add_query_arg(['mmaf_assessment_view'=>$count['status'],'mmaf_assessment_page'=>1])).'">'.esc_html(ucfirst($count['status']).' ('.$count['total'].')').'</a> ';}echo '</p><p>Provisional candidates have known-fight points and no main ranking position. Ineligible fighters retain their public profiles.</p><table class="widefat striped"><thead><tr><th>Fighter</th><th>Career record used</th><th>Period points</th><th>Sample / coverage</th><th>Source checked</th><th>Next task / warning</th></tr></thead><tbody>';
+        foreach($rows as $row){$a=json_decode($row['assessment_json'],true,512,JSON_THROW_ON_ERROR);$record=json_decode($row['career_record']??'null',true);$career=$record?implode('–',array_map(static fn($key)=>$record[$key],['wins','losses','draws','nc'])):'Unavailable';$tasks=array_map([self::class,'task'],$a['reasons']);echo '<tr><td><a href="'.esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.$row['fighter_id'])).'">'.esc_html($row['display_name']).'</a></td><td>'.esc_html($career).'</td><td>'.esc_html($row['total_score']===null?'—':number_format_i18n((float)$row['total_score'],3)).'</td><td>'.esc_html($row['sample_size'].' / '.$a['coverage']).'</td><td>'.esc_html(($a['verified_at']??'Not checked').' UTC').'</td><td>'.esc_html(implode('; ',$tasks?:$a['warnings'])).'</td></tr>';}
+        echo '</tbody></table><p>Page '.esc_html($page).' of '.esc_html(max(1,(int)ceil($total/50))).' ';if($page>1){echo '<a class="button" href="'.esc_url(add_query_arg('mmaf_assessment_page',$page-1)).'">Previous</a> ';}if($page*50<$total){echo '<a class="button" href="'.esc_url(add_query_arg('mmaf_assessment_page',$page+1)).'">Next</a>';}echo '</p></section>';
+    }
+    public static function task(string $reason): string {
+        $tasks=['career_record_missing'=>'Fetch a professional MMA career record with source proof','career_record_review'=>'Review conflicting career sources or professional MMA context','career_verification_stale'=>'Refresh the career source; last successful check is older than seven days','period_verification_stale'=>'Refresh period history; retain the previous success date if fetch fails','period_coverage_unconfirmed'=>'Fetch the first professional MMA history page through the May 9 boundary or reliable exhaustion','known_result_not_covered_refresh_required'=>'Bypass source cache and fetch the known new or corrected result','missing_bout_in_period'=>'Import the missing professional MMA result inside the scoring period','unknown_fight_date'=>'Confirm the date before assigning a main ranking position','period_identity_conflict'=>'Review participant, event or bout identity in the scoring period','period_result_conflict'=>'Verify the final result from exact bout/event evidence','insufficient_sample_size'=>'At least one accepted win/loss bout in the scoring period is required'];
+        return $tasks[$reason]??str_replace('_',' ',$reason);
+    }
+}

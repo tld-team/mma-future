@@ -76,7 +76,7 @@
 </div>
 </div>
 </div>
-<div class="text-3xl xs:text-4xl md:text-5xl lg:text-3xl xl:text-4xl 2xl:text-6xl font-heading font-black text-white tracking-tight leading-none mt-3"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? mmaf_record( $stats ) : '—' ); ?></div>
+<div class="text-3xl xs:text-4xl md:text-5xl lg:text-3xl xl:text-4xl 2xl:text-6xl font-heading font-black text-white tracking-tight leading-none mt-3"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? mmaf_record( mmaf_display_record($c) ) : '—' ); ?></div>
 </div>
 <!-- Finishes - Medium -->
 <div class="text-center lg:text-left">
@@ -115,7 +115,7 @@
 </div>
 <!-- Social Icons Row -->
 <div class="space-y-3 mt-8 sm:mt-10 lg:mt-12 xl:mt-14"><?php mmaf_social_links( (array) $c['editorial']['fighter_social_links'], 'inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/15', 'link' ); ?></div>
-<p class="text-white/70 text-sm"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? $c['career_coverage']['label'] : 'Professional record not available yet' ); ?></p><?php mmaf_render_dates( $c['dates'] ); ?></div>
+<p class="text-white/70 text-sm"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? mmaf_record_label($c) : 'Professional record not available yet' ); ?></p><?php mmaf_render_dates( $c['dates'] ); mmaf_render_scoring_assessment($c); ?></div>
 <!-- Right Column: Methodology Bubble -->
 <aside class="mf-hero-bubble w-full lg:w-auto">
 <div class="mf-hero-bubble__card rounded-2xl p-5 lg:p-6 space-y-3 lg:space-y-4">
@@ -125,7 +125,7 @@
 <h3 class="mf-hero-bubble__title"><?php echo esc_html( 'How is the MMA Future Score calculated?' ); ?></h3>
 </div>
 <!-- Description -->
-<p class="mf-hero-bubble__text">Formula v1.5 adds the saved contributions from professional fight results, finishes, age and opponent records.</p>
+<p class="mf-hero-bubble__text"><?php echo esc_html(($c['dates']['formula_version']??'')==='v1.6'?'MMA Future bodovi od 9. maja 2026. Career records determine eligibility; accepted period results, finishes, age and pre-fight opponent records determine points.':'The activated formula adds the saved contributions from professional fight results, finishes, age and pre-fight opponent records.'); ?></p>
 <!-- Expandable More Info -->
 <div class="mf-hero-bubble__more" data-expandable="" id="<?php echo esc_attr( $prefix . '_more' ); ?>">
 <p class="mf-hero-bubble__text mf-hero-bubble__text--muted">The score is a direct total, not a percentage. Only the reviewed, activated ranking appears here. Statistics can have a newer update date.</p>

@@ -11,6 +11,7 @@
 </div>
 <!-- Controls toolbar -->
 <form class="mt-6 space-y-3 mb-5 rk-filters" method="get">
+<?php if(($data['formula_version']??'')==='v1.6'){mmaf_filter_select($prefix.'_view','Ranking view',['main'=>'Main ranking','provisional'=>'Provisional — no main position'],$options['view']??'main');} ?>
 <!-- Row 1: Gender + Top 15 | Search -->
 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
 <!-- Left group -->

@@ -96,8 +96,8 @@ DATE_PATTERN = (
     r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},\s+\d{4}|"
     r"\d{4}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2})"
 )
-RECORD_PATTERN = r"\b(\d{1,2})\s*-\s*(\d{1,2})\s*-\s*(\d{1,2})(?:\s*(?:,|\()\s*(\d{1,2})\s*NC\)?)?"
-ROW_RECORD_PATTERN = r"\b\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?(?:\s*(?:,|\()\s*\d{1,2}\s*NC\)?)?"
+RECORD_PATTERN = r"\b(\d{1,4})\s*-\s*(\d{1,4})\s*-\s*(\d{1,4})(?:\s*(?:,|\()\s*(\d{1,4})\s*NC\)?)?"
+ROW_RECORD_PATTERN = r"\b\d{1,4}\s*-\s*\d{1,4}(?:\s*-\s*\d{1,4})?(?:\s*(?:,|\()\s*\d{1,4}\s*NC\)?)?"
 WEIGHT_CLASS_PATTERN = (
     r"\b(Super Lightweight|Light Heavyweight|Open Weight|Catchweight|Strawweight|Flyweight|"
     r"Bantamweight|Featherweight|Lightweight|Welterweight|Middleweight|Heavyweight)\b"
@@ -319,6 +319,7 @@ class FighterProfileEnricher:
         started_clock = time.time()
         run_dir = self._store.create_run_dir(run_id)
         document = empty_fighter_profiles_document(run_id, started_at)
+        self._fetch_scopes={}
         if from_queue:
             resolved_queue_path = queue_path or LATEST_DIR / "fighter_profile_queue.json"
             profile_urls, input_metadata = collect_fighter_profile_urls_from_queue(
@@ -327,6 +328,8 @@ class FighterProfileEnricher:
                 skip_already_enriched=skip_already_enriched,
             )
             _write_queue_run_selection_report(resolved_queue_path, selected_for_enrichment=len(profile_urls))
+            queue_document=json.loads(resolved_queue_path.read_text()) if resolved_queue_path.exists() else {}
+            self._fetch_scopes={canonical_url(item.get('source_url')):item.get('fetch_scope') for item in queue_document.get('items',[]) if isinstance(item,dict)}
         else:
             source_path = source_results_path or LATEST_DIR / "results.json"
             profile_urls = collect_fighter_profile_urls(source_path, limit_fighters)
@@ -443,6 +446,15 @@ class FighterProfileEnricher:
                     else:
                         profile = parse_profile_snapshot(snapshot, source_url)
                         profile['scraped_at']=snapshot['scraped_at']
+                        from .scoring_evidence import career_record_verified
+                        record=profile.get('record_summary') or {}
+                        if getattr(self,'_fetch_scopes',{}).get(canonical_url(source_url))=='career_record' or (career_record_verified(profile) and sum(record.get(key,0) for key in ('wins','losses','draws','no_contests'))>30):
+                            profile['fight_history']=[]
+                            profile['history_exhausted']=False
+                            profile['period_evidence'].update(first_page_verified=False,boundary_crossed=False,history_exhausted=False)
+                            profile['fetch_scope']='career_record'
+                        else:
+                            profile['fetch_scope']='career_and_period'
                         if profile["status"] != "success":
                             profile.setdefault("warnings", []).append("profile_parse_empty_required_sections")
                             profile["warnings"] = sorted(set(profile.get("warnings") or []))
@@ -840,7 +852,14 @@ def snapshot_profile_page(page: Any) -> dict[str, Any]:
           });
           const historyScopeVerified = canonicalCards.some(el => el.getAttribute('data-sport') === 'mma' && el.getAttribute('data-division') === 'pro') || /\\bMMA FIGHT RECORD\\b/i.test(clean(document.body?.innerText)) &&
             !/\\bCOMBAT SPORTS RECORD\\b/i.test(clean(document.body?.innerText));
-          const historyExhausted = (canonicalCards.length > 0 || historyScopeVerified) && !Array.from(document.querySelectorAll('button,a')).some(el => /^(?:load|show) more(?: fights| results)?$/i.test(clean(el.innerText)));
+          const historyExhausted = (canonicalCards.length > 0 || historyScopeVerified) && !Array.from(document.querySelectorAll('button,a')).some(el => /^(?:(?:load|show) more(?: fights| results)?|next(?: page)?|›|»)$/i.test(clean(el.innerText)) && !el.hasAttribute('disabled') && el.getAttribute('aria-disabled') !== 'true');
+          const historyLoadComplete = !Array.from(document.querySelectorAll('[aria-busy="true"],[role="progressbar"],.loading,.spinner')).some(el => el.getClientRects().length && el.closest('[class*="record"],[class*="history"],main'));
+          const historyFirstPageVerified = !/[?&](?:page|p)=([2-9]|[1-9][0-9]+)/i.test(location.href) && !Array.from(document.querySelectorAll('.pagination .active,.pagination [aria-current="page"]')).some(el => Number(clean(el.innerText)) > 1);
+          const ufcHeading = Array.from(document.querySelectorAll('#content > div,h2,h3,h4')).find(el => /^UFC\\s+Ranking$/i.test(clean(el.innerText)));
+          const ufcWidget = ufcHeading?.nextElementSibling;
+          const ufcRanking = ufcWidget?.querySelector('a[href^="/rankings/ufc/"]');
+          const ufcLogo = ufcWidget?.querySelector('img[alt="UFC"]');
+          const currentRoster = ufcRanking && ufcLogo ? { promotion: 'ufc', verified: true, evidence: 'current_ufc_ranking_widget', heading: clean(ufcHeading.innerText), ranking_url: abs(ufcRanking.getAttribute('href')), logo_alt: ufcLogo.getAttribute('alt'), widget_boundary_verified: true } : null;
           const scopeMarkers = Array.from(document.querySelectorAll('h1,h2,h3,h4,strong,span,div'))
             .filter(el => el.children.length <= 1 && /^(?:PROFESSIONAL BOUTS|AMATEUR BOUTS|AMATEUR MMA RECORD|(?:.+ )?MMA FIGHT RECORD)$/i.test(clean(el.innerText)));
           const rowScope = el => {
@@ -880,6 +899,9 @@ def snapshot_profile_page(page: Any) -> dict[str, Any]:
             history_scope: historyScopeVerified ? 'professional_mma' : 'unknown',
             history_scope_verified: historyScopeVerified,
             history_exhausted: historyExhausted,
+            history_first_page_verified: historyFirstPageVerified,
+            history_load_complete: historyLoadComplete,
+            current_roster: currentRoster,
             rows
           };
         }
@@ -908,7 +930,7 @@ def parse_profile_snapshot(snapshot: dict[str, Any], source_url: str) -> dict[st
     summary = _extract_profile_summary(snapshot, body_text, lines, source_url, warnings)
     record_summary = _extract_record_summary(body_text, lines, warnings)
     fight_history = _extract_fight_history(snapshot, source_url)
-    if snapshot.get("history_scope_verified"):
+    if snapshot.get("history_scope_verified") is True:
         for row in fight_history:
             raw = row.get("raw_text", "")
             non_mma = bool(re.search(r"\b(?:Grappling|Boxing|Muay\s*Thai|Bare\s*Knuckle|Kickboxing|Modified\s*Rules)\b", raw, re.I))
@@ -947,15 +969,20 @@ def parse_profile_snapshot(snapshot: dict[str, Any], source_url: str) -> dict[st
         "profile_summary": summary,
         "record_summary": record_summary,
         "fight_history": fight_history,
-        "parser_version": "profile_dom_v2",
+        "parser_version": "profile_dom_v3",
         "history_scope": "professional_mma" if explicit_mma else snapshot.get("history_scope", "unknown"),
-        "history_scope_verified": explicit_mma or bool(snapshot.get("history_scope_verified")),
-        "history_exhausted": bool(snapshot.get("history_exhausted")),
+        "history_scope_verified": explicit_mma or snapshot.get("history_scope_verified") is True,
+        "history_exhausted": snapshot.get("history_exhausted") is True,
         "warnings": sorted(set(warnings)),
     }
     # Keep labelled fact evidence in the regular JSON, not only the one-off career compiler.
     from .career_history import explicit_profile_facts
     profile["verified_facts"] = explicit_profile_facts(snapshot, summary)
+    from .scoring_evidence import career_record_evidence, period_evidence
+    profile["career_record_evidence"] = career_record_evidence(snapshot, record_summary)
+    profile["period_evidence"] = period_evidence(snapshot, profile)
+    from .scoring_evidence import current_roster_verified
+    profile["current_roster"] = snapshot.get("current_roster") if current_roster_verified(snapshot.get("current_roster")) else None
     if profile["status"] != "success":
         profile["error_reason"] = "profile_summary_not_found"
         profile["diagnostics"] = {
@@ -1509,6 +1536,11 @@ def normalize_profile_for_event_output(
     }
     if nationality_diagnostics:
         normalized["_nationality_diagnostics"] = nationality_diagnostics
+    for key in ("record_summary", "fight_history", "career_record_evidence", "period_evidence", "history_scope", "history_scope_verified", "history_exhausted", "parser_version", "current_roster"):
+        if key in profile:
+            normalized[key] = deepcopy(profile[key])
+    normalized["status"] = profile.get("status")
+    normalized["scraped_at"] = profile.get("scraped_at") or fetched_at if fetched else None
     return normalized
 
 

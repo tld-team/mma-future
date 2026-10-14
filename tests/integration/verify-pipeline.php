@@ -34,7 +34,7 @@ try {
  check($old_stats===stats_content($t['fighter_stats_current']),'batched statistics exactly match previous records, rates, form, streaks and warnings');
  foreach(['countable_bouts','skipped_bouts','malformed_bouts','participants_processed','warnings_count','warnings'] as $key){if($key==='warnings'){ksort($legacy[$key]);ksort($new[$key]);}check($legacy[$key]===$new[$key],'statistics diagnostic parity: '.$key);}
  $old_run=(new LegacyRankingCalculatorService())->calculate_draft(1,'2026-10-09');
- $new_run=(new RankingCalculatorService())->calculate_draft(1,'2026-10-09');
+ $new_run=(new RankingCalculatorService('v1.5'))->calculate_draft(1,'2026-10-09');
  check(ranking_content($t['ranking_snapshots'],$old_run['ranking_run_id'])===ranking_content($t['ranking_snapshots'],$new_run['ranking_run_id']),'batched v1.5 calculation exactly matches previous ranks, scores, breakdowns and eligibility');
  unset($old_stats);
  $invalidPair=$wpdb->get_results("SELECT p.id,p.result_for_fighter FROM {$t['bout_participants']} p WHERE p.bout_id=(SELECT b.id FROM {$t['bouts']} b WHERE b.deleted_soft=0 AND b.status='valid' AND (SELECT COUNT(*) FROM {$t['bout_participants']} p2 WHERE p2.bout_id=b.id AND p2.result_for_fighter IN ('win','loss','draw','no_contest'))=2 LIMIT 1) ORDER BY p.id",ARRAY_A);

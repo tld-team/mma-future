@@ -2,43 +2,79 @@
   {
     "url": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
     "title": "Synthetic A MMA Fighter",
-    "headings": ["Synthetic A"],
+    "headings": [
+      "Synthetic A"
+    ],
     "body_text": "Synthetic A Pro MMA Record: 1-0-0",
-    "lines": ["Synthetic A", "Pro MMA Record: 1-0-0"],
+    "lines": [
+      "Synthetic A",
+      "Pro MMA Record: 1-0-0"
+    ],
     "scraped_at": "2026-10-10T10:00:00Z",
     "history_scope": "professional_mma",
     "history_scope_verified": true,
     "history_exhausted": true,
-    "rows": [{
-      "raw_text": "W DEC Synthetic B 0-0-0 Synthetic Event October 05, 2026",
-      "history_scope": "professional_mma",
-      "row_boundary_verified": true,
-      "links": [
-        {"href": "https://www.tapology.com/fightcenter/fighters/94981102-fixture-b", "text": "Synthetic B"},
-        {"href": "https://www.tapology.com/fightcenter/events/94981201-fixture", "text": "Synthetic Event"},
-        {"href": "https://www.tapology.com/fightcenter/bouts/94981301-fixture", "text": "Decision"}
-      ]
-    }]
+    "rows": [
+      {
+        "raw_text": "W DEC Synthetic B 0-0-0 Synthetic Event October 05, 2026",
+        "history_scope": "professional_mma",
+        "row_boundary_verified": true,
+        "links": [
+          {
+            "href": "https://www.tapology.com/fightcenter/fighters/94981102-fixture-b",
+            "text": "Synthetic B"
+          },
+          {
+            "href": "https://www.tapology.com/fightcenter/events/94981201-fixture",
+            "text": "Synthetic Event"
+          },
+          {
+            "href": "https://www.tapology.com/fightcenter/bouts/94981301-fixture",
+            "text": "Decision"
+          }
+        ]
+      }
+    ],
+    "history_first_page_verified": true,
+    "history_load_complete": true
   },
   {
     "url": "https://www.tapology.com/fightcenter/fighters/94981102-fixture-b",
     "title": "Synthetic B MMA Fighter",
-    "headings": ["Synthetic B"],
+    "headings": [
+      "Synthetic B"
+    ],
     "body_text": "Synthetic B Pro MMA Record: 0-1-0",
-    "lines": ["Synthetic B", "Pro MMA Record: 0-1-0"],
+    "lines": [
+      "Synthetic B",
+      "Pro MMA Record: 0-1-0"
+    ],
     "scraped_at": "2026-10-10T10:00:00Z",
     "history_scope": "professional_mma",
     "history_scope_verified": true,
     "history_exhausted": true,
-    "rows": [{
-      "raw_text": "L DEC Synthetic A 0-0-0 Synthetic Event October 05, 2026",
-      "history_scope": "professional_mma",
-      "row_boundary_verified": true,
-      "links": [
-        {"href": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a", "text": "Synthetic A"},
-        {"href": "https://www.tapology.com/fightcenter/events/94981201-fixture", "text": "Synthetic Event"},
-        {"href": "https://www.tapology.com/fightcenter/bouts/94981301-fixture", "text": "Decision"}
-      ]
-    }]
+    "rows": [
+      {
+        "raw_text": "L DEC Synthetic A 0-0-0 Synthetic Event October 05, 2026",
+        "history_scope": "professional_mma",
+        "row_boundary_verified": true,
+        "links": [
+          {
+            "href": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
+            "text": "Synthetic A"
+          },
+          {
+            "href": "https://www.tapology.com/fightcenter/events/94981201-fixture",
+            "text": "Synthetic Event"
+          },
+          {
+            "href": "https://www.tapology.com/fightcenter/bouts/94981301-fixture",
+            "text": "Decision"
+          }
+        ]
+      }
+    ],
+    "history_first_page_verified": true,
+    "history_load_complete": true
   }
 ]

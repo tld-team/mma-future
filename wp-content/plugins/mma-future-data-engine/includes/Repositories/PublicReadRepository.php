@@ -33,6 +33,18 @@ final class PublicReadRepository {
 		return array( 'total' => $total, 'rows' => $rows ?: array() );
 	}
 
+    public function provisional_rankings(int $run_id,string $board,array $options): array {
+        global $wpdb;$t=$this->tables;$a=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
+        $where=['a.ranking_run_id=%d',"a.status='provisional'",'f.deleted_soft=0','f.is_public=1',$this->public_post_condition(),"JSON_CONTAINS(JSON_EXTRACT(a.assessment_json,'$.boards'),JSON_QUOTE(%s))"];$args=[$run_id,$board];
+        if(!empty($options['q'])){$where[]='(f.display_name LIKE %s OR f.nickname LIKE %s)';$like='%'.$wpdb->esc_like($options['q']).'%';$args[]=$like;$args[]=$like;}
+        $from="FROM $a a JOIN {$t['fighters']} f ON f.id=a.fighter_id LEFT JOIN {$t['fighter_stats_current']} s ON s.fighter_id=f.id WHERE ".implode(' AND ',$where);
+        $total=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) $from",$args));
+        $limit=min(100,max(1,(int)($options['per_page']??25)));$offset=(max(1,(int)($options['page']??1))-1)*$limit;
+        $order=strtolower((string)($options['order']??'desc'))==='asc'?'ASC':'DESC';
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT a.fighter_id,a.total_score,a.sample_size,a.assessment_json,f.display_name,f.nickname,f.gender,f.date_of_birth,f.birth_year,f.nationality,f.weight_class,f.wp_post_id,s.wins,s.losses,s.draws,s.nc,s.pro_fights_count,s.finish_wins,s.finish_rate,s.last_fight_date,s.streak,s.recent_form,s.activity_status,s.calculated_at AS stats_calculated_at $from ORDER BY a.total_score IS NULL,a.total_score $order,a.fighter_id LIMIT %d OFFSET %d",array_merge($args,[$limit,$offset])),ARRAY_A);
+        if($wpdb->last_error){throw new \RuntimeException('Cannot read provisional ranking view.');}
+        return ['total'=>$total,'rows'=>$rows?:[]];
+    }
 	public function fights( int $fighter_id, array $options ): array {
 		global $wpdb;
 		$t = $this->tables;

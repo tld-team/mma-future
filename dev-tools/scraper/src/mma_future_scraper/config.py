@@ -48,7 +48,7 @@ class ScraperConfig:
     fresh_results: bool = False
     enrich_fighter_profiles: bool | None = None
     use_profile_cache: bool = True
-    profile_cache_ttl_days: int | None = 60
+    profile_cache_ttl_days: int | None = 7
     page_timeout_ms: int = 30_000
     action_timeout_ms: int = 12_000
     conservative_delay_ms: int = 750

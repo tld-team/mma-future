@@ -14,14 +14,26 @@ function mmaf_record( $stats ) {
 	if ( ! is_array( $stats ) || null === ( $stats['wins'] ?? null ) ) { return '—'; }
 	return $stats['wins'] . '–' . $stats['losses'] . '–' . $stats['draws'] . ( ! empty( $stats['nc'] ) ? ' (' . $stats['nc'] . ' NC)' : '' );
 }
+function mmaf_display_record(array $context): ?array {
+    return $context['career_record']['record']??($context['record']??$context['stats']??null);
+}
+function mmaf_record_label(array $context): string {
+    return !empty($context['career_record']['record']) ? ('Professional MMA career record'.(($context['career_record']['status']??'')==='review'?' — pending review':'')) : 'Recorded fights';
+}
+function mmaf_render_scoring_assessment(array $context): void {
+    $a=$context['scoring_assessment']??null;if(!$a){return;}
+    echo '<p class="text-sm text-muted">'.esc_html($context['dates']['score_label']??'MMA Future bodovi od 9. maja 2026.').' · '.esc_html(ucfirst($a['status'])).' · '.esc_html($a['sample_size']).' scoring bouts · checked '.esc_html(!empty($a['verified_at'])?gmdate('Y-m-d H:i:s',strtotime($a['verified_at'])).' UTC':'unknown').'</p>';
+    if($a['status']==='provisional'){echo '<p class="text-sm text-muted">Known-fight points: '.esc_html(mmaf_display_number($a['total_score'],2)).' · No main ranking position. '.esc_html(implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']))).'</p>';}
+}
 /** An empty imported record must not imply that the fighter has never competed. */
 function mmaf_fighter_has_fight_data( array $context ): bool {
 	return ! empty( $context['recent_fights'] ) || (int) ( $context['stats']['pro_fights_count'] ?? 0 ) > 0;
 }
 function mmaf_fighter_record_available( array $context ): bool {
-	return mmaf_fighter_has_fight_data( $context ) || ( 'complete' === ( $context['career_coverage']['status'] ?? '' ) && 0 === ( $context['stats']['pro_fights_count'] ?? null ) );
+	return !empty($context['career_record']['record']) || mmaf_fighter_has_fight_data( $context ) || ( 'complete' === ( $context['career_coverage']['status'] ?? '' ) && 0 === ( $context['stats']['pro_fights_count'] ?? null ) );
 }
 function mmaf_render_dates( $data ) {
+	if(!empty($data['scoring_scope'])){echo '<p class="mmaf-dates">'.esc_html($data['score_label']).'</p>';}
 	echo '<p class="mmaf-dates">Rankings calculated: ' . esc_html( mmaf_display_date( $data['ranking_calculated_at'] ?? null ) ) . ' · Activated: ' . esc_html( mmaf_display_date( $data['ranking_activated_at'] ?? null ) ) . ' · Statistics updated: ' . esc_html( mmaf_display_date( $data['stats_updated_at'] ?? null ) ) . '</p>';
 }
 function mmaf_fighter_context() {
@@ -74,7 +86,7 @@ function mmaf_filter_select( $name, $label, $choices, $value ) {
 }
 function mmaf_score_details( $ranking ) {
 	if ( empty( $ranking['breakdown'] ) ) { return; }
-	echo '<details class="mmaf-score-details"><summary>Score details</summary><p>MMA Future Score: ' . esc_html( mmaf_display_number( $ranking['score'], 2 ) ) . ' · Formula ' . esc_html( $ranking['formula_version'] ) . '</p>';
+	echo '<details class="mmaf-score-details"><summary>Score details</summary><p>' . esc_html(($ranking['formula_version']??'')==='v1.6'?'MMA Future bodovi od 9. maja 2026.':'MMA Future Score') . ': ' . esc_html( mmaf_display_number( $ranking['score'], 2 ) ) . ' · Formula ' . esc_html( $ranking['formula_version'] ) . '</p>';
 	$walk = static function( $data ) use ( &$walk ) {
 		echo '<dl>'; foreach ( $data as $label => $value ) {
 			if ( in_array( $label, array( 'fighter_id', 'bout_id', 'event_id', 'raw_score', 'total_score' ), true ) ) { continue; }
@@ -85,7 +97,7 @@ function mmaf_score_details( $ranking ) {
 	}; $walk( $ranking['breakdown'] ); echo '</details>';
 }
 function mmaf_render_rankings_table( $data, $breakdown = false, $prefix = 'mmaf' ) {
- $data['items'] = array_map( static fn( $row ) => $row + ( $row['stats'] ?? array() ), $data['items'] );
+ $data['items'] = array_map( static fn( $row ) => $row + ($row['scoring_assessment']['period_stats']??[]) + ( $row['stats'] ?? array() ) + ['streak'=>null,'last_fight_date'=>null,'finish_rate'=>null], $data['items'] );
  mmaf_view( 'rankings-rows', compact( 'data', 'breakdown', 'prefix' ) );
 }
 
@@ -93,7 +105,7 @@ function mmaf_render_rankings( $full = false, $block_id = '' ) {
  $service = mmaf_public_service(); if ( ! $service ) { return; }
  $prefix = mmaf_instance_prefix( 'mmaf_rankings_' . sanitize_key( $block_id ?: wp_unique_id() ) );
  $options = array( 'board' => mmaf_site_field( $full ? 'default_board' : 'ranking_board' ) ?: ( $full ? 'male' : 'overall' ), 'per_page' => max( 1, (int) ( mmaf_site_field( $full ? 'rows_per_page' : 'top_five_count' ) ?: ( $full ? 25 : 5 ) ) ), 'include_breakdown' => $full && mmaf_site_field( 'show_score_breakdown' ) );
- if ( $full ) { foreach ( array( 'board', 'q', 'sort', 'order', 'top15', 'page' ) as $key ) { if ( isset( $_GET[$prefix . '_' . $key] ) && is_scalar( $_GET[$prefix . '_' . $key] ) ) { $options[$key] = sanitize_text_field( wp_unslash( $_GET[$prefix . '_' . $key] ) ); } } }
+ if ( $full ) { foreach ( array( 'board', 'view', 'q', 'sort', 'order', 'top15', 'page' ) as $key ) { if ( isset( $_GET[$prefix . '_' . $key] ) && is_scalar( $_GET[$prefix . '_' . $key] ) ) { $options[$key] = sanitize_text_field( wp_unslash( $_GET[$prefix . '_' . $key] ) ); } } }
  $data = $service->rankings( $options );
  if ( is_wp_error( $data ) ) { echo '<p>' . esc_html( $data->get_error_message() ) . '</p>'; return; }
  $data += array( 'sort' => $options['sort'] ?? 'rank', 'order' => $options['order'] ?? 'asc' );
@@ -120,7 +132,7 @@ add_action( 'rest_api_init', static function() {
 			$host = wp_parse_url( $candidate, PHP_URL_HOST );
 			$base = ( ! $host && str_starts_with( $candidate, '/' ) && ! str_starts_with( $candidate, '//' ) ) || $host === wp_parse_url( home_url(), PHP_URL_HOST ) ? $candidate : $fallback;
 			$args = array();
-			foreach ( array( 'board', 'q', 'sort', 'order', 'top15', 'result', 'method' ) as $key ) { if ( isset( $options[$key] ) && is_scalar( $options[$key] ) ) { $args[$prefix . '_' . $key] = sanitize_text_field( $options[$key] ); } }
+			foreach ( array( 'board', 'view', 'q', 'sort', 'order', 'top15', 'result', 'method' ) as $key ) { if ( isset( $options[$key] ) && is_scalar( $options[$key] ) ) { $args[$prefix . '_' . $key] = sanitize_text_field( $options[$key] ); } }
 			$previous_url = $GLOBALS['mmaf_view_url'] ?? null;
 			$GLOBALS['mmaf_view_url'] = add_query_arg( $args, $base );
 			try {

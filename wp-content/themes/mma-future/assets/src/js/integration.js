@@ -10,6 +10,9 @@
     const field = key => Array.from(form.elements).find(element => element.name === prefix + '_' + key && element.tagName !== 'BUTTON');
     const sync = () => {
       if (root.dataset.mmafBrowser !== 'rankings') return;
+      const provisional = field('view')?.value === 'provisional';
+      if (provisional && field('sort').value === 'rank') { field('sort').value = 'score'; field('order').value = 'desc'; }
+      form.querySelectorAll('option[value="rank"], option[value^="rank|"]').forEach(option => { option.hidden = provisional; option.disabled = provisional; });
       const mobileSort = form.querySelector('[data-rk-mobile-sort]');
       mobileSort.value = field('sort').value + '|' + field('order').value;
       const board = field('board').value, gender = board === 'female' || board.startsWith('women_') ? 'female' : 'male';
@@ -18,6 +21,8 @@
         if (button.dataset.boardGender) button.hidden = button.dataset.boardGender !== 'both' && button.dataset.boardGender !== gender;
       });
       const top = form.querySelector('[data-top15]');
+      top.hidden = provisional; top.setAttribute('aria-disabled', String(provisional));
+      if (provisional) field('top15').value = '0';
       top.setAttribute('aria-pressed', String(field('top15').value === '1'));
       top.value = field('top15').value === '1' ? '0' : '1';
       results.querySelectorAll('[data-rk-sort]').forEach(link => {
@@ -30,6 +35,7 @@
     const load = async page => {
       if (request) request.abort();
       const current = new AbortController(); request = current;
+      sync();
       const params = new URLSearchParams();
       new FormData(form).forEach((value, key) => params.set(key.slice(prefix.length + 1), value));
       params.set('page', String(page)); params.set('per_page', root.dataset.perPage);
@@ -63,7 +69,7 @@
     root.addEventListener('click', event => {
       const board = event.target.closest('[data-board]'), top = event.target.closest('[data-top15]');
       if (board && root.contains(board)) { event.preventDefault(); field('board').value = board.dataset.board; load(1); }
-      if (top && root.contains(top)) { event.preventDefault(); field('top15').value = field('top15').value === '1' ? '0' : '1'; load(1); }
+      if (top && root.contains(top) && top.getAttribute('aria-disabled') !== 'true') { event.preventDefault(); field('top15').value = field('top15').value === '1' ? '0' : '1'; load(1); }
       const page = event.target.closest('[data-page]'), sort = event.target.closest('[data-rk-sort]'), expand = event.target.closest('[data-rk-expand]');
       if (page && root.contains(page)) { event.preventDefault(); load(Number(page.dataset.page)); }
       if (sort && root.contains(sort)) {

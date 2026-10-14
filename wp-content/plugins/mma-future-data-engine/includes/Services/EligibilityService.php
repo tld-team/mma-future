@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class EligibilityService {
-	public function evaluate( array $fighter, ?array $stats, string $reference_date ): array {
+	public function evaluate( array $fighter, ?array $stats, string $reference_date, ?array $career_record=null, bool $career_scope=false ): array {
 		$reasons  = array();
 		$warnings = array();
 		$gates    = array();
@@ -133,10 +133,11 @@ final class EligibilityService {
 			array( 'in_ufc' => $in_ufc )
 		);
 
-		$wins             = is_array( $stats ) ? (int) ( $stats['wins'] ?? 0 ) : 0;
-		$losses           = is_array( $stats ) ? (int) ( $stats['losses'] ?? 0 ) : 0;
-		$pro_fights_count = is_array( $stats ) ? (int) ( $stats['pro_fights_count'] ?? 0 ) : 0;
-		$scoring_bouts_count = $wins + $losses;
+		$career_stats=$career_scope?$career_record:$stats;
+		$wins             = (int) ($career_stats['wins']??0);
+		$losses           = (int) ($career_stats['losses']??0);
+		$pro_fights_count = (int) ($career_stats['pro_fights_count']??($stats['pro_fights_count']??0));
+		$scoring_bouts_count = (int)($stats['wins']??0)+(int)($stats['losses']??0);
 
 		if ( ! is_array( $stats ) ) {
 			$warnings[] = 'missing_stats_row';

@@ -97,6 +97,7 @@ final class RankingsPage {
                     <div class="mmaf-empty-state"><strong>No ranking calculations yet</strong><p>Pripremi podatke boraca, zatim pokreni Calculate Ranking Draft. Aktivacija je zaseban ručni korak.</p></div>
                 <?php endif; ?>
             </section>
+            <?php if($selected_id){\MMAF\DataEngine\Services\Scoring\Admin::render_run($selected_id);} ?>
             <details class="mmaf-ranking-panel mmaf-panel-disclosure" id="mmaf-ranking-history"><summary>Calculation history <span><?php echo esc_html(number_format_i18n($runs->count())); ?> runs</span></summary>
                 <div class="mmaf-panel-content"><p>Preview samo otvara sačuvane rezultate. Activate zamenjuje javnu listu i zahteva postojeću ručnu potvrdu.</p>
                 <?php if ($recent): ?>
@@ -586,6 +587,7 @@ final class RankingsPage {
 	}
 
 	private static function preview_score_description( string $formula_version ): string {
+		if($formula_version==='v1.6'){return 'MMA Future bodovi od 9. maja 2026. Base, finish and opponent contributions use accepted period bouts; age uses the reference date. Career totals determine the 30-fight and win/loss limits. Main positions require accepted, current career facts and confirmed period coverage. Tie breakers use period wins, finish rate and last fight. A small sample warning does not mean incomplete coverage.';}
 		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
 			return __( 'Formula v1.5 uses a direct score contract: base + finish + age + opponent differential + loss quality = total. Sample size is informational only. Tie-breakers: wins, finish rate, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' );
 		}

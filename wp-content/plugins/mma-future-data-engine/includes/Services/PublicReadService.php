@@ -28,6 +28,7 @@ final class PublicReadService extends AbstractRestController {
 			if (!$active || (int)$r['ranking_run_id']!==(int)$active['id']) { continue; }
 			$rankings[]=$this->ranking($r,$active);
 		}
+		$scoring=(new \MMAF\DataEngine\Services\Scoring\PublicAssessments())->for_fighters([$id],$active)[$id];
 		$age=$this->age($f['date_of_birth'] ?? null,$f['birth_year'] ?? null);
 		$facts=array();
 		foreach(array('nickname','gender','date_of_birth','nationality','weight_class','height','last_weigh_in','birthplace','fighting_out_of','stance','team_name','coach_name') as $key) { $facts[$key]=$f[$key] ?? null; }
@@ -35,7 +36,7 @@ final class PublicReadService extends AbstractRestController {
 		$editorial=array();
 		foreach(array('biography','career_highlights','fighter_social_links','hero_image') as $key) { $editorial[$key]=function_exists('get_field') ? get_field($key,(int)$f['wp_post_id']) : get_post_meta((int)$f['wp_post_id'],$key,true); }
 		$history=$this->history($id,array('per_page'=>10),false);
-		return array('fighter'=>array_merge($facts,array('id'=>$id,'display_name'=>$f['display_name'],'age'=>$age,'age_precision'=>!empty($f['date_of_birth'])?'exact':(null!==$age?'approximate':'unknown'),'status'=>$f['status'],'rankability_status'=>$f['rankability_status'],'is_public'=>true,'is_rankable'=>1===(int)$f['is_rankable'],'in_ufc'=>1===(int)$f['in_ufc'])), 'profile'=>$profile,'stats'=>$stats,'rankings'=>$rankings,'recent_fights'=>$history['items'],'career_coverage'=>$this->coverage($id),'editorial'=>$editorial,'dates'=>$this->dates($active));
+		return array('fighter'=>array_merge($facts,array('id'=>$id,'display_name'=>$f['display_name'],'age'=>$age,'age_precision'=>!empty($f['date_of_birth'])?'exact':(null!==$age?'approximate':'unknown'),'status'=>$f['status'],'rankability_status'=>$f['rankability_status'],'is_public'=>true,'is_rankable'=>1===(int)$f['is_rankable'],'in_ufc'=>1===(int)$f['in_ufc'])), 'profile'=>$profile,'stats'=>$stats,'recorded_stats'=>$stats,'rankings'=>$rankings,'recent_fights'=>$history['items'],'career_coverage'=>$this->coverage($id),'career_record'=>$scoring['career_record'],'scoring_assessment'=>$scoring['scoring_assessment'],'editorial'=>$editorial,'dates'=>$this->dates($active));
 	}
 
 	public function history( int $id, array $options=array(), bool $check_visibility=true ) {
@@ -59,25 +60,40 @@ final class PublicReadService extends AbstractRestController {
 		return PublicCacheService::remember('rankings',$options,fn()=>$this->rankings_uncached($options));
 	}
 	private function rankings_uncached( array $options=array() ) {
+        $view=$options['view']??'main';
+        if(!in_array($view,['main','provisional'],true)){return new \WP_Error('mmaf_invalid_view','Unknown ranking view.',['status'=>400]);}
+        if($view==='provisional'){return $this->provisional_rankings($options);}
 
 		$options=$this->pagination($options,25); $board=self::board((string)($options['board'] ?? 'overall'));
 		if(!isset(self::board_labels()[$board])) { return new \WP_Error('mmaf_invalid_board','Unknown ranking board.',array('status'=>400)); }
 		$active=$this->read->active_ranking_run(); $state=$this->read->ranking_state_summary();
 		$result=$active ? $this->public->rankings((int)$active['id'],$board,$options) : array('total'=>0,'rows'=>array());
 		$this->prime(array_column($result['rows'],'wp_post_id')); $items=array();
+        $scoring=(new \MMAF\DataEngine\Services\Scoring\PublicAssessments())->for_fighters(array_column($result['rows'],'fighter_id'),$active);$dates=$this->dates($active);
 		foreach($result['rows'] as $r) {
 			$p=$this->profile_data($r['wp_post_id']); $item=$this->ranking($r,$active);
 			$item=array_merge($item,array('fighter_id'=>(int)$r['fighter_id'],'display_name'=>$r['display_name'],'nickname'=>$r['nickname'],'slug'=>$p['slug'],'permalink'=>$p['permalink'],'image'=>$p['image'],'gender'=>$r['gender'],'weight_class'=>$r['weight_class'],'nationality'=>$r['nationality'],'age'=>$this->age($r['date_of_birth'],$r['birth_year']),'record'=>array('wins'=>isset($r['wins'])?(int)$r['wins']:null,'losses'=>isset($r['losses'])?(int)$r['losses']:null,'draws'=>isset($r['draws'])?(int)$r['draws']:null,'nc'=>isset($r['nc'])?(int)$r['nc']:null,'pro_fights_count'=>isset($r['pro_fights_count'])?(int)$r['pro_fights_count']:null), 'stats'=>array('finish_wins'=>isset($r['finish_wins'])?(int)$r['finish_wins']:null,'finish_rate'=>isset($r['finish_rate'])?(float)$r['finish_rate']:null,'last_fight_date'=>$r['last_fight_date'],'streak'=>$r['streak'],'recent_form'=>$r['recent_form'],'activity_status'=>$r['activity_status'],'calculated_at'=>$this->utc($r['stats_calculated_at']))));
 			if(empty($options['include_breakdown'])) { unset($item['breakdown']); }
+            $item=array_merge($item,$scoring[(int)$r['fighter_id']]??[],['dates'=>$dates]);
 			$items[]=$item;
 		}
-		return array_merge($state,$this->dates($active),array('board'=>$board,'formula_version'=>$active['formula_version'] ?? null,'generated_at'=>$active['calculated_at'] ?? null,'active_calculated_at'=>$active['calculated_at'] ?? null,'latest_completed_ranking_run_id'=>$state['latest_completed_run_id'],'page'=>$options['page'],'per_page'=>$options['per_page'],'total'=>$result['total'],'total_pages'=>(int)ceil($result['total']/$options['per_page']),'items'=>$items,'available_boards'=>$active?$this->public->boards((int)$active['id']):array(),'message'=>$active?null:'No active ranking run is available.'));
+		return array_merge($state,$this->dates($active),array('view'=>'main','board'=>$board,'formula_version'=>$active['formula_version'] ?? null,'generated_at'=>$active['calculated_at'] ?? null,'active_calculated_at'=>$active['calculated_at'] ?? null,'latest_completed_ranking_run_id'=>$state['latest_completed_run_id'],'page'=>$options['page'],'per_page'=>$options['per_page'],'total'=>$result['total'],'total_pages'=>(int)ceil($result['total']/$options['per_page']),'items'=>$items,'available_boards'=>$active?$this->public->boards((int)$active['id']):array(),'message'=>$active?null:'No active ranking run is available.'));
 	}
 
+    private function provisional_rankings(array $options): array {
+        $options=$this->pagination($options,25);$board=self::board((string)($options['board']??'overall'));
+        if(!isset(self::board_labels()[$board])){return new \WP_Error('mmaf_invalid_board','Unknown ranking board.',['status'=>400]);}
+        $active=$this->read->active_ranking_run();$supported=$active && $active['formula_version']==='v1.6';
+        $result=$supported?$this->public->provisional_rankings((int)$active['id'],$board,$options):['total'=>0,'rows'=>[]];
+        $this->prime(array_column($result['rows'],'wp_post_id'));$dto=(new \MMAF\DataEngine\Services\Scoring\PublicAssessments())->for_fighters(array_column($result['rows'],'fighter_id'),$active);$items=[];$dates=$this->dates($active);
+        foreach($result['rows'] as $r){$id=(int)$r['fighter_id'];$p=$this->profile_data($r['wp_post_id']);$items[]=array_merge(['fighter_id'=>$id,'display_name'=>$r['display_name'],'nickname'=>$r['nickname'],'slug'=>$p['slug'],'permalink'=>$p['permalink'],'image'=>$p['image'],'gender'=>$r['gender'],'weight_class'=>$r['weight_class'],'nationality'=>$r['nationality'],'age'=>$this->age($r['date_of_birth'],$r['birth_year']),'board'=>$board,'rank'=>null,'rank_position'=>null,'score'=>$r['total_score']===null?null:(float)$r['total_score'],'sample_size'=>(int)$r['sample_size'],'formula_version'=>'v1.6','active_ranking_run_id'=>(int)$active['id'],'record'=>['wins'=>$r['wins']===null?null:(int)$r['wins'],'losses'=>$r['losses']===null?null:(int)$r['losses'],'draws'=>$r['draws']===null?null:(int)$r['draws'],'nc'=>$r['nc']===null?null:(int)$r['nc'],'pro_fights_count'=>$r['pro_fights_count']===null?null:(int)$r['pro_fights_count']]],$dto[$id]??[],['dates'=>$dates,'stats'=>['finish_wins'=>$r['finish_wins']===null?null:(int)$r['finish_wins'],'finish_rate'=>$r['finish_rate']===null?null:(float)$r['finish_rate'],'last_fight_date'=>$r['last_fight_date'],'streak'=>$r['streak'],'recent_form'=>$r['recent_form'],'activity_status'=>$r['activity_status'],'calculated_at'=>$this->utc($r['stats_calculated_at'])]]);}
+        return array_merge($this->dates($active),['view'=>'provisional','board'=>$board,'formula_version'=>$active['formula_version']??null,'active_ranking_run_id'=>$active?(int)$active['id']:null,'page'=>$options['page'],'per_page'=>$options['per_page'],'total'=>$result['total'],'total_pages'=>(int)ceil($result['total']/$options['per_page']),'items'=>$items,'available_boards'=>$supported?array_keys(self::board_labels()):[],'message'=>$supported?'Provisional points from known accepted fights; no main ranking position.':'The active methodology has no provisional ranking view.']);
+    }
 	public function movers( string $board='overall', int $limit=3, array $options=[] ) {
 		$board=self::board($board); if(!isset(self::board_labels()[$board])) { return new \WP_Error('mmaf_invalid_board','Unknown ranking board.',array('status'=>400)); }
 		$current=$this->read->active_ranking_run(); $previous=$current?$this->public->previous_activation((int)$current['id'],$board):null;
 		$response=array('board'=>$board,'active_ranking_run_id'=>$current?(int)$current['id']:null,'previous_ranking_run_id'=>$previous?(int)$previous['id']:null,'current_activated_at'=>$this->dates($current)['ranking_activated_at'],'previous_activated_at'=>$this->utc($previous['activated_at'] ?? null),'current_calculated_at'=>$this->utc($current['calculated_at'] ?? null),'previous_calculated_at'=>$this->utc($previous['calculated_at'] ?? null),'status'=>'unavailable','message'=>'Comparison unavailable.','items'=>array(),'new_fighter_ids'=>array(),'new_entries'=>array());
+        if($current && $previous && ($current['formula_version']!==$previous['formula_version'] || ($current['data_scope_version']??'legacy_partial_v1')!==($previous['data_scope_version']??'legacy_partial_v1'))){$response['reason']='methodology_changed';$response['message']='Ranking methodology changed. Movers will be available after two comparable activations.';return $response;}
 		if(!$current || !$previous || $current['formula_version']!==$previous['formula_version'] || $this->json_value($current['formula_config_snapshot'])!==$this->json_value($previous['formula_config_snapshot']) || ($current['data_scope_version'] ?? 'legacy_partial_v1')!==($previous['data_scope_version'] ?? 'legacy_partial_v1') || !in_array($board,$this->public->boards((int)$previous['id']),true)) { return $response; }
 		$rows=$this->public->movers((int)$current['id'],(int)$previous['id'],$board,$limit); $this->prime(array_column($rows,'wp_post_id'));
 		foreach($rows as $r) {
@@ -92,10 +108,11 @@ final class PublicReadService extends AbstractRestController {
 	}
 
     public function fighter_cards(array $posts): array {
-        $rows=$this->public->cards($posts);$this->prime(array_column($rows,'wp_post_id'));$out=[];
+        $rows=$this->public->cards($posts);$this->prime(array_column($rows,'wp_post_id'));$out=[];$active=$this->read->active_ranking_run();$scoring=(new \MMAF\DataEngine\Services\Scoring\PublicAssessments())->for_fighters(array_column($rows,'id'),$active);$dates=$this->dates($active);
         foreach($rows as $r){$id=(int)$r['id'];$fighter=$r;$fighter['id']=$id;$fighter['age']=$this->age($r['date_of_birth'],$r['birth_year']);$fighter['age_precision']=$r['date_of_birth']?'exact':($fighter['age']!==null?'approximate':'unknown');$stats=null;
             if($r['wins']!==null){$stats=[];foreach(['wins','losses','draws','nc','pro_fights_count'] as $key){$stats[$key]=(int)$r[$key];}}
-            $out[(int)$r['wp_post_id']]=['fighter'=>$fighter,'profile'=>$this->profile_data($r['wp_post_id']),'stats'=>$stats,'career_coverage'=>['status'=>$r['coverage_status']??'unavailable'],'rankings'=>$r['rank_position']!==null?[['board'=>'overall','rank'=>(int)$r['rank_position']]]:[]];
+            $out[(int)$r['wp_post_id']]=['fighter'=>$fighter,'profile'=>$this->profile_data($r['wp_post_id']),'stats'=>$stats,'recorded_stats'=>$stats,'career_coverage'=>['status'=>$r['coverage_status']??'unavailable'],'rankings'=>$r['rank_position']!==null?[['board'=>'overall','rank'=>(int)$r['rank_position']]]:[]];
+            $out[(int)$r['wp_post_id']]=array_merge($out[(int)$r['wp_post_id']],$scoring[$id]??[],['dates'=>$dates]);
         }return $out;
     }
 
@@ -117,7 +134,7 @@ final class PublicReadService extends AbstractRestController {
 		if(FormulaRegistry::uses_normalized_scores($version)) { $out['performance_raw_score']=$this->ranking_performance_raw_public_score($r,$version); $out['confidence_score']=$this->ranking_confidence_public_score($r,$version); }
 		return $out;
 	}
-	private function dates( ?array $run ): array { $h=$this->read->public_dates(); $s=$h; return array('ranking_calculated_at'=>$this->utc($run['calculated_at'] ?? null),'ranking_activated_at'=>$this->utc($h['latest_public_ranking_update'] ?? null),'stats_updated_at'=>$this->utc($s['latest_stats_rebuild_time'] ?? null),'data_scope_version'=>$run['data_scope_version'] ?? 'legacy_partial_v1'); }
+	private function dates( ?array $run ): array { $h=$this->read->public_dates(); $s=$h; return array('ranking_calculated_at'=>$this->utc($run['calculated_at'] ?? null),'ranking_activated_at'=>$this->utc($h['latest_public_ranking_update'] ?? null),'stats_updated_at'=>$this->utc($s['latest_stats_rebuild_time'] ?? null),'data_scope_version'=>$run['data_scope_version'] ?? 'legacy_partial_v1')+\MMAF\DataEngine\Services\Scoring\PublicAssessments::methodology($run); }
 	private function pagination( array $o, int $default ): array { $o['page']=max(1,(int)($o['page'] ?? 1)); $o['per_page']=max(1,min(100,(int)($o['per_page'] ?? $default))); return $o; }
 	private function utc( ?string $value ): ?string { return $value?str_replace(' ','T',$value).'Z':null; }
 	private function not_found(): \WP_Error { return new \WP_Error('mmaf_fighter_not_found','Fighter not found.',array('status'=>404)); }

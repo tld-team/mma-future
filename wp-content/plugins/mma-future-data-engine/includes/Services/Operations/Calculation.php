@@ -10,6 +10,7 @@ use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 /** Bounded, crash-resumable full calculations. Live statistics are untouched until commit. */
 final class Calculation {
     public static function create(string $kind,int $parent=0,int $actor=0,string $key='',?string $reference_date=null): int {
+        if($kind==='ranking' && version_compare((string)get_option('mmaf_db_version','0'),'1.11.0','<')){throw new \RuntimeException('Migrate the additive schema before creating Formula v1.6 ranking drafts.');}
         if(!in_array($kind,['stats','ranking'],true)){throw new \InvalidArgumentException('Unsupported calculation.');}
         $reference_date=$reference_date??current_time('Y-m-d');
         $date=\DateTimeImmutable::createFromFormat('!Y-m-d',$reference_date);
@@ -125,7 +126,7 @@ final class Calculation {
         }
     }
     private static function merge(array $a,array $b): array {
-        $add=['stats_rows_written','warnings_count','countable_bouts','skipped_bouts','malformed_bouts','participants_processed','eligible_fighters','ineligible_fighters','calculated_fighters','trusted_ranked_fighters','excluded_insufficient_sample','missing_prefight_count'];
+        $add=['stats_rows_written','warnings_count','countable_bouts','skipped_bouts','malformed_bouts','participants_processed','eligible_fighters','ineligible_fighters','provisional_fighters','calculated_fighters','trusted_ranked_fighters','excluded_insufficient_sample','missing_prefight_count'];
         foreach($b as $key=>$value){if(in_array($key,$add,true)){$a[$key]=($a[$key]??0)+(int)$value;}elseif(in_array($key,['warnings','eligibility_reasons','structural_warnings'],true)){foreach($value as $reason=>$n){$a[$key][$reason]=($a[$key][$reason]??0)+$n;}}elseif($key!=='ranked_rows'){$a[$key]=$value;}}
         return $a;
     }

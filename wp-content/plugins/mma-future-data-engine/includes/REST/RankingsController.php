@@ -9,6 +9,7 @@ final class RankingsController extends AbstractRestController {
             'methods'=>\WP_REST_Server::READABLE,'callback'=>array($this,'get_items'),'permission_callback'=>'__return_true',
             'args'=>array(
                 'board'=>array('type'=>'string','default'=>'overall','sanitize_callback'=>'sanitize_key'),
+                'view'=>array('type'=>'string','default'=>'main','enum'=>array('main','provisional')),
                 'q'=>array('type'=>'string','default'=>'','sanitize_callback'=>'sanitize_text_field','maxLength'=>100),
                 'page'=>array('type'=>'integer','default'=>1,'minimum'=>1),
                 'per_page'=>array('type'=>'integer','default'=>25,'minimum'=>1,'maximum'=>100),

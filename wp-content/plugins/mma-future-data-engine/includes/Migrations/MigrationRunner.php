@@ -22,7 +22,7 @@ final class MigrationRunner {
 		}
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		global $wpdb;
-		$statements = array_merge(Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql(), \MMAF\DataEngine\Services\Operations\Schema::sql());
+		$statements = array_merge(Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql(), \MMAF\DataEngine\Services\Operations\Schema::sql(), \MMAF\DataEngine\Services\Scoring\Schema::sql());
 		foreach ( $statements as $statement ) {
 			dbDelta( $statement );
 			if ($wpdb->last_error) { throw new \RuntimeException('Schema migration failed: ' . $wpdb->last_error); }
@@ -38,7 +38,7 @@ final class MigrationRunner {
 			if ($wpdb->last_error || !$columns) { throw new \RuntimeException('Required schema table is unavailable: ' . $table); }
 			preg_match_all('/^\s*([a-z][a-z0-9_]*)\s+(?:bigint|int|tinyint|smallint|varchar|char|text|longtext|mediumtext|datetime|date|decimal|double|float|timestamp|enum)\b/im', $statement, $expected);
 			if (array_diff($expected[1], $columns)) { throw new \RuntimeException('Required schema columns are missing: ' . $table); }
-			if(in_array($table,\MMAF\DataEngine\Services\Operations\Schema::tables(),true) || in_array($table,[Schema::table_names()['fighters'],Schema::table_names()['field_provenance']],true)){
+			if(in_array($table,\MMAF\DataEngine\Services\Operations\Schema::tables(),true) || in_array($table,\MMAF\DataEngine\Services\Scoring\Schema::tables(),true) || in_array($table,[Schema::table_names()['fighters'],Schema::table_names()['field_provenance']],true)){
 				self::verify_operational_indexes($table,$statement);
 			}
 		}

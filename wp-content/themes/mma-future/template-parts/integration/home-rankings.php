@@ -1,6 +1,6 @@
 <?php if ( ! defined( 'ABSPATH' ) ) { exit; }
 $top_movers = array_map( static fn( $m ) => $m + array( 'direction' => 'up', 'change' => $m['rank_change'], 'name' => $m['display_name'], 'url' => $m['permalink'] ), $movers['items'] ?? array() );
-$top_five = array_map( static fn( $r ) => array( 'rank' => $r['rank'], 'name' => $r['display_name'], 'url' => $r['permalink'], 'record' => mmaf_record( $r['record'] ), 'weight_class' => ucwords( str_replace( '_', ' ', $r['weight_class'] ) ), 'country' => $r['nationality'] ?: '—', 'finish_rate' => mmaf_display_percent( $r['stats']['finish_rate'] ), 'last_bout' => mmaf_display_date( $r['stats']['last_fight_date'] ), 'streak' => $r['stats']['streak'], 'score' => mmaf_display_number( $r['score'], 2 ), 'image_data' => $r['image'] ), $data['items'] ); ?>
+$top_five = array_map( static fn( $r ) => array( 'rank' => $r['rank'], 'name' => $r['display_name'], 'url' => $r['permalink'], 'record' => mmaf_record( mmaf_display_record($r) ), 'weight_class' => ucwords( str_replace( '_', ' ', $r['weight_class'] ) ), 'country' => $r['nationality'] ?: '—', 'finish_rate' => mmaf_display_percent( ($r['scoring_assessment']['period_stats']['finish_rate']??$r['stats']['finish_rate']) ), 'last_bout' => mmaf_display_date( $r['stats']['last_fight_date'] ), 'streak' => $r['stats']['streak'], 'score' => mmaf_display_number( $r['score'], 2 ), 'image_data' => $r['image'] ), $data['items'] ); ?>
 <section id="<?php echo esc_attr( $prefix ); ?>" class="py-16 bg-white">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
