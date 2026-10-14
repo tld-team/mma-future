@@ -82,6 +82,7 @@ def _write_complete_latest(latest_dir: Path, state_dir: Path, profile_ids=None) 
     state_dir.mkdir(parents=True, exist_ok=True)
     profile_ids = profile_ids or ["tapology_fighter_101", "tapology_fighter_102"]
     results = _results_doc()
+    results['run']={'run_id':'run_1'}
     atomic_write_json(latest_dir / "results.json", results)
     atomic_write_json(
         latest_dir / "changes.json",

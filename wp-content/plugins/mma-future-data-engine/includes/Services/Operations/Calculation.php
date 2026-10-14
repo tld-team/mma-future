@@ -79,7 +79,7 @@ final class Calculation {
             $values=array_map(static fn($col)=>"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_json,'$.$col')),'null')",$columns);
             Repository::check($wpdb->query("DELETE FROM {$t['fighter_stats_current']}"));
             Repository::check($wpdb->query($wpdb->prepare("INSERT INTO {$t['fighter_stats_current']} (".implode(',',$columns).") SELECT ".implode(',',$values)." FROM {$o['stats']} WHERE generation_id=%d ORDER BY fighter_id",$id)));
-            $summary+=['rebuilt_at'=>$cp['calculated_at'],'fighters_total'=>$expected,'generation_id'=>$id];$repo->set_last_rebuild_summary($summary);update_option('mmaf_stats_generation',$id,false);
+            $summary+=['rebuilt_at'=>$cp['calculated_at'],'fighters_total'=>$expected,'generation_id'=>$id,'reference_date'=>$cp['reference_date'],'calculation_policy'=>\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationPolicy()];$repo->set_last_rebuild_summary($summary);update_option('mmaf_stats_generation',$id,false);
             (new AuditLogService())->write('stats_rebuilt','system',0,null,$summary,'Validated private statistics generation',(int)$job['actor_user_id']);
             // Publishing all rows and its durable phase marker is one transaction.
             $cp['cursor']=0;Jobs::save($id,['phase'=>'coverage','checkpoint'=>$cp,'summary'=>$summary]);return;

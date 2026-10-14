@@ -4,7 +4,7 @@ use MMAFVendor\JsonMachine\RecursiveItems;
 
 final class Package {
     public const REQUIRED = ['results.json','daily_summary.json','manual_review.json','run_manifest.json','changes.json','fighter_profiles.json','fighter_profiles_report.json'];
-    public const OPTIONAL = ['state_report.json','package_manifest.json','career_history.json'];
+    public const OPTIONAL = ['state_report.json','package_manifest.json','career_history.json','readiness_report.json','source_enrichment_queue.json'];
     public function prepare(array $job, Repository $repo, callable $heartbeat): array {
         $id=(int)$job['id']; $dir=Storage::job($id); $source=$dir.'/source';
         if (is_dir($source)) { Storage::removeTree($source); }
@@ -39,6 +39,8 @@ final class Package {
         if (isset($seen['package_manifest.json'])) {
             $transport=Storage::read($source.'/package_manifest.json');
             if (($transport['format']??'')!=='mmaf-import-bundle' || ($transport['format_version']??0)!==1) { throw new ImportException('Unsupported import package version.'); }
+            if(isset($transport['contract_version']) && $transport['contract_version']!==1){throw new ImportException('Unsupported import evidence contract.','contract');}
+            if(!in_array($transport['mode']??'full',['full','delta','career_history'],true)){throw new ImportException('Unsupported import package mode.','contract');}
             foreach ($seen as $file=>$info) {
                 if ($file==='package_manifest.json') { continue; }
                 $expected=$transport['files'][$file]??[];
@@ -47,6 +49,9 @@ final class Package {
         }
         $hashes=$seen; unset($hashes['package_manifest.json']); ksort($hashes);
         $meta=['files'=>$seen,'bundle_hash'=>hash('sha256',wp_json_encode($hashes)),'expanded_bytes'=>$total,'headers'=>[],'counts'=>[]];
+        if(($transport['mode']??'')==='delta'){
+            $meta['mode']='delta';$meta['delta_base']=Receipt::pointer(Receipt::validate((array)($transport['delta_base']??[])));
+        }
         if (isset($seen['career_history.json'])) {
             if (($transport['mode']??'')!=='career_history') { throw new ImportException('Career packages must declare their import mode.'); }
             $index=0;$count=0;$rows=[];$ids=[];$sources=[];$dir=Storage::job($id);
@@ -116,6 +121,12 @@ final class Package {
         if (($meta['headers']['profiles']['run_id']??'')!==($meta['headers']['fighter_profiles_report']['run_id']??'')) { throw new ImportException('Profiles and profile report refer to different runs.'); }
         if (($meta['headers']['profiles']['schema_version']??'')!=='tapology_fighter_profiles_v0_1' || ($meta['headers']['profiles']['source']??'')!=='tapology') { throw new ImportException('Unsupported fighter profile schema or source.'); }
         if ((int)($meta['headers']['profiles']['profiles_total']??-1)!==$meta['counts']['profiles']) { throw new ImportException('Profile count is inconsistent.'); }
+        if(isset($seen['readiness_report.json'])){
+            if($seen['readiness_report.json']['bytes']>1048576){throw new ImportException('Readiness summary exceeds its supported size.','contract');}
+            $readiness=Storage::read($source.'/readiness_report.json');
+            if(($readiness['schema_version']??'')!=='mmaf_import_readiness_v1' || ($readiness['contract_version']??0)!==1 || ($readiness['profiles_total']??-1)!==$meta['counts']['profiles']){throw new ImportException('Readiness report does not match this package.','contract');}
+            $meta['readiness']=$readiness;
+        }
         sort($dates);$meta['date_from']=$dates[0]??null;$meta['date_to']=$dates ? end($dates):null;
         return $meta;
     }

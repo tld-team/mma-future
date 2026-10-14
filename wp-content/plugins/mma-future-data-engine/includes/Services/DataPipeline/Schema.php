@@ -35,6 +35,7 @@ final class Schema {
                 status varchar(24) NOT NULL,
                 requested_hash char(64) NULL,
                 processed_hash char(64) NULL,
+                processed_context_hash char(64) NULL,
                 import_job_id bigint unsigned NOT NULL DEFAULT 0,
                 actor_user_id bigint unsigned NOT NULL DEFAULT 0,
                 attempts int unsigned NOT NULL DEFAULT 0,

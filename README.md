@@ -9,5 +9,6 @@ Development and database tests run locally first. Pushes to `main` run source va
 - `dev-tools/scraper`: scraper source and regression tests; excluded from web deployment.
 - `tests`: source checks and isolated WordPress integration fixtures; excluded from deployment.
 - [Data flow, administration and deployment](docs/frontend-data-integration.md).
+- [Scraping cycles, import packages, recovery and delta imports](docs/import-pipeline.md).
 
 ACF Pro must be active. The theme's `acf-json` directory contains versioned field definitions; saved values stay in the database. Newsletter integration remains deferred.

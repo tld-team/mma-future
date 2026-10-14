@@ -91,6 +91,10 @@ def source_fighter_id_from_url(url: str | None) -> str | None:
     url = canonical_url(url)
     if not url:
         return None
+    parts=urlsplit(url)
+    if parts.scheme not in ('http','https') or parts.netloc.lower() not in ('tapology.com','www.tapology.com'):
+        return None
+    url='https://www.tapology.com'+parts.path.lower()
     match = re.search(r"/fightcenter/fighters/(\d+)(?:-|$)", url)
     if match:
         return f"tapology_fighter_{match.group(1)}"

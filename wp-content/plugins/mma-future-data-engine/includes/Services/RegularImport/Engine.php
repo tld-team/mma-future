@@ -24,22 +24,29 @@ final class Engine {
             $attempts=(int)$job['attempts'];
             if($job['status']==='running'&&$attempts>=3){$this->repo->update($id,['status'=>'needs_attention','error'=>['message'=>'The worker stopped three times. Check the server log, then resume.','reason'=>'worker_interrupted','retryable'=>true]]);return ['worked'=>false];}
             $this->repo->update($id,['status'=>'running','attempts'=>$attempts+1,'retry_at'=>null,'heartbeat_at'=>gmdate('Y-m-d H:i:s')]);
-            $job=$this->repo->get($id);$start=microtime(true);$lastBeat=0;
+            global $wpdb;$job=$this->repo->get($id);$start=microtime(true);$queryStart=$wpdb->num_queries;$lastBeat=0;
             $heartbeat=function() use ($id,&$lastBeat): void {if(time()-$lastBeat>=2){Storage::write(Storage::job($id).'/heartbeat.json',['at'=>gmdate('c'),'phase'=>$this->repo->get($id)['phase']]);$lastBeat=time();}};
             $heartbeat();WriteGuard::$worker=true;
             try{
                 if(($job['meta']['site_url']??'')!==home_url('/')){throw new ImportException('This job belongs to a different site.','destination');}
                 if($job['phase']==='backup'){
                     $meta=$job['meta'];$meta['backup']=Backup::create($id,$heartbeat);
-                    $meta['baseline']=DatabaseState::integrity();$meta['protected_baseline']=DatabaseState::protectedState();
+                    $meta['baseline']=DatabaseState::integrity();$meta['calculation_input_baseline']=DatabaseState::calculationRevision();$meta['protected_baseline']=DatabaseState::protectedState();
                     $this->repo->update($id,['meta'=>$meta,'phase'=>($meta['package']['mode']??'')==='career_history'?'career':'results','status'=>'queued','attempts'=>0,'writes_started'=>1,'error'=>null]);
                 }else{
                     Transaction::run(function() use ($job,$heartbeat){$this->step($job,$heartbeat);});
                 }
                 $latest=$this->repo->get($id);
                 if(in_array($latest['status'],['completed','completed_with_review'],true)){do_action('mmaf_public_data_changed','import_completed');}
-                $meta=$latest['meta'];$meta['last_step_seconds']=round(microtime(true)-$start,3);$meta['peak_memory_mb']=max((float)($meta['peak_memory_mb']??0),round(memory_get_peak_usage(true)/1048576,1));
+                $meta=$latest['meta'];$duration=round(microtime(true)-$start,3);
+                $meta['performance'][$job['phase']]['seconds']=round(($meta['performance'][$job['phase']]['seconds']??0)+$duration,3);
+                $meta['performance'][$job['phase']]['units']=(int)($meta['performance'][$job['phase']]['units']??0)+1;
+                $meta['performance'][$job['phase']]['db_queries']=(int)($meta['performance'][$job['phase']]['db_queries']??0)+$wpdb->num_queries-$queryStart;
+                $meta['last_step_seconds']=$duration;$meta['peak_memory_mb']=max((float)($meta['peak_memory_mb']??0),round(memory_get_peak_usage(true)/1048576,1));
                 $this->repo->update($id,['meta'=>$meta,'attempts'=>0,'error'=>null,'heartbeat_at'=>gmdate('Y-m-d H:i:s')]);
+                if(in_array($latest['status'],['completed','completed_with_review'],true) && is_file(Storage::job($id).'/report.json')){
+                    $report=Storage::read(Storage::job($id).'/report.json');$report['performance']=$meta['performance'];Storage::write(Storage::job($id).'/report.json',$report);
+                }
                 return ['worked'=>true,'job_id'=>$id,'phase'=>$latest['phase'],'status'=>$latest['status']];
             }catch(\Throwable $e){
                 $retryable=!$e instanceof ImportException||$e->retryable;
@@ -89,6 +96,7 @@ final class Engine {
             }else{$this->repo->update($id,['phase'=>$next,'status'=>'queued']);}return;
         }
         if($phase==='preflight'){
+            if(!empty($meta['package']['delta_base'])){Receipt::validate($meta['package']['delta_base']);}
             $revision=DatabaseState::revision();
             if(!hash_equals((string)$job['data_revision'],$revision)){$this->restartCheck($job,$revision);return;}
             if(!hash_equals((string)$job['approved_hash'],(string)($meta['approval_token']??''))){throw new ImportException('The approved plan no longer matches this import.','approval');}
@@ -110,6 +118,13 @@ final class Engine {
             $this->repo->update($id,['phase'=>['results'=>'profiles','profiles'=>'review','review'=>'stored_career'][$phase],'status'=>'queued']);return;
         }
         if($phase==='stats'){
+            $previous=(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->get_last_rebuild_summary();
+            $same=isset($meta['calculation_input_baseline']) && hash_equals($meta['calculation_input_baseline'],DatabaseState::calculationRevision());
+            if($same && $previous && ($previous['calculation_policy']??'')===DatabaseState::calculationPolicy() && ($previous['reference_date']??'')===current_time('Y-m-d') && !DatabaseState::integrity()['fighters_without_stats']){
+                $meta['stats']=$previous+['reused'=>true];$meta['calculation_needed']=false;
+                $this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);return;
+            }
+            $meta['calculation_needed']=true;
             $calculation=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,(int)$job['approved_by'],'import:'.$id.':stats');
             $result=\MMAF\DataEngine\Services\Operations\Calculation::step($calculation);
             if($result['status']==='failed'){throw new ImportException('Statistics generation failed: '.$result['error_message'],'calculation');}
@@ -128,14 +143,15 @@ final class Engine {
             if($after['fighters_without_stats']!==0||$after['ranking_hash']!==$meta['baseline']['ranking_hash']){throw new ImportException('Final verification failed for stats coverage or live rankings.','audit');}
             foreach($this->repo->batches($id) as $batch){if(!$batch['completed']){throw new ImportException('An import batch has no completed checkpoint.','audit');}}
             $meta['audit']=(new PostImportAuditService())->run()['system_summary']??[];
+            $receipt=Receipt::create($job);$meta['receipt']=Receipt::pointer($receipt);
             $meta['integrity']=$after;$meta['completed_at']=gmdate('c');$meta['actual']=$this->actualCounts($id);
             $review=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND category='review' AND kind LIKE 'actual_%%'",$id));
             $review+=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND kind='review'",$id));
             $status=$review?'completed_with_review':'completed';
             $this->repo->update($id,['meta'=>$meta,'status'=>$status,'phase'=>'done','finished_at'=>gmdate('Y-m-d H:i:s')]);
             $changed=0;foreach($counts as $count){$changed+=(int)($count['created']??0)+(int)($count['updated']??0);}
-            if($changed){\MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh((int)$job['approved_by'],false);}
-            Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit']]);return;
+            if(!empty($meta['calculation_needed']) || (!isset($meta['calculation_needed']) && $changed)){\MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh((int)$job['approved_by'],false);}
+            Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'profile_changes'=>$this->profileChanges($id),'readiness'=>$meta['package']['readiness']??null,'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit'],'receipt'=>$receipt]);return;
         }
         throw new ImportException('Unknown import phase: '.$phase,'state');
     }
@@ -145,6 +161,7 @@ final class Engine {
         $this->repo->update((int)$job['id'],['phase'=>($meta['package']['mode']??'')==='career_history'?'check_career':'check_results','status'=>'queued','meta'=>$meta,'approved_by'=>null,'approved_hash'=>null,'data_revision'=>null]);
     }
     private function checkBatch(array $job,array $batch): void {
+        global $wpdb;
         $id=(int)$job['id'];$data=Package::payload($job,$batch);$json=wp_json_encode($data);$kind=$batch['kind'];
         if($kind==='results'){
             $plan=(new ScraperJsonDryRunService())->analyze_json_string($json,(int)$job['created_by'],false);
@@ -154,7 +171,10 @@ final class Engine {
                 $this->repo->putItem($id,$entity,$key,(string)($row['source_'.$entity.'_id']??''),self::category($row['action']??''),$row);
             }}
         }elseif($kind==='profiles'){
-            $fighters=array_map(static fn($r)=>json_decode($r['payload_json'],true),$this->repo->items($id,'fighter',100000));
+            $keys=array_values(array_filter(array_map(static fn($p)=>$p['source_fighter_id']??'', $data['profiles'])));
+            $items=[];
+            if($keys){$items=$wpdb->get_results($wpdb->prepare("SELECT payload_json FROM {$this->repo->tables['items']} WHERE job_id=%d AND kind='fighter' AND source_id IN (".implode(',',array_fill(0,count($keys),'%s')).")",$id,...$keys),ARRAY_A);}
+            $fighters=array_map(static fn($r)=>json_decode($r['payload_json'],true),$items);
             $preview=(new FighterProfileEnrichmentPreviewService())->create_row_iterator($json,'Import package',['fighters'=>$fighters]);
             foreach($preview['iterator'] as $row){
                 $match=$row['match_type']??'';$matched=in_array($match,['exact_source_match','source_url_match','matched_planned_import'],true);
@@ -192,9 +212,12 @@ final class Engine {
                 if($category==='review'){Review::upsert($id,'import_'.$log['item_type'].'_'.$log['action'],$key,['source_id'=>$key,'identity_hash'=>$log['identity_hash'],'reason'=>$log['action']],$actor);}
             }
         }elseif($kind==='profiles'){
-            $store=new \MMAF\DataEngine\Services\DataPipeline\ProfileStore();$summary=['stored'=>0,'review'=>0];
+            $store=new \MMAF\DataEngine\Services\DataPipeline\ProfileStore();$summary=['stored'=>0,'review'=>0,'profile_changes'=>[]];
             foreach($data['profiles'] as $profile){
                 $key=(string)(($profile['source_fighter_id']??'')?:($profile['source_url']??''));$saved=$store->put($profile,$data['schema_version'],$id);
+                $changeKey=['created'=>'snapshot_new','updated'=>'snapshot_changed','review'=>'snapshot_review'][$saved['status']]??'snapshots_retained';
+                $summary['profile_changes'][$changeKey]=($summary['profile_changes'][$changeKey]??0)+1;
+                if(($profile['last_attempt']['status']??$profile['status']??'success')!=='success'){$summary['profile_changes']['last_attempt_failed']=($summary['profile_changes']['last_attempt_failed']??0)+1;}
                 $category=$saved['status']==='review' || empty($saved['has_success'])?'review':(in_array($saved['status'],['created','updated'],true)?'updated':'unchanged');
                 if($category==='review'){++$summary['review'];Review::upsert($id,'profile_snapshot',$key,['source_fighter_id'=>$key,'reason'=>$saved['reason']??'No successful source snapshot is available.'],$actor);}
                 else{++$summary['stored'];}
@@ -204,7 +227,10 @@ final class Engine {
                         $payload=['schema_version'=>'tapology_fighter_profiles_v0_1','source'=>'tapology','profiles'=>[$latest['profile']],'profiles_total'=>1];
                         $result=(new FighterProfileEnrichmentApplyService())->apply_all_safe_json_string(wp_json_encode($payload),'Regular import '.$id,$actor,true);
                         if(!empty($result['summary']['profiles_failed'])){throw new \RuntimeException('Stored profile field update failed.');}
-                        if(!empty($result['summary']['fields_applied_total'])){$category='updated';}
+                        if(!empty($result['summary']['fields_applied_total'])){
+                            $category='updated';$summary['profile_changes']['facts_profiles']=($summary['profile_changes']['facts_profiles']??0)+1;
+                            $summary['profile_changes']['facts_fields']=($summary['profile_changes']['facts_fields']??0)+(int)$result['summary']['fields_applied_total'];
+                        }
                         \MMAF\DataEngine\Services\DataPipeline\Processor::enqueue((int)$saved['fighter_id'],$actor,$id);
                     }
                 }
@@ -227,6 +253,11 @@ final class Engine {
         $counts=$this->repo->planCounts($job);$actual=[];
         foreach($counts as $kind=>$value){if(strpos($kind,'actual_')===0){$actual[substr($kind,7)]=$value;}}
         return $actual;
+    }
+    public function profileChanges(int $job,?array $batches=null): array {
+        $changes=[];
+        foreach($batches??$this->repo->batches($job) as $batch){if($batch['kind']==='profiles' && $batch['completed']){$summary=json_decode($batch['summary_json']??'{}',true);foreach($summary['profile_changes']??[] as $key=>$count){$changes[$key]=($changes[$key]??0)+(int)$count;}}}
+        return $changes;
     }
     private function verifyFiles(array $job): void {
         foreach($job['meta']['package']['files'] as $name=>$info){$path=Storage::job((int)$job['id']).'/source/'.$name;if(!is_file($path)||!hash_equals($info['sha256'],hash_file('sha256',$path))){throw new ImportException('Package file changed after checking: '.$name,'checksum');}}

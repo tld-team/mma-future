@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PACKAGE_ROOT / "data"
+DATA_DIR = Path(os.environ.get('MMAF_SCRAPER_DATA_DIR',PACKAGE_ROOT / 'data')).expanduser().resolve()
 LATEST_DIR = DATA_DIR / "latest"
 RUNS_DIR = DATA_DIR / "runs"
 DEBUG_DIR = DATA_DIR / "debug"
