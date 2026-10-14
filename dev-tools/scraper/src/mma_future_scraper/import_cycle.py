@@ -145,7 +145,7 @@ class ImportCycle:
         if value.get('publication_files') and value['publication_files']!=manifest.get('publication_files'):raise ValueError('Cycle report checksum manifest differs.')
         if manifest.get('base_receipt')!=value.get('base_receipt') or manifest['cycle_id']!=self.id or manifest.get('input_files')!=value.get('input_files') or manifest.get('package_sha256')!=digest or (value.get('package_sha256') and value['package_sha256']!=digest):
             raise ValueError('Cycle publication identity or checksum differs.')
-        for name,digest in manifest.get('publication_files',{}).items():
+        for name,item_digest in manifest.get('publication_files',{}).items():
             path=final/name
-            if Path(name).name!=name or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:raise ValueError('Cycle report checksum differs.')
+            if Path(name).name!=name or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=item_digest:raise ValueError('Cycle report checksum differs.')
         return {'cycle_id':self.id,'ready_for_import':True,'output':str(archive),'sha256':digest,'bytes':archive.stat().st_size}

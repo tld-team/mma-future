@@ -57,6 +57,7 @@ def test_identity_conflicts_are_blocked_offline():
 
 def test_finalization_publishes_once_and_binds_reports_to_current_input(tmp_path):
     c=cycle(tmp_path);out=tmp_path/'ready';result=c.finalize(out)
+    assert result['sha256']==hashlib.sha256(Path(result['output']).read_bytes()).hexdigest()
     assert c.finalize(out)==result
     with zipfile.ZipFile(result['output']) as z:
         manifest=json.loads(z.read('latest/package_manifest.json'))
@@ -76,6 +77,9 @@ def test_pending_interrupted_or_external_run_never_finalizes(tmp_path):
 
 def test_crash_after_publication_recovers_without_another_zip(tmp_path):
     c=cycle(tmp_path);out=tmp_path/'ready';result=c.finalize(out);value=c.read()
+    marker=out/'fixture/cycle-manifest.json';manifest=json.loads(marker.read_text())
+    manifest['publication_files']=dict(sorted(manifest['publication_files'].items()))
+    marker.write_text(json.dumps(manifest))
     value['status']='sealed';value.pop('package_sha256');c.path.write_text(json.dumps(value))
     assert c.finalize(out)==result
     (out/'fixture/package.zip').write_bytes(b'corrupt')
