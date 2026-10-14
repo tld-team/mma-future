@@ -76,6 +76,8 @@ try{
     $repo->update($delta,['meta'=>$dm,'approved_by'=>1,'writes_started'=>1,'phase'=>'results','status'=>'queued']);Worker::run(35,256,250);$d=$repo->get($delta);
     check(in_array($d['status'],['completed','completed_with_review'],true) && !empty($d['meta']['stats']['reused']) && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$runsBefore,'empty same-date delta reuses verified stats and creates no additional ranking draft');
     $profile=(new ProfileStore())->for_fighter($a['fighter_id']);$raw=$profile['profile'];
+    $invalid=$raw;$invalid['history_scope_verified']='false';$invalid['history_exhausted']='false';$adapted=ProfileStore::career_profile($invalid,$a['fighter_id']);
+    check(!$adapted['history_scope_verified'] && !$adapted['history_exhausted'] && !$adapted['rows'][0]['is_professional'],'string false cannot masquerade as verified scope or complete history');
     $raw['last_attempt']=['at'=>'2026-10-11T10:00:00Z','status'=>'failed_parse','error_reason'=>'Synthetic timeout'];
     (new ProfileStore())->put($raw,'tapology_fighter_profiles_v0_1');$saved=(new ProfileStore())->for_fighter($a['fighter_id']);
     check($saved['content_hash']===$profile['content_hash'] && $saved['last_attempt_status']==='failed_parse' && $saved['profile']['status']==='success','a newer failed attempt is visible without changing the retained success content hash');

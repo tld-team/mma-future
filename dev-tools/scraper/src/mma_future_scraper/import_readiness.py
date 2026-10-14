@@ -75,7 +75,7 @@ def row_issues(row,profile=None):
         return ['excluded']
     if row.get('source_conflict_reason'):
         reasons.append('source_conflict')
-    if not row.get('is_professional') or row.get('discipline')!='mma':
+    if row.get('is_professional') is not True or row.get('discipline')!='mma':
         reasons.append('professional_mma_not_confirmed')
     for k,prefix in [('source_bout_id','tapology_bout_'),('source_event_id','tapology_event_')]:
         if row.get(k) and not re.fullmatch(prefix+r'[0-9]+',row[k]):reasons.append('invalid_'+k)
@@ -128,8 +128,8 @@ def build_readiness(document):
                 continue
             bouts[r['source_bout_id']]=signature; row_counts['ready_candidates']+=1
             if r.get('record_eligible') is not False: records[RESULTS[r['result']]]+=1
-        if not p.get('history_scope_verified') or p.get('history_scope')!='professional_mma': issues['scope_unverified']+=1
-        if not p.get('history_exhausted'): issues['history_not_exhausted']+=1
+        if p.get('history_scope_verified') is not True or p.get('history_scope')!='professional_mma': issues['scope_unverified']+=1
+        if p.get('history_exhausted') is not True: issues['history_not_exhausted']+=1
         expected=p.get('record_summary',{})
         if any(not isinstance(expected.get(k),int) or isinstance(expected.get(k),bool) or expected[k]<0 for k in RESULTS.values()):
             issues['aggregate_record_missing']+=1

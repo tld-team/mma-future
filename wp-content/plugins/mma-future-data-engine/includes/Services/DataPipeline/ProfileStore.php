@@ -92,7 +92,7 @@ final class ProfileStore {
         $rows=$raw['fight_history']??[];
         foreach ($rows as &$row) {
             $row['source_sport']=$row['source_sport']??$row['discipline']??null;
-            if(($row['classification_evidence']??'')==='profile_section_classification' && (empty($raw['history_scope_verified']) || ($raw['history_scope']??'')!=='professional_mma' || ($row['classification_proof']['section']??'')!=='professional_mma' || ($row['classification_proof']['row_boundary_verified']??false)!==true)){
+            if(($row['classification_evidence']??'')==='profile_section_classification' && (($raw['history_scope_verified']??false)!==true || ($raw['history_scope']??'')!=='professional_mma' || ($row['classification_proof']['section']??'')!=='professional_mma' || ($row['classification_proof']['row_boundary_verified']??false)!==true)){
                 unset($row['classification_evidence']);
             }
             if (!$row['source_sport'] || !in_array($row['classification_evidence']??'', ['profile_dom_classification','profile_section_classification','bout_dom_classification'],true)) {
@@ -100,8 +100,9 @@ final class ProfileStore {
                 foreach (['is_amateur','is_cancelled','is_exhibition','source_division'] as $field) { unset($row[$field]); }
                 $row['is_professional']=false;
             }
+            $row['is_professional']=($row['is_professional']??false)===true;
             if (empty($row['opponent_record_raw'])) { unset($row['prefight_record_raw']); }
         } unset($row);
-        return ['fighter_id'=>$id,'source_fighter_id'=>$raw['source_fighter_id'],'source_url'=>$raw['source_url'],'scraped_at'=>$raw['scraped_at']??$raw['profile_scraped_at']??null,'source_status'=>$raw['status']??'unavailable','source_error_reason'=>$raw['error_reason']??null,'expected_record'=>in_array(null,$expected,true)?null:$expected,'history_scope'=>$raw['history_scope']??'unknown','history_scope_verified'=>!empty($raw['history_scope_verified']),'history_exhausted'=>!empty($raw['history_exhausted']),'verified_facts'=>$raw['verified_facts']??[],'rows'=>$rows];
+        return ['fighter_id'=>$id,'source_fighter_id'=>$raw['source_fighter_id'],'source_url'=>$raw['source_url'],'scraped_at'=>$raw['scraped_at']??$raw['profile_scraped_at']??null,'source_status'=>$raw['status']??'unavailable','source_error_reason'=>$raw['error_reason']??null,'expected_record'=>in_array(null,$expected,true)?null:$expected,'history_scope'=>$raw['history_scope']??'unknown','history_scope_verified'=>($raw['history_scope_verified']??false)===true,'history_exhausted'=>($raw['history_exhausted']??false)===true,'verified_facts'=>$raw['verified_facts']??[],'rows'=>$rows];
     }
 }

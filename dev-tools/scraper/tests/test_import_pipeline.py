@@ -101,6 +101,8 @@ def test_forged_section_proof_and_conflicting_opponent_perspectives():
     report=build_readiness(d)
     assert report['enrichment_actions']['review_conflict']==2
     assert all(p['conflicting_bouts']==['tapology_bout_94981301'] for p in report['source_enrichment'])
+    d=document();d['profiles'][0]['history_scope_verified']='false';d['profiles'][0]['history_exhausted']='false'
+    assert build_readiness(d)['profiles']['career_ready_candidates']==1
 
 def test_publication_reports_and_sealed_state_cannot_change(tmp_path):
     c=cycle(tmp_path);out=tmp_path/'ready';c.finalize(out)
