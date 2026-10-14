@@ -19,6 +19,27 @@ function tables_hash($t){global $wpdb; $out=[];foreach(['fighters','events','bou
 $baseline=tables_hash($t);
 WriteGuard::$worker=true;Transaction::begin();
 try{
+ $identity_sources=new \MMAF\DataEngine\Repositories\FighterSourceRepository();
+ $bare=fixture_fighter(901234562,'Synthetic numeric-only profile',['is_public'=>1]);
+ $bare['source_url']='https://www.tapology.com/fightcenter/fighters/901234562';
+ $identity_sources->upsert_for_fighter($bare['fighter_id'],['source_type'=>'tapology','source_fighter_id'=>$bare['source_fighter_id'],'source_url'=>$bare['source_url'],'is_primary'=>1]);
+ check((int)$service->verify_target($bare)['id']===$bare['fighter_id'],'numeric-only profile URL resolves its exact numeric career target');
+ $slug=fixture_fighter(901234563,'Synthetic slug-only profile',['is_public'=>1]);
+ $slug['source_url']='https://www.tapology.com/fightcenter/fighters/isolated-slug-career-target';
+ $slug['source_fighter_id']='tapology_fighter_url_'.substr(hash('sha256',$slug['source_url']),0,24);
+ $identity_sources->upsert_for_fighter($slug['fighter_id'],['source_type'=>'tapology','source_fighter_id'=>$slug['source_fighter_id'],'source_url'=>$slug['source_url'],'is_primary'=>1]);
+ check((int)$service->verify_target($slug)['id']===$slug['fighter_id'],'slug-only career target resolves the exact stored URL without name matching');
+ $manifest=CareerHistory::manifest();$manifest_targets=array_column($manifest['targets'],null,'fighter_id');
+ check($manifest_targets[$bare['fighter_id']]['source_fighter_id']===$bare['source_fighter_id'] && $manifest_targets[$slug['fighter_id']]['source_fighter_id']===$slug['source_fighter_id'],'career manifest keeps numeric-only and stable slug identities');
+ foreach([
+  array_replace($slug,['source_fighter_id'=>'tapology_fighter_url_'.str_repeat('0',24)]),
+  array_replace($bare,['source_fighter_id'=>'tapology_fighter_901234999']),
+  array_replace($slug,['fighter_id'=>$bare['fighter_id']]),
+  array_replace($slug,['source_url'=>'https://example.test/fightcenter/fighters/isolated-slug-career-target']),
+ ] as $invalid){
+  try{$service->verify_target($invalid);throw new RuntimeException('Conflicting career identity accepted');}
+  catch(\MMAF\DataEngine\Services\RegularImport\ImportException $e){check($e->reason==='identity','conflicting URL, declared identity or canonical target stays rejected');}
+ }
  $a=fixture_fighter(901234560,'Synthetic career A',['is_public'=>1]);$b=fixture_fighter(901234561,'Synthetic career B');
  $a+=['scraped_at'=>'2026-10-10T10:00:00Z','source_status'=>'success','expected_record'=>['wins'=>1,'losses'=>0,'draws'=>0,'nc'=>0],'history_scope'=>'professional_mma','history_scope_verified'=>true,'history_exhausted'=>true];
  $b+=['scraped_at'=>'2026-10-10T10:00:00Z','source_status'=>'success','expected_record'=>['wins'=>0,'losses'=>1,'draws'=>0,'nc'=>0],'history_scope'=>'professional_mma','history_scope_verified'=>true,'history_exhausted'=>true];
