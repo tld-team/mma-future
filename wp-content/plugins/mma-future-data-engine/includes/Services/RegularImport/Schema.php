@@ -51,7 +51,7 @@ final class Schema {
             "CREATE TABLE {$t['items']} (
                 id bigint unsigned NOT NULL AUTO_INCREMENT,
                 job_id bigint unsigned NOT NULL,
-                kind varchar(24) NOT NULL,
+                kind varchar(64) NOT NULL,
                 item_key char(64) NOT NULL,
                 source_id varchar(255) NULL,
                 category varchar(32) NOT NULL,
