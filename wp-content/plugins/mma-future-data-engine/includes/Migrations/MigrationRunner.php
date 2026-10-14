@@ -29,6 +29,7 @@ final class MigrationRunner {
 		}
 
 		self::run_safe_alters();
+		self::repair_import_item_kinds();
 		foreach ($statements as $statement) {
 			preg_match('/CREATE TABLE\s+(\w+)/i', $statement, $match);
 			$table = $match[1] ?? '';
@@ -42,6 +43,25 @@ final class MigrationRunner {
 			}
 		}
 		update_option( 'mmaf_db_version', MMAF_DB_VERSION, false );
+	}
+
+	/** Restore the exact original labels after widening their storage. */
+	private static function repair_import_item_kinds(): void {
+		global $wpdb;
+		$table = \MMAF\DataEngine\Services\RegularImport\Schema::tables()['items'];
+		$legacy = 'actual_stored_career_pro';
+		$full = 'actual_stored_career_profile';
+		$column = $wpdb->get_row("SHOW COLUMNS FROM `$table` WHERE Field='kind'", ARRAY_A);
+		if ( ! $column || ! preg_match('/^varchar\((\d+)\)$/i', $column['Type'], $length) || (int) $length[1] < strlen($full) ) {
+			throw new \RuntimeException('Import item storage cannot preserve career evidence labels.');
+		}
+		$conflicts = $wpdb->get_var($wpdb->prepare(
+			"SELECT COUNT(*) FROM `$table` a JOIN `$table` b ON a.job_id=b.job_id AND a.item_key=b.item_key WHERE a.kind=%s AND b.kind=%s", $legacy, $full
+		));
+		if ( $wpdb->last_error || (int) $conflicts > 0 ) {
+			throw new \RuntimeException('Conflicting career evidence labels require review before migration.');
+		}
+		self::query($wpdb->prepare("UPDATE `$table` SET kind=%s WHERE kind=%s", $full, $legacy));
 	}
 
 	/** Check the indexes that make operation manifests and worker pages reliable. */

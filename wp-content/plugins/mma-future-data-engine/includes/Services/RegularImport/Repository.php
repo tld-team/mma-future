@@ -54,6 +54,7 @@ final class Repository {
         self::check($wpdb->update($this->tables['batches'],$fields,['id'=>$id]));
     }
     public function putItem(int $job,string $kind,string $key,string $source,string $category,array $payload,?int $review = null): void {
+        if(strlen($kind)>64){throw new \InvalidArgumentException('Import item kind exceeds its supported storage length.');}
         global $wpdb;
         // Repeated fighter references are one logical plan item, across every event batch.
         $sql=$wpdb->prepare("INSERT INTO {$this->tables['items']} (job_id,kind,item_key,source_id,category,payload_json,review_item_id) VALUES (%d,%s,%s,%s,%s,%s,NULLIF(%d,0)) ON DUPLICATE KEY UPDATE category=VALUES(category),payload_json=VALUES(payload_json),review_item_id=COALESCE(VALUES(review_item_id),review_item_id)",$job,$kind,hash('sha256',$key),$source,$category,wp_json_encode($payload),$review ?: 0);

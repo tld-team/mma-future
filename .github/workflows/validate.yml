@@ -104,6 +104,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-career.php
           php -d memory_limit=256M tests/integration/verify-bulk.php
           php -d memory_limit=256M tests/integration/verify-pipeline.php
+          php -d memory_limit=256M tests/integration/verify-import-career-evidence.php
           php -d memory_limit=256M tests/integration/verify-operations.php
           php -d memory_limit=256M tests/integration/verify-admin-contracts.php
           php -d memory_limit=256M tests/integration/verify-rankings-admin.php
