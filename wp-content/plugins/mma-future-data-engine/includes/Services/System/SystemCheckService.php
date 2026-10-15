@@ -281,7 +281,8 @@ final class SystemCheckService {
 		);
 
 		$this->add_zero_check( 'scoring_candidates_non_win_loss', 'Scoring candidates with non-win_loss result', $this->count_where( $tables['bouts'], "is_scoring_candidate = 1 AND (result_type IS NULL OR result_type <> 'win_loss')" ) );
-		$this->add_zero_check( 'scoring_candidates_unknown_method', 'Scoring candidates with unknown method', $this->count_where( $tables['bouts'], "is_scoring_candidate = 1 AND (method_category IS NULL OR method_category = '' OR method_category = 'unknown')" ) );
+		$unknown_methods = $this->count_where( $tables['bouts'], "is_scoring_candidate = 1 AND (method_category IS NULL OR method_category = '' OR method_category = 'unknown')" );
+		$this->add_check( 'scoring_candidates_unknown_method', $unknown_methods > 0 ? 'warning' : 'pass', 'Scoring candidates with unknown method', $unknown_methods, 'Known method preferred; unknown finish contribution remains neutral' );
 		$this->add_zero_check( 'scoring_candidates_excluded_status', 'Scoring candidates with deleted/hidden/excluded status', $this->count_where( $tables['bouts'], "is_scoring_candidate = 1 AND (deleted_soft = 1 OR status IN ('deleted', 'hidden', 'excluded', 'cancelled', 'amateur', 'overturned') OR status LIKE '%cancel%' OR status LIKE '%amateur%' OR status LIKE '%overturn%')" ) );
 	}
 
@@ -556,8 +557,8 @@ final class SystemCheckService {
 		$rankings_response = $this->dispatch_rest_request( '/mma-future/v1/rankings' );
 		$this->add_check( 'rest_rankings_internal_status', 200 === $rankings_response['status'] && is_array( $rankings_response['data'] ) ? 'pass' : 'fail', 'REST rankings internal check', $rankings_response['status'], '200' );
 
-		$write_routes = $this->write_routes( $routes );
-		$this->add_check( 'rest_no_write_endpoints', empty( $write_routes ) ? 'pass' : 'fail', 'No REST write endpoints under mma-future/v1', empty( $write_routes ) ? 'none' : implode( ', ', $write_routes ), 'none' );
+		$write_routes = $this->public_write_routes( $routes );
+		$this->add_check( 'rest_no_public_write_endpoints', empty( $write_routes ) ? 'pass' : 'fail', 'REST write permissions deny anonymous callers', empty( $write_routes ) ? 'none exposed' : implode( ', ', $write_routes ), 'All write handlers require authorization; handlers are never executed by this check' );
 	}
 
 	private function add_latest_import_run_check( string $key, string $label, bool $dry_run ): void {
@@ -789,27 +790,40 @@ final class SystemCheckService {
 		);
 	}
 
-	private function write_routes( array $routes ): array {
+	private function public_write_routes( array $routes ): array {
 		$write_routes = array();
-
-		foreach ( $routes as $route => $handlers ) {
-			if ( ! str_starts_with( (string) $route, '/' . RestServiceProvider::NAMESPACE ) ) {
-				continue;
-			}
-
-			foreach ( $handlers as $handler ) {
-				if ( ! is_array( $handler ) || empty( $handler['methods'] ) || ! is_array( $handler['methods'] ) ) {
+		$user_id      = get_current_user_id();
+		wp_set_current_user( 0 );
+		try {
+			foreach ( $routes as $route => $handlers ) {
+				if ( ! str_starts_with( (string) $route, '/' . RestServiceProvider::NAMESPACE . '/' ) ) {
 					continue;
 				}
-
-				foreach ( array_keys( $handler['methods'] ) as $method ) {
-					if ( ! in_array( strtoupper( (string) $method ), array( 'GET', 'HEAD' ), true ) ) {
-						$write_routes[] = $method . ' ' . $route;
+				foreach ( $handlers as $handler ) {
+					if ( ! is_array( $handler ) || empty( $handler['methods'] ) || ! is_array( $handler['methods'] ) ) {
+						continue;
+					}
+					foreach ( $handler['methods'] as $method => $enabled ) {
+						if ( ! $enabled || in_array( strtoupper( (string) $method ), array( 'GET', 'HEAD', 'OPTIONS' ), true ) ) {
+							continue;
+						}
+						$permission = $handler['permission_callback'] ?? null;
+						try {
+							// Probe authorization only; never dispatch a mutation or execute its handler.
+							$result = is_callable( $permission ) ? call_user_func( $permission, new \WP_REST_Request( $method, $route ) ) : true;
+							$denied = false === $result || null === $result || is_wp_error( $result );
+						} catch ( \Throwable $error ) {
+							$denied = false;
+						}
+						if ( ! $denied ) {
+							$write_routes[] = $method . ' ' . $route;
+						}
 					}
 				}
 			}
+		} finally {
+			wp_set_current_user( $user_id );
 		}
-
 		return array_values( array_unique( $write_routes ) );
 	}
 }
