@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "assets": {
-    "assets/dist/css/integration.css": "8e0ece7fa629cb24255f82a6de8e1540825ed66f4f7838facfcc3f21861de0aa",
+    "assets/dist/css/integration.css": "4adfdd5478f697c55e8146d7958821267133483eb7b25d727ec2897651571c64",
     "assets/dist/css/output.css": "340506439d7383e5c093bbfe83d9d4ca75cea7b87e457358166b3649c26afdbc",
     "assets/dist/fonts/inter/Inter18pt-BlackItalic.eot": "8f2fd6d57c3953957d61d2f24e468192df1084284f800266f995acc9fd8016b8",
     "assets/dist/fonts/inter/Inter18pt-BlackItalic.ttf": "e2c082826d543dd25cfb6590ff224740850ac5340165c33d4e43221ebbb83000",
@@ -74,7 +74,7 @@
     "assets/dist/fonts/sora/Sora-Thin.woff2": "b90c6dea1d1f8af28c6524f710a23e80c30592df8b120c37b518f32d3e7264a0",
     "assets/dist/fonts/sora/stylesheet.css": "77226a2901e14487c9abcf68354d10345b80669f277e1613b64108465711b601",
     "assets/dist/images/fighter-background.png": "73ac335121219f86f3e39acc8c483d04421e8bdf9c54cebd9a283e75b08aadd0",
-    "assets/dist/js/integration.js": "faeaf3b71cb67185dcfd6c3af65196231d637c60c7bb6d5908dd80a93689fee4",
+    "assets/dist/js/integration.js": "454a28654ef52494ebc7140c6ca9067233ac30cfcf856f82b2e06dba62b695b6",
     "assets/dist/js/integration.js.LICENSE.txt": "8c9946dfc859a2bfb26cc541125631cd96e7110fa20a702eb19275c9d1658805",
     "assets/dist/js/main.js": "d469f5b8a8a3017957fc16513d0d2c06490fa427b6e970ef48d2b2eb85558c9a"
   }

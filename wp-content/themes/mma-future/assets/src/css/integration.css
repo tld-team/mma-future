@@ -1314,8 +1314,8 @@
   color: #0f172a;
 }
 .rk-wrap {
-  max-height: 72vh;
-  overflow: auto;
+  max-height: none;
+  overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(0,71,168,.12) transparent;
 }
