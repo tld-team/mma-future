@@ -1034,6 +1034,14 @@ def _profile_fetch_exception_reason(exc: Exception) -> str:
 
 
 def _extract_display_name(snapshot: dict[str, Any], source_url: str) -> str | None:
+    # Promotional headings can precede the fighter header in the rendered DOM.
+    title = normalize_space(snapshot.get("title"))
+    labelled_title = re.match(r"^(.+?)\s*\|\s*(?:MMA Fighter Page|Fighter Page|Combat Sports Athlete)\s*\|\s*Tapology\s*$", title, re.I)
+    if labelled_title:
+        name = re.sub(r'\s*\(["“].*?["”]\)\s*', ' ', labelled_title.group(1)).strip()
+        cleaned = _clean_display_name(name)
+        if cleaned:
+            return cleaned
     for heading in snapshot.get("headings", []):
         cleaned = _clean_display_name(heading)
         if cleaned:

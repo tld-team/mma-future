@@ -79,6 +79,8 @@ def needs_refresh(profile: dict, *, now: datetime | None = None, known_results: 
     now = now or datetime.now(timezone.utc)
     if profile.get('status')!='success':
         return True
+    if re.search(r'\b(?:Tapology|advertis(?:ing|ement)|ad[- ]free|no ads)\b',str(profile.get('display_name') or ''),re.I):
+        return True
     try:
         checked = datetime.fromisoformat(str(profile.get("scraped_at") or profile.get("profile_scraped_at")).replace("Z", "+00:00"))
         if checked.tzinfo is None:
