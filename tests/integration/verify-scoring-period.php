@@ -85,5 +85,9 @@ try {
     check($records->for_fighters([$a['fighter_id']])[$a['fighter_id']]['protected'],'explicit protected career correction takes precedence over source observations');
     $method=\MMAF\DataEngine\Services\Scoring\PublicAssessments::methodology(['formula_version'=>'v1.5','formula_config_snapshot'=>wp_json_encode(\MMAF\DataEngine\Services\Formula\FormulaV15::config())]);
     check($method['scoring_scope']===null && $method['score_label']==='MMA Future Score','legacy active rankings are never labelled with the new May 9 period');
+    \MMAF\DataEngine\Services\Operations\Readiness::invalidate();
+    \MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh(1,false);
+    $priority=\MMAF\DataEngine\Services\RegularImport\Worker::run(35,256,1);
+    check(($priority['last']['phase']??'')==='ranking','queued import draft starts before unrelated dirty readiness records can starve it');
 } finally {Transaction::rollback();WriteGuard::$worker=false;wp_cache_flush();}
 check($before===hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['ranking_current']} ORDER BY id",ARRAY_A))),'all fixtures roll back and the existing active ranking remains untouched');

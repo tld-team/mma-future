@@ -39,7 +39,7 @@ The fighter editor separately shows career facts, recorded statistics and curren
    ```
 
 4. Fetch fresh source evidence with the existing queue enrichment command, adopt each declared run into a cycle, catch up event results after the prior packet's October 4 boundary, and finalize an immutable package. Review the readiness report and canonical dry-run before import. Preserve the last successful data when a source fails.
-5. Import through the existing bounded worker. Export the approved public/rankable candidate population with `wp mmaf scoring candidates --output=/private/rollout/candidates.json`. Expand in bounded source batches, collecting career facts before detailed period preparation for plausible candidates.
+5. Import through the existing bounded worker. Export the approved public/rankable candidate population with `wp mmaf scoring candidates --output=/private/rollout/candidates.json`. Expand in bounded source batches. The full candidate export uses `career_record` for candidates without accepted career facts and for careers exceeding 30 fights. Import those observations, then export candidates again: accepted careers within the limit switch to `career_and_period`. Pilot exports request both directly. Failed source attempts retain the previous successful input and check time.
 6. Calculate an inactive draft using the existing resumable ranking operation. Export its report:
 
    ```sh

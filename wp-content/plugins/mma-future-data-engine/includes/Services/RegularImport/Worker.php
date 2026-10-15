@@ -31,8 +31,10 @@ final class Worker {
     private static function step(): array {
         $job=(new Repository())->active();
         if($job){return (new Engine())->work();}
-        $result=\MMAF\DataEngine\Services\Operations\Module::work();
+        // Complete the import's preparation/draft before general readiness refreshes.
+        // Processor yields when another frozen calculation owns the inputs.
+        $result=(new \MMAF\DataEngine\Services\DataPipeline\Processor())->work();
         if(!empty($result['worked'])){return $result;}
-        return (new \MMAF\DataEngine\Services\DataPipeline\Processor())->work();
+        return \MMAF\DataEngine\Services\Operations\Module::work();
     }
 }
