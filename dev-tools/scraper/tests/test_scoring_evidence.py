@@ -77,3 +77,8 @@ def test_promotional_heading_does_not_replace_fighter_identity_label():
     snapshot['title']='Si Won Park ("The Beast") | MMA Fighter Page | Tapology'
     snapshot['headings']=['Same Tapology. Now Without Ads.','Fighter Details','Regional MMA Rankings']
     assert parse_profile_snapshot(snapshot,snapshot['url'])['display_name']=='Si Won Park'
+
+
+def test_cache_refreshes_a_profile_label_contaminated_by_advertising():
+    _,profile=source();profile['display_name']='Same Tapology. Now Without Ads.'
+    assert needs_refresh(profile,now=datetime(2026,10,10,12,tzinfo=timezone.utc))
