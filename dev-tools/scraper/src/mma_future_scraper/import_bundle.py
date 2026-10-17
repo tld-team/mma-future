@@ -15,12 +15,13 @@ from .fighter_profile_report import build_profile_enrichment_report
 from .import_readiness import build_readiness, content_hash, CONTRACT_VERSION
 from .storage import atomic_write_json
 from .utils import utc_now
+from .event_coverage import document as coverage_document, validate as validate_coverage
 
 REQUIRED = (
     'results.json', 'daily_summary.json', 'manual_review.json', 'run_manifest.json',
     'changes.json', 'fighter_profiles.json', 'fighter_profiles_report.json',
 )
-OPTIONAL = ('state_report.json',)
+OPTIONAL = ('state_report.json','event_coverage.json','priority_targets.json')
 DERIVED = ('readiness_report.json', 'source_enrichment_queue.json')
 
 
@@ -74,9 +75,15 @@ def export_import_bundle(
         run_manifest = json.loads((snapshot/'run_manifest.json').read_text())
         if not run_manifest.get('run_id') or events_document.get('run',{}).get('run_id') != run_manifest['run_id']:
             raise ValueError('Event results and manifest belong to different runs')
+        coverage_path=snapshot/'event_coverage.json'
+        coverage=json.loads(coverage_path.read_text()) if coverage_path.exists() else coverage_document(events_document['events'],run_id=run_manifest['run_id'])
+        if coverage.get('run_id')!=run_manifest['run_id']:raise ValueError('Event coverage and results belong to different runs')
+        coverage_counts=validate_coverage(coverage,events_document['events'])
+        atomic_write_json(coverage_path,coverage)
         del events_document
         atomic_write_json(snapshot/'fighter_profiles_report.json', build_profile_enrichment_report(profiles_document))
         readiness = build_readiness(profiles_document)
+        readiness['event_coverage']={'counts':coverage_counts,'complete':not any(coverage_counts.get(k,0) for k in ('partial','unavailable'))}
         if cycle:readiness['cycle']={'cycle_id':cycle['cycle_id'],'snapshot_id':cycle['snapshot_id']}
         enrichment = readiness.pop('source_enrichment')
         atomic_write_json(snapshot/'readiness_report.json', readiness)
@@ -112,10 +119,22 @@ def export_import_bundle(
             atomic_write_json(snapshot/'fighter_profiles_report.json',build_profile_enrichment_report(profiles_document))
             readiness=build_readiness(profiles_document);readiness.pop('source_enrichment')
             if cycle:readiness['cycle']={'cycle_id':cycle['cycle_id'],'snapshot_id':cycle['snapshot_id']}
+            selected={e['source_event_id'] for e in events_document['events']}
+            coverage['events']=[e for e in coverage['events'] if e['source_event_id'] in selected or not any(b['decision']=='accepted' for b in e['bouts'])]
+            coverage['counts']=validate_coverage(coverage,events_document['events'])
+            atomic_write_json(coverage_path,coverage)
+            readiness['event_coverage']={'counts':coverage['counts'],'complete':not any(coverage['counts'].get(k,0) for k in ('partial','unavailable'))}
             readiness['full_snapshot_readiness']=full_readiness
             atomic_write_json(snapshot/'readiness_report.json',readiness)
             daily.update(events_total=len(events_document['events']),bouts_total=sum(len(e.get('bouts',[])) for e in events_document['events']),profiles_total=profiles_document['profiles_total'],profiles_success=profiles_document['profiles_success'],profiles_failed=profiles_document['profiles_failed'])
             daily['validation_scope']='full_snapshot_before_delta_selection'
+        if (snapshot/'priority_targets.json').exists():
+            targets=json.loads((snapshot/'priority_targets.json').read_text())
+            included=json.loads((snapshot/'fighter_profiles.json').read_text())
+            keys={p.get('source_fighter_id') for p in included['profiles']}
+            if targets.get('schema_version')!='mmaf_priority_targets_v1':raise ValueError('Unsupported priority target contract')
+            targets['items']=[t for t in targets['items'] if t['source_fighter_id'] in keys]
+            atomic_write_json(snapshot/'priority_targets.json',targets)
         daily['readiness'] = readiness
 
         atomic_write_json(snapshot/'daily_summary.json', daily)
@@ -124,7 +143,7 @@ def export_import_bundle(
         profiles_report = json.loads((snapshot/'fighter_profiles_report.json').read_text())
         manifest = {
             'format': 'mmaf-import-bundle', 'format_version': 1, 'exported_at': utc_now(),
-            'contract_version': CONTRACT_VERSION,
+            'contract_version': 2,
             'source_runs': {'events': daily.get('run_id'), 'profiles': profiles_report.get('run_id')},
             'counts': {'events': daily.get('events_total'), 'bouts': daily.get('bouts_total'),
                        'profiles': profiles_report.get('profiles_total')},

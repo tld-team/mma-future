@@ -55,6 +55,7 @@ final class Plugin {
         Services\Scoring\Admin::register();
         Services\Scoring\Command::register();
         Services\Operations\Module::register();
+        Admin\PrioritiesPage::register();
 
 		if ( is_admin() ) {
 			add_action( 'admin_init', array( \MMAF\DataEngine\Admin\FightersPage::class, 'handle_bulk_request' ) );

@@ -533,6 +533,8 @@ class _BodyLocator:
 
 
 class _EventPage:
+    def title(self): return "Fixture event"
+
     def __init__(self, body_text):
         self.body_text = body_text
         self.url = None
@@ -565,10 +567,10 @@ def _patch_event_metadata(monkeypatch, scraper):
     monkeypatch.setattr(scraper, "_extract_promotion_url", lambda page: None)
 
 
-def test_sampson_boxing_event_is_skipped_before_bout_parsing(monkeypatch, tmp_path):
+def test_sampson_boxing_metadata_excludes_missing_non_mma_card(monkeypatch, tmp_path):
     scraper = TapologyScraper(ScraperConfig())
     _patch_event_metadata(monkeypatch, scraper)
-    monkeypatch.setattr(scraper, "_find_fight_card", lambda page: pytest.fail("non-MMA event should skip before card parsing"))
+    monkeypatch.setattr(scraper, "_find_fight_card", lambda page: (None,None,False))
     summary = scraper._empty_summary("run-1", "2026-05-12T19:40:00+00:00")
     list_item = {
         "source_event_id": "tapology_event_144087",
@@ -587,7 +589,7 @@ def test_sampson_boxing_event_is_skipped_before_bout_parsing(monkeypatch, tmp_pa
 def test_real_american_freestyle_open_mat_event_is_skipped(monkeypatch, tmp_path):
     scraper = TapologyScraper(ScraperConfig())
     _patch_event_metadata(monkeypatch, scraper)
-    monkeypatch.setattr(scraper, "_find_fight_card", lambda page: pytest.fail("non-MMA event should skip before card parsing"))
+    monkeypatch.setattr(scraper, "_find_fight_card", lambda page: (None,None,False))
     summary = scraper._empty_summary("run-1", "2026-05-12T19:40:00+00:00")
     list_item = {
         "source_event_id": "tapology_event_141792",
@@ -608,7 +610,7 @@ def test_forced_event_mode_rejects_event_level_non_mma(monkeypatch, tmp_path):
     )
     scraper._store = DataStore(tmp_path)
     _patch_event_metadata(monkeypatch, scraper)
-    monkeypatch.setattr(scraper, "_find_fight_card", lambda page: pytest.fail("non-MMA event should skip before card parsing"))
+    monkeypatch.setattr(scraper, "_find_fight_card", lambda page: (None,None,False))
     summary = scraper._empty_summary("run-1", "2026-05-12T19:40:00+00:00")
     direct_items = [
         {

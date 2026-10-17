@@ -328,6 +328,9 @@ class DataStore:
     def _commit_latest(self, run_dir: Path) -> None:
         for filename in ["results.json", "changes.json", "run_manifest.json"]:
             atomic_write_json(self.latest_dir / filename, _read_json(run_dir / filename, {}))
+        coverage_path = run_dir / "event_coverage.json"
+        if coverage_path.exists():
+            atomic_write_json(self.latest_dir / "event_coverage.json", _read_json(coverage_path, {}))
         upcoming_path = run_dir / "upcoming.json"
         if upcoming_path.exists():
             atomic_write_json(self.latest_dir / "upcoming.json", _read_json(upcoming_path, {}))

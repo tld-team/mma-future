@@ -5,10 +5,10 @@ the staging preflight, a dry-run, **Start import**, a private backup, committed
 changes, career verification, statistics and a final report. Ranking activation
 remains a separate administrator action.
 
-Plugin 2.6.0 requires the explicit database migration to schema 1.10.0. Deploy
-through the existing verified release runner. Old full packages remain accepted;
-packages carrying the new evidence contract require this release. The additive
-migration stores the preparation context hash without changing prior decisions.
+Plugin 2.8.0 requires the explicit database migration to schema 1.12.0. Deploy
+through the existing verified release runner. Legacy contract v1 remains readable;
+new exports use evidence contract v2. See [event evidence and priorities](scraper-priorities.md)
+for the additive registry, source identity gates and persistent event coverage.
 
 ## Prepare one package after all runs
 

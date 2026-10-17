@@ -22,6 +22,7 @@ from .browser import (
 from .config import FIGHTCENTER_URL, ScraperConfig
 from .contract import populate_bout_contract_fields, populate_event_contract_fields, source_bout_numeric_id, source_fighter_numeric_id
 from .dedupe import dedupe_events
+from .event_coverage import ROWS_JS, PARSER_VERSION, assess as assess_event, classification as row_classification, document as coverage_document
 from .fighter_profiles import (
     build_event_profile_enrichment_summary,
     event_profile_summary,
@@ -160,7 +161,7 @@ PRESERVE_NULL_KEYS = {
 def should_skip_results_event_no_usable_bouts(event: dict[str, Any]) -> bool:
     if event.get("bouts"):
         return False
-    return skipped_results_event_category(event) != "no_results"
+    return skipped_results_event_category(event) in {'non_mma','all_amateur','excluded_mixed_card'}
 
 
 def skipped_results_event_is_non_mma_or_no_results(event: dict[str, Any]) -> bool:
@@ -171,6 +172,10 @@ def skipped_results_event_category(event: dict[str, Any]) -> str | None:
     warnings = [str(warning) for warning in event.get("warnings", [])]
     skipped_bouts = event.get("skipped_bouts", []) if isinstance(event.get("skipped_bouts"), list) else []
     skipped_reasons = [str(item.get("reason")) for item in skipped_bouts if isinstance(item, dict)]
+    if any(reason in {'unknown','missing_required_data','no_result'} for reason in skipped_reasons) or any(w.startswith(('bouts_skipped_unknown_professional_status:','fight_card_missing')) for w in warnings):
+        return 'no_usable_pro_mma_bouts' if 'no_result' not in skipped_reasons else 'no_results'
+    if skipped_reasons and set(skipped_reasons)=={'amateur','non_mma'}:
+        return 'excluded_mixed_card'
     if any(warning.startswith(("event_skipped_non_mma:", "bouts_skipped_non_mma:")) for warning in warnings) or (
         skipped_reasons and all(reason == "non_mma" for reason in skipped_reasons)
     ):
@@ -242,6 +247,8 @@ class TapologyScraper:
             "profile_cache_disabled": 0,
         }
         self._active_summary: dict[str, Any] | None = None
+        self._coverage_entries: dict[str, dict] = {}
+        self._active_run_dir: Path | None = None
 
     def inspect_filters(self) -> list[dict[str, Any]]:
         ensure_data_dirs()
@@ -270,6 +277,7 @@ class TapologyScraper:
         started_at = utc_now()
         started_clock = time.time()
         run_dir = self._store.create_run_dir(run_id)
+        self._active_run_dir = run_dir
         state_bundle = self._store.begin_attempt(run_id, started_at)
         self._state_bundle = state_bundle
         summary = self._empty_summary(run_id, started_at)
@@ -337,6 +345,8 @@ class TapologyScraper:
             summary["state_updated"] = True
 
             debug_doc = self._finish_debug_document(finished_at)
+            coverage = coverage_document(results_doc['events'], self._coverage_entries.values(), run_id)
+            write_json(run_dir / 'event_coverage.json', coverage)
             self._store.commit_success(
                 run_dir=run_dir,
                 bundle=state_bundle,
@@ -403,6 +413,8 @@ class TapologyScraper:
             log("error", "run_failed", reason=str(exc), run_dir=str(run_dir))
             return summary
         finally:
+            if self._active_run_dir:
+                write_json(run_dir / 'event_coverage.json', coverage_document(results_doc.get('events', []), self._coverage_entries.values(), run_id))
             self._active_summary = None
             if context:
                 context.close()
@@ -1265,6 +1277,8 @@ class TapologyScraper:
                     self._record_skipped_ufc_event(summary, event)
                     nonfatal_notes.append(f"forced_event_skipped_ufc:{item.get('event_url')}")
                     continue
+                if not event.get('bouts') and (event.get('event_coverage') or {}).get('status')!='excluded' and any(str(w).startswith('fight_card_missing') for w in event.get('warnings',[])):
+                    raise FatalScrapeError('forced_event_no_usable_bouts:'+str(item.get('event_url')))
                 if kind == "results" and should_skip_results_event_no_usable_bouts(event):
                     self._record_skipped_results_event(summary, event)
                     nonfatal_notes.append(f"forced_event_no_usable_bouts:{item.get('event_url')}")
@@ -1272,7 +1286,9 @@ class TapologyScraper:
                 events.append(event)
                 self._write_results_checkpoint(kind, "", "", run_dir, summary, events)
                 log("info", "event_parsed", kind=kind, event_url=item.get("event_url"), bouts=len(event.get("bouts", [])))
-            except FatalScrapeError:
+            except FatalScrapeError as exc:
+                sid=item.get("source_event_id") or source_event_id_from_url(item.get("event_url"))
+                if sid not in self._coverage_entries:self._record_failed_event(summary,item,exc)
                 raise
             except Exception as exc:
                 self._record_failed_event(summary, item, exc)
@@ -2623,6 +2639,9 @@ class TapologyScraper:
         return items
 
     def _record_failed_event(self, summary: dict[str, Any], item: dict[str, Any], exc: Exception) -> None:
+        sid=item.get('source_event_id') or source_event_id_from_url(item.get('event_url'))
+        if sid:
+            self._coverage_entries[sid]={'source_event_id':sid,'event_url':item.get('event_url'),'observed_at':utc_now(),'parser_version':PARSER_VERSION,'status':'unavailable','reasons':[str(exc)[:500]],'bouts':[],'counts':{},'unique_bouts':0,'source_mma_bouts_total':None}
         event_url = item.get("event_url")
         summary.setdefault("failed_event_urls", []).append(event_url)
         summary.setdefault("warnings", []).append(f"event_failed:{event_url}:{exc}")
@@ -3260,6 +3279,7 @@ class TapologyScraper:
                 "fighter_profiles": {},
             }
             if self._event_matches_excluded_promotion(event):
+                self._scope_coverage(event,"excluded_promotion_ufc",event.get("promotion_name") or event.get("promotion_url"),run_dir)
                 event["warnings"].append("event_skipped_ufc")
                 summary["warnings"].append(f"event_skipped_ufc:{event_url}")
                 log(
@@ -3280,21 +3300,6 @@ class TapologyScraper:
                 venue=event.get("venue"),
                 raw_text=raw_page_text,
             )
-            if non_mma_reason:
-                warning = f"event_skipped_non_mma:{non_mma_reason}"
-                event["warnings"].append(warning)
-                summary["warnings"].append(f"{warning}:{event_url}")
-                log(
-                    "info",
-                    "event_skipped_non_mma",
-                    source_event_id=event.get("source_event_id"),
-                    event_url=event.get("event_url"),
-                    promotion_name=event.get("promotion_name"),
-                    reason=non_mma_reason,
-                )
-                self._finalize_event_completeness(event, raw_page_text, kind, status_text)
-                populate_event_contract_fields(event)
-                return self._prune_none(event)
             self._debug_append(
                 "events",
                 {
@@ -3308,8 +3313,15 @@ class TapologyScraper:
             )
             card, selector, fallback = self._find_fight_card(page)
             if not card:
-                event["warnings"].append("fight_card_missing")
-                summary["warnings"].append(f"fight_card_missing:{event_url}")
+                if non_mma_reason and not event.get('source_mma_bouts_total'):
+                    warning=f'event_skipped_non_mma:{non_mma_reason}'
+                    event['warnings'].append(warning);summary['warnings'].append(f'{warning}:{event_url}')
+                    self._scope_coverage(event,'non_mma_metadata',non_mma_reason,run_dir)
+                else:
+                    proof=assess_event(event,[],[]);event['event_coverage']=proof;self._coverage_entries[event['source_event_id']]=proof
+                if (event.get("event_coverage") or {}).get("status")!="excluded":
+                    event["warnings"].append("fight_card_missing")
+                    summary["warnings"].append(f"fight_card_missing:{event_url}")
                 if self.config.debug:
                     save_debug_artifacts(page, run_dir, f"missing_fight_card_{event.get('source_event_id') or url_hash(event_url)}")
                 self._finalize_event_completeness(event, raw_page_text, kind, status_text)
@@ -3326,6 +3338,12 @@ class TapologyScraper:
             return self._prune_none(event)
         finally:
             page.close()
+
+    def _scope_coverage(self,event,reason,evidence,run_dir):
+        proof=assess_event(event,[],[])
+        proof.update(status='excluded',reasons=[],event_exclusion=reason,exclusion_evidence=str(evidence))
+        event['event_coverage']=proof;self._coverage_entries[event['source_event_id']]=proof
+        write_json(run_dir/'event_snapshots'/f"{event['source_event_id']}.json",{'parser_version':PARSER_VERSION,'source_url':event['event_url'],'observed_at':proof['observed_at'],'event':event,'rows':[]})
 
     def _find_fight_card(self, page: Any) -> tuple[Any | None, str | None, bool]:
         for index, selector in enumerate(PREFERRED_FIGHT_CARD_SELECTORS):
@@ -3387,6 +3405,8 @@ class TapologyScraper:
         return "unknown"
 
     def _event_needs_recheck(self, event: dict[str, Any]) -> bool:
+        if (event.get('event_coverage') or {}).get('status') in {'partial','unavailable'}:
+            return True
         if event.get("source_event_status") in {"in_progress", "upcoming"}:
             return True
         if int(event.get("bouts_skipped_no_result") or 0) > 0:
@@ -3845,53 +3865,11 @@ class TapologyScraper:
         kind: str,
         summary: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        rows = card.evaluate(
-            """
-            (root, selectors) => {
-              const containers = [];
-              const add = (el) => {
-                if (!el) return;
-                if (!containers.includes(el)) containers.push(el);
-              };
-              root.querySelectorAll(selectors.bout).forEach((link) => {
-                let el = link.closest('tr,li,article,.bout,.fight,.fightCardBout,.fight-card-bout') || link.parentElement;
-                let parent = el;
-                for (let i = 0; i < 4 && parent && (parent.innerText || '').length < 80; i++) {
-                  parent = parent.parentElement;
-                  if (parent && root.contains(parent)) el = parent;
-                }
-                add(el);
-              });
-              if (!containers.length) {
-                root.querySelectorAll('tr,li,article,div').forEach((el) => {
-                  if (el.querySelectorAll(selectors.fighter).length >= 2) add(el);
-                });
-              }
-              return containers.map((el) => {
-                const boutLink = el.querySelector(selectors.bout);
-                const seenFighterHrefs = new Set();
-                const fighterLinks = [];
-                Array.from(el.querySelectorAll(selectors.fighter)).forEach((link) => {
-                  const href = link.getAttribute('href') || '';
-                  if (!href || seenFighterHrefs.has(href) || fighterLinks.length >= 2) return;
-                  seenFighterHrefs.add(href);
-                  fighterLinks.push({
-                    name: link.innerText.trim(),
-                    href,
-                    class_name: link.className || '',
-                    parent_class_name: link.parentElement?.className || ''
-                  });
-                });
-                return {
-                  raw_text: (el.innerText || '').trim(),
-                  bout_href: boutLink?.getAttribute('href') || '',
-                  fighter_links: fighterLinks
-                };
-              }).filter((row) => row.raw_text);
-            }
-            """,
-            {"bout": BOUT_LINK_SELECTOR, "fighter": FIGHTER_LINK_SELECTOR},
-        )
+        rows = card.evaluate(ROWS_JS, {"bout": BOUT_LINK_SELECTOR, "fighter": FIGHTER_LINK_SELECTOR})
+        if self._active_run_dir:
+            sid=event.get('source_event_id') or source_event_id_from_url(event.get('event_url'))
+            if sid:
+                write_json(self._active_run_dir/'event_snapshots'/f'{sid}.json', {'parser_version':PARSER_VERSION,'source_url':page.url,'observed_at':utc_now(),'event':{k:event.get(k) for k in ('source_event_id','event_name','event_date','source_mma_bouts_total')},'rows':rows})
         bouts: list[dict[str, Any]] = []
         seen_row_keys: set[str] = set()
         skipped_no_result = 0
@@ -3904,7 +3882,10 @@ class TapologyScraper:
                 row_key = source_bout_id_from_url(row_bout_url) or url_hash(row_bout_url)
                 if row_key and row_key in seen_row_keys:
                     continue
-                if is_explicit_non_mma_bout(row.get("raw_text")):
+                if row_key:
+                    seen_row_keys.add(row_key)
+                division, sport = row_classification(row)
+                if sport=='non_mma':
                     if row_key:
                         seen_row_keys.add(row_key)
                     skipped_non_mma += 1
@@ -3916,7 +3897,10 @@ class TapologyScraper:
                         raw_text=normalize_space(row.get("raw_text"))[:160],
                     )
                     continue
-                pro_status = professional_status(row.get("raw_text"))
+                pro_status = division
+                if re.search(r'\bcancell?ed\b|\bscrapped\b',str(row.get('method_raw') or row.get('raw_text') or ''),re.I):
+                    event.setdefault('skipped_bouts',[]).append(self._skipped_bout_record(row,page.url,'cancelled'))
+                    continue
                 if pro_status == "amateur":
                     if row_key:
                         seen_row_keys.add(row_key)
@@ -3929,7 +3913,7 @@ class TapologyScraper:
                         raw_text=normalize_space(row.get("raw_text"))[:160],
                     )
                     continue
-                if pro_status != "pro":
+                if pro_status != "pro" or (row.get('source_row_version') and sport!='mma'):
                     skipped_unknown_pro_status += 1
                     event.setdefault("skipped_bouts", []).append(self._skipped_bout_record(row, page.url, "unknown"))
                     log(
@@ -3939,7 +3923,8 @@ class TapologyScraper:
                         raw_text=normalize_space(row.get("raw_text"))[:160],
                     )
                     continue
-                if kind == "results" and not has_completed_result(row.get("raw_text")):
+                final_badges=row.get('result_badges') or []
+                if kind == "results" and not (has_completed_result(row.get("raw_text")) or final_badges in [['W','L'],['L','W'],['D','D'],['N','N'],['NC','NC']]):
                     if row_key:
                         seen_row_keys.add(row_key)
                     skipped_no_result += 1
@@ -3953,8 +3938,6 @@ class TapologyScraper:
                     continue
                 bout = self._normalize_bout_row(row, event, page.url, kind)
                 row_key = bout.get("source_bout_id") or bout.get("bout_url") or row_key
-                if row_key and row_key in seen_row_keys:
-                    continue
                 if row_key:
                     seen_row_keys.add(row_key)
                 if bout.get("bout_url"):
@@ -3963,6 +3946,10 @@ class TapologyScraper:
                         self._apply_matchup_details(bout, details)
                 else:
                     log("info", "matchup_page_skipped", reason="no_bout_url", event_url=event.get("event_url"))
+                if kind=='results' and bout.get('result_type') not in {'win_loss','draw','no_contest'}:
+                    event.setdefault('skipped_bouts',[]).append(self._skipped_bout_record(row,page.url,'no_result'))
+                    skipped_no_result+=1
+                    continue
                 populate_bout_contract_fields(bout, event)
                 bouts.append(bout)
                 log("info", "bout_parsed", source_bout_id=bout.get("source_bout_id"), event_url=event.get("event_url"))
@@ -3993,6 +3980,23 @@ class TapologyScraper:
         if skipped_non_mma:
             event.setdefault("warnings", []).append(f"bouts_skipped_non_mma:{skipped_non_mma}")
             summary["warnings"].append(f"bouts_skipped_non_mma:{event.get('event_url')}:{skipped_non_mma}")
+        accepted={b.get('bout_url'):b for b in bouts}
+        skipped={s.get('bout_url'):s for s in event.get('skipped_bouts',[])}
+        decisions=[];seen=set()
+        for row in rows:
+            url=absolute_url(page.url,row.get('bout_href'));sid=source_bout_id_from_url(url)
+            key=sid or url_hash(str(row))
+            if key in seen:continue
+            seen.add(key);division,sport=row_classification(row);reason=(skipped.get(url) or {}).get('reason')
+            decision='accepted' if url in accepted else ('excluded' if reason in {'amateur','non_mma','cancelled'} else 'unresolved')
+            decisions.append({'source_bout_id':(accepted.get(url) or {}).get('source_bout_id') or sid or 'unresolved_'+key,'sport':sport,'division':division,'decision':decision,'reason':reason if decision!='accepted' else None,'classification_evidence':row.get('classification_evidence') or 'legacy_row_label'})
+        coverage=assess_event(event,rows,decisions)
+        event['event_coverage']=coverage
+        sid=event.get('source_event_id') or source_event_id_from_url(event.get('event_url'))
+        if sid:self._coverage_entries[sid]=coverage
+        confirmed=sum(row_classification(r)==('pro','mma') and (has_completed_result(r.get('raw_text')) or any(r.get('result_badges') or [])) for r in rows)
+        if kind=='results' and confirmed and not bouts:
+            raise FatalScrapeError('event_parser_zero_professional_results:'+str(sid))
         return bouts
 
     def _skipped_bout_record(self, row: dict[str, Any], source_url: str, reason: str) -> dict[str, Any]:
@@ -4036,16 +4040,23 @@ class TapologyScraper:
         fighters = row.get("fighter_links") or []
         fighter_a = fighters[0] if len(fighters) > 0 else {"name": None, "href": None}
         fighter_b = fighters[1] if len(fighters) > 1 else {"name": None, "href": None}
-        records = self._extract_records(raw_text)
+        records = [] if row.get('records_are_postfight') or re.search(r'\b(?:up to|down to|climbed to|fell to)\b',raw_text,re.I) else self._extract_records(raw_text)
+        explicit_records=row.get('prefight_records') or {}
+        if explicit_records:records=[explicit_records.get('a'),explicit_records.get('b')]
         record_a = parse_prefight_record(records[0] if len(records) > 0 else None)
         record_b = parse_prefight_record(records[1] if len(records) > 1 else None)
-        method_raw = self._extract_method_raw(raw_text)
+        method_raw = row.get('method_raw') or self._extract_method_raw(raw_text)
         method = normalize_method(method_raw)
         warnings = method.pop("warnings", [])
         warnings += prefight_record_warnings(record_a) + prefight_record_warnings(record_b)
         winner_name, loser_name = self._infer_winner_loser(raw_text, fighter_a.get("name"), fighter_b.get("name"))
         winner, loser = self._winner_loser_roles(winner_name, loser_name, fighter_a.get("name"), fighter_b.get("name"))
+        badges=row.get('result_badges') or []
+        if badges==['W','L']:winner,loser='fighter_a','fighter_b'
+        elif badges==['L','W']:winner,loser='fighter_b','fighter_a'
         result_type = self._result_type(method.get("method_category"), winner, loser, raw_text)
+        if badges in [['N','N'],['NC','NC']]:result_type='no_contest';winner=loser=None;method['method_category']='no_contest'
+        elif badges==['D','D']:result_type='draw';winner=loser=None;method['method_category']='draw'
         event_date = event.get("event_date")
         fighter_a_url = absolute_url(source_url, fighter_a.get("href"))
         fighter_b_url = absolute_url(source_url, fighter_b.get("href"))
@@ -4063,17 +4074,19 @@ class TapologyScraper:
             weight_class=self._extract_weight_class(raw_text),
             result_or_method=method_raw,
         )
-        result_round = parse_round(raw_text)
-        result_time = parse_time(raw_text)
+        clock=row.get('result_clock') or raw_text
+        result_round = parse_round(clock)
+        result_time = parse_time(clock)
+        billing=row.get('billing_text') or raw_text
         bout = {
             "source_bout_id": source_bout_id,
             "source_bout_numeric_id": None,
             "bout_url": bout_url,
             "status": "upcoming" if kind == "upcoming" else "completed",
             "pro_am": "professional",
-            "card_position": self._extract_card_position(raw_text),
-            "weight_class": self._extract_weight_class(raw_text),
-            "weight_lbs": self._extract_weight_lbs(raw_text),
+            "card_position": self._extract_card_position(billing),
+            "weight_class": self._extract_weight_class(billing),
+            "weight_lbs": self._extract_weight_lbs(billing),
             "title_fight": self._extract_title_fight(raw_text),
             "winner": winner,
             "loser": loser,
@@ -4096,7 +4109,7 @@ class TapologyScraper:
                     **method,
                     "round": result_round,
                     "time": result_time,
-                    "time_semantics": result_time_semantics(method.get("method_category"), result_round, result_time, raw_text),
+                    "time_semantics": result_time_semantics(method.get("method_category"), result_round, result_time, clock),
                 },
                 "warnings": sorted(set(warnings)),
             }
@@ -4177,7 +4190,10 @@ class TapologyScraper:
             bout["fighter_b"]["prefight_record"] = details["fighter_b_prefight_record"]
         result_details = details.get("result") or {}
         for key in ["method_category", "method_detail", "round", "time", "time_semantics"]:
-            if key in result_details:
+            if key in result_details and result_details[key] not in (None,'','unknown'):
+                # Optional detail pages must not erase the explicit card result.
+                if key == 'method_category' and bout.get('result_type') == 'no_contest' and result_details[key] != 'no_contest':
+                    continue
                 bout.setdefault("result", {})[key] = result_details[key]
         for key in ["card_position", "weight_class", "weight_lbs", "title_fight"]:
             if details.get(key) is not None:
@@ -4796,7 +4812,7 @@ class TapologyScraper:
     def _prune_none(self, value: Any) -> Any:
         if isinstance(value, dict):
             return {
-                key: self._prune_none(item)
+                key: item if key == "event_coverage" else self._prune_none(item)
                 for key, item in value.items()
                 if (
                     item is not None

@@ -1,0 +1,296 @@
+{
+  "url": "https://www.tapology.com/fightcenter/events/144072-pfl-new-york-nurmagomedov-vs-colgan",
+  "title": "PFL New York: Nurmagomedov vs. Colgan | MMA Event | Tapology",
+  "observed_at": "2026-10-17T19:22:07.180Z",
+  "source_mma_bouts_total": 9,
+  "rows": [
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1140072-pfl-new-york-usman-nurmagomedov-vs-archie-king-colgan",
+      "raw_text": "PFL Lightweight Championship\nKO/TKO, UPPERCUT TO GROUND STRIKES\n3:42 Round 1 of 5\n2\nW\nUsman Nurmagomedov\nUp to\n \n22-0\nMAIN EVENT\n155\n5 x 5\n#\n9\nadd_circle\nL\nArchie Colgan\nDown to\n \n13-1",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Usman Nurmagomedov",
+          "href": "/fightcenter/fighters/194617-osman-nurmagomedov",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Archie Colgan",
+          "href": "/fightcenter/fighters/240989-archie-colgon",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Uppercut to Ground Strikes",
+      "result_clock": "3:42 Round 1 of 5",
+      "billing_text": "Main Event 155 5 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1140072"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1140073-pfl-new-york-dangerous-dakota-ditcheva-vs-denise-miss-dynamite-kielholtz",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 15:00 Total\nW\nDakota Ditcheva\nUp to\n \n16-0\nCO-MAIN\n125\n3 x 5\n#\n8\nadd_circle\nL\nDenise Kielholtz\nDown to\n \n9-6",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Dakota Ditcheva",
+          "href": "/fightcenter/fighters/216494-dakota-ditcheva",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Denise Kielholtz",
+          "href": "/fightcenter/fighters/118674-denise-kielholtz",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Co-Main 125 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1140073"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1147504-pfl-new-york-amru-magomedov-vs-angel-salsa-king-alvarez",
+      "raw_text": "KO/TKO, PUNCHES FROM MOUNT\n4:28 Round 2 of 3, 9:28 Total\nW\nAmru Magomedov\nUp to\n \n11-0\nMAIN CARD\n155\n3 x 5\n#\n7\nadd_circle\nL\nAngel Alvarez\nDown to\n \n11-3",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Amru Magomedov",
+          "href": "/fightcenter/fighters/194634-amru-magomedov",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Angel Alvarez",
+          "href": "/fightcenter/fighters/262924-angel-alvarez",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Punches From Mount",
+      "result_clock": "4:28 Round 2 of 3, 9:28 Total",
+      "billing_text": "Main Card 155 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1147504"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1164296-pfl-new-york-moustapha-diakhate-vs-darryl-the-sacred-beast-walker",
+      "raw_text": "KO/TKO, PUNCHES FROM MOUNT\n2:35 Round 1 of 3\nW\nMoustapha Diakhaté\nUp to\n \n6-0-1\nMAIN CARD\n205\n3 x 5\n#\n6\nadd_circle\nL\nDarryl Walker\nDown to\n \n2-1",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Moustapha Diakhaté",
+          "href": "/fightcenter/fighters/328096-moustapha-diakhate",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Darryl Walker",
+          "href": "/fightcenter/fighters/378796-darryl-walker",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Punches From Mount",
+      "result_clock": "2:35 Round 1 of 3",
+      "billing_text": "Main Card 205 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1164296"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1154540-pfl-new-york-raufeon-supa-stots-vs-lazaro-the-hunter-dayron",
+      "raw_text": "DECISION, SPLIT\n3 Rounds, 15:00 Total\nW\nLázaro Dayron\nUp to\n \n11-0-1\nPRELIM\n135\n3 x 5\n#\n5\nadd_circle\nL\nRaufeon Stots\nDown to\n \n21-5",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Lázaro Dayron",
+          "href": "/fightcenter/fighters/272505-lazaro-dayron",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Raufeon Stots",
+          "href": "/fightcenter/fighters/64041-raufeon-stots",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Split",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Prelim 135 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1154540"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1156702-pfl-new-york-sean-gauci-vs-allan-mini-begosso",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 15:00 Total\nW\nSean Gauci\nUp to\n \n12-1\nPRELIM\n135\n3 x 5\n#\n4\nadd_circle\nL\nAllan Begosso\nDown to\n \n10-5-1",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Sean Gauci",
+          "href": "/fightcenter/fighters/65305-sean-gauci",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Allan Begosso",
+          "href": "/fightcenter/fighters/100245-allan-begosso-mini",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Prelim 135 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1156702"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1163414-pfl-new-york-jonathan-war-hawk-piersma-vs-omar-godfirst-el-dafrawy",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 15:00 Total\nW\nOmar El Dafrawy\nUp to\n \n16-6\nPRELIM\n175\n3 x 5\n#\n3\nadd_circle\nL\nJonathan Piersma\nDown to\n \n12-4",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Omar El Dafrawy",
+          "href": "/fightcenter/fighters/143448-omar-el-dafrawy",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Jonathan Piersma",
+          "href": "/fightcenter/fighters/176872-jonathan-piersma",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Prelim 175 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1163414"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1146495-pfl-new-york-montana-de-la-rosa-vs-tatiana-postarnakova",
+      "raw_text": "DECISION, SPLIT\n3 Rounds, 15:00 Total\nW\nTatiana Postarnakova\nUp to\n \n8-0\nPRELIM\n125\n3 x 5\n#\n2\nadd_circle\nL\nMontana De La Rosa\nDown to\n \n13-10-1",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Tatiana Postarnakova",
+          "href": "/fightcenter/fighters/236472-tatiana-postarnakova",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Montana De La Rosa",
+          "href": "/fightcenter/fighters/62316-montana-stewart",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Split",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Prelim 125 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1146495"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1163412-pfl-new-york-chamy-delva-vs-levan-khabalaev",
+      "raw_text": "KO/TKO, KNEE TO THE BODY TO GROUND STRIKES\n1:44 Round 1 of 3\nW\nLevan Khabalaev\nUp to\n \n5-0\nPRELIM\n155\n3 x 5\n#\n1\nadd_circle\nL\nChamy Delva\nDown to\n \n7-2",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Levan Khabalaev",
+          "href": "/fightcenter/fighters/320699-levan-khabalaev",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Chamy Delva",
+          "href": "/fightcenter/fighters/124759-sham-delva",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Knee to the Body to Ground Strikes",
+      "result_clock": "1:44 Round 1 of 3",
+      "billing_text": "Prelim 155 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1163412"
+    }
+  ]
+}

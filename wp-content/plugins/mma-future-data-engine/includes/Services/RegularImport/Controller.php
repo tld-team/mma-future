@@ -112,6 +112,7 @@ final class Controller {
         $view+=['progress'=>$progress,'last_activity'=>$heartbeat,'notice'=>$meta['notice']??null,'package'=>array_intersect_key($meta['package']??[],array_flip(['counts','date_from','date_to'])),'plan'=>$meta['plan']??$repo->planCounts($id),'actual'=>(new Engine())->actualCounts($id),'approval_token'=>$job['status']==='awaiting_approval'?($meta['approval_token']??null):null,'backup'=>isset($meta['backup'])?array_intersect_key($meta['backup'],array_flip(['bytes','created_at','sha256'])):null,'stats'=>$meta['stats']??null,'integrity'=>$meta['integrity']??null,'peak_memory_mb'=>$meta['peak_memory_mb']??null,'artifact_expired'=>!empty($meta['artifact_expired']),'site_url'=>$meta['site_url']??home_url('/')];
         $view['phase_progress']=Progress::forJob($job);
         $view['readiness']=$meta['package']['readiness']??null;
+        if(isset($meta['package']['event_coverage'])){$view['readiness']=$view['readiness']??[];$view['readiness']['event_coverage']=$meta['package']['event_coverage'];}
         $view['performance']=$meta['performance']??null;
         $view['profile_changes']=(new Engine())->profileChanges($id,$batches);
         $view['preparation']=\MMAF\DataEngine\Services\DataPipeline\Processor::status();

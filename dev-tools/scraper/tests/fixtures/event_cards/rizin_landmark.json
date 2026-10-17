@@ -1,0 +1,424 @@
+{
+  "url": "https://www.tapology.com/fightcenter/events/146048-rizin-landmark-16-in-nagasaki",
+  "title": "RIZIN LANDMARK 16 in NAGASAKI | MMA & Kickboxing Event | Tapology",
+  "observed_at": "2026-10-17T19:22:55.134Z",
+  "source_mma_bouts_total": 10,
+  "rows": [
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1167796-rizin-landmark-16-in-nagasaki-yoshinori-rising-star-horie-vs-sho-patrick-savage-usami",
+      "raw_text": "KO/TKO, GROUND AND POUND\n3:37 Round 2 of 3, 8:37 Total\nW\nYoshinori Horie\nUp to\n \n16-6\nMMA\nMAIN EVENT\n160\n3 x 5\n#\n13\nadd_circle\nL\nSho Patrick Usami\nDown to\n \n9-6\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Yoshinori Horie",
+          "href": "/fightcenter/fighters/137641-yoshinori-horie",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Sho Patrick Usami",
+          "href": "/fightcenter/fighters/296795-sho-usami-patrick",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Ground and Pound",
+      "result_clock": "3:37 Round 2 of 3, 8:37 Total",
+      "billing_text": "Main Event 160 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1167796"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1167797-rizin-landmark-16-in-nagasaki-viktor-kolesnik-vs-koyomi-moushigo-matsushima",
+      "raw_text": "KO/TKO, ELBOWS AND SOCCER KICK\n0:20 Round 2 of 3, 5:20 Total\nW\nViktor Kolesnik\nUp to\n \n27-6-1\nMMA\nCO-MAIN\n146\n3 x 5\n#\n12\nadd_circle\nL\nKoyomi Matsushima\nDown to\n \n15-9\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Viktor Kolesnik",
+          "href": "/fightcenter/fighters/56448-victor-kolesnik",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Koyomi Matsushima",
+          "href": "/fightcenter/fighters/92273-koyomi-matsushima",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Elbows and Soccer Kick",
+      "result_clock": "0:20 Round 2 of 3, 5:20 Total",
+      "billing_text": "Co-Main 146 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1167797"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1173976-rizin-landmark-16-in-nagasaki-ryan-korean-thunder-cafaro-vs-hyuma-yasui",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 15:00 Total\nW\nHyuma Yasui\nUp to\n \n5-1\nMMA\nMAIN CARD\n146\n3 x 5\n#\n11\nadd_circle\nL\nRyan Cafaro\nDown to\n \n15-7\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Hyuma Yasui",
+          "href": "/fightcenter/fighters/402407-hyuma-yasui",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Ryan Cafaro",
+          "href": "/fightcenter/fighters/16329-ryan-cafaro",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 146 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1173976"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1173975-rizin-landmark-16-in-nagasaki-keito-kate-lotus-oyama-vs-noeru-noel-narita",
+      "raw_text": "DECISION, SPLIT\n3 Rounds, 15:00 Total\nW\nKeito Oyama\nUp to\n \n11-8\nMMA\nMAIN CARD\n108\n3 x 5\n#\n10\nadd_circle\nL\nNoeru Narita\nDown to\n \n4-3\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Keito Oyama",
+          "href": "/fightcenter/fighters/272248-kate-lotus",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Noeru Narita",
+          "href": "/fightcenter/fighters/286470-hiiragi-narita",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Split",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 108 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1173975"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1173977-rizin-landmark-16-in-nagasaki-kyohei-hinotori-takagi-vs-masatoshi-masatatsu-ueda",
+      "raw_text": "KO/TKO, GROUND AND POUND\n3:26 Round 1 of 3\nW\nKyohei Takagi\nUp to\n \n7-1\nMMA\nMAIN CARD\n126\n3 x 5\n#\n9\nadd_circle\nL\nMasatoshi Ueda\nDown to\n \n21-14-2\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kyohei Takagi",
+          "href": "/fightcenter/fighters/461740-kyohei-takagi",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Masatoshi Ueda",
+          "href": "/fightcenter/fighters/44855-masatatsu-ueda-shoryu",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Ground and Pound",
+      "result_clock": "3:26 Round 1 of 3",
+      "billing_text": "Main Card 126 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1173977"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1167799-rizin-landmark-16-in-nagasaki-ryusei-ashizawa-vs-seiya-inoue",
+      "raw_text": "KO/TKO, LEFT HOOK TO GROUND STRIKES\n4:56 Round 1 of 3\nW\nSeiya Inoue\nUp to\n \n2-1\nMMA\nMAIN CARD\n134\n3 x 5\n#\n8\nadd_circle\nL\nRyusei Ashizawa\nDown to\n \n2-5\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Seiya Inoue",
+          "href": "/fightcenter/fighters/407186-seiya-inoue",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Ryusei Ashizawa",
+          "href": "/fightcenter/fighters/215283-ryusei-ashizawa",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Left Hook to Ground Strikes",
+      "result_clock": "4:56 Round 1 of 3",
+      "billing_text": "Main Card 134 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1167799"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1173979-rizin-landmark-16-in-nagasaki-hidetaka-kaizyu-killer-arato-vs-ken-hasegawa",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 15:00 Total\nW\nHidetaka Arato\nUp to\n \n12-4\nMMA\nMAIN CARD\n265\n3 x 5\n#\n7\nadd_circle\nL\nKen Hasegawa\nDown to\n \n18-7-1\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Hidetaka Arato",
+          "href": "/fightcenter/fighters/234342-hideotaka-arato",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Ken Hasegawa",
+          "href": "/fightcenter/fighters/18490-ken-hasegawa",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 265 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1173979"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1173980-rizin-landmark-16-in-nagasaki-alan-hiro-yamaniha-vs-seigo-rock-lee-yamamoto",
+      "raw_text": "SUBMISSION, KNEEBAR\n3:00 Round 1 of 3\nW\nAlan Yamaniha\nUp to\n \n24-11-4\nMMA\nMAIN CARD\n134\n3 x 5\n#\n6\nadd_circle\nL\nSeigo Yamamoto\nDown to\n \n7-15-1\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Alan Yamaniha",
+          "href": "/fightcenter/fighters/25832-alan-yoshihiro-yamaniwa-hiro",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Seigo Yamamoto",
+          "href": "/fightcenter/fighters/65033-seigo-yamamoto",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Submission, Kneebar",
+      "result_clock": "3:00 Round 1 of 3",
+      "billing_text": "Main Card 134 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1173980"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1173978-rizin-landmark-16-in-nagasaki-kohei-sugiyama-vs-kaito-oda",
+      "raw_text": "DECISION, SPLIT\n3 Rounds, 15:00 Total\nW\nKohei Sugiyama\nUp to\n \n18-10\nMMA\nMAIN CARD\n126\n3 x 5\n#\n5\nadd_circle\nL\nKaito Oda\nDown to\n \n8-4\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kohei Sugiyama",
+          "href": "/fightcenter/fighters/102337-kohei-sugiyama",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Kaito Oda",
+          "href": "/fightcenter/fighters/347597-kaito-oda",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Split",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 126 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1173978"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1182358-rizin-landmark-16-in-nagasaki-ryota-big-baby-oki-vs-daisuke-hunt-okumiya",
+      "raw_text": "KO/TKO, SOCCER KICKS\n4:47 Round 1 of 2\nW\nRyota Oki\nUp to\n \n7-5\nMMA\nPRELIM\n157\n2 x 5\n#\n4\nadd_circle\nL\nDaisuke Okumiya\nDown to\n \n9-6-1\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Ryota Oki",
+          "href": "/fightcenter/fighters/100300-big-baby-oki",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Daisuke Okumiya",
+          "href": "/fightcenter/fighters/8852-daisuke-okumiya-hunt",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Soccer Kicks",
+      "result_clock": "4:47 Round 1 of 2",
+      "billing_text": "Prelim 157 2 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1182358"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1182360-rizin-landmark-16-in-nagasaki-kotaro-mori-vs-yuki",
+      "raw_text": "KO/TKO, RIGHT CROSS\n1:42 Round 2 of 3, 4:42 Total\nW\nKotaro Mori\nKICKBOXING\nPRELIM\n220\n3 x 3\n#\n3\nadd_circle\nL\nYuki\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kotaro Mori",
+          "href": "/fightcenter/fighters/268460-kotaro-mori",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Yuki",
+          "href": "/fightcenter/fighters/585346-yuki",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Right Cross",
+      "result_clock": "1:42 Round 2 of 3, 4:42 Total",
+      "billing_text": "Prelim 220 3 x 3",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1182360"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1182359-rizin-landmark-16-in-nagasaki-ryusei-imamura-vs-reon-uemura",
+      "raw_text": "KO/TKO, PUNCHES (STANDING TKO)\n1:39 Round 1 of 3\nW\nRyusei Imamura\nKICKBOXING\nPRELIM\n126\n3 x 3\n#\n2\nadd_circle\nL\nReon Uemura\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Ryusei Imamura",
+          "href": "/fightcenter/fighters/383055-ryusei-imamura",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Reon Uemura",
+          "href": "/fightcenter/fighters/498812-reon-reon",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Punches (Standing TKO)",
+      "result_clock": "1:39 Round 1 of 3",
+      "billing_text": "Prelim 126 3 x 3",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1182359"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1182361-rizin-landmark-16-in-nagasaki-kakeru-tsuda-vs-ayuto",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 9:00 Total\nW\nAyuto\nKICKBOXING\nPRELIM\n143\n3 x 3\n#\n1\nadd_circle\nL\nKakeru Tsuda\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Ayuto",
+          "href": "/fightcenter/fighters/498809-ayuto",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Kakeru Tsuda",
+          "href": "/fightcenter/fighters/277330-sho-tsuda",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 9:00 Total",
+      "billing_text": "Prelim 143 3 x 3",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1182361"
+    }
+  ]
+}

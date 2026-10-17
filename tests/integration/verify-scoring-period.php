@@ -43,6 +43,8 @@ try {
     $legacy=(new RankingCalculatorService('v1.5'))->score_batch($fighters,'2026-10-14','2026-10-14 12:00:00');
     check($legacy['rows'][0]['sample_size']===3 && $legacy['rows'][0]['breakdown']['base_record_points']===-0.5,'legacy v1.5 remains reproducible with its all-recorded-bouts scope');
     foreach([$a,$b] as $public_fighter){$post=wp_insert_post(['post_title'=>$public_fighter['display_name'],'post_type'=>'mmaf_fighter','post_status'=>'publish']);(new \MMAF\DataEngine\Repositories\FighterRepository())->update($public_fighter['fighter_id'],['wp_post_id'=>$post]);}
+    Transaction::begin();
+    $fresh=$raw;$fresh['scraped_at']=gmdate('c');$fresh['period_evidence']['checked_through']=gmdate('Y-m-d');$profiles->put($fresh,'tapology_fighter_profiles_v0_1');
     $oldDraft=(new RankingCalculatorService('v1.5'))->calculate_draft(1,'2026-10-14');
     $activate=new \MMAF\DataEngine\Services\RankingActivationService();$activate->activate($oldDraft['ranking_run_id'],1);
     $newDraft=$calculator->calculate_draft(1,'2026-10-14');$activate->activate($newDraft['ranking_run_id'],1);
@@ -58,6 +60,7 @@ try {
     check($public->movers()['status']==='unchanged','two comparable v1.6 activations restore ordinary movers comparison');
     $activate->activate($oldDraft['ranking_run_id'],1);
     check($public->rankings()['formula_version']==='v1.5' && $public->rankings()['scoring_scope']===null,'legacy snapshot can be reactivated without a schema downgrade or false period label');
+    Transaction::rollback();
     $stale=$assessment->evaluate($a['fighter_id'],$known,$career,'2026-10-18','2026-10-18 12:00:00');
     check($stale['status']==='provisional' && in_array('period_verification_stale',$stale['reasons'],true),'source verification older than seven days prevents a main position');
     $failed=$raw;$failed['status']='blocked';$failed['scraped_at']='2026-10-14T10:00:00Z';$profiles->put($failed,'tapology_fighter_profiles_v0_1');

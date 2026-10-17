@@ -25,6 +25,7 @@ final class ScraperJsonValidator {
 		'source_event_numeric_id',
 		'event_url',
 		'event_name',
+		'event_coverage',
 		'promotion_name',
 		'promotion_url',
 		'source_promotion_id',

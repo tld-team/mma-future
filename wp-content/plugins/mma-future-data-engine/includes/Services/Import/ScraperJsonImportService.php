@@ -404,56 +404,10 @@ final class ScraperJsonImportService {
 	}
 
 	private function create_provisional_fighter( array $ref, int $user_id ): int {
-		global $wpdb;
-
-		$name = sanitize_text_field( (string) $ref['name'] );
-		$row  = array(
-			'wp_post_id'          => null,
-			'display_name'        => $name,
-			'nickname'            => null,
-			'normalized_name'     => Sanitizer::normalize_name( $name ),
-			'gender'              => null,
-			'date_of_birth'       => null,
-			'birth_year'          => null,
-			'nationality'         => null,
-			'weight_class'        => 'unknown',
-			'status'              => 'provisional',
-			'rankability_status'  => 'pending_review',
-			'is_public'           => 0,
-			'is_rankable'         => 0,
-			'in_ufc'              => 0,
-			'deleted_soft'        => 0,
-		);
-
-		\MMAF\DataEngine\Services\RegularImport\Transaction::begin();
-
-		try {
-			$fighter_id = $this->fighters->insert( $row );
-			$fighter    = $this->fighters->find( $fighter_id );
-			if ( ! $fighter ) {
-				throw new \RuntimeException( 'Could not reload provisional fighter.' );
-			}
-
-			$post_id = $this->post_sync->sync( $fighter_id, $fighter );
-			$this->insert_fighter_source( $fighter_id, $ref );
-
-			foreach ( array( 'display_name', 'weight_class', 'status', 'rankability_status', 'is_public', 'is_rankable', 'in_ufc' ) as $field ) {
-				$this->provenance->upsert_source( 'fighter', $fighter_id, $field, $row[ $field ] ?? null, self::SOURCE, (string) ( $ref['source_fighter_id'] ?? '' ), $user_id );
-				$this->summary['provenance_rows_written']++;
-			}
-
-			$after = $this->fighters->find( $fighter_id );
-			$this->audit_log->write( 'fighter_created_from_scraper', 'fighter', $fighter_id, null, $after, 'Tapology scraper JSON import created a provisional fighter.', $user_id );
-			$this->summary['audit_rows_written']++;
-
-			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
-
-			return $fighter_id;
-		} catch ( \Throwable $error ) {
-			\MMAF\DataEngine\Services\RegularImport\Transaction::rollback();
-			throw $error;
-		}
-	}
+        $result=(new ProvisionalFighterFactory())->create($ref,$user_id);
+        if($result['created']){$this->summary['provenance_rows_written']+=7;$this->summary['audit_rows_written']++;}
+        return $result['id'];
+    }
 
 	private function create_event( array $event, int $run_id, int $user_id ): int {
 		global $wpdb;
