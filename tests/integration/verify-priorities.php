@@ -11,6 +11,10 @@ set_exception_handler(static function($e){fwrite(STDERR,$e->getMessage().' at '.
 MigrationRunner::run();wp_set_current_user(1);$t=Schema::table_names();$dir=null;
 $before=DatabaseState::integrity();WriteGuard::$worker=true;Transaction::begin();
 try{
+    set_error_handler(static function($severity,$message,$file,$line){throw new ErrorException($message,0,$severity,$file,$line);});
+    ob_start();
+    try{\MMAF\DataEngine\Admin\PrioritiesPage::render();$empty=ob_get_contents();}finally{ob_end_clean();restore_error_handler();}
+    check(str_contains($empty,'Registered targets · 0'),'empty priority registry renders without PHP warnings or deprecations');
     $csv="Ime,Pobede,Godine\nSame Name,8,2000\nSame Name,12,1996\nNew Candidate,10,2001\n";
     $parsed=Registry::parseCsv($csv);check(count($parsed)===3 && $parsed[0]['entry_key']!==$parsed[1]['entry_key'],'namesakes with different original hints remain separate targets');
     $same=Registry::parseCsv("Ime,Pobede\nSame Name,8\nSame Name,8\n");check($same[0]['entry_key']!==$same[1]['entry_key'],'identical rows within a file retain separate unresolved persons and stable occurrence identities');
@@ -67,6 +71,8 @@ try{
     $proof=['source_event_id'=>'tapology_event_1','event_url'=>'https://www.tapology.com/fightcenter/events/1-test','parser_version'=>'tapology_event_card_v2','observed_at'=>gmdate('c'),'source_mma_bouts_total'=>1,'unique_bouts'=>1,'status'=>'complete','reasons'=>[],'counts'=>['accepted'=>1],'bouts'=>[['source_bout_id'=>'tapology_bout_1','sport'=>'mma','division'=>'pro','decision'=>'accepted','reason'=>null]]];
     $path=$dir.'/coverage-test.json';Storage::write($path,['schema_version'=>'mmaf_event_coverage_v1','run_id'=>'fixture','events'=>[$proof]]);$index=EventCoverage::read($path);
     $event=['source_event_id'=>'tapology_event_1','event_url'=>$proof['event_url'],'event_coverage'=>$proof,'bouts'=>[['source_bout_id'=>'tapology_bout_1']]];EventCoverage::checkEvent($event,$index['by_id']);
+    $junior=$proof;$junior['source_mma_bouts_total']=2;$junior['unique_bouts']=2;$junior['counts']['excluded']=1;$junior['bouts'][]=['source_bout_id'=>'tapology_bout_2','sport'=>'mma','division'=>'junior','decision'=>'excluded','reason'=>'junior'];
+    Storage::write($path,['schema_version'=>'mmaf_event_coverage_v1','events'=>[$junior]]);check(EventCoverage::read($path)['complete'],'explicit junior exclusion preserves the source MMA control count');
     $event['bouts']=[];rejects(fn()=>EventCoverage::checkEvent($event,$index['by_id']),'coverage cannot confirm a source bout omitted from the results');
     $proof['status']='complete';$proof['bouts'][0]['decision']='unresolved';Storage::write($path,['schema_version'=>'mmaf_event_coverage_v1','events'=>[$proof]]);rejects(fn()=>EventCoverage::read($path),'unresolved or inconsistent coverage cannot claim completion');
     rejects(fn()=>EventCoverage::read($dir.'/missing.json'),'missing v2 event evidence is rejected');

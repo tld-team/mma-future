@@ -20,7 +20,7 @@ final class EventCoverage {
                 if($decision==='accepted'){
                     if(($bout['division']??'')!=='pro'||$sport!=='mma'){throw new ImportException('Accepted coverage lacks professional MMA classification.','coverage');}
                     $accepted[]=$key;
-                }elseif($decision==='excluded' && !in_array($bout['reason']??'',['amateur','non_mma','cancelled'],true)){throw new ImportException('Excluded bout needs an explicit reason.','coverage');}
+                }elseif($decision==='excluded' && !in_array($bout['reason']??'',['amateur','junior','non_mma','cancelled'],true)){throw new ImportException('Excluded bout needs an explicit reason.','coverage');}
             }
             if(!$legacy){
                 $actual=[];foreach($bouts as $bout){$d=$bout['decision'];$actual[$d]=($actual[$d]??0)+1;}

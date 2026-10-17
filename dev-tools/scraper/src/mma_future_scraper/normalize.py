@@ -268,6 +268,7 @@ def is_explicit_non_mma_bout(raw_text: str | None) -> bool:
         r"\bkick\s*boxing\b",
         r"\bkickboxing\b",
         r"\bmuay\s+thai\b",
+        r"\bsanda\b",
         r"\bgrappl(?:e|ing)\b",
         r"\bsubmission\s+grappling\b",
         r"\bjiu[-\s]?jitsu\b",

@@ -1,0 +1,808 @@
+{
+  "url": "https://www.tapology.com/fightcenter/events/148440-krossxover-37-krossxover-cage-10",
+  "title": "Kross×Over 37 & Kross×Over Cage 10",
+  "source_mma_bouts_total": 6,
+  "observed_at": "2026-10-17T20:11:02.410Z",
+  "rows": [
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183395-krossxover-37-krossxover-cage-10-yoshiki-takeuchi-vs-rentaro-nogami",
+      "raw_text": "KO Vacant Featherweight Championship\nYoshiki Takeuchi\n4-0\n#\n128\nFeatherW (Japan)\nMMA\nMAIN EVENT\n145\n3 x 5  |  Pro\nadd_circle\nRentaro Nogami\n2-0\n#\n203\nFeatherW (Japan)\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Yoshiki Takeuchi",
+          "href": "/fightcenter/fighters/512203-yoshiki-takeuchi",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Rentaro Nogami",
+          "href": "/fightcenter/fighters/500421-rentaro-nogami",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": "KO Vacant Featherweight Championship",
+      "result_clock": "",
+      "billing_text": "Main Event 145 3 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183395"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183398-krossxover-37-krossxover-cage-10-ko-imamura-vs-kota-sugimura",
+      "raw_text": "Ko Imamura\n3-9\n#\n375\nFeatherW (Japan)\nMMA\nCO-MAIN\n155\n2 x 5  |  Pro\nadd_circle\nKota Sugimura\n1-0\n#\n157\nLightW (Japan)\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Ko Imamura",
+          "href": "/fightcenter/fighters/330664-ko-imamura",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Kota Sugimura",
+          "href": "/fightcenter/fighters/463424-kota-sugimura",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Co-Main 155 2 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183398"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183422-krossxover-37-krossxover-cage-10-shota-toyama-vs-shohei-ono",
+      "raw_text": "KO Vacant 53 kg Championship\nShota Toyama\nKICKBOXING\nMAIN CARD\n117\n3 x 3  |  Pro\nadd_circle\nShohei Ono\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Shota Toyama",
+          "href": "/fightcenter/fighters/215291-shota-toyama",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Shohei Ono",
+          "href": "/fightcenter/fighters/345963-shohei-ono",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": "KO Vacant 53 kg Championship",
+      "result_clock": "",
+      "billing_text": "Main Card 117 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183422"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183424-krossxover-37-krossxover-cage-10-nanaka-honda-vs-akane-shibuya",
+      "raw_text": "KO Vacant 55 kg Championship\nNanaka Honda\nKICKBOXING\nMAIN CARD\n121\n3 x 2  |  Pro\nadd_circle\nAkane Shibuya\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Nanaka Honda",
+          "href": "/fightcenter/fighters/398441-nanaka-honda",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Akane Shibuya",
+          "href": "/fightcenter/fighters/541262-akane-shibuya",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": "KO Vacant 55 kg Championship",
+      "result_clock": "",
+      "billing_text": "Main Card 121 3 x 2 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183424"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183400-krossxover-37-krossxover-cage-10-junichiro-hori-vs-kaisei-konuma",
+      "raw_text": "Junichiro Hori\n2-1\n#\n139\nLightW (Japan)\nMMA\nMAIN CARD\n155\n2 x 5  |  Pro\nadd_circle\nKaisei Konuma\n3-2\n#\n119\nLightW (Japan)\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Junichiro Hori",
+          "href": "/fightcenter/fighters/501134-junichiro-hori",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Kaisei Konuma",
+          "href": "/fightcenter/fighters/436602-kaisei-konuma",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 155 2 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183400"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183403-krossxover-37-krossxover-cage-10-ken-nakano-vs-soo-hyuk-seo",
+      "raw_text": "Ken Nakano\n1-6-1\n#\n489\nBantamW (Japan)\nMMA\nMAIN CARD\n135\n2 x 5  |  Pro\nadd_circle\nSoo Hyuk Seo\n1-0\n#\n339\nBantamW (Japan)\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Ken Nakano",
+          "href": "/fightcenter/fighters/105422-ken-nakano",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Soo Hyuk Seo",
+          "href": "/fightcenter/fighters/566091-soo-hyuk-seo",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 135 2 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183403"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183406-krossxover-37-krossxover-cage-10-yuto-watanabe-vs-seiji-takagi",
+      "raw_text": "Yuto Watanabe\n1-2\n#\n346\nFeatherW (Japan)\nMMA\nMAIN CARD\n135\n2 x 5  |  Pro\nadd_circle\nSeiji Takagi\n0-0\nUnranked\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Yuto Watanabe",
+          "href": "/fightcenter/fighters/534404-yuto-watanabe",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Seiji Takagi",
+          "href": "/fightcenter/fighters/501165-seiji-takagi",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 135 2 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183406"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183407-krossxover-37-krossxover-cage-10-jin-omori-vs-itsuki-komazawa",
+      "raw_text": "Jin Omori\n2-1\n#\n794\nP4P (Japan)\nMMA\nMAIN CARD\n115\n2 x 5  |  Pro\nadd_circle\nItsuki Komazawa\n2-1\n#\n792\nP4P (Japan)\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Jin Omori",
+          "href": "/fightcenter/fighters/494224-jin-omori",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Itsuki Komazawa",
+          "href": "/fightcenter/fighters/528178-itsuki-komazawa",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 115 2 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183407"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183409-krossxover-37-krossxover-cage-10-kenshin-yamamoto-vs-asuma-yamashita",
+      "raw_text": "Kenshin Yamamoto\nKICKBOXING\nMAIN CARD\n127\n3 x 3  |  Pro\nadd_circle\nAsuma Yamashita\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kenshin Yamamoto",
+          "href": "/fightcenter/fighters/237284-kenshin-yamamoto",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Asuma Yamashita",
+          "href": "/fightcenter/fighters/435900-asuma-yamashita",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 127 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183409"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183411-krossxover-37-krossxover-cage-10-kai-ishida-vs-kenshin-inamura",
+      "raw_text": "Kai Ishida\nKICKBOXING\nMAIN CARD\n121\n3 x 3  |  Pro\nadd_circle\nKenshin Inamura\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kai Ishida",
+          "href": "/fightcenter/fighters/585775-kai-ishida",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Kenshin Inamura",
+          "href": "/fightcenter/fighters/574694-kenshin-inamura",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 121 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183411"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183414-krossxover-37-krossxover-cage-10-yuta-jinbo-vs-takaya-yamaguchi",
+      "raw_text": "Yuta Jinbo\nKICKBOXING\nMAIN CARD\n115\n3 x 3  |  Pro\nadd_circle\nTakaya Yamaguchi\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Yuta Jinbo",
+          "href": "/fightcenter/fighters/397996-yuta-jinbo",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Takaya Yamaguchi",
+          "href": "/fightcenter/fighters/162471-yuto",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 115 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183414"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183415-krossxover-37-krossxover-cage-10-kosei-kuramoto-vs-kuroto-seya",
+      "raw_text": "Kosei Kuramoto\nKICKBOXING\nMAIN CARD\n132\n3 x 3  |  Pro\nadd_circle\nKuroto Seya\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kosei Kuramoto",
+          "href": "/fightcenter/fighters/507004-kosei-kuramoto",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Kuroto Seya",
+          "href": "/fightcenter/fighters/557086-kuroto-seya",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 132 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183415"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183417-krossxover-37-krossxover-cage-10-yusuke-nagafuchi-vs-sho",
+      "raw_text": "Yusuke Nagafuchi\nKICKBOXING\nMAIN CARD\n117\n3 x 3  |  Pro\nadd_circle\nSho\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Yusuke Nagafuchi",
+          "href": "/fightcenter/fighters/473680-hiromasa-nagafuchi",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Sho",
+          "href": "/fightcenter/fighters/534413-sho",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 117 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183417"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183426-krossxover-37-krossxover-cage-10-andrew-vs-seiya-fish-shiratani",
+      "raw_text": "Andrew\nKICKBOXING\nMAIN CARD\n132\n3 x 2  |  Pro\nadd_circle\nSeiya Shiratani\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Andrew",
+          "href": "/fightcenter/fighters/534406-andrew",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Seiya Shiratani",
+          "href": "/fightcenter/fighters/402920-seiya-shiratani-fish",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 132 3 x 2 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183426"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183427-krossxover-37-krossxover-cage-10-midoru-onikubo-vs-masaki-senba",
+      "raw_text": "Midoru Onikubo\nKICKBOXING\nMAIN CARD\n117\n3 x 3  |  Pro\nadd_circle\nMasaki Senba\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Midoru Onikubo",
+          "href": "/fightcenter/fighters/475188-midoru-onikubo",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Masaki Senba",
+          "href": "/fightcenter/fighters/481292-masaki-senba",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 117 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183427"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183430-krossxover-37-krossxover-cage-10-shotaro-ishikawa-vs-anshi",
+      "raw_text": "Shotaro Ishikawa\nKICKBOXING\nMAIN CARD\n142\n3 x 3  |  Pro\nadd_circle\nAnshi\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Shotaro Ishikawa",
+          "href": "/fightcenter/fighters/365630-shotaro-ishikawa",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Anshi",
+          "href": "/fightcenter/fighters/568924-anshi",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 142 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183430"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183432-krossxover-37-krossxover-cage-10-kazuya-shimizu-vs-hiroyuki-namioka",
+      "raw_text": "Kazuya Shimizu\nKICKBOXING\nMAIN CARD\n141\n3 x 3  |  Pro\nadd_circle\nHiroyuki Namioka\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kazuya Shimizu",
+          "href": "/fightcenter/fighters/397633-kazuya-shimizu",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Hiroyuki Namioka",
+          "href": "/fightcenter/fighters/332011-hiroyuki-namioka",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 141 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183432"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183434-krossxover-37-krossxover-cage-10-toshitaka-shimizu-vs-petserithai-looklongtan",
+      "raw_text": "Toshitaka Shimizu\nKICKBOXING\nMAIN CARD\n121\n3 x 3  |  Pro\nadd_circle\nP. Looklongtan\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Toshitaka Shimizu",
+          "href": "/fightcenter/fighters/318169-toshiki-shimizu",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "P. Looklongtan",
+          "href": "/fightcenter/fighters/532067-petserithai-looklongtan",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 121 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183434"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183435-krossxover-37-krossxover-cage-10-hyo-vs-ritsuki-ogawa",
+      "raw_text": "Hyo\nKICKBOXING\nMAIN CARD\n114\n3 x 3  |  Pro\nadd_circle\nRitsuki Ogawa\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Hyo",
+          "href": "/fightcenter/fighters/435894-hyo",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Ritsuki Ogawa",
+          "href": "/fightcenter/fighters/521379-ritsuki-ogawa",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 114 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183435"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183437-krossxover-37-krossxover-cage-10-shuta-tanaka-vs-toru-kugo",
+      "raw_text": "Shuta Tanaka\nKICKBOXING\nMAIN CARD\n132\n3 x 3  |  Pro\nadd_circle\nToru Kugo\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Shuta Tanaka",
+          "href": "/fightcenter/fighters/225632-shuta-tanaka",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Toru Kugo",
+          "href": "/fightcenter/fighters/552978-toru-kugo",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 132 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183437"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183438-krossxover-37-krossxover-cage-10-fujitora-vs-hideki-kubo",
+      "raw_text": "Fujitora\nKICKBOXING\nMAIN CARD\n161\n3 x 3  |  Pro\nadd_circle\nHideki Kubo\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Fujitora",
+          "href": "/fightcenter/fighters/568915-fujitora",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Hideki Kubo",
+          "href": "/fightcenter/fighters/405398-hideki-kubo",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 161 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183438"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183440-krossxover-37-krossxover-cage-10-kenta-vs-hiroki-kokatsu",
+      "raw_text": "Kenta\nKICKBOXING\nMAIN CARD\n168\n3 x 3  |  Pro\nadd_circle\nHiroki Kokatsu\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kenta",
+          "href": "/fightcenter/fighters/534407-kenta",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Hiroki Kokatsu",
+          "href": "/fightcenter/fighters/552266-hiroki-kokatsu",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 168 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183440"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183442-krossxover-37-krossxover-cage-10-hiroki-sato-vs-taro",
+      "raw_text": "Hiroki Sato\nKICKBOXING\nMAIN CARD\n143\n3 x 3  |  Pro\nadd_circle\nTaro\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Hiroki Sato",
+          "href": "/fightcenter/fighters/461161-hiroki-sato",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Taro",
+          "href": "/fightcenter/fighters/523242-taro",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 143 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183442"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183444-krossxover-37-krossxover-cage-10-chan-vs-mahoro",
+      "raw_text": "Chan\nKICKBOXING\nMAIN CARD\nHW\n3 x 3  |  Pro\nadd_circle\nMahoro\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Chan",
+          "href": "/fightcenter/fighters/237292-chan",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Mahoro",
+          "href": "/fightcenter/fighters/501142-mahoro",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card HW 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183444"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1183446-krossxover-37-krossxover-cage-10-yuta-take-vs-osuke-nishimoto",
+      "raw_text": "Yuta Take\nKICKBOXING\nMAIN CARD\n143\n3 x 3  |  Pro\nadd_circle\nOsuke Nishimoto\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Yuta Take",
+          "href": "/fightcenter/fighters/308803-yuta-take",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Osuke Nishimoto",
+          "href": "/fightcenter/fighters/585791-osuke-nishimoto",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        null,
+        null
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 143 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1183446"
+    }
+  ]
+}

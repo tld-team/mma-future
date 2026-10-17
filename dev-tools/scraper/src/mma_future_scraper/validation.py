@@ -17,7 +17,7 @@ BANNED_KEYS = {
 ALLOWED_OUTPUT_HASH_KEYS = {"identity_hash", "content_hash"}
 METHOD_CATEGORIES = {"ko_tko", "submission", "decision", "dq", "no_contest", "draw", "unknown"}
 EVENT_STATUSES = {"completed", "in_progress", "upcoming", "cancelled", "unknown"}
-SKIPPED_BOUT_REASONS = {"no_result", "amateur", "cancelled", "overturned", "non_mma", "missing_required_data", "unknown"}
+SKIPPED_BOUT_REASONS = {"no_result", "amateur", "junior", "cancelled", "overturned", "non_mma", "missing_required_data", "unknown"}
 REQUIRED_EVENT_KEYS = (
     "source_event_status",
     "bouts_included",

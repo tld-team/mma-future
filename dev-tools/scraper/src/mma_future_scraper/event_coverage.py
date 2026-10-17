@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from .utils import utc_now
 
-PARSER_VERSION = 'tapology_event_card_v2'
+PARSER_VERSION = 'tapology_event_card_v3'
 ROWS_JS = Path(__file__).with_name('event_card.js').read_text(encoding='utf-8')
 SCHEMA = 'mmaf_event_coverage_v1'
 
@@ -15,8 +15,18 @@ def classification(row):
     from .normalize import professional_status, is_explicit_non_mma_bout
     text = row.get('classification_text') or row.get('raw_text') or ''
     division = professional_status(text)
+    if re.search(r'\bjuniors?\b', row.get('classification_text') or '', re.I): division = 'junior'
     sport = 'mma' if re.search(r'\bmma\b|mixed martial arts', text, re.I) else ('non_mma' if is_explicit_non_mma_bout(text) else 'unknown')
+    if re.search(r'\bbare[\s-]*knuckle\b', row.get('classification_text') or '', re.I): sport = 'non_mma'
     return division, sport
+
+def completed_result(row):
+    if row.get('source_row_version'):
+        # Structured cards provide independent outcome badges. A fighter called
+        # Ko or a "KO Vacant ... Championship" belt is not result evidence.
+        return row.get('result_badges') in [['W','L'],['L','W'],['D','D'],['N','N'],['NC','NC']]
+    from .normalize import has_completed_result
+    return has_completed_result(row.get('raw_text'))
 
 def assess(event, rows, decisions, observed_at=None):
     expected = event.get('source_mma_bouts_total')
@@ -62,7 +72,7 @@ def validate(document, events):
             decision=b.get('decision');sport=b.get('sport');actual[decision]+=1
             if decision not in {'accepted','excluded','unresolved'} or sport not in {'mma','non_mma','unknown'}: raise ValueError('Invalid covered bout decision or sport')
             if decision=='accepted' and (b.get('division')!='pro' or sport!='mma'): raise ValueError('Accepted coverage lacks professional MMA classification')
-            if decision=='excluded' and b.get('reason') not in {'amateur','non_mma','cancelled'}: raise ValueError('Excluded bout needs explicit reason')
+            if decision=='excluded' and b.get('reason') not in {'amateur','junior','non_mma','cancelled'}: raise ValueError('Excluded bout needs explicit reason')
         if e.get('unique_bouts')!=len(bouts) or dict(actual)!=e.get('counts'): raise ValueError('Coverage counters disagree with bout decisions')
         if e['status'] in {'complete','excluded'}:
             scope_exclusion=e['status']=='excluded' and not bouts and e.get('event_exclusion') in {'excluded_promotion_ufc','non_mma_metadata'} and bool(e.get('exclusion_evidence'))

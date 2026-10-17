@@ -1,0 +1,264 @@
+{
+  "url": "https://www.tapology.com/fightcenter/events/149316-ethio-fight-night",
+  "title": "Ethio Fight Night",
+  "source_mma_bouts_total": 3,
+  "observed_at": "2026-10-17T20:09:20.527Z",
+  "rows": [
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1191650-ethio-fight-night-joao-mimotauro-mimoso-vs-jose-agus-jimenez",
+      "raw_text": "KO/TKO, GROUND AND POUND\n1:37 Round 1 of 3\nW\nJoão Mimoso\nUp to\n \n4-6\nMAIN EVENT\n265\n3 x 5  |  Pro\n#\n8\nadd_circle\nL\nJosé Jimenez\nDown to\n \n9-17",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "João Mimoso",
+          "href": "/fightcenter/fighters/75028-joao-mimoso",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "José Jimenez",
+          "href": "/fightcenter/fighters/115565-jose-agustin",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Ground and Pound",
+      "result_clock": "1:37 Round 1 of 3",
+      "billing_text": "Main Event 265 3 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1191650"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1191651-ethio-fight-night-garcia-anaconda-kinkela-vs-jeferson-super-shock-costa",
+      "raw_text": "KO/TKO, RETIREMENT\n5:00 Round 2 of 3, 10:00 Total\nW\nGarcia Kinkela\nUp to\n \n2-0\nCO-MAIN\n185\n3 x 5  |  Pro\n#\n7\nadd_circle\nL\nJeferson Costa\nDown to\n \n5-3",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Garcia Kinkela",
+          "href": "/fightcenter/fighters/253948-garcia-kinkela",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Jeferson Costa",
+          "href": "/fightcenter/fighters/200183-jeferson-costa",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Retirement",
+      "result_clock": "5:00 Round 2 of 3, 10:00 Total",
+      "billing_text": "Co-Main 185 3 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1191651"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1191652-ethio-fight-night-biniyam-shibre-babycool-vs-hagereselam-arba",
+      "raw_text": "SUBMISSION, REAR NAKED CHOKE\n3:43 Round 1 of 3\nW\nBiniyam Shibre\nUp to\n \n1-0\nMAIN CARD\n185\n3 x 5  |  Pro\n#\n6\nadd_circle\nL\nHagereselam Arba\nDown to\n \n0-1",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Biniyam Shibre",
+          "href": "/fightcenter/fighters/175184-biniyam-shibre",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Hagereselam Arba",
+          "href": "/fightcenter/fighters/589723-hagereselam-arba",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Submission, Rear Naked Choke",
+      "result_clock": "3:43 Round 1 of 3",
+      "billing_text": "Main Card 185 3 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1191652"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1191654-ethio-fight-night-kebrom-neguse-vs-samuel-tibebe",
+      "raw_text": "KO/TKO\n0:53 Round 2 of 3, 3:53 Total\nW\nKebrom Neguse\nKICKBOXING\nMAIN CARD\n3 x 3  |  Pro\n#\n5\nadd_circle\nL\nSamuel Tibebe\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kebrom Neguse",
+          "href": "/fightcenter/fighters/238462-kebrome-neguse",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Samuel Tibebe",
+          "href": "/fightcenter/fighters/589726-samuel-tibebe",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO",
+      "result_clock": "0:53 Round 2 of 3, 3:53 Total",
+      "billing_text": "Main Card 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1191654"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1191656-ethio-fight-night-addisu-desalegn-vs-kemil-siraj",
+      "raw_text": "KO/TKO\nRound 1 of 3\nW\nAddisu Desalegn\nKICKBOXING\nMAIN CARD\nHW\n3 x 3  |  Pro\n#\n4\nadd_circle\nL\nKemil Siraj\nKICKBOXING",
+      "classification_text": "Professional Kickboxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Addisu Desalegn",
+          "href": "/fightcenter/fighters/589729-addisu-desalegn",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Kemil Siraj",
+          "href": "/fightcenter/fighters/589730-kemil-siraj",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO",
+      "result_clock": "Round 1 of 3",
+      "billing_text": "Main Card HW 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1191656"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1191673-ethio-fight-night-haymanot-mekbib-vs-tsion-aydefer",
+      "raw_text": "DECISION\n3 Rounds, 9:00 Total\nW\nHaymanot Mekbib\nMUAY THAI\nMAIN CARD\n3 x 3  |  Pro\n#\n3\nadd_circle\nL\nTsion Aydefer\nMUAY THAI",
+      "classification_text": "Professional Muay Thai",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Haymanot Mekbib",
+          "href": "/fightcenter/fighters/589737-haymanot-mekbib",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Tsion Aydefer",
+          "href": "/fightcenter/fighters/589739-tsion-aydefer",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision",
+      "result_clock": "3 Rounds, 9:00 Total",
+      "billing_text": "Main Card 3 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1191673"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1191674-ethio-fight-night-serawit-tsega-hailu-vs-frew-chiro",
+      "raw_text": "DECISION\n3 Rounds, 9:00 Total\nW\nSerawit Tsega Hailu\nBOXING\nMAIN CARD\n3-3-3  |  Pro\n#\n2\nadd_circle\nL\nFrew Chiro\nBOXING",
+      "classification_text": "Professional Boxing",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Serawit Tsega Hailu",
+          "href": "/fightcenter/fighters/535762-serawit-tsega-hailu",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Frew Chiro",
+          "href": "/fightcenter/fighters/589740-frew-chiro",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision",
+      "result_clock": "3 Rounds, 9:00 Total",
+      "billing_text": "Main Card 3-3-3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1191674"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1191676-ethio-fight-night-pawlos-maleda-vs-habtamu-leta",
+      "raw_text": "DECISION\n2 Rounds, 6:00 Total\nW\nPawlos Maleda\nSANDA\nMAIN CARD\n2 x 3  |  Pro\n#\n1\nadd_circle\nL\nHabtamu Leta\nSANDA",
+      "classification_text": "Professional Sanda",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Pawlos Maleda",
+          "href": "/fightcenter/fighters/589741-pawlos-maleda",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Habtamu Leta",
+          "href": "/fightcenter/fighters/589742-habtamu-leta",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision",
+      "result_clock": "2 Rounds, 6:00 Total",
+      "billing_text": "Main Card 2 x 3 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1191676"
+    }
+  ]
+}

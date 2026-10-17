@@ -12,10 +12,12 @@ with sync_playwright() as p:
  try:
   for dom in FIXTURES.glob('*.dom.json'):
    saved=json.loads(dom.read_text());name=dom.name.removesuffix('.dom.json');expected=json.loads((FIXTURES/(name+'.json')).read_text())
-   for variant in ['all','fullsize','compact']:
+   for variant in ['all','fullsize','compact','belt-prefix']:
     page=browser.new_page();page.set_content(saved['html'])
-    if variant!='all':page.evaluate("variant=>document.querySelectorAll('[data-bout-wrapper]').forEach(e=>{if(!e.id.startsWith(variant==='fullsize'?'boutFullsize':'boutCompact'))e.remove();})",variant)
+    if variant in ['fullsize','compact']:page.evaluate("variant=>document.querySelectorAll('[data-bout-wrapper]').forEach(e=>{if(!e.id.startsWith(variant==='fullsize'?'boutFullsize':'boutCompact'))e.remove();})",variant)
+    if variant=='belt-prefix':page.evaluate("() => document.querySelectorAll('[data-bout-wrapper]').forEach(e=>{const belt=document.createElement('span');belt.textContent='KO Vacant Featherweight Championship';e.prepend(belt);})")
     rows=page.locator('#sectionFightCard').evaluate(ROWS_JS,{'bout':'a[href*="/fightcenter/bouts/"]','fighter':'a[href*="/fightcenter/fighters/"]'})
+    assert not any('Championship' in (row.get('method_raw') or '') for row in rows)
     with redirect_stdout(io.StringIO()): event=parse(expected,rows)
     assert len(event['bouts'])==10,(name,variant,len(event['bouts']))
     assert event['event_coverage']['status']=='complete',(name,variant,event['event_coverage'])
