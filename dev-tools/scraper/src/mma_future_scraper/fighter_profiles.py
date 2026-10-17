@@ -329,6 +329,7 @@ class FighterProfileEnricher:
             )
             _write_queue_run_selection_report(resolved_queue_path, selected_for_enrichment=len(profile_urls))
             queue_document=json.loads(resolved_queue_path.read_text()) if resolved_queue_path.exists() else {}
+            self._priority_targets=queue_document.get('priority_targets')
             self._fetch_scopes={canonical_url(item.get('source_url')):item.get('fetch_scope') for item in queue_document.get('items',[]) if isinstance(item,dict)}
         else:
             source_path = source_results_path or LATEST_DIR / "results.json"
@@ -511,6 +512,11 @@ class FighterProfileEnricher:
             scraped_at=finished_at,
         )
         atomic_write_json(self._store.latest_dir / "fighter_profiles.json", merged_document)
+        if getattr(self,'_priority_targets',None):
+            for target,profile_doc in [(run_dir,document),(self._store.latest_dir,merged_document)]:
+                present={p.get('source_fighter_id') for p in profile_doc['profiles']}
+                manifest={**self._priority_targets,'items':[t for t in self._priority_targets['items'] if t['source_fighter_id'] in present]}
+                atomic_write_json(target/'priority_targets.json',manifest)
 
         _, run_report_paths = write_profile_enrichment_report(document, run_dir=run_dir, latest_dir=run_dir)
         _, latest_report_paths = write_profile_enrichment_report(merged_document, run_dir=None, latest_dir=self._store.latest_dir)

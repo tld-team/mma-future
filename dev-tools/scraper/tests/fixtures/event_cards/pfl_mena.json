@@ -1,0 +1,264 @@
+{
+  "url": "https://www.tapology.com/fightcenter/events/145747-pfl-mena-11-riyadh",
+  "title": "PFL MENA 11: Riyadh | MMA Event | Tapology",
+  "observed_at": "2026-10-17T19:22:27.798Z",
+  "source_mma_bouts_total": 8,
+  "rows": [
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1180630-pfl-mena-11-mostafa-abada-rashed-neda-vs-osama-elsaidy",
+      "raw_text": "SUBMISSION, GUILLOTINE CHOKE\n2:33 Round 2 of 3, 7:33 Total\nW\nM. Rashed Neda\nUp to\n \n10-4\nMAIN EVENT\n205\n3 x 5\n#\n8\nadd_circle\nL\nOsama Elsaidy\nDown to\n \n9-4",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "M. Rashed Neda",
+          "href": "/fightcenter/fighters/77473-mostafa-rashid-neda",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Osama Elsaidy",
+          "href": "/fightcenter/fighters/71089-osama-abdelaziz",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Submission, Guillotine Choke",
+      "result_clock": "2:33 Round 2 of 3, 7:33 Total",
+      "billing_text": "Main Event 205 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1180630"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1157531-pfl-mena-11-badreddine-dreamchaser-diani-vs-hazem-kayyali",
+      "raw_text": "SUBMISSION, ARM TRIANGLE CHOKE\n3:05 Round 2 of 3, 8:05 Total\nW\nBadreddine Diani\nUp to\n \n12-4\nCO-MAIN\n170\n3 x 5\n#\n7\nadd_circle\nL\nHazem Kayyali\nDown to\n \n3-1-2",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Badreddine Diani",
+          "href": "/fightcenter/fighters/171521-badreddine-diani",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Hazem Kayyali",
+          "href": "/fightcenter/fighters/242524-hazem-kayyali",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Submission, Arm Triangle Choke",
+      "result_clock": "3:05 Round 2 of 3, 8:05 Total",
+      "billing_text": "Co-Main 170 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1157531"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1186499-pfl-mena-11-ylies-broly-djiroun-vs-assem-ghanem",
+      "raw_text": "KO/TKO, PUNCHES\n3:06 Round 1 of 3\nW\nYlies Djiroun\nUp to\n \n26-9\nMAIN CARD\n155\n3 x 5\n#\n6\nadd_circle\nL\nAssem Ghanem\nDown to\n \n5-1",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Ylies Djiroun",
+          "href": "/fightcenter/fighters/42239-ylies-djiroun",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Assem Ghanem",
+          "href": "/fightcenter/fighters/348808-assem-ghanem",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Punches",
+      "result_clock": "3:06 Round 1 of 3",
+      "billing_text": "Main Card 155 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1186499"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1157533-pfl-mena-11-shadi-kabbani-vs-mehdi-saadi",
+      "raw_text": "DECISION, SPLIT\n3 Rounds, 15:00 Total\nW\nMehdi Saadi\nUp to\n \n8-2\nMAIN CARD\n145\n3 x 5\n#\n5\nadd_circle\nL\nShadi Kabbani\nDown to\n \n4-1",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Mehdi Saadi",
+          "href": "/fightcenter/fighters/158535-mehdi-saadi",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Shadi Kabbani",
+          "href": "/fightcenter/fighters/399305-shadi-kabbani",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Split",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 145 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1157533"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1157530-pfl-mena-11-omar-187-hussein-vs-abdelkrim-zouad",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 15:00 Total\nW\nAbdelkrim Zouad\nUp to\n \n9-2\nMAIN CARD\n170\n3 x 5\n#\n4\nadd_circle\nL\nOmar Hussein\nDown to\n \n12-8",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Abdelkrim Zouad",
+          "href": "/fightcenter/fighters/292256-abdelkrim-zouad",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Omar Hussein",
+          "href": "/fightcenter/fighters/82291-omar-hussein-fantastic",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 170 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1157530"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1157529-pfl-mena-11-mohammad-soulkeeper-fahmi-vs-ahmed-el-sisy",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 15:00 Total\nW\nMohammad Fahmi\nUp to\n \n5-1\nMAIN CARD\n155\n3 x 5\n#\n3\nadd_circle\nL\nAhmed El Sisy\nDown to\n \n8-3",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Mohammad Fahmi",
+          "href": "/fightcenter/fighters/343641-mohammad-fahmi-soulkeeper",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Ahmed El Sisy",
+          "href": "/fightcenter/fighters/154220-ahmed-elsisi",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 155 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1157529"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1180635-pfl-mena-11-fatima-al-ammari-vs-aya-lounes",
+      "raw_text": "KO/TKO, PUNCHES\n1:05 Round 2 of 3, 4:05 Total\nW\nFatima Al Ammari\nUp to\n \n1-0\nMAIN CARD\n145\n3 x 3  |  Amateur\n#\n2\nadd_circle\nL\nAya Lounes\nDown to\n \n0-1",
+      "classification_text": "Amateur MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Fatima Al Ammari",
+          "href": "/fightcenter/fighters/584600-fatima-al-ammari",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Aya Lounes",
+          "href": "/fightcenter/fighters/584601-aya-lounes",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Punches",
+      "result_clock": "1:05 Round 2 of 3, 4:05 Total",
+      "billing_text": "Main Card 145 3 x 3 | Amateur",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1180635"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1186394-pfl-mena-11-ali-alshowakh-vs-alridah-alnemar",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 9:00 Total\nW\nAlridah Alnemar\nUp to\n \n1-1\nMAIN CARD\n135\n3 x 3  |  Amateur\n#\n1\nadd_circle\nL\nAli Alshowakh\nDown to\n \n0-1",
+      "classification_text": "Amateur MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Alridah Alnemar",
+          "href": "/fightcenter/fighters/524655-alridah-alnemar",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Ali Alshowakh",
+          "href": "/fightcenter/fighters/584597-ali-alshowakh",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 9:00 Total",
+      "billing_text": "Main Card 135 3 x 3 | Amateur",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1186394"
+    }
+  ]
+}

@@ -96,6 +96,7 @@ final class Engine {
             }else{$this->repo->update($id,['phase'=>$next,'status'=>'queued']);}return;
         }
         if($phase==='preflight'){
+            if(isset($meta['package']['priority_targets'])){\MMAF\DataEngine\Services\Priorities\Registry::validateManifest($meta['package']['priority_targets']);}
             if(!empty($meta['package']['delta_base'])){Receipt::validate($meta['package']['delta_base']);}
             $revision=DatabaseState::revision();
             if(!hash_equals((string)$job['data_revision'],$revision)){$this->restartCheck($job,$revision);return;}
@@ -147,11 +148,12 @@ final class Engine {
             $meta['integrity']=$after;$meta['completed_at']=gmdate('c');$meta['actual']=$this->actualCounts($id);
             $review=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND category='review' AND kind LIKE 'actual_%%'",$id));
             $review+=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND kind='review'",$id));
-            $status=$review?'completed_with_review':'completed';
+            $unverified=!isset($meta['package']['event_coverage']) || !$meta['package']['event_coverage']['complete'];
+            $status=$review||$unverified?'completed_with_review':'completed';
             $this->repo->update($id,['meta'=>$meta,'status'=>$status,'phase'=>'done','finished_at'=>gmdate('Y-m-d H:i:s')]);
             $changed=0;foreach($counts as $count){$changed+=(int)($count['created']??0)+(int)($count['updated']??0);}
             if(!empty($meta['calculation_needed']) || (!isset($meta['calculation_needed']) && $changed)){\MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh((int)$job['approved_by'],false);}
-            Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'profile_changes'=>$this->profileChanges($id),'readiness'=>$meta['package']['readiness']??null,'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit'],'receipt'=>$receipt]);return;
+            Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'profile_changes'=>$this->profileChanges($id),'readiness'=>$meta['package']['readiness']??null,'event_coverage'=>$meta['package']['event_coverage']??['complete'=>false,'legacy'=>true],'priority_targets'=>$meta['package']['priority_targets']??null,'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit'],'receipt'=>$receipt]);return;
         }
         throw new ImportException('Unknown import phase: '.$phase,'state');
     }
@@ -175,6 +177,15 @@ final class Engine {
             $items=[];
             if($keys){$items=$wpdb->get_results($wpdb->prepare("SELECT payload_json FROM {$this->repo->tables['items']} WHERE job_id=%d AND kind='fighter' AND source_id IN (".implode(',',array_fill(0,count($keys),'%s')).")",$id,...$keys),ARRAY_A);}
             $fighters=array_map(static fn($r)=>json_decode($r['payload_json'],true),$items);
+            $bindings=isset($job['meta']['package']['priority_targets'])?\MMAF\DataEngine\Services\Priorities\Registry::validateManifest($job['meta']['package']['priority_targets']):[];
+            $planned=array_fill_keys(array_column($fighters,'source_fighter_id'),true);
+            foreach($data['profiles'] as $profile){
+                $plan=\MMAF\DataEngine\Services\Priorities\Profiles::plan($profile,$bindings);
+                if($plan && !isset($planned[$plan['source_fighter_id']]) && !(new \MMAF\DataEngine\Repositories\FighterSourceRepository())->find_by_source('tapology',$plan['source_fighter_id'])){
+                    $fighters[]=$plan;$planned[$plan['source_fighter_id']]=true;
+                    $this->repo->putItem($id,'fighter',$plan['ref_key'],$plan['source_fighter_id'],'created',$plan);
+                }
+            }
             $preview=(new FighterProfileEnrichmentPreviewService())->create_row_iterator($json,'Import package',['fighters'=>$fighters]);
             foreach($preview['iterator'] as $row){
                 $match=$row['match_type']??'';$matched=in_array($match,['exact_source_match','source_url_match','matched_planned_import'],true);
@@ -213,7 +224,10 @@ final class Engine {
             }
         }elseif($kind==='profiles'){
             $store=new \MMAF\DataEngine\Services\DataPipeline\ProfileStore();$summary=['stored'=>0,'review'=>0,'profile_changes'=>[]];
+            $bindings=isset($job['meta']['package']['priority_targets'])?\MMAF\DataEngine\Services\Priorities\Registry::validateManifest($job['meta']['package']['priority_targets']):[];
             foreach($data['profiles'] as $profile){
+                $created=\MMAF\DataEngine\Services\Priorities\Profiles::apply($profile,$bindings,$actor,$id);
+                if($created && $created['created']){$this->applied($id,'fighter',$profile['source_fighter_id'],'created',['canonical_id'=>$created['id'],'reason'=>'verified_priority_profile']);}
                 $key=(string)(($profile['source_fighter_id']??'')?:($profile['source_url']??''));$saved=$store->put($profile,$data['schema_version'],$id);
                 $changeKey=['created'=>'snapshot_new','updated'=>'snapshot_changed','review'=>'snapshot_review'][$saved['status']]??'snapshots_retained';
                 $summary['profile_changes'][$changeKey]=($summary['profile_changes'][$changeKey]??0)+1;

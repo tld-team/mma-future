@@ -1,0 +1,264 @@
+{
+  "url": "https://www.tapology.com/fightcenter/events/144292-ksw-121",
+  "title": "KSW 121: Vojčák vs Wójcik | MMA Event | Tapology",
+  "observed_at": "2026-10-17T19:22:58.472Z",
+  "source_mma_bouts_total": 8,
+  "rows": [
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1174235-ksw-121-stefan-mutant-vojcak-vs-marcin-the-giant-wojcik",
+      "raw_text": "KSW Interim Heavyweight Championship\nKO/TKO, HEAD KICK AND PUNCHES\n2:36 Round 4 of 5, 17:36 Total\nW\nŠtefan Vojčák\nUp to\n \n11-2\nMAIN EVENT\n265\n5 x 5\n#\n8\nadd_circle\nL\nMarcin Wójcik\nDown to\n \n22-12",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Štefan Vojčák",
+          "href": "/fightcenter/fighters/295683-stefan-vojcak",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Marcin Wójcik",
+          "href": "/fightcenter/fighters/56416-marcin-wojcik",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Head Kick and Punches",
+      "result_clock": "2:36 Round 4 of 5, 17:36 Total",
+      "billing_text": "Main Event 265 5 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1174235"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1158883-ksw-121-cukier-michal-michalski-vs-radoslaw-radek-paczuski",
+      "raw_text": "SUBMISSION, REAR NAKED CHOKE\n4:15 Round 1 of 3\nW\nMichał Michalski\nUp to\n \n15-6\nCO-MAIN\n185\n3 x 5\n#\n7\nadd_circle\nL\nRadosław Paczuski\nDown to\n \n8-4",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Michał Michalski",
+          "href": "/fightcenter/fighters/50974-michal-michalski",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Radosław Paczuski",
+          "href": "/fightcenter/fighters/152358-radosaw-paczulski",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Submission, Rear Naked Choke",
+      "result_clock": "4:15 Round 1 of 3",
+      "billing_text": "Co-Main 185 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1158883"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1157329-ksw-121-leo-brichta-vs-kacper-polish-machida-formela",
+      "raw_text": "DECISION, MAJORITY\n3 Rounds, 15:00 Total\nW\nKacper Formela\nUp to\n \n21-6\nMAIN CARD\n155\n3 x 5\n#\n6\nadd_circle\nL\nLeo Brichta\nDown to\n \n14-8",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Kacper Formela",
+          "href": "/fightcenter/fighters/71486-kacper-formela",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Leo Brichta",
+          "href": "/fightcenter/fighters/119916-leo-brichta",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Majority",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 155 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1157329"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1165707-ksw-121-muslim-urus-tulshaev-vs-kacper-wior-koziorzebski",
+      "raw_text": "ENDS IN A NO CONTEST, ACCIDENTAL GROIN KICK\n3 Rounds, 14:54 Total\nN\nMuslim Tulshaev\nStayed\n \n14-4-0\nMAIN CARD\n170\n3 x 5\n#\n5\nadd_circle\nN\nKacper Koziorzębski\nStayed\n \n13-6-0",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Muslim Tulshaev",
+          "href": "/fightcenter/fighters/56446-muslim-tulshaev",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Kacper Koziorzębski",
+          "href": "/fightcenter/fighters/113789-kacper-koziorzbski",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "N",
+        "N"
+      ],
+      "method_raw": null,
+      "result_clock": null,
+      "billing_text": "Main Card 170 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1165707"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1156129-ksw-121-lukasz-harry-charzewski-vs-josef-air-stummer",
+      "raw_text": "DECISION, SPLIT\n3 Rounds, 15:00 Total\nW\nJosef Štummer\nUp to\n \n8-2\nMAIN CARD\n145\n3 x 5\n#\n4\nadd_circle\nL\nŁukasz Charzewski\nDown to\n \n15-4",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Josef Štummer",
+          "href": "/fightcenter/fighters/270603-josef-stummer",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Łukasz Charzewski",
+          "href": "/fightcenter/fighters/154669-ukasz-charzewski",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Split",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Main Card 145 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1156129"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1174233-ksw-121-hanka-gelnarova-vs-malgorzata-popowicz",
+      "raw_text": "SUBMISSION, ARMBAR\n1:50 Round 3 of 3, 11:50 Total\nW\nMałgorzata Popowicz\nUp to\n \n1-0\nMAIN CARD\n135\n3 x 5\n#\n3\nadd_circle\nL\nHanka Gelnarová\nDown to\n \n1-1",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Małgorzata Popowicz",
+          "href": "/fightcenter/fighters/295390-malgorzata-popowicz",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Hanka Gelnarová",
+          "href": "/fightcenter/fighters/462177-hanka-gelnarova",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Submission, Armbar",
+      "result_clock": "1:50 Round 3 of 3, 11:50 Total",
+      "billing_text": "Main Card 135 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1174233"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1159151-ksw-121-adrian-banan-dudek-vs-borys-dzikowski",
+      "raw_text": "KO/TKO, DOCTOR STOPPAGE\n5:00 Round 2 of 3, 10:00 Total\nW\nBorys Dzikowski\nUp to\n \n5-4\nPRELIM\n185\n3 x 5\n#\n2\nadd_circle\nL\nAdrian Dudek\nDown to\n \n8-6",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Borys Dzikowski",
+          "href": "/fightcenter/fighters/172373-borys-dzikowski",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Adrian Dudek",
+          "href": "/fightcenter/fighters/167741-adrian-dudek",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Doctor Stoppage",
+      "result_clock": "5:00 Round 2 of 3, 10:00 Total",
+      "billing_text": "Prelim 185 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1159151"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1157330-ksw-121-samuel-bily-vs-dominik-japonski-drwal-zadora",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 15:00 Total\nW\nDominik Zadora\nUp to\n \n1-1\nPRELIM\n170\n3 x 5\n#\n1\nadd_circle\nL\nSamuel Bily\nDown to\n \n0-2",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Dominik Zadora",
+          "href": "/fightcenter/fighters/109198-dominik-zadora",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Samuel Bily",
+          "href": "/fightcenter/fighters/432871-samuel-bily",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 15:00 Total",
+      "billing_text": "Prelim 170 3 x 5",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1157330"
+    }
+  ]
+}

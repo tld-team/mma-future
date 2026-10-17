@@ -61,7 +61,7 @@ def test_finalization_publishes_once_and_binds_reports_to_current_input(tmp_path
     assert c.finalize(out)==result
     with zipfile.ZipFile(result['output']) as z:
         manifest=json.loads(z.read('latest/package_manifest.json'))
-        assert manifest['contract_version']==1
+        assert manifest['contract_version']==2
         assert json.loads(z.read('latest/readiness_report.json'))['profiles']['career_ready_candidates']==2
         for name,item in manifest['files'].items():assert hashlib.sha256(z.read('latest/'+name)).hexdigest()==item['sha256']
     marker=json.loads((out/'fixture/cycle-manifest.json').read_text())
@@ -127,7 +127,11 @@ def test_cli_complete_cycle_publishes_and_reuses_one_package(tmp_path,capsys):
     assert main(['finalize-import',*common,'--output-dir',str(tmp_path/'ready')])==0
     assert hashlib.sha256((tmp_path/'ready/operator/package.zip').read_bytes()).hexdigest()==checksum
 
-def test_offline_recovery_preserves_observation_and_reduces_evidence_queue(tmp_path):
+def test_offline_recovery_preserves_observation_and_reduces_evidence_queue(tmp_path,monkeypatch):
+    from datetime import datetime,timezone
+    import mma_future_scraper.import_recovery as recovery
+    original=recovery.build_readiness
+    monkeypatch.setattr(recovery,"build_readiness",lambda doc:original(doc,verification_now=datetime(2026,10,14,tzinfo=timezone.utc)))
     from mma_future_scraper.import_recovery import prepare_recovery
     d=document()
     for p in d['profiles']:

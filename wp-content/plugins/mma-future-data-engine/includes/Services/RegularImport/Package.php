@@ -4,7 +4,7 @@ use MMAFVendor\JsonMachine\RecursiveItems;
 
 final class Package {
     public const REQUIRED = ['results.json','daily_summary.json','manual_review.json','run_manifest.json','changes.json','fighter_profiles.json','fighter_profiles_report.json'];
-    public const OPTIONAL = ['state_report.json','package_manifest.json','career_history.json','readiness_report.json','source_enrichment_queue.json'];
+    public const OPTIONAL = ['state_report.json','package_manifest.json','career_history.json','readiness_report.json','source_enrichment_queue.json','event_coverage.json','priority_targets.json'];
     public function prepare(array $job, Repository $repo, callable $heartbeat): array {
         $id=(int)$job['id']; $dir=Storage::job($id); $source=$dir.'/source';
         if (is_dir($source)) { Storage::removeTree($source); }
@@ -39,8 +39,10 @@ final class Package {
         if (isset($seen['package_manifest.json'])) {
             $transport=Storage::read($source.'/package_manifest.json');
             if (($transport['format']??'')!=='mmaf-import-bundle' || ($transport['format_version']??0)!==1) { throw new ImportException('Unsupported import package version.'); }
-            if(isset($transport['contract_version']) && $transport['contract_version']!==1){throw new ImportException('Unsupported import evidence contract.','contract');}
+            if(isset($transport['contract_version']) && !in_array($transport['contract_version'],[1,2],true)){throw new ImportException('Unsupported import evidence contract.','contract');}
             if(!in_array($transport['mode']??'full',['full','delta','career_history'],true)){throw new ImportException('Unsupported import package mode.','contract');}
+            $listed=array_keys($transport['files']??[]);$actual=array_values(array_diff(array_keys($seen),['package_manifest.json']));sort($listed);sort($actual);
+            if($listed!==$actual){throw new ImportException('Package file list disagrees with its manifest.','checksum');}
             foreach ($seen as $file=>$info) {
                 if ($file==='package_manifest.json') { continue; }
                 $expected=$transport['files'][$file]??[];
@@ -49,6 +51,11 @@ final class Package {
         }
         $hashes=$seen; unset($hashes['package_manifest.json']); ksort($hashes);
         $meta=['files'=>$seen,'bundle_hash'=>hash('sha256',wp_json_encode($hashes)),'expanded_bytes'=>$total,'headers'=>[],'counts'=>[]];
+        $coverage=null;
+        if(($transport['contract_version']??1)===2 && !isset($seen['career_history.json'])){
+            $coverage=EventCoverage::read($source.'/event_coverage.json');
+            $meta['event_coverage']=array_intersect_key($coverage,array_flip(['counts','complete']));
+        }elseif(isset($seen['event_coverage.json'])){throw new ImportException('Event evidence requires contract v2.','contract');}
         if(($transport['mode']??'')==='delta'){
             $meta['mode']='delta';$meta['delta_base']=Receipt::pointer(Receipt::validate((array)($transport['delta_base']??[])));
         }
@@ -71,6 +78,11 @@ final class Package {
             $meta['mode']='career_history';$meta['headers']['career']=$header;$meta['counts']['career']=$count;$meta['date_from']=null;$meta['date_to']=null;
             return $meta;
         }
+        if(isset($seen['priority_targets.json'])){
+            if(($transport['contract_version']??1)!==2 || $seen['priority_targets.json']['bytes']>2097152){throw new ImportException('Priority evidence requires contract v2 and a bounded manifest.','priority');}
+            $meta['priority_targets']=Storage::read($source.'/priority_targets.json');
+            \MMAF\DataEngine\Services\Priorities\Registry::validateManifest($meta['priority_targets']);
+        }
         $seenEvents=[]; $seenEventIdentities=[]; $seenBouts=[]; $seenBoutIdentities=[]; $seenProfiles=[]; $dates=[];
         foreach (['results'=>['events',20],'fighter_profiles'=>['profiles',100],'manual_review'=>['items',100]] as $file=>$setting) {
             [$field,$limit]=$setting; $kind=['results'=>'results','fighter_profiles'=>'profiles','manual_review'=>'review'][$file];
@@ -82,8 +94,9 @@ final class Package {
                 $repo->addBatch($id,$kind,$index,hash_file('sha256',$path),count($rows));
                 $index++;$rows=[];$bytes=0;
             };
-            $header=$this->scan($source.'/'.$file.'.json',$field,function(array $row) use (&$rows,&$bytes,&$count,$flush,$limit,$kind,&$seenEvents,&$seenEventIdentities,&$seenBouts,&$seenBoutIdentities,&$seenProfiles,&$dates,$heartbeat): void {
+            $header=$this->scan($source.'/'.$file.'.json',$field,function(array $row) use (&$rows,&$bytes,&$count,$flush,$limit,$kind,&$seenEvents,&$seenEventIdentities,&$seenBouts,&$seenBoutIdentities,&$seenProfiles,&$dates,$heartbeat,$coverage): void {
                 if ($kind==='results') {
+                    if($coverage){EventCoverage::checkEvent($row,$coverage['by_id']);}
                     $key=(string)($row['source_event_id']??'');
                     if ($key==='' || isset($seenEvents[$key])) { throw new ImportException('Missing or duplicate event source identity.'); }
                     $seenEvents[$key]=true; if (!empty($row['event_date'])) { $dates[]=$row['event_date']; }
@@ -113,7 +126,9 @@ final class Package {
         foreach (['daily_summary','run_manifest','changes','fighter_profiles_report','state_report'] as $file) {
             if (isset($seen[$file.'.json'])) { $meta['headers'][$file]=$this->scan($source.'/'.$file.'.json',null,null); $heartbeat(); }
         }
+        if($coverage){foreach($coverage['by_id'] as $sid=>$proof){if($proof['accepted'] && !isset($seenEvents[$sid])){throw new ImportException('Accepted coverage has no source results.','coverage');}}}
         $daily=$meta['headers']['daily_summary'];
+        if($coverage && $coverage['run_id']!==($meta['headers']['run_manifest']['run_id']??'')){throw new ImportException('Coverage and results refer to different runs.','coverage');}
         if (empty($daily['ready_for_import']) || !empty($daily['blocking_issues'])) { throw new ImportException('Scraper health check is not ready: '.implode('; ',(array)($daily['blocking_issues']??[])),'health_gate'); }
         $meta['counts']['bouts']=count($seenBouts);
         if ((int)($daily['events_total']??-1)!==$meta['counts']['results'] || (int)($daily['bouts_total']??-1)!==$meta['counts']['bouts']) { throw new ImportException('Summary counts do not match the package contents.'); }
@@ -127,6 +142,10 @@ final class Package {
             if(($readiness['schema_version']??'')!=='mmaf_import_readiness_v1' || ($readiness['contract_version']??0)!==1 || ($readiness['profiles_total']??-1)!==$meta['counts']['profiles']){throw new ImportException('Readiness report does not match this package.','contract');}
             $meta['readiness']=$readiness;
         }
+        if(isset($meta['priority_targets'])){
+            foreach($meta['priority_targets']['items'] as $target){if(!isset($seenProfiles[$target['source_fighter_id']])){throw new ImportException('A declared priority target has no packaged profile outcome.','priority');}}
+        }
+        if(!$coverage){$meta['event_coverage']=['complete'=>false,'legacy'=>true,'counts'=>['legacy'=>$meta['counts']['results']]];}
         sort($dates);$meta['date_from']=$dates[0]??null;$meta['date_to']=$dates ? end($dates):null;
         return $meta;
     }

@@ -58,6 +58,8 @@ final class FightersPage {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'mma-future-data-engine' ) );
 		}
 
+		if (($_GET['action']??'')==='priorities') { PrioritiesPage::render(); return; }
+
 		$notice = null;
 		$form_input = null;
 		$form_preflight = array();
@@ -91,6 +93,7 @@ final class FightersPage {
 		echo '<div class="wrap mmaf-fighters-admin">';
 		echo '<h1 class="wp-heading-inline">' . esc_html__( 'Canonical Fighters', 'mma-future-data-engine' ) . '</h1> ';
 		echo '<a class="page-title-action" href="' . esc_url( self::page_url( array( 'action' => 'new' ) ) ) . '">' . esc_html__( 'Add New Fighter', 'mma-future-data-engine' ) . '</a>';
+		echo '<a class="page-title-action" href="' . esc_url(self::page_url(['action'=>'priorities'])) . '">Priorities</a>';
 		echo '<hr class="wp-header-end">';
 
 		if ( $notice ) {
