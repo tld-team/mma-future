@@ -43,9 +43,9 @@ impact_check(OpponentImpact::from_breakdown($summary_only)['known_record_bouts']
 impact_check(OpponentImpact::from_breakdown($summary_only, ['prefight_records_missing_count' => 1])['known_record_bouts'] === 3, 'frozen source summary supplies coverage when per-fight rows are absent');
 impact_check(OpponentImpact::from_breakdown($summary_only, ['prefight_records_missing_count' => 5])['known_record_bouts'] === null, 'inconsistent coverage counts are not displayed');
 $negative = OpponentImpact::from_breakdown(['opponent_differential_points' => -2, 'loss_quality_penalty_points' => 0]);
-impact_check($negative['total_points'] === -2.0 && str_contains(impact_html($negative), 'Wins <strong>−2</strong>'), 'penalties for weak-opponent wins retain their negative sign');
-impact_check(str_contains(impact_html($impact), '3/4 records known') && str_contains(impact_html($unknown), '0/2 records known'), 'partial data remains visible beside the point contributions');
-impact_check(str_contains(impact_html(null), 'Not available for this score') && !str_contains(impact_html(null), 'Wins <strong>0'), 'unavailable scores show an explanation rather than invented contributions');
+impact_check($negative['total_points'] === -2.0 && str_contains(impact_html($negative), 'Win adjustment <strong>−2</strong>'), 'penalties for weak-opponent wins retain their negative sign');
+impact_check(str_contains(impact_html($impact), '3/4 opponent records known') && str_contains(impact_html($unknown), '0/2 opponent records known'), 'partial data remains visible beside the point contributions');
+impact_check(str_contains(impact_html(null), 'Not available for this score') && !str_contains(impact_html(null), 'Win adjustment <strong>0'), 'unavailable scores show an explanation rather than invented contributions');
 impact_check(mmaf_display_signed_points(4) === '+4' && mmaf_display_signed_points(-2) === '−2' && mmaf_display_signed_points(0) === '0', 'positive, negative and zero point labels are unambiguous');
 
 $service = new PublicReadService();
