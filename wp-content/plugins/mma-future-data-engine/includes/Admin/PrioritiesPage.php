@@ -68,6 +68,6 @@ final class PrioritiesPage {
             echo '</td><td>Identity: '.esc_html($row['identity_status']).'<br>Last success: '.esc_html($row['source_fetched_at']?:'never').'<br>Last attempt: '.esc_html(($row['last_attempt_at']??'').' '.($row['last_attempt_status']??'not fetched')).'<br>Period: '.esc_html($row['period_status']).'<br>Draft #'.(int)$row['ranking_run_id'].': '.esc_html($row['ranking_status']).'<br>'.esc_html(implode('; ',$row['reasons'])).'<br><strong>Next: '.esc_html($row['next_action']).'</strong></td><td>';
             self::form('toggle');echo '<input type="hidden" name="target_id" value="'.(int)$row['id'].'"><input type="hidden" name="active" value="'.($row['is_active']?'0':'1').'">';submit_button($row['is_active']?'Disable priority':'Enable priority','secondary small');echo '</form></td></tr>';
         }
-        echo '</tbody></table><p>'.wp_kses_post(paginate_links(['base'=>add_query_arg('paged','%#%',self::url()),'format'=>'','current'=>$page,'total'=>max(1,(int)ceil($total/$limit))])).'</p></div>';
+        echo '</tbody></table><p>'.wp_kses_post((string)paginate_links(['base'=>add_query_arg('paged','%#%',self::url()),'format'=>'','current'=>$page,'total'=>max(1,(int)ceil($total/$limit))])).'</p></div>';
     }
 }

@@ -1,0 +1,328 @@
+{
+  "url": "https://www.tapology.com/fightcenter/events/148346-fusion-fight-league",
+  "title": "Fusion Fight League",
+  "source_mma_bouts_total": 3,
+  "observed_at": "2026-10-17T20:11:21.743Z",
+  "rows": [
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1185080-fusion-fight-league-billy-wagner-vs-tommy-strydom",
+      "raw_text": "DECISION\n5 Rounds, 10:00 Total\nW\nBilly Wagner\nBARE KNUCK MMA\nMAIN EVENT\n155\n5 x 2  |  Pro\n#\n10\nadd_circle\nL\nTommy Strydom\nBARE KNUCK MMA",
+      "classification_text": "Professional MMA (Bare Knuckle)",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Billy Wagner",
+          "href": "/fightcenter/fighters/222488-billy-wagner",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Tommy Strydom",
+          "href": "/fightcenter/fighters/137256-tommy-strydom",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision",
+      "result_clock": "5 Rounds, 10:00 Total",
+      "billing_text": "Main Event 155 5 x 2 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1185080"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1182708-fusion-fight-league-traevon-kid-cobra-kroger-vs-timmy-mason",
+      "raw_text": "KO/TKO\nRound 2 of 5\nW\nTraevon Kroger\nBARE KNUCK BOX\nCO-MAIN\n145\n5 x 2  |  Pro\n#\n9\nadd_circle\nL\nTimmy Mason\nBARE KNUCK BOX",
+      "classification_text": "Professional Boxing (Bare Knuckle)",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Traevon Kroger",
+          "href": "/fightcenter/fighters/170104-traevon-kroger",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Timmy Mason",
+          "href": "/fightcenter/fighters/295126-timmy-mason",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO",
+      "result_clock": "Round 2 of 5",
+      "billing_text": "Co-Main 145 5 x 2 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1182708"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1189080-fusion-fight-league-gage-morsette-vs-brandon-sly",
+      "raw_text": "KO/TKO, ELBOWS FROM TOP POSITION\n1:30 Round 1 of 3\nW\nGage Morsette\nUp to\n \n4-1\nMMA\nMAIN CARD\n155\n3 x 5  |  Pro\n#\n8\nadd_circle\nL\nBrandon Sly\nDown to\n \n6-14\nMMA",
+      "classification_text": "Professional MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Gage Morsette",
+          "href": "/fightcenter/fighters/168242-gage-morsette",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Brandon Sly",
+          "href": "/fightcenter/fighters/49927-brandon-sly",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Elbows From Top Position",
+      "result_clock": "1:30 Round 1 of 3",
+      "billing_text": "Main Card 155 3 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1189080"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1185081-fusion-fight-league-ryan-skinny-ibsen-vs-braeden-bad-intentions-tovey",
+      "raw_text": "KO/TKO, UPPERCUT\n1:19 Round 4 of 5, 7:19 Total\nW\nRyan Ibsen\nBARE KNUCK BOX\nMAIN CARD\n165\n5 x 2  |  Pro\n#\n7\nadd_circle\nL\nBraeden Tovey\nBARE KNUCK BOX",
+      "classification_text": "Professional Boxing (Bare Knuckle)",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Ryan Ibsen",
+          "href": "/fightcenter/fighters/68187-ryan-isben",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Braeden Tovey",
+          "href": "/fightcenter/fighters/191125-braeden-tovey-bad-intentions",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Uppercut",
+      "result_clock": "1:19 Round 4 of 5, 7:19 Total",
+      "billing_text": "Main Card 165 5 x 2 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1185081"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1189082-fusion-fight-league-sam-atkins-vs-erik-lopez",
+      "raw_text": "KO/TKO, UPPERCUT\n1:25 Round 2 of 5, 3:25 Total\nW\nSam Atkins\nBARE KNUCK BOX\nMAIN CARD\n175\n5 x 2  |  Pro\n#\n6\nadd_circle\nL\nErik Lopez\nBARE KNUCK BOX",
+      "classification_text": "Professional Boxing (Bare Knuckle)",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Sam Atkins",
+          "href": "/fightcenter/fighters/63473-sam-atkins",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Erik Lopez",
+          "href": "/fightcenter/fighters/306847-erik-lopez",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Uppercut",
+      "result_clock": "1:25 Round 2 of 5, 3:25 Total",
+      "billing_text": "Main Card 175 5 x 2 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1189082"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1185083-fusion-fight-league-dakota-highpine-vs-brandon-downswarrior-honsvick",
+      "raw_text": "KO/TKO, DOCTOR STOPPAGE\n2:00 Round 2 of 5, 4:00 Total\nW\nDakota Highpine\nBARE KNUCK BOX\nMAIN CARD\n145\n5 x 2  |  Pro\n#\n5\nadd_circle\nL\nBrandon Honsvick\nBARE KNUCK BOX",
+      "classification_text": "Professional Boxing (Bare Knuckle)",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Dakota Highpine",
+          "href": "/fightcenter/fighters/350396-dakota-highpine",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Brandon Honsvick",
+          "href": "/fightcenter/fighters/204690-brandon-honsvick",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Doctor Stoppage",
+      "result_clock": "2:00 Round 2 of 5, 4:00 Total",
+      "billing_text": "Main Card 145 5 x 2 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1185083"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1190641-fusion-fight-league-sean-ibsen-vs-rayne-the-guy-on-the-couch-wells",
+      "raw_text": "KO/TKO, PUNCHES\n0:12 Round 1 of 3\nW\nSean Ibsen\nBARE KNUCK MMA\nMAIN CARD\n185\n3 x 5  |  Pro\n#\n4\nadd_circle\nL\nRayne Wells\nBARE KNUCK MMA",
+      "classification_text": "Professional MMA (Bare Knuckle)",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Sean Ibsen",
+          "href": "/fightcenter/fighters/254327-sean-ibsen",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Rayne Wells",
+          "href": "/fightcenter/fighters/163033-rayne-wells",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Punches",
+      "result_clock": "0:12 Round 1 of 3",
+      "billing_text": "Main Card 185 3 x 5 | Pro",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1190641"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1185086-fusion-fight-league-gavin-young-vs-joe-redfoot-serna",
+      "raw_text": "FFL Light Heavyweight Championship\nSUBMISSION, REAR NAKED CHOKE\n1:46 Round 1 of 5\nW\nJoe Serna\nUp to\n \n5-2\nMMA\nMAIN CARD\n205\n5 x 3  |  Amateur\n#\n3\nadd_circle\nL\nGavin Young\nDown to\n \n2-2\nMMA",
+      "classification_text": "Amateur MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Joe Serna",
+          "href": "/fightcenter/fighters/432782-joe-serna",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Gavin Young",
+          "href": "/fightcenter/fighters/511589-gavin-young",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Submission, Rear Naked Choke",
+      "result_clock": "1:46 Round 1 of 5",
+      "billing_text": "Main Card 205 5 x 3 | Amateur",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1185086"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1185085-fusion-fight-league-sda-shawn-abeyta-vs-trent-edwards",
+      "raw_text": "DECISION, UNANIMOUS\n3 Rounds, 9:00 Total\nW\nShawn Abeyta\nBARE KNUCK MMA\nPRELIM\n170\n3 x 3  |  Amateur\n#\n2\nadd_circle\nL\nTrent Edwards\nBARE KNUCK MMA",
+      "classification_text": "Amateur MMA (Bare Knuckle)",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Shawn Abeyta",
+          "href": "/fightcenter/fighters/292210-shawn-abeyta",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "Trent Edwards",
+          "href": "/fightcenter/fighters/417809-trent-edwards",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "Decision, Unanimous",
+      "result_clock": "3 Rounds, 9:00 Total",
+      "billing_text": "Prelim 170 3 x 3 | Amateur",
+      "prefight_records": {},
+      "records_are_postfight": false,
+      "details_verified": true,
+      "row_identity": "1185085"
+    },
+    {
+      "source_row_version": "tapology_event_card_v2",
+      "bout_href": "/fightcenter/bouts/1189084-fusion-fight-league-keegan-martell-vs-john-hader",
+      "raw_text": "KO/TKO, PUNCHES\n0:14 Round 1 of 3\nW\nKeegan Martell\nUp to\n \n1-0\nMMA\nPRELIM\n150\n3 x 3  |  Amateur\n#\n1\nadd_circle\nL\nJohn Hader\nDown to\n \n0-1\nMMA",
+      "classification_text": "Amateur MMA",
+      "classification_evidence": "event_detail_label",
+      "fighter_links": [
+        {
+          "name": "Keegan Martell",
+          "href": "/fightcenter/fighters/588494-keegan-martell",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-1 text-sm text-tap_3"
+        },
+        {
+          "name": "John Hader",
+          "href": "/fightcenter/fighters/588495-john-hader",
+          "class_name": "link-primary-red",
+          "parent_class_name": "div hidden md:flex order-2 text-sm text-tap_3"
+        }
+      ],
+      "result_badges": [
+        "W",
+        "L"
+      ],
+      "method_raw": "KO/TKO, Punches",
+      "result_clock": "0:14 Round 1 of 3",
+      "billing_text": "Prelim 150 3 x 3 | Amateur",
+      "prefight_records": {},
+      "records_are_postfight": true,
+      "details_verified": true,
+      "row_identity": "1189084"
+    }
+  ]
+}

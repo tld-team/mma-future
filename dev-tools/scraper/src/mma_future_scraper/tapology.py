@@ -22,7 +22,7 @@ from .browser import (
 from .config import FIGHTCENTER_URL, ScraperConfig
 from .contract import populate_bout_contract_fields, populate_event_contract_fields, source_bout_numeric_id, source_fighter_numeric_id
 from .dedupe import dedupe_events
-from .event_coverage import ROWS_JS, PARSER_VERSION, assess as assess_event, classification as row_classification, document as coverage_document
+from .event_coverage import ROWS_JS, PARSER_VERSION, assess as assess_event, classification as row_classification, completed_result as row_completed_result, document as coverage_document
 from .fighter_profiles import (
     build_event_profile_enrichment_summary,
     event_profile_summary,
@@ -174,7 +174,9 @@ def skipped_results_event_category(event: dict[str, Any]) -> str | None:
     skipped_reasons = [str(item.get("reason")) for item in skipped_bouts if isinstance(item, dict)]
     if any(reason in {'unknown','missing_required_data','no_result'} for reason in skipped_reasons) or any(w.startswith(('bouts_skipped_unknown_professional_status:','fight_card_missing')) for w in warnings):
         return 'no_usable_pro_mma_bouts' if 'no_result' not in skipped_reasons else 'no_results'
-    if skipped_reasons and set(skipped_reasons)=={'amateur','non_mma'}:
+    if skipped_reasons and set(skipped_reasons).issubset({'amateur','junior','non_mma','cancelled'}):
+        if set(skipped_reasons)=={'amateur'}:return 'all_amateur'
+        if set(skipped_reasons)=={'non_mma'}:return 'non_mma'
         return 'excluded_mixed_card'
     if any(warning.startswith(("event_skipped_non_mma:", "bouts_skipped_non_mma:")) for warning in warnings) or (
         skipped_reasons and all(reason == "non_mma" for reason in skipped_reasons)
@@ -3913,6 +3915,9 @@ class TapologyScraper:
                         raw_text=normalize_space(row.get("raw_text"))[:160],
                     )
                     continue
+                if pro_status == 'junior':
+                    event.setdefault('skipped_bouts', []).append(self._skipped_bout_record(row, page.url, 'junior'))
+                    continue
                 if pro_status != "pro" or (row.get('source_row_version') and sport!='mma'):
                     skipped_unknown_pro_status += 1
                     event.setdefault("skipped_bouts", []).append(self._skipped_bout_record(row, page.url, "unknown"))
@@ -3923,8 +3928,7 @@ class TapologyScraper:
                         raw_text=normalize_space(row.get("raw_text"))[:160],
                     )
                     continue
-                final_badges=row.get('result_badges') or []
-                if kind == "results" and not (has_completed_result(row.get("raw_text")) or final_badges in [['W','L'],['L','W'],['D','D'],['N','N'],['NC','NC']]):
+                if kind == "results" and not row_completed_result(row):
                     if row_key:
                         seen_row_keys.add(row_key)
                     skipped_no_result += 1
@@ -3988,13 +3992,13 @@ class TapologyScraper:
             key=sid or url_hash(str(row))
             if key in seen:continue
             seen.add(key);division,sport=row_classification(row);reason=(skipped.get(url) or {}).get('reason')
-            decision='accepted' if url in accepted else ('excluded' if reason in {'amateur','non_mma','cancelled'} else 'unresolved')
+            decision='accepted' if url in accepted else ('excluded' if reason in {'amateur','junior','non_mma','cancelled'} else 'unresolved')
             decisions.append({'source_bout_id':(accepted.get(url) or {}).get('source_bout_id') or sid or 'unresolved_'+key,'sport':sport,'division':division,'decision':decision,'reason':reason if decision!='accepted' else None,'classification_evidence':row.get('classification_evidence') or 'legacy_row_label'})
         coverage=assess_event(event,rows,decisions)
         event['event_coverage']=coverage
         sid=event.get('source_event_id') or source_event_id_from_url(event.get('event_url'))
         if sid:self._coverage_entries[sid]=coverage
-        confirmed=sum(row_classification(r)==('pro','mma') and (has_completed_result(r.get('raw_text')) or any(r.get('result_badges') or [])) for r in rows)
+        confirmed=sum(row_classification(r)==('pro','mma') and row_completed_result(r) for r in rows)
         if kind=='results' and confirmed and not bouts:
             raise FatalScrapeError('event_parser_zero_professional_results:'+str(sid))
         return bouts
@@ -4011,7 +4015,7 @@ class TapologyScraper:
         fighter_a_source_id = source_fighter_id_from_url(fighter_a_url)
         fighter_b_source_id = source_fighter_id_from_url(fighter_b_url)
         return {
-            "reason": reason if reason in {"no_result", "amateur", "cancelled", "overturned", "non_mma", "missing_required_data", "unknown"} else "unknown",
+            "reason": reason if reason in {"no_result", "amateur", "junior", "cancelled", "overturned", "non_mma", "missing_required_data", "unknown"} else "unknown",
             "source_bout_id": source_bout_id,
             "source_bout_numeric_id": source_bout_numeric_id(bout_url, source_bout_id),
             "bout_url": bout_url,

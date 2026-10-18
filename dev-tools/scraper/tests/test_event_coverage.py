@@ -136,3 +136,16 @@ def test_failed_offline_snapshot_retains_named_unavailable_event():
     from mma_future_scraper.event_recovery import reparse_event_snapshot
     event,proof=reparse_event_snapshot({'source_url':'https://www.tapology.com/fightcenter/events/1-test','observed_at':'2026-10-10T10:00:00Z','status':'blocked','http_status':429})
     assert event is None and proof['status']=='unavailable' and proof['reasons']==['source_http_429']
+
+@pytest.mark.parametrize('name,total,excluded',[('nec_juniors',5,1),('ethio_sanda',3,5),('fusion_bare_knuckle',1,9)])
+def test_explicit_other_divisions_and_sports_are_explained(name,total,excluded):
+    e=parse(json.loads((FIXTURES/(name+'.json')).read_text()))
+    assert len(e['bouts'])==total and len(e['skipped_bouts'])==excluded
+    assert e['event_coverage']['status']=='complete'
+    validate(document([e]),[e])
+
+def test_belt_abbreviation_and_fighter_name_are_not_result_evidence():
+    e=parse(json.loads((FIXTURES/'krossover_no_results.json').read_text()))
+    assert not e['bouts'] and e['event_coverage']['status']=='partial'
+    assert all(b['reason']=='no_result' for b in e['event_coverage']['bouts'] if b['division']=='pro' and b['sport']=='mma')
+    assert not should_skip_results_event_no_usable_bouts(e)

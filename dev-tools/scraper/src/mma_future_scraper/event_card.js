@@ -39,7 +39,7 @@
       const bio = el.querySelector('[id$="_' + side + 'Bio"]');
       return Array.from(bio?.querySelectorAll('span') || []).map(text).find(s => /^(W|L|D|N|NC)$/.test(s)) || null;
     });
-    const resultSpan = Array.from((full || el).querySelectorAll('span') || []).find(s => /^(KO\/TKO|TKO|KO|Submission|Decision|DQ|Disqualification|No Contest|Draw|Cancelled|Canceled)\b/i.test(text(s)));
+    const resultSpan = Array.from((full || el).querySelectorAll('span') || []).find(s => /^(KO\/TKO|TKO|KO|Submission|Decision|DQ|Disqualification|No Contest|Draw|Cancelled|Canceled)(?:$|\s*[,·:–-])/i.test(text(s)));
     const billing = Array.from((full || el).querySelectorAll(selectors.bout)).find(a => /^(main event|co-main(?: event)?|main card|prelim|postlim)$/i.test(text(a)))?.closest('div');
     const explicitRecords = {};
     for (const tr of details?.querySelectorAll('tr') || []) {
@@ -48,7 +48,7 @@
       if (label && cells.length >= 3) {explicitRecords.a=text(cells[0]);explicitRecords.b=text(cells[cells.length-1]);}
     }
     return {
-      source_row_version:'tapology_event_card_v2', bout_href:href,
+      source_row_version:'tapology_event_card_v3', bout_href:href,
       raw_text:visible.trim(), classification_text:classification,
       classification_evidence:explicit ? 'event_detail_label' : (classification ? 'event_row_label' : null),
       fighter_links, result_badges:badges, method_raw:resultSpan ? text(resultSpan) : null,

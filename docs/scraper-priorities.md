@@ -1,6 +1,6 @@
 # Event evidence and editorial priorities
 
-Plugin 2.8.0 / schema 1.12.0 adds private editorial targets and evidence contract v2.
+Plugin 2.8.1 / schema 1.12.0 adds private editorial targets and evidence contract v2.
 Deploy and migrate with the verified staging runner. Existing snapshots and scoring
 coefficients do not change. Activation remains an explicit ranking operation.
 
@@ -36,6 +36,12 @@ method, clock and explicit pre-fight comparison records are separate fields.
 Post-fight `Up to/Down to` values never populate pre-fight records. A mixed card is
 filtered by bout. Confirmed completed professionals yielding zero accepted results
 stop the run and retain the captured structured rows.
+
+Parser v3 also explains explicitly labelled junior, Sanda and bare-knuckle bouts.
+Only standard MMA rows contribute to the source MMA control count. On structured
+cards the independent outcome badges establish completion; a belt abbreviation or
+a fighter called Ko cannot establish a result. Cards with no published results
+remain partial, and an empty priority registry renders without PHP deprecations.
 
 Every v2 bundle includes `event_coverage.json` (`mmaf_event_coverage_v1`). Each event
 retains source URL, actual observation time, parser version, expected MMA count,
