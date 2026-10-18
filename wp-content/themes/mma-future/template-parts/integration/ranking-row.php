@@ -17,6 +17,7 @@
 </td>
 <td class="px-4 py-3 text-xs whitespace-nowrap font-medium" style="color:#94a3b8"><?php echo esc_html( ucwords( str_replace( '_', ' ', $r['weight_class'] ) ) ); ?></td>
 <td class="px-4 py-3 text-right"><span class="tabular-nums" style="font-size:1.1rem;font-weight:900;color:#0047A8"><?php echo esc_html( mmaf_display_number( $r['score'], 2 ) ); ?></span></td>
+<td class="rk-impact-cell px-4 py-3 text-right"><?php mmaf_view( 'opponent-impact', compact( 'r' ) ); ?></td>
 <td class="px-4 py-3 text-sm font-mono whitespace-nowrap tabular-nums" style="color:#475569"><?php echo esc_html( mmaf_record( mmaf_display_record($r) ) ); ?></td>
 <td class="px-4 py-3"><span class="rk-streak" data-streak="<?php echo esc_attr( substr( $r['streak'] ?? '', 0, 1 ) ); ?>"><?php echo esc_html( $r['streak'] ?: '—' ); ?></span></td>
 <td class="px-4 py-3 text-sm whitespace-nowrap"><?php echo esc_html( mmaf_display_date( $r['last_fight_date'] ) ); ?></td>
@@ -27,7 +28,7 @@
 </td>
 </tr>
 <tr class="rk-detail-row" data-rk-detail="" id="<?php echo esc_attr( $prefix . '_detail_' . $r['fighter_id'] ); ?>">
-<td colspan="8" style="padding:0;background:#f8fafc;border-bottom:1px solid rgba(226,232,240,0.7)">
+<td colspan="9" style="padding:0;background:#f8fafc;border-bottom:1px solid rgba(226,232,240,0.7)">
 <div class="flex flex-wrap items-center gap-8 px-5 py-5" style="border-top:1px solid rgba(226,232,240,0.7)"><?php mmaf_view( 'ranking-detail', compact( 'r', 'breakdown' ) ); ?></div>
 </td>
 </tr>

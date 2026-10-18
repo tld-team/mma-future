@@ -91,3 +91,18 @@ function mmaf_opponent_image( array $opponent ): void {
 function mmaf_presentation_query( array $args ): string {
 	return add_query_arg( $args, $GLOBALS['mmaf_view_url'] ?? false );
 }
+
+function mmaf_directory_search_query(): string {
+	$value = $_GET['mmaf_fighter_q'] ?? '';
+	return is_string( $value ) ? mb_substr( trim( sanitize_text_field( wp_unslash( $value ) ) ), 0, 128 ) : '';
+}
+
+/** Search all published profiles while retaining the fighter archive and its visibility rules. */
+add_action( 'pre_get_posts', static function( WP_Query $query ) {
+	if ( is_admin() || ! $query->is_main_query() || ! $query->is_post_type_archive( 'mmaf_fighter' ) ) { return; }
+	$search = mmaf_directory_search_query();
+	if ( '' !== $search ) {
+		$query->set( 's', $search );
+		$query->set( 'search_columns', array( 'post_title' ) );
+	}
+} );

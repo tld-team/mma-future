@@ -36,6 +36,7 @@ jobs:
           python3 tests/unit/import-operations.py
           python3 -m compileall -q ops
           php tests/unit/json-document.php
+          php tests/unit/opponent-impact.php
   scraper:
     runs-on: ubuntu-latest
     steps:

@@ -1330,6 +1330,26 @@
 .rk-main-row:hover { background: #f1f5f9 !important; }
 .rk-main-row:hover .rk-td-rank,
 .rk-main-row:hover .rk-td-rank-z { background: #f1f5f9 !important; }
+.rk-impact-cell, .rk-impact-heading { min-width: 12rem; }
+.rk-impact-heading-label { display: inline-flex; align-items: center; gap: .4rem; color: #475569; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+.rk-impact-heading-note { display: block; margin-top: .25rem; color: #64748b; font-size: .65rem; font-weight: 400; text-transform: none; letter-spacing: normal; }
+.rk-impact { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; font-variant-numeric: tabular-nums; }
+.rk-impact-total { color: #334155; font-size: .95rem; font-weight: 700; line-height: 1.3; }
+.rk-impact-parts { display: inline-flex; gap: .35rem; color: #64748b; font-size: .68rem; white-space: nowrap; }
+.rk-impact-parts strong { color: #475569; font-weight: 600; }
+.rk-impact-note { color: #64748b; font-size: .65rem; font-weight: 400; }
+.rk-impact-note--partial { color: #92400e; }
+.rk-impact-help { position: relative; display: inline-flex; align-items: center; vertical-align: middle; text-align: left; }
+.rk-impact-info { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; padding: 0; border: 1px solid #94a3b8; border-radius: 50%; background: transparent; color: #64748b; font-family: Georgia, serif; font-size: .8rem; font-weight: 700; font-style: italic; line-height: 1; text-transform: none; cursor: help; }
+.rk-impact-info:hover, .rk-impact-info:focus-visible { color: #0047a8; border-color: #0047a8; }
+.rk-impact-info:focus-visible { outline: 2px solid #0047a8; outline-offset: 3px; }
+.rk-impact-tooltip { position: absolute; z-index: 10; top: 100%; right: -.25rem; width: 19rem; max-width: calc(100vw - 3rem); padding: .85rem 1rem; border: 1px solid #cbd5e1; border-radius: .75rem; background: #fff; box-shadow: 0 8px 24px rgba(15,23,42,.14); color: #475569; font-family: inherit; font-size: .75rem; font-weight: 400; font-style: normal; line-height: 1.6; letter-spacing: normal; text-transform: none; white-space: normal; visibility: hidden; opacity: 0; pointer-events: none; }
+.rk-impact-tooltip strong { display: block; margin-bottom: .3rem; color: #0f172a; font-weight: 700; }
+.rk-impact-help.is-above .rk-impact-tooltip { top: auto; bottom: 100%; }
+.rk-impact-help:not(.is-dismissed):hover .rk-impact-tooltip, .rk-impact-help:not(.is-dismissed):focus-within .rk-impact-tooltip, .rk-impact-help.is-open .rk-impact-tooltip { visibility: visible; opacity: 1; pointer-events: auto; }
+.rk-impact-mobile { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .8rem; padding-top: .8rem; border-top: 1px solid #e2e8f0; }
+.rk-impact-mobile-label { color: #475569; font-size: .7rem; font-weight: 600; }
+.rk-impact-mobile .rk-impact-tooltip { right: auto; left: -7rem; }
 .mmaf-js .rk-detail-row { display: none; }
 .rk-detail-row.is-open { display: table-row; }
 .rk-expand { cursor: pointer; background: #fff; transition: background .15s, border-color .15s, color .15s; }
@@ -1443,6 +1463,14 @@ html:not(.mmaf-js) .mf-hero-bubble__more{display:block;max-height:none;opacity:1
 .mmaf-directory__intro{font-size:.95rem;line-height:1.7;max-width:560px;color:#64748b;margin:14px 0 0}
 .mmaf-directory__header .mmaf-button{flex-shrink:0;gap:10px}
 .mmaf-directory svg,.mmaf-empty-state svg{width:16px;height:16px;flex-shrink:0}
+.mmaf-directory__search{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:0 0 24px}
+.mmaf-directory__search-field{position:relative;flex:1 1 200px;max-width:360px;min-width:0}
+.mmaf-directory__search-field svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none}
+.mmaf-directory__search input{display:block;width:100%;height:40px;padding:0 14px 0 40px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;color:#334155;font-family:inherit;font-size:.875rem;line-height:1.4;box-sizing:border-box}
+.mmaf-directory__search input::placeholder{color:#94a3b8}
+.mmaf-directory__search button:focus-visible{outline:2px solid #0047a8;outline-offset:3px}
+.mmaf-directory__clear{font-size:.8rem;font-weight:600;color:#0047a8;text-decoration:none}.mmaf-directory__clear:hover{text-decoration:underline}
+@media(max-width:639px){.mmaf-directory__search-field{max-width:none;flex-basis:calc(100% - 110px)}}
 .mmaf-directory__summary{display:flex;justify-content:space-between;gap:16px;padding-bottom:16px;font-size:.8rem;color:#64748b}
 .mmaf-directory__summary>span:first-child{font-weight:600;color:#334155}
 .mmaf-directory__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
@@ -1474,13 +1502,12 @@ html:not(.mmaf-js) .mf-hero-bubble__more{display:block;max-height:none;opacity:1
 .mmaf-empty-state__links a:hover{text-decoration:underline}.mmaf-empty-state__links a:focus-visible{outline:2px solid #0047a8;outline-offset:4px}
 /* One inset chevron for native single-selects, including ranking/blog filters. */
 body select:not([multiple]):not([size]),body select[size="1"]:not([multiple]){appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%2364748b' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")!important;background-position:right 14px center!important;background-size:16px 16px!important;background-repeat:no-repeat!important;padding-right:42px!important}
-/* A quiet field boundary replaces the detached browser outline. */
-.contact-main-section :is(.contact-main-section__input,.contact-main-section__textarea):focus{outline:none!important;outline-offset:0!important;box-shadow:0 0 0 1px rgba(0,71,168,.12)!important;border-color:#7593b9!important}
-.contact-main-section :is(.contact-main-section__input,.contact-main-section__textarea):focus-visible{outline:none!important;border-color:#496e9e!important;box-shadow:0 0 0 1px #496e9e!important}
+/* Use the same quiet field boundary across search, filters and forms. */
+body :is(input:not([type="checkbox"],[type="radio"],[type="range"],[type="submit"],[type="button"],[type="reset"],[type="hidden"],[type="color"],[type="file"],[type="image"]),textarea,select):focus{outline:none!important;outline-offset:0!important;box-shadow:0 0 0 1px rgba(0,71,168,.12)!important;border-color:#94a3b8!important}
 .contact-main-section :is(.contact-main-section__input,.contact-main-section__textarea)[aria-invalid="true"]{border-color:#b91c1c!important}
 .contact-main-section :is(.contact-main-section__input,.contact-main-section__textarea)[aria-invalid="true"]:focus{box-shadow:0 0 0 1px rgba(185,28,28,.3)!important}
 .mmaf-optional{font-weight:400;color:#64748b}
 @media(max-width:1023px){.mmaf-directory__grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mmaf-directory__header{align-items:flex-start;flex-direction:column}}
 @media(max-width:639px){.mmaf-directory{padding:32px 20px 48px}.mmaf-directory__header{margin-bottom:28px;gap:20px}.mmaf-directory__grid{grid-template-columns:1fr;gap:16px}.mmaf-profile-card__link{padding:20px}.mmaf-empty-state{padding:24px;gap:16px;flex-direction:column}.mmaf-empty-state__links{gap:16px}.mmaf-history-empty{padding:32px 20px}}
 @media(prefers-reduced-motion:reduce){.mmaf-profile-card{transition:none}}
-@media(forced-colors:active){body select:not([multiple]):not([size]),body select[size="1"]:not([multiple]){appearance:auto;background-image:none!important;padding-right:12px!important}.contact-main-section :is(.contact-main-section__input,.contact-main-section__textarea):focus{outline:2px solid Highlight!important;outline-offset:2px!important}.mmaf-directory .page-numbers.current{border:2px solid Highlight}}
+@media(forced-colors:active){body select:not([multiple]):not([size]),body select[size="1"]:not([multiple]){appearance:auto;background-image:none!important;padding-right:12px!important}body :is(input:not([type="checkbox"],[type="radio"],[type="range"],[type="submit"],[type="button"],[type="reset"],[type="hidden"],[type="color"],[type="file"],[type="image"]),textarea,select):focus{outline:1px solid Highlight!important;outline-offset:0!important}.mmaf-directory .page-numbers.current{border:2px solid Highlight}}

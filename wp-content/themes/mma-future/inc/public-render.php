@@ -4,6 +4,13 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 function mmaf_display_number( $value, $decimals = 0 ) { return null === $value ? '—' : number_format_i18n( (float) $value, $decimals ); }
 function mmaf_display_date( $value ) { return $value ? wp_date( 'M j, Y', strtotime( $value ), wp_timezone() ) : '—'; }
 function mmaf_display_percent( $value ) { return null === $value ? '—' : number_format_i18n( 100 * (float) $value, 0 ) . '%'; }
+function mmaf_display_signed_points( $value ): string {
+    if ( null === $value ) { return '—'; }
+    $number = (float) $value;
+    $decimals = abs( $number - round( $number ) ) < 0.000001 ? 0 : 3;
+    $formatted = mmaf_display_number( abs( $number ), $decimals );
+    return ( $number > 0 ? '+' : ( $number < 0 ? '−' : '' ) ) . $formatted;
+}
 function mmaf_display_method( array $fight ): string {
 	$labels = array( 'ko_tko' => 'KO/TKO', 'submission' => 'Submission', 'decision' => 'Decision', 'other' => 'Other', 'unknown' => 'Unknown' );
 	$detail = trim( (string) ( $fight['method_detail'] ?? '' ) );

@@ -4,6 +4,8 @@ use MMAF\DataEngine\Services\RegularImport\WriteGuard;
 
 /** One revision and one page-cache purge per successful request/bulk operation. */
 final class PublicCacheService {
+ // Bump when the cached public response contract changes.
+ private const CONTRACT_VERSION=2;
  private static bool $pending=false;
  public static function register(): void {
   add_action('mmaf_public_data_changed',array(self::class,'changed'));
@@ -21,7 +23,7 @@ final class PublicCacheService {
   update_option('mmaf_public_data_revision',wp_generate_uuid4(),false);
  }
  public static function key(string $type,array $args=[]): string {
-  return 'mmaf_'.hash('sha256',$type.'|'.get_option('mmaf_public_data_revision','initial').'|'.(new \MMAF\DataEngine\Repositories\RankingRunRepository())->get_active_ranking_run_id().'|'.wp_json_encode($args));
+  return 'mmaf_'.hash('sha256',self::CONTRACT_VERSION.'|'.$type.'|'.get_option('mmaf_public_data_revision','initial').'|'.(new \MMAF\DataEngine\Repositories\RankingRunRepository())->get_active_ranking_run_id().'|'.wp_json_encode($args));
  }
  public static function remember(string $type,array $args,callable $loader){
   $key=self::key($type,$args);$value=get_transient($key);

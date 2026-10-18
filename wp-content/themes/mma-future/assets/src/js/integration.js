@@ -2,6 +2,31 @@
 (() => {
   'use strict';
   document.documentElement.classList.add('mmaf-js');
+  const dismissImpactHelp = help => { help.classList.remove('is-open'); help.classList.add('is-dismissed'); };
+  const positionImpactHelp = help => {
+    const bounds = help.getBoundingClientRect(), height = help.querySelector('[role="tooltip"]').getBoundingClientRect().height;
+    help.classList.toggle('is-above', bounds.bottom + height > window.innerHeight && bounds.top > window.innerHeight - bounds.bottom);
+  };
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-rk-impact-help]');
+    document.querySelectorAll('.rk-impact-help.is-open').forEach(help => { if (!help.contains(event.target)) dismissImpactHelp(help); });
+    if (!button) return;
+    const help = button.closest('.rk-impact-help');
+    positionImpactHelp(help);
+    if (help.classList.contains('is-open')) dismissImpactHelp(help);
+    else { help.classList.remove('is-dismissed'); help.classList.add('is-open'); }
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') document.querySelectorAll('.rk-impact-help').forEach(dismissImpactHelp);
+  });
+  ['pointerover', 'focusin'].forEach(type => document.addEventListener(type, event => {
+    const help = event.target.closest('.rk-impact-help');
+    if (help && !help.contains(event.relatedTarget)) { help.classList.remove('is-dismissed'); positionImpactHelp(help); }
+  }));
+  document.addEventListener('pointerout', event => {
+    const help = event.target.closest('.rk-impact-help');
+    if (help && event.pointerType === 'mouse' && !help.contains(event.relatedTarget)) help.classList.remove('is-open');
+  });
   document.querySelectorAll('[data-mmaf-browser]').forEach(root => {
     const form = root.querySelector('form'), results = root.querySelector('.mmaf-browser-results');
     const status = root.querySelector('.mmaf-browser-status'), prefix = root.dataset.prefix;
@@ -83,6 +108,50 @@
     });
     root.addEventListener('keydown', event => { if (event.key === ' ' && event.target.matches('a[role=button]')) { event.preventDefault(); event.target.click(); } });
     sync();
+  });
+  document.querySelectorAll('[data-mmaf-directory]').forEach(root => {
+    const form = root.querySelector('form[role="search"]'), results = root.querySelector('[data-directory-results]');
+    const status = root.querySelector('[data-directory-status]'), clear = root.querySelector('[data-directory-clear]');
+    const input = form.querySelector('input[type="search"]');
+    let request, timer;
+    const searchUrl = () => {
+      const url = new URL(form.action);
+      const query = input.value.trim();
+      if (query) url.searchParams.set(input.name, query);
+      return url;
+    };
+    const load = async url => {
+      clearTimeout(timer);
+      if (request) request.abort();
+      const current = new AbortController(); request = current;
+      status.classList.remove('screen-reader-text');
+      results.setAttribute('aria-busy', 'true'); status.textContent = 'Loading results…';
+      try {
+        const response = await fetch(url, {signal:current.signal});
+        if (!response.ok) throw new Error('Unable to load fighter profiles.');
+        const document = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const next = document.querySelector('[data-directory-results]');
+        if (!next) throw new Error('Unable to load fighter profiles.');
+        if (request !== current) return;
+        results.innerHTML = next.innerHTML;
+        ['total', 'page', 'totalPages'].forEach(key => { results.dataset[key] = next.dataset[key]; });
+        status.textContent = next.dataset.total + (next.dataset.total === '1' ? ' result.' : ' results.') + ' Page ' + next.dataset.page + ' of ' + next.dataset.totalPages + '.';
+        status.classList.add('screen-reader-text');
+        clear.hidden = !url.searchParams.get(input.name);
+        window.history.replaceState(window.history.state, '', url);
+      } catch (error) {
+        if (error.name !== 'AbortError') status.textContent = error.message + ' Use Search to try again.';
+      } finally { if (request === current) results.removeAttribute('aria-busy'); }
+    };
+    form.addEventListener('submit', event => { event.preventDefault(); load(searchUrl()); });
+    input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => load(searchUrl()), 300); });
+    root.addEventListener('click', event => {
+      const link = event.target.closest('.mmaf-pagination a, .nav-links a, [data-directory-clear]');
+      if (!link || !root.contains(link) || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      if (link === clear) input.value = '';
+      load(new URL(link.href));
+    });
   });
   document.querySelectorAll('.mf-hero').forEach(root => {
     root.addEventListener('click', event => {

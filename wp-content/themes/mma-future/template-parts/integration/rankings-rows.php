@@ -18,6 +18,7 @@
                   <svg class="rk-sort-icon w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
 </a>
 </th>
+<th scope="col" class="rk-impact-heading px-4 py-3.5 text-right"><span class="rk-impact-heading-label">Opponent impact <?php mmaf_view( 'opponent-impact-help', array( 'help_id' => $prefix . '_impact_help' ) ); ?></span><span class="rk-impact-heading-note">Wins / Losses · points</span></th>
 <th class="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-widest" style="color:#94a3b8">Record</th>
 <th class="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-widest" style="color:#94a3b8">Streak</th>
 <th class="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-widest" style="color:#94a3b8">Last Fight</th>
@@ -26,4 +27,4 @@
 </thead>
 <tbody><?php foreach ( $data['items'] as $r ) { mmaf_view( 'ranking-row', compact( 'r', 'breakdown', 'prefix' ) ); } ?></tbody>
 </table>
-</div><div class="sm:hidden space-y-2.5 rk-cards"><?php foreach ( $data['items'] as $r ) { mmaf_view( 'ranking-card', compact( 'r', 'breakdown' ) ); } ?></div></div>
+</div><div class="sm:hidden space-y-2.5 rk-cards"><?php foreach ( $data['items'] as $r ) { mmaf_view( 'ranking-card', compact( 'r', 'breakdown', 'prefix' ) ); } ?></div></div>

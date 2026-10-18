@@ -25,6 +25,7 @@
 <span style="color:#94a3b8"><?php echo esc_html( ucwords( str_replace( '_', ' ', $r['weight_class'] ) ) ); ?></span>
 </div>
 <div class="mt-2 text-xs">Last fight: <?php echo esc_html( mmaf_display_date( $r['last_fight_date'] ) ); ?></div>
+<div class="rk-impact-mobile"><div class="rk-impact-mobile-label">Opponent impact <?php mmaf_view( 'opponent-impact-help', array( 'help_id' => $prefix . '_impact_mobile_' . $r['fighter_id'] ) ); ?><span class="rk-impact-heading-note">Points already in Score</span></div><?php mmaf_view( 'opponent-impact', compact( 'r' ) ); ?></div>
 <details class="mt-3">
 <summary class="flex items-center gap-1 text-xs font-bold select-none" style="color:#0047A8;letter-spacing:.04em">Details <span class="rk-det-arr" style="font-size:.8em">▾</span></summary>
 <div class="mt-3 pt-3" style="border-top:1px solid rgba(226,232,240,0.7)"><?php mmaf_view( 'ranking-detail', compact( 'r', 'breakdown' ) ); ?></div>
