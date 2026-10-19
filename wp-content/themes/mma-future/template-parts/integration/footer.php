@@ -39,7 +39,7 @@
 </div>
 <div>
 <h4 class="text-lg font-heading font-bold mb-4" style="color: #0B1220;"><?php echo esc_html( $titles['contact'] ?? '' ); ?></h4>
-<ul class="space-y-2 list-none"><?php mmaf_render_contact_details( 'hover:text-primary transition-colors no-underline font-normal', true ); ?></ul>
+<ul class="space-y-2 list-none mmaf-footer-contact"><?php mmaf_render_contact_details( 'hover:text-primary transition-colors no-underline font-normal', true ); ?></ul>
 <div class="flex space-x-3 mt-4"><?php mmaf_social_links( (array) mmaf_site_setting( 'social_links' ), 'social-link w-10 h-10 rounded-full flex items-center justify-center no-underline transition-all duration-300 hover:scale-105 hover:shadow-md hover:-translate-y-0.5' ); ?></div>
 </div>
 </div>
