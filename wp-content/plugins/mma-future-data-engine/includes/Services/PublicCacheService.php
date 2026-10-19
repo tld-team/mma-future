@@ -5,7 +5,7 @@ use MMAF\DataEngine\Services\RegularImport\WriteGuard;
 /** One revision and one page-cache purge per successful request/bulk operation. */
 final class PublicCacheService {
  // Bump when the cached public response contract changes.
- private const CONTRACT_VERSION=2;
+ private const CONTRACT_VERSION=3;
  private static bool $pending=false;
  public static function register(): void {
   add_action('mmaf_public_data_changed',array(self::class,'changed'));

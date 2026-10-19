@@ -29,7 +29,7 @@
             Top 15
           </a>
 <!-- Sort select (mobile only) -->
-<label class="rk-mobile-sort sm:hidden text-xs text-slate-500"><span class="sr-only">Sort rankings</span><select data-rk-mobile-sort class="h-10 rounded-xl"><option value="rank|asc">Rank ↑</option><option value="rank|desc">Rank ↓</option><option value="score|desc">Score ↓</option><option value="score|asc">Score ↑</option></select></label><?php mmaf_filter_select( $prefix . '_sort', 'Sort by', array( 'rank' => 'Rank', 'score' => 'Score' ), $options['sort'] ?? 'rank' ); ?>
+<label class="rk-mobile-sort text-xs text-slate-500"><span class="sr-only">Sort rankings</span><select data-rk-mobile-sort class="h-10 rounded-xl"><option value="rank|asc">Rank ↑</option><option value="rank|desc">Rank ↓</option><option value="score|desc">Score ↓</option><option value="score|asc">Score ↑</option></select></label><?php mmaf_filter_select( $prefix . '_sort', 'Sort by', array( 'rank' => 'Rank', 'score' => 'Score' ), $options['sort'] ?? 'rank' ); ?>
 </div>
 <!-- Right group: Search -->
 <div class="relative w-full lg:w-[360px]">
