@@ -289,6 +289,7 @@ class TapologyScraper:
         upcoming_doc = self._empty_document("upcoming", run_id, started_at)
         self._debug_doc = self._empty_debug_document(run_id, started_at) if self.config.debug else None
         self._partial_results_doc: dict[str, Any] | None = None
+        self._partial_upcoming_doc: dict[str, Any] | None = None
         success = False
 
         log("info", "run_start", run_id=run_id, headless=self.config.headless)
@@ -386,6 +387,7 @@ class TapologyScraper:
                 warnings=summary.get("warnings", []),
                 errors=summary.get("errors", []),
                 partial_results=partial_results_doc,
+                partial_upcoming=self._partial_upcoming_doc,
                 debug_doc=self._finish_debug_document(summary["finished_at"]),
             )
             log("error", "run_failed", reason=str(exc), run_dir=str(run_dir))
@@ -411,6 +413,7 @@ class TapologyScraper:
                 warnings=summary.get("warnings", []),
                 errors=summary.get("errors", []),
                 partial_results=partial_results_doc,
+                partial_upcoming=self._partial_upcoming_doc,
                 debug_doc=self._finish_debug_document(summary["finished_at"]),
             )
             log("error", "run_failed", reason=str(exc), run_dir=str(run_dir))
@@ -1118,6 +1121,8 @@ class TapologyScraper:
                 )
                 if kind == "results":
                     self._partial_results_doc = document
+                elif kind == "upcoming":
+                    self._partial_upcoming_doc = document
                 raise
             document["events"] = events
             self._refresh_run_counts(document)
@@ -1139,7 +1144,7 @@ class TapologyScraper:
         *,
         failure_reason: str | None = None,
     ) -> None:
-        if kind != "results":
+        if kind not in {"results", "upcoming"}:
             return
         checkpoint_at = utc_now()
         checkpoint = self._empty_document(
@@ -1159,8 +1164,28 @@ class TapologyScraper:
         self._copy_summary_skip_counts(checkpoint, summary, kind)
         if failure_reason:
             checkpoint["run"]["partial_failure_reason"] = failure_reason
-        self._partial_results_doc = checkpoint
-        write_json(run_dir / "checkpoint_results.json", checkpoint)
+        if kind == "results":
+            self._partial_results_doc = checkpoint
+        else:
+            self._partial_upcoming_doc = checkpoint
+        write_json(run_dir / f"checkpoint_{kind}.json", checkpoint)
+
+    def _resume_upcoming_events(self, summary: dict[str, Any]) -> list[dict[str, Any]]:
+        checkpoint_path = self.config.resume_upcoming_checkpoint
+        if checkpoint_path is None:
+            return []
+        path = Path(checkpoint_path).expanduser().resolve()
+        try:
+            checkpoint = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise FatalScrapeError(f"Unable to read upcoming resume checkpoint {path}: {exc}") from exc
+        if checkpoint.get("schema_version") != UPCOMING_SCHEMA_VERSION or not isinstance(checkpoint.get("events"), list):
+            raise FatalScrapeError(f"Invalid upcoming resume checkpoint: {path}")
+        events = dedupe_events(checkpoint["events"])
+        summary["upcoming_resume_checkpoint"] = str(path)
+        summary["upcoming_events_resumed"] = len(events)
+        log("info", "upcoming_resume_loaded", checkpoint=str(path), events=len(events))
+        return events
 
     def _new_fightcenter_page(self, context: Any) -> Any:
         if self.config.operator_navigates_to_fightcenter and self.config.use_current_page:
@@ -2306,7 +2331,17 @@ class TapologyScraper:
         run_dir: Path,
         summary: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        events: list[dict[str, Any]] = []
+        events = self._resume_upcoming_events(summary) if kind == "upcoming" else []
+        resumed_event_urls = {
+            canonical_url(event.get("event_url"))
+            for event in events
+            if canonical_url(event.get("event_url"))
+        }
+        resumed_event_ids = {
+            str(event.get("source_event_id"))
+            for event in events
+            if event.get("source_event_id")
+        }
         seen_event_urls: set[str] = set()
         last_dated_list_item: date | None = None
         saw_from_date_eligible_item = False
@@ -2347,6 +2382,14 @@ class TapologyScraper:
             for item in list_items:
                 if self.config.max_events and len(events) >= self.config.max_events:
                     break
+                if kind == "upcoming" and (
+                    canonical_url(item.get("event_url")) in resumed_event_urls
+                    or str(item.get("source_event_id") or "") in resumed_event_ids
+                ):
+                    summary["upcoming_events_skipped_from_checkpoint"] = int(
+                        summary.get("upcoming_events_skipped_from_checkpoint") or 0
+                    ) + 1
+                    continue
                 item_date = self._parse_iso_date(item.get("event_date"))
                 if kind == "upcoming" and item_date:
                     if self._from_date and item_date < self._from_date:

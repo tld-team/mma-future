@@ -62,6 +62,77 @@ def test_profile_enrichment_is_not_implicitly_enabled_by_force_recheck_events():
     assert scraper._effective_enrich_fighter_profiles() is False
 
 
+def test_upcoming_resume_checkpoint_skips_completed_event(monkeypatch, tmp_path):
+    checkpoint_path = tmp_path / "checkpoint_upcoming.json"
+    checkpoint_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "scraper_upcoming_v0_1",
+                "events": [
+                    {
+                        "source_event_id": "tapology_event_1",
+                        "event_url": "https://www.tapology.com/fightcenter/events/1-done",
+                        "event_name": "Already Done",
+                        "event_date": "2026-10-23",
+                        "bouts": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    scraper = TapologyScraper(
+        ScraperConfig(
+            from_date="2026-10-23",
+            until_date="2026-10-24",
+            resume_upcoming_checkpoint=checkpoint_path,
+            event_delay_ms=0,
+        )
+    )
+    summary = scraper._empty_summary("run-1", "2026-10-23T00:00:00+00:00")
+    scraped = []
+
+    monkeypatch.setattr(
+        scraper,
+        "_extract_event_list_items",
+        lambda _page, _page_number: [
+            {
+                "source_event_id": "tapology_event_1",
+                "event_date": "2026-10-23",
+                "event_url": "https://www.tapology.com/fightcenter/events/1-done",
+            },
+            {
+                "source_event_id": "tapology_event_2",
+                "event_date": "2026-10-24",
+                "event_url": "https://www.tapology.com/fightcenter/events/2-new",
+            },
+        ],
+    )
+    monkeypatch.setattr(scraper, "_advance_list_page", lambda *_args, **_kwargs: False)
+
+    def scrape_event(_context, item, _kind, _run_dir, _summary):
+        scraped.append(item["source_event_id"])
+        return {
+            "source_event_id": item["source_event_id"],
+            "event_url": item["event_url"],
+            "event_name": "New Event",
+            "event_date": item["event_date"],
+            "warnings": [],
+            "bouts": [],
+        }
+
+    monkeypatch.setattr(scraper, "_scrape_event_page", scrape_event)
+
+    events = scraper._traverse_event_list(_ListPage(), "upcoming", object(), tmp_path, summary)
+
+    assert [event["source_event_id"] for event in events] == ["tapology_event_1", "tapology_event_2"]
+    assert scraped == ["tapology_event_2"]
+    assert summary["upcoming_events_resumed"] == 1
+    assert summary["upcoming_events_skipped_from_checkpoint"] == 1
+    checkpoint = json.loads((tmp_path / "checkpoint_upcoming.json").read_text(encoding="utf-8"))
+    assert len(checkpoint["events"]) == 2
+
+
 class _ListPage:
     def wait_for_timeout(self, ms):
         return None

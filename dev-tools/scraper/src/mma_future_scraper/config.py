@@ -47,6 +47,7 @@ class ScraperConfig:
     force_full_scan: bool = False
     skip_known_complete: bool = False
     scrape_matchup_pages: bool = True
+    resume_upcoming_checkpoint: Path | None = None
     cumulative_results: bool = False
     fresh_results: bool = False
     enrich_fighter_profiles: bool | None = None

@@ -154,6 +154,7 @@ class DataStore:
         warnings: list[str],
         errors: list[str],
         partial_results: dict[str, Any] | None = None,
+        partial_upcoming: dict[str, Any] | None = None,
         debug_doc: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         manifest = self.build_manifest(
@@ -169,6 +170,8 @@ class DataStore:
         manifest["errors"] = list(errors)
         if partial_results is not None:
             atomic_write_json(run_dir / "partial_results.json", partial_results)
+        if partial_upcoming is not None:
+            atomic_write_json(run_dir / "partial_upcoming.json", partial_upcoming)
         if debug_doc is not None:
             atomic_write_json(run_dir / "debug.json", debug_doc)
         atomic_write_json(run_dir / "run_manifest.json", manifest)

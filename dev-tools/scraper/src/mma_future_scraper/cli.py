@@ -349,6 +349,7 @@ def build_parser() -> argparse.ArgumentParser:
     upcoming.add_argument("--max-events", type=positive_int, default=None)
     upcoming.add_argument("--slow-mo", type=non_negative_int, default=0)
     upcoming.add_argument("--browser-profile-dir", type=Path, default=None)
+    upcoming.add_argument("--resume-from", type=Path, default=None, help="Resume from a checkpoint_upcoming.json file")
     upcoming.add_argument("--debug", action="store_true")
     add_browser_options(upcoming)
     upcoming_export = subparsers.add_parser("export-upcoming-bundle", help="Create a mmaf_upcoming_v1 ZIP for controlled WordPress import")
@@ -568,6 +569,7 @@ def _dispatch(args) -> int:
                     "browser_channel": args.browser_channel,
                     "browser_executable_path": args.browser_executable_path,
                     "browser_profile_dir": args.browser_profile_dir if args.headed else None,
+                    "resume_upcoming_checkpoint": args.resume_from,
                     "debug": args.debug,
                 },
             )
