@@ -1,8 +1,6 @@
 <?php
 
-if ( ! defined( 'ABSPATH' ) ) {
-	require_once dirname(__DIR__, 2) . '/wp-load.php';
-}
+require __DIR__ . '/bootstrap.php';
 
 use MMAF\DataEngine\Migrations\Schema as CanonicalSchema;
 use MMAF\DataEngine\Services\Upcoming\CalendarService;
