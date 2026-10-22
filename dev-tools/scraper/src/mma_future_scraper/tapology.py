@@ -3971,12 +3971,13 @@ class TapologyScraper:
                 row_key = bout.get("source_bout_id") or bout.get("bout_url") or row_key
                 if row_key:
                     seen_row_keys.add(row_key)
-                if bout.get("bout_url"):
+                if bout.get("bout_url") and self.config.scrape_matchup_pages:
                     details = self._scrape_matchup_page(context, bout["bout_url"], summary)
                     if details:
                         self._apply_matchup_details(bout, details)
                 else:
-                    log("info", "matchup_page_skipped", reason="no_bout_url", event_url=event.get("event_url"))
+                    reason = "calendar_mode" if bout.get("bout_url") else "no_bout_url"
+                    log("info", "matchup_page_skipped", reason=reason, event_url=event.get("event_url"))
                 if kind=='results' and bout.get('result_type') not in {'win_loss','draw','no_contest'}:
                     event.setdefault('skipped_bouts',[]).append(self._skipped_bout_record(row,page.url,'no_result'))
                     skipped_no_result+=1

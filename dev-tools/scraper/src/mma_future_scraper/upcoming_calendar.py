@@ -59,6 +59,7 @@ def scrape_upcoming(
     end = start + timedelta(days=days - 1)
     target = upcoming_data_dir(data_dir)
     overrides = dict(config_overrides or {})
+    overrides.setdefault("scrape_matchup_pages", False)
     config = ScraperConfig(
         data_dir=target,
         from_date=start.isoformat(),

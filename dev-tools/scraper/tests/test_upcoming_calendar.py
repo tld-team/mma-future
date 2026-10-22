@@ -72,6 +72,26 @@ def test_period_is_capped_at_thirty_days():
         validate_days(31)
 
 
+def test_upcoming_scrape_skips_matchup_detail_pages(monkeypatch, tmp_path):
+    observed = {}
+
+    class SuccessfulScraper:
+        def __init__(self, config):
+            observed["config"] = config
+
+        def run(self, *, results, upcoming):
+            atomic_write_json(
+                observed["config"].data_dir / "latest" / "upcoming.json",
+                {"run": {"run_id": "run-lightweight"}, "events": [raw_event("2026-12-31")]},
+            )
+            return {"successful": True, "date_window_stop_confirmed": True, "event_fetch_failures": 0}
+
+    monkeypatch.setattr("mma_future_scraper.upcoming_calendar.TapologyScraper", SuccessfulScraper)
+    scrape_upcoming(days=1, data_dir=tmp_path / "upcoming", today=date(2026, 12, 31))
+
+    assert observed["config"].scrape_matchup_pages is False
+
+
 def test_incomplete_read_never_claims_complete_coverage():
     event = raw_event()
     event["warnings"] = ["fight_card_missing"]
