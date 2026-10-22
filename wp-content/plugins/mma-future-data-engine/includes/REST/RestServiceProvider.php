@@ -16,6 +16,7 @@ final class RestServiceProvider {
 		( new RankingsController() )->register_routes();
 		( new FightersController() )->register_routes();
 		( new HealthController() )->register_routes();
+		( new CalendarController() )->register_routes();
 	}
 
 	public static function public_permission(): bool {

@@ -10,5 +10,6 @@ Development and database tests run locally first. Pushes to `main` run source va
 - `tests`: source checks and isolated WordPress integration fixtures; excluded from deployment.
 - [Data flow, administration and deployment](docs/frontend-data-integration.md).
 - [Scraping cycles, import packages, recovery and delta imports](docs/import-pipeline.md).
+- [Upcoming event calendar workflow](docs/UPCOMING_CALENDAR_WORKFLOW.md).
 
 ACF Pro must be active. The theme's `acf-json` directory contains versioned field definitions; saved values stay in the database. Newsletter integration remains deferred.

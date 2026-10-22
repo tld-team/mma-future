@@ -52,6 +52,7 @@ final class Plugin {
 		Services\PublicCacheService::register();
 		Services\RegularImport\Module::register();
 		Services\DataPipeline\Processor::register();
+		Services\Upcoming\Module::register();
         Services\Scoring\Admin::register();
         Services\Scoring\Command::register();
         Services\Operations\Module::register();

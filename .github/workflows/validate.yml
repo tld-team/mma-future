@@ -132,6 +132,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-closeout.php
           php -d memory_limit=256M tests/integration/verify-review-audit.php
           php -d memory_limit=256M tests/integration/verify-retention.php
+          php -d memory_limit=256M tests/integration/verify-upcoming-calendar.php
       - name: Actual synthetic staging-to-local transfer
         env:
           MMAF_SYNC_WP_CORE: /tmp/mmaf-wp

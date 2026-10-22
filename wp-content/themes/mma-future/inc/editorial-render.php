@@ -18,7 +18,12 @@ function mmaf_render_article_relations( $post_id ) {
 }
 function mmaf_render_upcoming_events() {
 	if ( ! mmaf_public_service() ) { return; }
-	$events = ( new \MMAF\DataEngine\Repositories\PublicReadRepository() )->upcoming_events();
+	try {
+		$rows = ( new \MMAF\DataEngine\Services\Upcoming\CalendarService() )->upcoming( 6 );
+		$events = array_map( static fn( array $event ): array => array( 'event_name' => $event['title'], 'event_date' => $event['date'] ), $rows );
+	} catch ( \Throwable $error ) {
+		$events = ( new \MMAF\DataEngine\Repositories\PublicReadRepository() )->upcoming_events();
+	}
 	if ( ! $events ) { return; }
 	mmaf_view( 'article-events', array( 'events' => $events, 'title' => 'Upcoming Events' ) );
 }

@@ -207,9 +207,10 @@ class TapologyScraper:
     def __init__(self, config: ScraperConfig):
         self.config = config
         self._debug_doc: dict[str, Any] | None = None
-        self._store = DataStore()
+        self._store = DataStore(config.data_dir) if config.data_dir else DataStore()
         self._state_bundle: dict[str, Any] | None = None
         self._from_date = self._parse_iso_date(self.config.from_date)
+        self._until_date = self._parse_iso_date(self.config.until_date)
         self._force_recheck_events = {
             source_event_id_from_url(value) or value for value in self.config.force_recheck_events
         }
@@ -253,7 +254,7 @@ class TapologyScraper:
         self._active_run_dir: Path | None = None
 
     def inspect_filters(self) -> list[dict[str, Any]]:
-        ensure_data_dirs()
+        self._store.ensure_dirs()
         playwright, browser, context = launch_browser(self.config)
         try:
             page = context.new_page()
@@ -274,7 +275,7 @@ class TapologyScraper:
                 playwright.stop()
 
     def run(self, *, results: bool = True, upcoming: bool = True) -> dict[str, Any]:
-        ensure_data_dirs()
+        self._store.ensure_dirs()
         run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         started_at = utc_now()
         started_clock = time.time()
@@ -455,6 +456,7 @@ class TapologyScraper:
             "listing_urls_visited": [],
             "pagination_next_found": False,
             "pagination_stop_reason": None,
+            "date_window_stop_confirmed": False,
             "load_more_clicks": 0,
             "load_more_successes": 0,
             "load_more_no_new_events": 0,
@@ -549,6 +551,7 @@ class TapologyScraper:
                 "listing_urls_visited": [],
                 "pagination_next_found": False,
                 "pagination_stop_reason": None,
+                "date_window_stop_confirmed": False,
                 "load_more_clicks": 0,
                 "load_more_successes": 0,
                 "load_more_no_new_events": 0,
@@ -631,6 +634,7 @@ class TapologyScraper:
             "limit_events": self.config.max_events,
             "max_pages": self.config.max_pages,
             "from_date": self.config.from_date,
+            "until_date": self.config.until_date,
             "recheck_days": self.config.recheck_days,
             "recheck_complete_days": self.config.recheck_complete_days,
             "recheck_known_limit": self.config.recheck_known_limit,
@@ -808,6 +812,7 @@ class TapologyScraper:
             "early_stop_triggered",
             "early_stop_reason",
             "pagination_stop_reason",
+            "date_window_stop_confirmed",
             "pages_scanned",
             "first_listing_url",
             "last_listing_url",
@@ -2305,6 +2310,7 @@ class TapologyScraper:
         seen_event_urls: set[str] = set()
         last_dated_list_item: date | None = None
         saw_from_date_eligible_item = False
+        saw_window_item = False
         list_order_confirmed = True
         page_number = 1
         consecutive_known_complete = 0
@@ -2342,7 +2348,20 @@ class TapologyScraper:
                 if self.config.max_events and len(events) >= self.config.max_events:
                     break
                 item_date = self._parse_iso_date(item.get("event_date"))
-                if self._from_date and item_date:
+                if kind == "upcoming" and item_date:
+                    if self._from_date and item_date < self._from_date:
+                        last_dated_list_item = item_date
+                        continue
+                    if self._until_date and item_date > self._until_date:
+                        if saw_window_item and (last_dated_list_item is None or item_date >= last_dated_list_item):
+                            summary["date_window_stop_confirmed"] = True
+                            stop_requested = True
+                            break
+                        last_dated_list_item = item_date
+                        continue
+                    saw_window_item = True
+                    last_dated_list_item = item_date
+                elif self._from_date and item_date:
                     if last_dated_list_item and item_date > last_dated_list_item:
                         list_order_confirmed = False
                         warning = "from_date_stop_disabled:list_not_newest_to_oldest"
@@ -2479,13 +2498,14 @@ class TapologyScraper:
                             event_url=event.get("event_url"),
                         )
                         continue
-                    if self._from_date and not self._event_matches_from_date(event):
+                    if not self._event_matches_date_window(event):
                         log(
                             "info",
-                            "event_skipped_before_from_date_after_scrape",
+                            "event_skipped_outside_date_window_after_scrape",
                             source_event_id=event.get("source_event_id"),
                             event_date=event.get("event_date"),
                             from_date=self.config.from_date,
+                            until_date=self.config.until_date,
                         )
                         continue
                     if self._from_date:
@@ -2571,10 +2591,17 @@ class TapologyScraper:
             return None
 
     def _event_matches_from_date(self, event: dict[str, Any]) -> bool:
-        if self._from_date is None:
-            return True
+        return self._event_matches_date_window(event)
+
+    def _event_matches_date_window(self, event: dict[str, Any]) -> bool:
         event_date = self._parse_iso_date(event.get("event_date"))
-        return event_date is not None and event_date >= self._from_date
+        if event_date is None:
+            return False if self._from_date or self._until_date else True
+        if self._from_date and event_date < self._from_date:
+            return False
+        if self._until_date and event_date > self._until_date:
+            return False
+        return True
 
     def _extract_event_list_items(self, page: Any, page_number: int) -> list[dict[str, Any]]:
         try:
@@ -4439,6 +4466,14 @@ class TapologyScraper:
             document["run"]["failed_event_examples"] = summary.get("failed_event_examples", [])[:25]
             document["run"]["failed_bout_examples"] = summary.get("failed_bout_examples", [])[:25]
             document["run"]["failed_profile_examples"] = summary.get("failed_profile_examples", [])[:25]
+        elif kind == "upcoming":
+            document["run"]["pages_scanned"] = summary.get("pages_scanned", 0)
+            document["run"]["first_listing_url"] = summary.get("first_listing_url")
+            document["run"]["last_listing_url"] = summary.get("last_listing_url")
+            document["run"]["listing_urls_visited"] = summary.get("listing_urls_visited", [])
+            document["run"]["pagination_next_found"] = summary.get("pagination_next_found", False)
+            document["run"]["pagination_stop_reason"] = summary.get("pagination_stop_reason")
+            document["run"]["date_window_stop_confirmed"] = bool(summary.get("date_window_stop_confirmed"))
         document["run"]["skipped_event_examples"] = summary.get("skipped_event_examples", [])[:10]
         document["run"]["events_seen"] = (
             len(document.get("events", []))
@@ -4514,6 +4549,9 @@ class TapologyScraper:
                     if doc["run"].get("pagination_stop_reason")
                 ),
                 None,
+            ),
+            "date_window_stop_confirmed": any(
+                doc["run"].get("date_window_stop_confirmed") for doc in documents
             ),
             **self._runtime_diagnostic_counts(),
             "skipped_events_no_usable_bouts": sum(

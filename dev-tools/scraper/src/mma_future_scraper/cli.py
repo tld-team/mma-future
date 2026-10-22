@@ -338,6 +338,22 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--expected-pages", type=positive_int, default=None)
     export.add_argument("--max-event-fetch-failures", type=non_negative_int, default=0)
     export.add_argument("--min-profile-success-rate", type=failure_rate_float, default=0.99)
+    upcoming = subparsers.add_parser("scrape-upcoming", help="Scrape the next 1-30 days into the isolated calendar lane")
+    upcoming.add_argument("--days", type=positive_int, default=10, help="Inclusive period starting today (default: 10; maximum: 30)")
+    upcoming.add_argument("--timezone", default="Europe/Belgrade", help="IANA timezone used to calculate today and coverage")
+    upcoming.add_argument("--data-dir", type=Path, default=None, help="Override the isolated upcoming data directory")
+    upcoming_head = upcoming.add_mutually_exclusive_group()
+    upcoming_head.add_argument("--headless", action="store_true", default=True)
+    upcoming_head.add_argument("--headed", action="store_true")
+    upcoming.add_argument("--max-pages", type=positive_int, default=None)
+    upcoming.add_argument("--max-events", type=positive_int, default=None)
+    upcoming.add_argument("--slow-mo", type=non_negative_int, default=0)
+    upcoming.add_argument("--browser-profile-dir", type=Path, default=None)
+    upcoming.add_argument("--debug", action="store_true")
+    add_browser_options(upcoming)
+    upcoming_export = subparsers.add_parser("export-upcoming-bundle", help="Create a mmaf_upcoming_v1 ZIP for controlled WordPress import")
+    upcoming_export.add_argument("--output", type=Path, required=True)
+    upcoming_export.add_argument("--data-dir", type=Path, default=None)
     subparsers.add_parser("validate-latest", help="Validate latest JSON files exist and have basic schema integrity")
     gate = subparsers.add_parser(
         "pre-import-check",
@@ -536,6 +552,39 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _dispatch(args) -> int:
+    if args.command == "scrape-upcoming":
+        from .upcoming_calendar import scrape_upcoming
+        try:
+            result = scrape_upcoming(
+                days=args.days,
+                timezone_name=args.timezone,
+                data_dir=args.data_dir,
+                config_overrides={
+                    "headless": not args.headed,
+                    "slow_mo": args.slow_mo,
+                    "max_pages": args.max_pages,
+                    "max_events": args.max_events,
+                    "browser_engine": args.browser_engine,
+                    "browser_channel": args.browser_channel,
+                    "browser_executable_path": args.browser_executable_path,
+                    "browser_profile_dir": args.browser_profile_dir if args.headed else None,
+                    "debug": args.debug,
+                },
+            )
+        except (ValueError, RuntimeError, OSError) as error:
+            print(json.dumps({"successful": False, "error": str(error)}, ensure_ascii=False, indent=2))
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "export-upcoming-bundle":
+        from .upcoming_calendar import export_upcoming_bundle
+        try:
+            result = export_upcoming_bundle(args.output, data_dir=args.data_dir)
+        except (ValueError, OSError) as error:
+            print(json.dumps({"ready_for_import": False, "error": str(error)}, ensure_ascii=False, indent=2))
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
     if args.command=='prepare-import-recovery':
         from .import_recovery import prepare_recovery
         print(json.dumps(prepare_recovery(args.source_profiles,args.snapshots_dir,args.output_dir),ensure_ascii=False,indent=2));return 0

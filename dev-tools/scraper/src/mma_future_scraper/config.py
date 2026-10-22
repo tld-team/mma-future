@@ -37,6 +37,8 @@ class ScraperConfig:
     max_pages: int | None = None
     max_events: int | None = None
     from_date: str | None = None
+    until_date: str | None = None
+    data_dir: Path | None = None
     recheck_days: int = 14
     recheck_complete_days: int = 0
     recheck_known_limit: int = 0

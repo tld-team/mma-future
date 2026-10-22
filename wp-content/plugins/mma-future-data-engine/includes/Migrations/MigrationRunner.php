@@ -22,7 +22,7 @@ final class MigrationRunner {
 		}
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		global $wpdb;
-		$statements = array_merge(Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql(), \MMAF\DataEngine\Services\Operations\Schema::sql(), \MMAF\DataEngine\Services\Scoring\Schema::sql(), \MMAF\DataEngine\Services\Priorities\Schema::sql());
+		$statements = array_merge(Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql(), \MMAF\DataEngine\Services\Operations\Schema::sql(), \MMAF\DataEngine\Services\Scoring\Schema::sql(), \MMAF\DataEngine\Services\Priorities\Schema::sql(), \MMAF\DataEngine\Services\Upcoming\Schema::sql());
 		foreach ( $statements as $statement ) {
 			dbDelta( $statement );
 			if ($wpdb->last_error) { throw new \RuntimeException('Schema migration failed: ' . $wpdb->last_error); }

@@ -35,6 +35,10 @@ $tables = array(
 	$wpdb->prefix . 'mmaf_review_items',
 	$wpdb->prefix . 'mmaf_audit_log',
 	$wpdb->prefix . 'mmaf_system_state',
+	$wpdb->prefix . 'mmaf_calendar_events',
+	$wpdb->prefix . 'mmaf_calendar_bouts',
+	$wpdb->prefix . 'mmaf_calendar_imports',
+	$wpdb->prefix . 'mmaf_calendar_audit',
 );
 
 foreach ( $tables as $table ) {
@@ -42,3 +46,4 @@ foreach ( $tables as $table ) {
 }
 
 delete_option( 'mmaf_db_version' );
+delete_option( 'mmaf_calendar_revision' );

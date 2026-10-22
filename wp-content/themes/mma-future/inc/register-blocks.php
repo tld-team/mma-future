@@ -152,6 +152,12 @@ if ( ! function_exists( 'mma_future_register_acf_blocks' ) ) {
 				'description' => 'Blog Latest Posts Section',
 				'render_template' => 'blocks/blog-latest-posts-section/blog-latest-posts-section.php',
 			),
+			array(
+				'name' => 'event-calendar',
+				'title' => 'Kalendar događaja',
+				'description' => 'Mesečni kalendar nadolazećih profesionalnih MMA događaja.',
+				'render_template' => 'blocks/event-calendar/event-calendar.php',
+			),
 		);
 
 		$registered_names = array();

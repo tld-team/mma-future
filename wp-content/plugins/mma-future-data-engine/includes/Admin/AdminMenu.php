@@ -49,6 +49,15 @@ final class AdminMenu {
 
 		add_submenu_page(
 			'mmaf',
+			__( 'MMA Future Calendar', 'mma-future-data-engine' ),
+			__( 'Kalendar', 'mma-future-data-engine' ),
+			Capabilities::MANAGE,
+			'mmaf-calendar',
+			array( CalendarPage::class, 'render' )
+		);
+
+		add_submenu_page(
+			'mmaf',
 			__( 'MMA Future Bouts', 'mma-future-data-engine' ),
 			__( 'Bouts', 'mma-future-data-engine' ),
 			Capabilities::MANAGE,
