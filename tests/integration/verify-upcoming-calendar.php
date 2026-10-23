@@ -120,7 +120,7 @@ try {
 	$created_event_ids[] = $manual_id;
 	$day = ( new CalendarService() )->day( $manual_date, 'Europe/Belgrade' );
 	assert_calendar( 'manual' === $day['state'] && 1 === count( $day['events'] ), 'Manual event outside coverage is not selectable.' );
-	assert_calendar( 'Raspored može biti dopunjen.' === $day['message'], 'Manual uncovered day lacks the supplementation note.' );
+	assert_calendar( 'Schedule may be updated.' === $day['message'], 'Manual uncovered day lacks the supplementation note.' );
 
 	$after = array(
 		'fighters' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$canonical['fighters']}" ),
