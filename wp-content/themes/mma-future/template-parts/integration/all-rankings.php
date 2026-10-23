@@ -45,7 +45,17 @@
 <?php mmaf_filter_select( $prefix . '_board', 'Ranking board', $choices, $options['board'] ); mmaf_filter_select( $prefix . '_order', 'Order', array( 'asc' => 'Ascending', 'desc' => 'Descending' ), $options['order'] ?? 'asc' ); ?>
 <?php if ( ! empty( $options['top15'] ) ) : ?><input type="hidden" name="<?php echo esc_attr( $prefix . '_top15' ); ?>" value="1" data-top15-value><?php else : ?><input type="hidden" name="<?php echo esc_attr( $prefix . '_top15' ); ?>" value="0" data-top15-value><?php endif; ?><button class="mmaf-button rk-apply" type="submit">Apply filters</button></form>
 <?php if ( in_array( $data['formula_version'] ?? '', array( 'v1.5', 'v1.6' ), true ) ) : ?><p class="rk-score-guide"><strong>Each scored loss: −1.5 points, already in Score.</strong> Opponent quality shows extra adjustments only.</p><?php endif; ?>
-<p aria-live="polite" class="mmaf-browser-status"></p><div class="mmaf-browser-results"><?php mmaf_render_rankings_table( $data, $options['include_breakdown'], $prefix ); mmaf_pagination( $data, $prefix ); ?></div>
+<p aria-live="polite" class="mmaf-browser-status"></p>
+<div class="rk-results-area">
+<div class="mmaf-browser-results"><?php mmaf_render_rankings_table( $data, $options['include_breakdown'], $prefix ); mmaf_pagination( $data, $prefix ); ?></div>
+<div class="rk-methodology">
+<a class="rk-methodology__link" href="<?php echo esc_url( home_url( '/about/' ) ); ?>">
+<svg class="rk-methodology__icon" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16.5h.01"/></svg>
+<span>How scoring works</span>
+<svg class="rk-methodology__arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+</a>
+</div>
+</div>
 
 </div>
 </section>
