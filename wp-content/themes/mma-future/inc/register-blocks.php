@@ -154,8 +154,8 @@ if ( ! function_exists( 'mma_future_register_acf_blocks' ) ) {
 			),
 			array(
 				'name' => 'event-calendar',
-				'title' => 'Kalendar događaja',
-				'description' => 'Mesečni kalendar nadolazećih profesionalnih MMA događaja.',
+				'title' => 'Event calendar',
+				'description' => 'Monthly calendar of upcoming professional MMA events.',
 				'render_template' => 'blocks/event-calendar/event-calendar.php',
 			),
 		);

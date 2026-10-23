@@ -15,9 +15,9 @@ final class CalendarService {
 
 	public static function timezones(): array {
 		return array(
-			'Europe/Belgrade' => 'Beograd', 'Europe/London' => 'London', 'America/New_York' => 'Njujork',
-			'America/Chicago' => 'Čikago', 'America/Los_Angeles' => 'Los Anđeles', 'Asia/Dubai' => 'Dubai',
-			'Asia/Tokyo' => 'Tokio', 'Australia/Sydney' => 'Sidnej', 'UTC' => 'UTC',
+			'Europe/Belgrade' => 'Belgrade', 'Europe/London' => 'London', 'America/New_York' => 'New York',
+			'America/Chicago' => 'Chicago', 'America/Los_Angeles' => 'Los Angeles', 'Asia/Dubai' => 'Dubai',
+			'Asia/Tokyo' => 'Tokyo', 'Australia/Sydney' => 'Sydney', 'UTC' => 'UTC',
 		);
 	}
 
@@ -30,7 +30,7 @@ final class CalendarService {
 		$zone = new \DateTimeZone( $timezone );
 		$first = \DateTimeImmutable::createFromFormat( '!Y-m-d', $month . '-01', $zone );
 		if ( ! $first || $first->format( 'Y-m' ) !== $month ) {
-			throw new \InvalidArgumentException( 'Mesec mora biti u formatu YYYY-MM.' );
+			throw new \InvalidArgumentException( 'Month must use the YYYY-MM format.' );
 		}
 		$last = $first->modify( 'last day of this month' );
 		$revision = (int) get_option( 'mmaf_calendar_revision', 0 );
@@ -79,7 +79,7 @@ final class CalendarService {
 		$zone = new \DateTimeZone( $timezone );
 		$selected = \DateTimeImmutable::createFromFormat( '!Y-m-d', $date, $zone );
 		if ( ! $selected || $selected->format( 'Y-m-d' ) !== $date ) {
-			throw new \InvalidArgumentException( 'Datum mora biti u formatu YYYY-MM-DD.' );
+			throw new \InvalidArgumentException( 'Date must use the YYYY-MM-DD format.' );
 		}
 		$events = $this->repository->public_events_between( $selected->modify( '-2 days' )->format( 'Y-m-d' ), $selected->modify( '+2 days' )->format( 'Y-m-d' ) );
 		$events = array_values( array_filter( $events, fn( array $event ): bool => $this->display_date( $event, $zone ) === $date ) );
@@ -120,7 +120,7 @@ final class CalendarService {
 		$data = $this->event_summary( $event, $zone );
 		$data += array(
 			'location' => $event['location'] ?: null, 'venue' => $event['venue'] ?: null,
-			'time_note' => $event['time_note'] ?: ( $event['event_datetime_utc'] ? null : 'Vreme početka nije potvrđeno.' ),
+			'time_note' => $event['time_note'] ?: ( $event['event_datetime_utc'] ? null : 'Start time is not confirmed.' ),
 			'source_url' => $event['source_url'] && str_starts_with( $event['source_url'], 'https://www.tapology.com/' ) ? $event['source_url'] : null,
 			'bouts' => array(),
 		);
@@ -185,23 +185,23 @@ final class CalendarService {
 
 	private function empty_message( \DateTimeImmutable $day, \DateTimeZone $zone, ?array $coverage, array $events ): ?string {
 		if ( $events ) {
-			return 'manual' === $this->day_state( $day, $zone, $coverage, $events ) ? 'Raspored može biti dopunjen.' : null;
+			return 'manual' === $this->day_state( $day, $zone, $coverage, $events ) ? 'Schedule may be updated.' : null;
 		}
 		$state = $this->day_state( $day, $zone, $coverage, $events );
 		if ( 'past' === $state ) {
-			return 'Program za prošle datume nije prikazan.';
+			return 'Past dates are not displayed.';
 		}
-		return in_array( $state, array( 'covered', 'partial' ), true ) ? 'Nema najavljenih događaja.' : 'Raspored uskoro.';
+		return in_array( $state, array( 'covered', 'partial' ), true ) ? 'No events announced.' : 'Schedule pending.';
 	}
 
 	public static function month_label( \DateTimeImmutable $date ): string {
-		$months = array( 1 => 'Januar', 'Februar', 'Mart', 'April', 'Maj', 'Jun', 'Jul', 'Avgust', 'Septembar', 'Oktobar', 'Novembar', 'Decembar' );
+		$months = array( 1 => 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December' );
 		return $months[ (int) $date->format( 'n' ) ] . ' ' . $date->format( 'Y' );
 	}
 
 	public static function date_label( \DateTimeImmutable $date ): string {
-		$weekdays = array( 1 => 'Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota', 'Nedelja' );
-		$months = array( 1 => 'januar', 'februar', 'mart', 'april', 'maj', 'jun', 'jul', 'avgust', 'septembar', 'oktobar', 'novembar', 'decembar' );
-		return $weekdays[ (int) $date->format( 'N' ) ] . ', ' . $date->format( 'd' ) . '. ' . $months[ (int) $date->format( 'n' ) ] . ' ' . $date->format( 'Y' ) . '.';
+		$weekdays = array( 1 => 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday' );
+		$months = array( 1 => 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December' );
+		return $weekdays[ (int) $date->format( 'N' ) ] . ', ' . $months[ (int) $date->format( 'n' ) ] . ' ' . $date->format( 'j, Y' );
 	}
 }

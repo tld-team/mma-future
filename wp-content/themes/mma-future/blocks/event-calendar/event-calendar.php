@@ -7,7 +7,7 @@ $intro = function_exists( 'get_field' ) ? get_field( 'calendar_intro' ) : '';
 if ( class_exists( '\MMAF\DataEngine\Services\Upcoming\Renderer' ) ) {
 	\MMAF\DataEngine\Services\Upcoming\Renderer::render(
 		array(
-			'title' => $title ?: 'Kalendar MMA događaja',
+			'title' => $title ?: 'Upcoming MMA Events',
 			'intro' => $intro ?: '',
 		)
 	);

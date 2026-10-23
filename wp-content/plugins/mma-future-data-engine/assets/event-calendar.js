@@ -8,7 +8,7 @@
     const date = new Date(Date.UTC(year, value - 1 + delta, 1));
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
   };
-  const dateLabel = date => new Intl.DateTimeFormat('sr-Latn-RS', {weekday:'long', day:'2-digit', month:'long', year:'numeric', timeZone:'UTC'}).format(new Date(`${date}T12:00:00Z`));
+  const dateLabel = date => new Intl.DateTimeFormat('en-US', {weekday:'long', day:'numeric', month:'long', year:'numeric', timeZone:'UTC'}).format(new Date(`${date}T12:00:00Z`));
 
   class Calendar {
     constructor(root) {
@@ -57,14 +57,14 @@
         monthUrl.searchParams.set('month', this.month);
         monthUrl.searchParams.set('timezone', this.timezone);
         const response = await fetch(monthUrl, {headers:{Accept:'application/json'}});
-        if (!response.ok) throw new Error('Kalendar trenutno nije dostupan.');
+        if (!response.ok) throw new Error('The calendar is currently unavailable.');
         const data = await response.json();
         this.root.querySelector('.mmaf-calendar__month').textContent = data.label;
         this.root.querySelector('[data-calendar-grid]').innerHTML = this.grid(data);
-        this.root.querySelector('[data-calendar-refreshed]').textContent = data.coverage?.last_refreshed ? `Poslednje osvežavanje: ${new Intl.DateTimeFormat('sr-Latn-RS', {dateStyle:'medium', timeStyle:'short'}).format(new Date(data.coverage.last_refreshed))}` : 'Još nema uspešnog importa rasporeda.';
+        this.root.querySelector('[data-calendar-refreshed]').textContent = data.coverage?.last_refreshed ? `Last updated: ${new Intl.DateTimeFormat('en-US', {dateStyle:'medium', timeStyle:'short'}).format(new Date(data.coverage.last_refreshed))}` : 'No successful schedule import yet.';
         this.updateUrl();
         if (this.selected.slice(0, 7) === this.month) await this.loadDay();
-        else this.root.querySelector('[data-calendar-day]').innerHTML = '<p class="mmaf-calendar__empty">Izaberite dostupan dan.</p>';
+        else this.root.querySelector('[data-calendar-day]').innerHTML = '<p class="mmaf-calendar__empty">Select an available day.</p>';
         if (focusGrid) this.root.querySelector('[data-calendar-date]')?.focus();
       } catch (error) {
         this.root.querySelector('[data-calendar-day]').innerHTML = `<p class="mmaf-calendar__empty">${esc(error.message)}</p>`;
@@ -75,7 +75,7 @@
       url.searchParams.set('date', this.selected);
       url.searchParams.set('timezone', this.timezone);
       const response = await fetch(url, {headers:{Accept:'application/json'}});
-      if (!response.ok) throw new Error('Dnevni program trenutno nije dostupan.');
+      if (!response.ok) throw new Error('The daily schedule is currently unavailable.');
       this.root.querySelector('[data-calendar-day]').innerHTML = this.day(await response.json());
     }
     markSelected() {
@@ -98,22 +98,22 @@
       for (const day of data.days) {
         const selectable = day.state !== 'past' && (day.state !== 'uncovered' || day.event_count > 0);
         const classes = ['mmaf-calendar__cell', `is-${day.state}`, day.is_today ? 'is-today' : '', day.date === this.selected ? 'is-selected' : ''].filter(Boolean).join(' ');
-        const names = day.events.map(event => `<span>${esc(event.title)}</span>`).join('') + (day.event_count > 2 ? `<em>+ još ${day.event_count - 2}</em>` : '');
+        const names = day.events.map(event => `<span>${esc(event.title)}</span>`).join('') + (day.event_count > 2 ? `<em>+ ${day.event_count - 2} more</em>` : '');
         const content = `<span class="mmaf-calendar__number">${day.day}</span><span class="mmaf-calendar__mobile-count">${day.event_count || ''}</span><span class="mmaf-calendar__events">${names}</span>`;
         cells.push(`<td class="${classes}" data-date="${day.date}">${selectable ? `<button type="button" data-calendar-date="${day.date}" aria-pressed="${day.date === this.selected}"${day.is_today ? ' aria-current="date"' : ''}>${content}</button>` : `<div class="mmaf-calendar__disabled">${content}</div>`}</td>`);
       }
       while (cells.length % 7) cells.push('<td class="mmaf-calendar__blank" aria-hidden="true"></td>');
       let rows = '';
       for (let i = 0; i < cells.length; i += 7) rows += `<tr>${cells.slice(i, i + 7).join('')}</tr>`;
-      return `<table class="mmaf-calendar__grid"><caption class="screen-reader-text">${esc(data.label)}</caption><thead><tr>${['Pon','Uto','Sre','Čet','Pet','Sub','Ned'].map(value => `<th scope="col">${value}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+      return `<table class="mmaf-calendar__grid"><caption class="screen-reader-text">${esc(data.label)}</caption><thead><tr>${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(value => `<th scope="col">${value}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
     }
     day(data) {
-      let html = `<div class="mmaf-calendar__day-heading"><p>Izabrani dan</p><h3>${esc(dateLabel(data.date))}</h3></div>`;
+      let html = `<div class="mmaf-calendar__day-heading"><p>Selected day</p><h3>${esc(dateLabel(data.date))}</h3></div>`;
       if (data.message) html += `<p class="mmaf-calendar__empty">${esc(data.message)}</p>`;
       for (const event of data.events) {
-        const place = [event.venue, event.location].filter(Boolean).join(' · ') || 'Mesto nije potvrđeno';
+        const place = [event.venue, event.location].filter(Boolean).join(' · ') || 'Location TBC';
         const bouts = event.bouts.map(bout => `<li><span>${link(bout.fighter_a.profile_url || bout.fighter_a.source_url, bout.fighter_a.name, !bout.fighter_a.profile_url)}</span><b>vs</b><span>${link(bout.fighter_b.profile_url || bout.fighter_b.source_url, bout.fighter_b.name, !bout.fighter_b.profile_url)}</span>${bout.weight_class ? `<small>${esc(bout.weight_class)}</small>` : ''}</li>`).join('');
-        html += `<article class="mmaf-calendar__event"><div class="mmaf-calendar__event-head"><div><p>${esc(event.promotion || 'MMA događaj')}</p><h4>${esc(event.title)}</h4></div><time datetime="${esc(event.date + (event.time ? `T${event.time}` : ''))}">${esc(event.time || 'Vreme nije poznato')}</time></div><p class="mmaf-calendar__meta">${esc(place)}</p>${event.time_note ? `<p class="mmaf-calendar__note">${esc(event.time_note)}</p>` : ''}<ol class="mmaf-calendar__bouts">${bouts}</ol>${event.source_url ? `<a class="mmaf-calendar__source" href="${esc(event.source_url)}" target="_blank" rel="noopener noreferrer">Tapology događaj ↗</a>` : ''}</article>`;
+        html += `<article class="mmaf-calendar__event"><div class="mmaf-calendar__event-head"><div><p>${esc(event.promotion || 'MMA event')}</p><h4>${esc(event.title)}</h4></div><time datetime="${esc(event.date + (event.time ? `T${event.time}` : ''))}">${esc(event.time || 'Time TBC')}</time></div><p class="mmaf-calendar__meta">${esc(place)}</p>${event.time_note ? `<p class="mmaf-calendar__note">${esc(event.time_note)}</p>` : ''}<ol class="mmaf-calendar__bouts">${bouts}</ol>${event.source_url ? `<a class="mmaf-calendar__source" href="${esc(event.source_url)}" target="_blank" rel="noopener noreferrer">View on Tapology ↗</a>` : ''}</article>`;
       }
       return html;
     }

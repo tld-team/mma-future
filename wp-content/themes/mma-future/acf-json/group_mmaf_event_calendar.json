@@ -1,26 +1,26 @@
 {
   "key": "group_mmaf_event_calendar",
-  "title": "Kalendar događaja",
+  "title": "Event calendar",
   "fields": [
     {
       "key": "field_mmaf_calendar_title",
-      "label": "Naslov",
+      "label": "Title",
       "name": "calendar_title",
       "type": "text",
-      "instructions": "Naslov iznad mesečnog kalendara.",
+      "instructions": "Title shown above the monthly calendar.",
       "required": 0,
-      "default_value": "Kalendar MMA događaja",
+      "default_value": "Upcoming MMA Events",
       "wrapper": {"width": "", "class": "", "id": ""}
     },
     {
       "key": "field_mmaf_calendar_intro",
-      "label": "Uvod",
+      "label": "Intro",
       "name": "calendar_intro",
       "type": "textarea",
-      "instructions": "Opciono kratko objašnjenje kalendara.",
+      "instructions": "Optional short description for the calendar.",
       "required": 0,
       "rows": 3,
-      "default_value": "Pregled profesionalnih MMA događaja u narednih 10 dana. Izaberite datum za kompletan program borbi.",
+      "default_value": "Professional MMA events scheduled for the next 10 days. Select a date to see the complete fight card.",
       "wrapper": {"width": "", "class": "", "id": ""}
     }
   ],
