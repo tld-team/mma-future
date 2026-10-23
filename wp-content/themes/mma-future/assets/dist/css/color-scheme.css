@@ -1,4 +1,4 @@
-/* Public theme colors. Keep the light rules in the existing stylesheets unchanged. */
+/* Light remains the default; only an explicit system dark preference activates these overrides. */
 :root { color-scheme: light; }
 .mmaf-brand picture { display:block; width:100%; }
 .mmaf-brand img { display:block; width:100%; }
