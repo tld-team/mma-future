@@ -20,6 +20,7 @@
       "instructions": "Opciono kratko objašnjenje kalendara.",
       "required": 0,
       "rows": 3,
+      "default_value": "Pregled profesionalnih MMA događaja u narednih 10 dana. Izaberite datum za kompletan program borbi.",
       "wrapper": {"width": "", "class": "", "id": ""}
     }
   ],
