@@ -182,6 +182,7 @@ function mma_future_scripts() {
 	/** ==============================            default styles and scripts            ============================== */
 
 	wp_enqueue_style( 'mma-future-style', get_stylesheet_uri(), array(), _S_VERSION );
+	wp_enqueue_style( 'mmaf-color-scheme', get_template_directory_uri() . '/assets/dist/css/color-scheme.css', array( 'mma-main', 'mma-future-style', 'mmaf-integration' ), mmaf_asset_version('assets/dist/css/color-scheme.css') );
 	wp_style_add_data( 'mma-future-style', 'rtl', 'replace' );
 
 	wp_enqueue_script( 'mma-future-navigation', get_template_directory_uri() . '/js/navigation.js', array(), _S_VERSION, true );
@@ -230,6 +231,7 @@ require get_template_directory() . '/inc/template-functions.php';
  * Customizer additions.
  */
 require get_template_directory() . '/inc/customizer.php';
+require get_template_directory() . '/inc/brand.php';
 
 /**
  * Register blocks
