@@ -135,7 +135,7 @@
   body.blog main details > div { background:var(--mmaf-raised)!important; border-color:var(--mmaf-border)!important; }
   body.blog main details > div a:hover { background:var(--mmaf-hover)!important; }
   body.blog main .border-b.border-slate-200\/70 { border-color:var(--mmaf-border)!important; }
-  body.blog main input { color:var(--mmaf-text)!important; }
+  body.blog main input { color:var(--mmaf-text)!important; border-color:var(--mmaf-field-border)!important; }
   body.blog main input::placeholder { color:var(--mmaf-muted)!important; }
   body.blog main select { background:var(--mmaf-surface)!important; border-color:var(--mmaf-field-border)!important; color:var(--mmaf-text)!important; }
   body.blog main section :is(.text-slate-700,.text-slate-600,.text-slate-500) { color:var(--mmaf-secondary)!important; }
