@@ -103,6 +103,63 @@
   .entry-content :is(table,td,th,blockquote) { border-color:var(--mmaf-border); }
   .entry-content :is(pre,code,blockquote,table) { background:var(--mmaf-surface); }
   .wp-block-button__link, .mmaf-button:not(.mmaf-button--secondary) { border:1px solid var(--mmaf-focus); }
+
+  /* Ranking values were retaining the light-theme navy utility colors. */
+  .rk-wrap :is(.rk-rank-num,.rk-main-row a,.rk-main-row .tabular-nums,.rk-impact-total) { color:var(--mmaf-text)!important; }
+  .rk-wrap .rk-main-row a:hover { color:var(--mmaf-link)!important; }
+  .rk-wrap :is(.rk-impact-total,.rk-impact-label) { color:var(--mmaf-muted)!important; }
+
+  /* Calendar actions should read as calm controls on the dark panel. */
+  .mmaf-calendar__nav-button, .mmaf-calendar__today { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; color:var(--mmaf-text)!important; }
+  .mmaf-calendar__nav-button:hover, .mmaf-calendar__today:hover { background:var(--mmaf-hover)!important; color:var(--mmaf-text)!important; }
+  .mmaf-calendar__timezone { color:var(--mmaf-secondary)!important; }
+  .mmaf-calendar__panel button { color:var(--mmaf-secondary); }
+  .mmaf-calendar__panel a { color:var(--mmaf-link); }
+  .mmaf-calendar__panel :is(.mmaf-calendar__day,.mmaf-calendar__event) { color:var(--mmaf-secondary); }
+
+  /* Fighter pages reuse light result colors in their win/loss badges. */
+  .mf-quick-stats__card, .mf-fight-card, .mf-fight-item { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; color:var(--mmaf-secondary); }
+  .mf-quick-stats__value, .mf-fight-card :is(h3,h4), .mf-fight-item :is(h3,h4) { color:var(--mmaf-text)!important; }
+  .mf-quick-stats__label, .mf-fight-card :is(.text-slate-500,.text-slate-600), .mf-fight-item :is(.text-slate-500,.text-slate-600) { color:var(--mmaf-muted)!important; }
+  .mf-quick-stats__chip--win, .mf-fight-card--win .mf-fight-card__badge, .mf-fight-item--win .mf-fight-item__badge { background:#14322a!important; border-color:#386a50!important; color:#86efac!important; }
+  .mf-quick-stats__chip--loss, .mf-fight-card--loss .mf-fight-card__badge, .mf-fight-item--loss .mf-fight-item__badge { background:#3a222b!important; border-color:#74404a!important; color:#fca5a5!important; }
+  .mf-quick-stats__chip--draw, .mf-fight-item--draw .mf-fight-item__badge { background:#3a3020!important; border-color:#77603a!important; color:#fcd34d!important; }
+  .mf-quick-stats__chip--nc, .mf-fight-item--nc .mf-fight-item__badge { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; color:var(--mmaf-secondary)!important; }
+
+  /* Blog archive cards, filters and pagination use their own legacy palette. */
+  body.blog main > section.bg-slate-50\/60 { background:var(--mmaf-canvas)!important; }
+  body.blog main [role="navigation"][aria-label="Category filter"] a { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; color:var(--mmaf-secondary)!important; }
+  body.blog main [role="navigation"][aria-label="Category filter"] a:hover { background:var(--mmaf-hover)!important; border-color:var(--mmaf-field-border)!important; }
+  body.blog main [role="navigation"][aria-label="Category filter"] a[class*="text-white"] { background:var(--mmaf-hover)!important; border-color:var(--mmaf-focus)!important; color:var(--mmaf-text)!important; }
+  body.blog main [role="navigation"][aria-label="Category filter"] a span { background:var(--mmaf-raised)!important; color:var(--mmaf-secondary)!important; }
+  body.blog main details > div { background:var(--mmaf-raised)!important; border-color:var(--mmaf-border)!important; }
+  body.blog main details > div a:hover { background:var(--mmaf-hover)!important; }
+  body.blog main .border-b.border-slate-200\/70 { border-color:var(--mmaf-border)!important; }
+  body.blog main input { color:var(--mmaf-text)!important; }
+  body.blog main input::placeholder { color:var(--mmaf-muted)!important; }
+  body.blog main select { background:var(--mmaf-surface)!important; border-color:var(--mmaf-field-border)!important; color:var(--mmaf-text)!important; }
+  body.blog main section :is(.text-slate-700,.text-slate-600,.text-slate-500) { color:var(--mmaf-secondary)!important; }
+  body.blog main article a.flex.flex-col.h-full { background:var(--mmaf-surface)!important; color:var(--mmaf-secondary)!important; box-shadow:0 0 0 1px var(--mmaf-border); }
+  body.blog main article a.flex.flex-col.h-full:hover { background:var(--mmaf-raised)!important; box-shadow:0 0 0 1px var(--mmaf-field-border); }
+  body.blog main article :is(.text-muted,.text-slate-500,.text-slate-600,.text-slate-700,.text-slate-800,.text-slate-900) { color:var(--mmaf-secondary)!important; }
+  body.blog main article :is(h2,h3,h4) { color:var(--mmaf-text)!important; }
+  body.blog main article :is(.bg-slate-100,.bg-white) { background:var(--mmaf-raised)!important; }
+  body.blog main :is(.pg__num,.pg__btn) { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; color:var(--mmaf-secondary)!important; }
+  body.blog main :is(.pg__num--active,.pg__num[aria-current="page"],.pg__btn:hover) { background:var(--mmaf-hover)!important; border-color:var(--mmaf-focus)!important; color:var(--mmaf-text)!important; }
+  body.blog main .pg__dots { color:var(--mmaf-muted)!important; }
+
+  /* Featured fighters use a separate card palette from the full ranking table. */
+  .mmaf-rankings-section :is(.bg-white,.bg-slate-50) { background:var(--mmaf-surface)!important; }
+  .mmaf-rankings-section :is(.text-slate-900,.text-slate-800,.text-slate-700) { color:var(--mmaf-text)!important; }
+  .mmaf-rankings-section :is(.text-slate-600,.text-slate-500,.text-slate-400) { color:var(--mmaf-secondary)!important; }
+  .mmaf-rankings-section .w-12.rounded-lg { background:var(--mmaf-raised)!important; color:var(--mmaf-link)!important; border-color:var(--mmaf-border)!important; }
+  .mmaf-rankings-section .tabular-nums { color:var(--mmaf-text)!important; }
+  main section.py-16.bg-white :is(.bg-white,.bg-slate-50) { background:var(--mmaf-surface)!important; }
+  main section.py-16.bg-white :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-slate-600,.text-slate-500,.text-slate-400) { color:var(--mmaf-secondary)!important; }
+  main section.py-16.bg-white :is(h2,h3) { color:var(--mmaf-text)!important; }
+  main section.py-16.bg-white .tabular-nums { color:var(--mmaf-text)!important; }
+  main section.py-16.bg-white .w-12.rounded-lg { background:var(--mmaf-raised)!important; color:var(--mmaf-link)!important; border-color:var(--mmaf-border)!important; }
+  main section.py-16.bg-white [class*="text-[#16A34A]"] { color:#86efac!important; }
 }
 
 /* Tailwind's important utilities have layer precedence over unlayered rules.
