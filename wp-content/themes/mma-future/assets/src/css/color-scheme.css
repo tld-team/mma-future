@@ -22,6 +22,8 @@
   }
   body, #page, #primary, .site-main { background:var(--mmaf-canvas); color:var(--mmaf-secondary); }
   body :is(h1,h2,h3,h4,h5,h6) { color:var(--mmaf-text); }
+  /* Keep hero highlights calm without altering their light-mode treatment. */
+  .mf-hero .text-white, .mf-hero .opp-score-badge, .mf-hero-bubble__title, .hp-hero-section .text-white { color:var(--mmaf-text)!important; }
   body :is(a,button):focus-visible, body :is(input,select,textarea):focus-visible, body summary:focus-visible { outline:2px solid var(--mmaf-focus)!important; outline-offset:3px!important; }
   body :is(input,select,textarea) { color:var(--mmaf-text); background-color:var(--mmaf-surface); border-color:var(--mmaf-field-border); caret-color:var(--mmaf-text); }
   body :is(input,textarea)::placeholder { color:var(--mmaf-muted); }
