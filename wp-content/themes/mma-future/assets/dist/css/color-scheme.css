@@ -177,3 +177,120 @@
     .contact-main-section__reason:has(:checked), .how-it-works-section__flow-card.is-active { background:var(--mmaf-hover)!important; border-color:var(--mmaf-focus)!important; }
   }
 }
+
+/* Visual audit: preserve every light declaration; cover the actual component markup. */
+@media (prefers-color-scheme: dark) {
+  /* Mobile ranking cards have inline colors independent of the desktop table. */
+  .rk-card a, .rk-card summary { color:var(--mmaf-link)!important; }
+  .rk-card a.font-semibold, .rk-card .tabular-nums { color:var(--mmaf-text)!important; }
+  .rk-card a:hover { color:var(--mmaf-link)!important; }
+  .rk-card details > div, .rk-card .rk-impact-mobile { border-color:var(--mmaf-border)!important; }
+  .rk-card details a { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; }
+  .rk-card :is(.text-xs,.rk-impact-mobile-label,.rk-impact-heading-note,.rk-impact-parts,.rk-finishes-parts),
+  .rk-wrap :is(.rk-impact-parts strong,.rk-finishes-parts strong) { color:var(--mmaf-muted)!important; }
+  .rk-wrap .rk-streak[data-streak="W"] { background:#14322a!important; color:#86efac!important; }
+  .rk-wrap .rk-streak[data-streak="L"] { background:#3a222b!important; color:#fca5a5!important; }
+  .mmaf-directory__eyebrow { color:var(--mmaf-link)!important; }
+  .mmaf-directory__intro, .mmaf-directory__summary { color:var(--mmaf-muted)!important; }
+
+  /* Calendar cells and event details live outside the toolbar's styling scope. */
+  .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; color:var(--mmaf-secondary)!important; }
+  .mmaf-calendar :is(.mmaf-calendar__eyebrow,.mmaf-calendar__day-heading p,.mmaf-calendar__event-head p) { color:#fca5a5!important; }
+  .mmaf-calendar__grid, .mmaf-calendar__event { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; }
+  .mmaf-calendar__cell.is-uncovered, .mmaf-calendar__cell.is-past, .mmaf-calendar__blank { background:var(--mmaf-canvas)!important; color:var(--mmaf-muted)!important; }
+  .mmaf-calendar__cell.is-partial { background:repeating-linear-gradient(135deg,var(--mmaf-surface),var(--mmaf-surface) 8px,var(--mmaf-raised) 8px,var(--mmaf-raised) 16px)!important; }
+  .mmaf-calendar__cell button:hover { background:var(--mmaf-hover)!important; }
+  .mmaf-calendar__cell.is-today .mmaf-calendar__number { background:var(--mmaf-hover)!important; color:var(--mmaf-text)!important; }
+  .mmaf-calendar__cell.is-selected .mmaf-calendar__number { background:#9f303b!important; color:#fff!important; }
+  .mmaf-calendar__events span { background:#302332!important; color:var(--mmaf-secondary)!important; }
+  .mmaf-calendar__events em { color:var(--mmaf-muted)!important; }
+  .mmaf-calendar__legend i { background:var(--mmaf-surface)!important; }
+  .mmaf-calendar__legend .is-today { background:var(--mmaf-hover)!important; }
+  .mmaf-calendar__legend .is-uncovered { background:var(--mmaf-canvas)!important; }
+  .mmaf-calendar__event-head time { background:var(--mmaf-raised)!important; color:var(--mmaf-text)!important; }
+  .mmaf-calendar__bouts li { border-color:var(--mmaf-border)!important; }
+  .mmaf-calendar__bouts b, .mmaf-calendar__source { color:#fca5a5!important; }
+
+  /* Remove the pale gradients, keeping the existing fighter hero intact. */
+  .mf-quick-stats, .mf-recent-fights, .mf-fight-history, .mf-bio-section, .mf-bio-data { background:var(--mmaf-canvas)!important; border-color:var(--mmaf-border)!important; }
+  :is(.mf-quick-stats,.mf-recent-fights,.mf-fight-history) :is(.text-muted,.text-body),
+  .mf-bio-data__subtitle, .mf-bio-card__label, .mf-keyfacts__label { color:var(--mmaf-muted)!important; }
+  .mf-fight-card__name, .mf-fight-item__name { color:var(--mmaf-link)!important; }
+  .mf-fight-card__name:hover, .mf-fight-item__name:hover { color:var(--mmaf-text)!important; }
+  .mf-fight-card__method, .mf-fight-item__method, .mf-bio-card__value, .mf-keyfacts__value { color:var(--mmaf-text)!important; }
+  .mf-about__body { color:var(--mmaf-secondary)!important; }
+  .mf-about__anchor, .mf-fight-card__org, .mf-fight-item__org { background:var(--mmaf-raised)!important; border-color:var(--mmaf-border)!important; color:var(--mmaf-link)!important; }
+  .mf-about__anchor:hover { background:var(--mmaf-hover)!important; }
+  .mf-keyfacts__row, .mf-bio-card__row { border-color:var(--mmaf-border)!important; }
+  .mf-keyfacts__icon, .mf-bio-card__icon, .mf-quick-stats__icon svg,
+  :is(.mf-fight-card,.mf-fight-item) .text-primary-500 { color:var(--mmaf-link)!important; }
+  .mf-quick-stats__icon { background:var(--mmaf-raised)!important; }
+  .mf-quick-stats__icon.bg-green-50 { background:#14322a!important; }
+  .mf-quick-stats__icon.bg-green-50 svg { color:#86efac!important; }
+  .mf-quick-stats__icon.bg-red-50 { background:#3a222b!important; }
+  .mf-quick-stats__icon.bg-red-50 svg { color:#fca5a5!important; }
+  .mf-quick-stats__icon.bg-amber-50 { background:#3a3020!important; }
+  .mf-quick-stats__icon.bg-amber-50 svg { color:#fcd34d!important; }
+
+  /* Article typography uses its own wrapper, separate from .entry-content. */
+  body.single-post .js-post-content > div { color:var(--mmaf-secondary); }
+  body.single-post .js-post-content :is(h2,h3,h4):not(.has-text-color) { color:var(--mmaf-text)!important; }
+  body.single-post .js-post-content a:not(.wp-element-button):not(.has-text-color) { color:var(--mmaf-link); }
+  body.single-post .js-post-content :is(blockquote,pre):not(.has-background) { background:var(--mmaf-surface); color:var(--mmaf-secondary); border-color:var(--mmaf-field-border); }
+  body.single-post .js-post-content :is(td,th,hr) { border-color:var(--mmaf-border); }
+  body.single-post #primary :is(.text-slate-900,.text-slate-800,.text-slate-700):not(.js-post-content *) { color:var(--mmaf-secondary)!important; }
+  body.single-post #primary :is(.text-slate-600,.text-slate-500,.text-slate-400):not(.js-post-content *) { color:var(--mmaf-muted)!important; }
+  body.single-post #primary :is(.bg-white,.bg-slate-50\/40,.bg-slate-100,.bg-slate-200):not(.js-post-content *) { background:var(--mmaf-surface)!important; }
+  body.single-post #primary :is(.border-slate-200\/70,.border-slate-200):not(.js-post-content *) { border-color:var(--mmaf-border)!important; }
+  body.single-post #primary a.text-slate-900:hover { color:var(--mmaf-link)!important; }
+  body.blog main [aria-label="Category filter"] + .pointer-events-none { background:linear-gradient(to left,var(--mmaf-canvas),transparent)!important; }
+
+  .about-hero__subtitle { color:var(--mmaf-secondary)!important; }
+  .about-hero__chip, .about-hero .about-hero__btn { background:var(--mmaf-surface)!important; border-color:var(--mmaf-field-border)!important; color:var(--mmaf-link)!important; }
+  .about-hero__chip:hover, .about-hero .about-hero__btn:hover { background:var(--mmaf-hover)!important; }
+  .highlights-section article .w-12.h-12 { background-color:var(--mmaf-raised)!important; color:var(--mmaf-link)!important; }
+  .highlights-section article .w-12.h-12 svg { color:var(--mmaf-link)!important; }
+  /* Uploaded monochrome icons retain their source; a small light tile keeps them legible. */
+  .highlights-section article .w-12.h-12[style*="background-image"] { background-color:#cbd5e1!important; }
+  .contact-main-section .mmaf-optional { color:var(--mmaf-muted)!important; }
+}
+@layer theme {
+  @media (prefers-color-scheme: dark) {
+    body.single-post #js-action-bar a { color:var(--mmaf-secondary)!important; }
+    body.single-post #js-action-bar a:hover { background:var(--mmaf-hover)!important; color:var(--mmaf-text)!important; }
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .rk-cards .rk-impact-total { color:var(--mmaf-secondary)!important; }
+  .rk-cards .rk-streak[data-streak="W"] { background:#14322a!important; color:#86efac!important; }
+  .rk-cards .rk-streak[data-streak="L"] { background:#3a222b!important; color:#fca5a5!important; }
+  .mmaf-rankings-section .bg-slate-100:has(> .rk-g-btn) { background:var(--mmaf-raised)!important; }
+  .mf-about__title, .mf-bio-data__title { color:var(--mmaf-text)!important; }
+  .mf-bio-card__title { border-color:var(--mmaf-border)!important; }
+}
+@media (prefers-color-scheme: dark) {
+  .mmaf-rankings-section label[data-filter], .rk-score-guide, .rk-score-guide strong, .rk-impact-note { color:var(--mmaf-muted)!important; }
+  .rk-impact-note--partial { color:#fcd34d!important; }
+  body.single-post #primary a[style*="color:var(--brand)"] { color:var(--mmaf-link)!important; background:var(--mmaf-raised)!important; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .rk-wrap :is(.rk-impact-heading-label,.rk-impact-heading-note,.rk-finishes-parts,.rk-impact-parts), .rk-cards .rk-impact-parts strong { color:var(--mmaf-muted)!important; }
+  .rk-impact-info { color:var(--mmaf-muted)!important; border-color:var(--mmaf-field-border)!important; }
+  .rk-impact-info:is(:hover,:focus,:active) { background:var(--mmaf-hover)!important; color:var(--mmaf-link)!important; }
+  .about-featured-section__icon svg { color:var(--mmaf-link)!important; }
+  .about-featured-section__icon:has(img) { background:#cbd5e1!important; }
+  .mf-hero-bubble__badge { color:var(--mmaf-link)!important; border-color:var(--mmaf-border)!important; }
+  .mf-bio-card__divider { background:var(--mmaf-border)!important; }
+}
+@layer theme {
+  @media (prefers-color-scheme: dark) {
+    .how-it-works-section__principle-icon { color:var(--mmaf-link)!important; }
+    body.single-post #js-action-bar a svg { color:var(--mmaf-muted)!important; }
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .rk-detail-row a { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; }
+  .rk-detail-row a:hover { background:var(--mmaf-hover)!important; }
+  .rk-expand[aria-expanded="true"] svg { color:var(--mmaf-link)!important; }
+}
