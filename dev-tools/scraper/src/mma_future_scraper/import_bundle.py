@@ -21,7 +21,7 @@ REQUIRED = (
     'results.json', 'daily_summary.json', 'manual_review.json', 'run_manifest.json',
     'changes.json', 'fighter_profiles.json', 'fighter_profiles_report.json',
 )
-OPTIONAL = ('state_report.json','event_coverage.json','priority_targets.json')
+OPTIONAL = ('state_report.json','event_coverage.json','priority_targets.json','ufc_roster.json')
 DERIVED = ('readiness_report.json', 'source_enrichment_queue.json')
 
 
@@ -76,7 +76,11 @@ def export_import_bundle(
         if not run_manifest.get('run_id') or events_document.get('run',{}).get('run_id') != run_manifest['run_id']:
             raise ValueError('Event results and manifest belong to different runs')
         coverage_path=snapshot/'event_coverage.json'
-        coverage=json.loads(coverage_path.read_text()) if coverage_path.exists() else coverage_document(events_document['events'],run_id=run_manifest['run_id'])
+        observed=json.loads(coverage_path.read_text()).get('events',[]) if coverage_path.exists() else []
+        # Incremental runs retain earlier result rows, while their coverage file
+        # only describes events inspected in this run. Preserve those earlier
+        # rows as explicitly unverified legacy evidence in the exported copy.
+        coverage=coverage_document(events_document['events'],observed=observed,run_id=run_manifest['run_id'])
         if coverage.get('run_id')!=run_manifest['run_id']:raise ValueError('Event coverage and results belong to different runs')
         coverage_counts=validate_coverage(coverage,events_document['events'])
         atomic_write_json(coverage_path,coverage)
@@ -162,3 +166,24 @@ def export_import_bundle(
         os.link(archive, output)
     return {'ready_for_import': True, 'output': str(output), 'bytes': output.stat().st_size,
             'sha256': _sha256(output), 'counts': manifest['counts']}
+
+
+def export_ufc_roster_bundle(output: Path, *, latest_dir: Path = LATEST_DIR) -> dict:
+    """Create a standalone package accepted by the UFC-only WordPress import lane."""
+    output=Path(output).expanduser().resolve();source=Path(latest_dir).resolve()/'ufc_roster.json'
+    if output.suffix.lower()!='.zip':raise ValueError('Output must end in .zip')
+    if output.exists():raise FileExistsError(f'Output already exists: {output}')
+    if not source.is_file():raise ValueError('Run check-ufc-roster before exporting a UFC package')
+    document=json.loads(source.read_text(encoding='utf-8'))
+    if document.get('schema_version') not in ('mmaf_ufc_roster_v1','mmaf_ufc_roster_v2') or not document.get('content_sha256'):raise ValueError('Unsupported UFC roster document')
+    output.parent.mkdir(parents=True,exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='mmaf-ufc-bundle-',dir=output.parent) as temporary:
+        work=Path(temporary);snapshot=work/'latest';snapshot.mkdir();shutil.copyfile(source,snapshot/'ufc_roster.json')
+        files={'ufc_roster.json':{'bytes':(snapshot/'ufc_roster.json').stat().st_size,'sha256':_sha256(snapshot/'ufc_roster.json')}}
+        manifest={'format':'mmaf-import-bundle','format_version':1,'contract_version':2,'mode':'ufc_roster','exported_at':utc_now(),'source_runs':{'ufc_roster':document['run_id']},'counts':document.get('counts',{}),'files':files}
+        atomic_write_json(snapshot/'package_manifest.json',manifest)
+        archive=work/'bundle.zip'
+        with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as bundle:
+            for path in sorted(snapshot.iterdir()):bundle.write(path,'latest/'+path.name)
+        os.link(archive,output)
+    return {'ready_for_import':True,'mode':'ufc_roster','output':str(output),'bytes':output.stat().st_size,'sha256':_sha256(output),'counts':document.get('counts',{})}

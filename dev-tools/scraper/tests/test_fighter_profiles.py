@@ -1,11 +1,15 @@
 import json
 
 import mma_future_scraper.fighter_profile_queue as fighter_profile_queue
+from mma_future_scraper.config import ScraperConfig
 from mma_future_scraper.fighter_profile_report import build_profile_enrichment_report, profile_completeness_score
 from mma_future_scraper.fighter_profile_queue import (
     build_fighter_profile_queue,
     collect_fighter_profile_urls_from_queue,
+    load_tracking_decisions,
     normalize_tapology_fighter_url,
+    tracking_allows_profile,
+    tracking_decision_for,
 )
 from mma_future_scraper.fighter_profiles import (
     build_event_profile_enrichment_summary,
@@ -18,6 +22,7 @@ from mma_future_scraper.fighter_profiles import (
     parse_profile_snapshot,
     scope_fight_row_text,
 )
+from mma_future_scraper.tapology import TapologyScraper
 
 
 def test_collect_fighter_profile_urls_from_results_keeps_first_seen_order(tmp_path):
@@ -2442,3 +2447,99 @@ def test_scope_fight_row_text_handles_empty_and_none():
     assert scope_fight_row_text(None) == ""
     assert scope_fight_row_text("") == ""
     assert scope_fight_row_text("   ") == ""
+
+
+def test_profile_queue_honors_wordpress_tracking_decisions(tmp_path):
+    input_path = tmp_path / "fighters.json"
+    input_path.write_text(json.dumps([
+        {"source_url": "https://www.tapology.com/fightcenter/fighters/101-active"},
+        {"source_url": "https://www.tapology.com/fightcenter/fighters/102-archived"},
+        {"source_url": "https://www.tapology.com/fightcenter/fighters/103-paused"},
+        {"source_url": "https://www.tapology.com/fightcenter/fighters/104-returning"},
+    ]), encoding="utf-8")
+    decisions_path = tmp_path / "tracking.json"
+    decisions_path.write_text(json.dumps({
+        "schema_version": "mmaf_tracking_decisions_v1",
+        "revision": "revision-7",
+        "fighters": [
+            {"source_fighter_id": "tapology_fighter_102", "tracking_mode": "opponent_only", "revision": 2},
+            {"source_fighter_id": "tapology_fighter_103", "tracking_mode": "paused", "recheck_due": False, "revision": 3},
+            {"source_fighter_id": "tapology_fighter_104", "tracking_mode": "paused", "recheck_due": True, "revision": 4},
+        ],
+    }), encoding="utf-8")
+
+    queue, report, _paths = build_fighter_profile_queue(
+        latest_results_path=tmp_path / "missing-results.json",
+        latest_upcoming_path=tmp_path / "missing-upcoming.json",
+        derived_index_path=tmp_path / "missing-index.json",
+        existing_profiles_path=tmp_path / "missing-profiles.json",
+        input_file=input_path,
+        tracking_decisions_path=decisions_path,
+        output_path=tmp_path / "queue.json",
+        report_path=tmp_path / "report.json",
+    )
+
+    assert [item["source_fighter_id"] for item in queue["queue"]] == [
+        "tapology_fighter_101",
+        "tapology_fighter_104",
+    ]
+    assert queue["tracking_decisions_revision"] == "revision-7"
+    assert queue["tracking_skipped_by_mode"] == {"opponent_only": 1, "paused": 1}
+    assert queue["profile_requests_before_tracking"] == 4
+    assert queue["profile_requests_after_tracking"] == 2
+    assert report["tracking_skipped_count"] == 2
+
+
+def test_event_profile_enrichment_uses_same_tracking_decision_index(tmp_path):
+    decisions_path = tmp_path / "tracking.json"
+    decisions_path.write_text(json.dumps({
+        "schema_version": "mmaf_tracking_decisions_v1",
+        "revision": "revision-8",
+        "fighters": [
+            {"source_fighter_id": "tapology_fighter_201", "tracking_mode": "opponent_only"},
+            {"source_url": "https://www.tapology.com/fightcenter/fighters/202-paused", "tracking_mode": "paused", "recheck_due": False},
+            {"source_fighter_id": "tapology_fighter_203", "tracking_mode": "paused", "recheck_due": True},
+        ],
+    }), encoding="utf-8")
+
+    index = load_tracking_decisions(decisions_path)
+
+    assert index["revision"] == "revision-8"
+    assert not tracking_allows_profile(tracking_decision_for(index, "tapology_fighter_201", None))
+    assert not tracking_allows_profile(tracking_decision_for(index, None, "https://www.tapology.com/fightcenter/fighters/202-paused?x=1"))
+    assert tracking_allows_profile(tracking_decision_for(index, "tapology_fighter_203", None))
+    assert tracking_allows_profile(tracking_decision_for(index, "tapology_fighter_204", None))
+
+
+def test_event_profile_enrichment_skips_requests_blocked_by_tracking_manifest(tmp_path):
+    decisions_path = tmp_path / "tracking.json"
+    decisions_path.write_text(json.dumps({
+        "schema_version": "mmaf_tracking_decisions_v1",
+        "revision": "revision-9",
+        "fighters": [
+            {"source_fighter_id": "tapology_fighter_301", "tracking_mode": "opponent_only"},
+        ],
+    }), encoding="utf-8")
+    scraper = TapologyScraper(ScraperConfig(tracking_decisions_path=decisions_path))
+    scraper._event_fighter_references = lambda _event: [
+        {"source_fighter_id": "tapology_fighter_301", "url": "https://www.tapology.com/fightcenter/fighters/301-archived", "name": "Archived", "contexts": {"result"}},
+        {"source_fighter_id": "tapology_fighter_302", "url": "https://www.tapology.com/fightcenter/fighters/302-active", "name": "Active", "contexts": {"result"}},
+    ]
+    requested = []
+
+    def fetch(_context, url, **_kwargs):
+        requested.append(url)
+        return {"source_fighter_id": "tapology_fighter_302", "source_url": url, "profile_fetched": True, "status": "success"}
+
+    scraper._fetch_event_fighter_profile = fetch
+    scraper._attach_profile_refs = lambda _event: None
+    event = {"event_date": "2026-10-22", "event_url": "https://example.test/event", "fighter_profiles": {}}
+    summary = scraper._empty_summary("test-run", "2026-10-22T00:00:00Z")
+
+    scraper._enrich_event_fighter_profiles(event, None, tmp_path, "2026-10-22T00:00:00Z", summary)
+
+    assert requested == ["https://www.tapology.com/fightcenter/fighters/302-active"]
+    assert summary["profile_requests_before_tracking"] == 2
+    assert summary["profile_requests_after_tracking"] == 1
+    assert summary["tracking_skipped_count"] == 1
+    assert summary["tracking_skipped_by_mode"] == {"opponent_only": 1}

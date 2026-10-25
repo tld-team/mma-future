@@ -115,6 +115,10 @@ final class FighterRepository {
 			$where[] = 'f.rankability_status = %s';
 			$args[]  = (string) $filters['rankability_status'];
 		}
+		if ( ! empty( $filters['tracking_mode'] ) ) {
+			$where[] = 'f.tracking_mode = %s';
+			$args[] = (string) $filters['tracking_mode'];
+		}
 
 		if ( 'public' === ( $filters['public_state'] ?? '' ) ) {
 			$where[] = 'f.is_public = 1';

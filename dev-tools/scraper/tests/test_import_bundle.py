@@ -1,9 +1,12 @@
 import hashlib
 import json
 import zipfile
+from copy import deepcopy
 import pytest
 from test_pre_import import _write_complete_latest
 from mma_future_scraper.import_bundle import export_import_bundle
+from mma_future_scraper.ufc_roster import build_document
+from mma_future_scraper.event_coverage import document as coverage_document
 
 
 def test_export_freezes_inputs_and_verifies_every_file(tmp_path):
@@ -30,3 +33,49 @@ def test_unhealthy_export_never_publishes_zip(tmp_path):
     with pytest.raises(ValueError,match='health check failed'):
         export_import_bundle(tmp_path/'bad.zip',latest_dir=latest,expected_pages=99)
     assert not (tmp_path/'bad.zip').exists()
+
+
+def test_incremental_export_marks_retained_events_without_coverage_unverified(tmp_path):
+    latest=tmp_path/'data'/'latest'
+    _write_complete_latest(latest,latest.parent/'state')
+    results=json.loads((latest/'results.json').read_text())
+    retained=deepcopy(results['events'][0])
+    retained.update(internal_event_id='mf_event_000002',source_event_id='tapology_event_200',source_event_numeric_id='200',event_url='https://www.tapology.com/fightcenter/events/200-retained',event_name='Retained event',bouts=[])
+    results['events'].append(retained)
+    (latest/'results.json').write_text(json.dumps(results))
+    coverage=coverage_document(results['events'][:1],run_id='run_1')
+    (latest/'event_coverage.json').write_text(json.dumps(coverage))
+
+    output=tmp_path/'incremental.zip'
+    export_import_bundle(output,latest_dir=latest,expected_pages=15)
+    with zipfile.ZipFile(output) as archive:
+        exported=json.loads(archive.read('latest/event_coverage.json'))
+        by_id={event['source_event_id']:event for event in exported['events']}
+        assert by_id['tapology_event_200']['status']=='partial'
+        assert by_id['tapology_event_200']['reasons']==['legacy_unverified']
+        assert exported['counts']['partial']==2
+    assert json.loads((latest/'event_coverage.json').read_text())==coverage
+
+
+def test_regular_bundle_includes_optional_ufc_roster(tmp_path):
+    latest = tmp_path/'data'/'latest'
+    _write_complete_latest(latest, latest.parent/'state')
+    roster = build_document(
+        [{"name": "Current Fighter", "url": "/fighters/current"}],
+        [{"name": "Former Fighter", "url": "/fighters/former"}],
+        [{"name": "Current Fighter", "url": "/fighters/current", "text": "added"}],
+        run_id="ufc-regular-test",
+        scraped_at="2026-10-20T10:00:00Z",
+    )
+    (latest/'ufc_roster.json').write_text(json.dumps(roster), encoding='utf-8')
+
+    output = tmp_path/'regular-with-ufc.zip'
+    export_import_bundle(output, latest_dir=latest, expected_pages=15)
+
+    with zipfile.ZipFile(output) as archive:
+        manifest = json.loads(archive.read('latest/package_manifest.json'))
+        payload = archive.read('latest/ufc_roster.json')
+        assert manifest['files']['ufc_roster.json'] == {
+            'bytes': len(payload),
+            'sha256': hashlib.sha256(payload).hexdigest(),
+        }

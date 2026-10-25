@@ -31,6 +31,10 @@ final class Worker {
     private static function step(): array {
         $job=(new Repository())->active();
         if($job){return (new Engine())->work();}
+        $repairs=(new \MMAF\DataEngine\Services\UfcSigningService())->work_repairs();
+        if(!empty($repairs['worked'])){return $repairs;}
+        $comparison=(new \MMAF\DataEngine\Services\UfcSigningService())->work_compare();
+        if(!empty($comparison['worked'])){return $comparison;}
         // Complete the import's preparation/draft before general readiness refreshes.
         // Processor yields when another frozen calculation owns the inputs.
         $result=(new \MMAF\DataEngine\Services\DataPipeline\Processor())->work();
