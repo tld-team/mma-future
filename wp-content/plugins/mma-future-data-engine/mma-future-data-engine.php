@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MMA Future Data Engine
  * Description: Canonical sports data engine for MMA Future fighters, events, bouts, imports, stats, and rankings. Produced by TLD Team.
- * Version: 2.11.1
+ * Version: 2.12.0
  * Author: Luka Mutic
  * Author URI: https://tldteam.com
  * Text Domain: mma-future-data-engine
@@ -14,8 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'MMAF_PLUGIN_FILE', __FILE__ );
 define( 'MMAF_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
-define( 'MMAF_PLUGIN_VERSION', '2.11.1' );
-define( 'MMAF_DB_VERSION', '1.15.0' );
+define( 'MMAF_PLUGIN_VERSION', '2.12.0' );
+define( 'MMAF_DB_VERSION', '1.16.0' );
 
 require_once MMAF_PLUGIN_DIR . 'vendor/autoload.php';
 spl_autoload_register(static function ($class) {

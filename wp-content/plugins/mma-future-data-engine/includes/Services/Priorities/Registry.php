@@ -75,12 +75,16 @@ final class Registry {
         global $wpdb;$rows=$wpdb->get_results('SELECT * FROM '.Schema::table()." WHERE is_active=1 AND identity_status='confirmed' ORDER BY id",ARRAY_A);
         $bindings=[];$items=[];$ids=array_values(array_unique(array_filter(array_map('intval',array_column($rows,'fighter_id')))));
         $records=$ids?(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters($ids):[];
+		$modes=[];if($ids){foreach($wpdb->get_results('SELECT id,tracking_mode FROM '.Canonical::table_names()['fighters'].' WHERE id IN ('.implode(',',$ids).')',ARRAY_A) as $fighter){$modes[(int)$fighter['id']]=$fighter['tracking_mode'];}}
+		$tracking=new \MMAF\DataEngine\Services\TrackingService();$skipped=['opponent_only'=>0,'paused'=>0];
         foreach($rows as $r){
             $key=$r['source_fighter_id'];$record=$records[(int)$r['fighter_id']]??null;
             $bindings[]=['target_id'=>(int)$r['id'],'source_fighter_id'=>$key,'source_url'=>$r['source_url'],'token'=>self::token($r)];
+			$mode=$modes[(int)$r['fighter_id']]??\MMAF\DataEngine\Services\TrackingService::NORMAL;
+			if($mode===\MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY || ($mode===\MMAF\DataEngine\Services\TrackingService::PAUSED && !$tracking->recheck_due((int)$r['fighter_id']))){++$skipped[$mode];continue;}
             $items[$key]=['source_fighter_id'=>$key,'source_url'=>$r['source_url'],'display_name'=>$r['client_name'],'fighter_id'=>$r['fighter_id']?(int)$r['fighter_id']:null,'action'=>'refresh_source_evidence','fetch_scope'=>($record['status']??'')==='accepted' && ($record['record']['pro_fights_count']??999)<=30?'career_and_period':'career_record','force_refresh'=>true];
         }
-        return ['schema_version'=>'mmaf_source_enrichment_v1','contract_version'=>1,'generated_at'=>gmdate('c'),'items'=>array_values($items),'priority_targets'=>['schema_version'=>'mmaf_priority_targets_v1','site_url'=>home_url('/'),'exported_at'=>gmdate('c'),'items'=>$bindings]];
+        return ['schema_version'=>'mmaf_source_enrichment_v1','contract_version'=>1,'generated_at'=>gmdate('c'),'items'=>array_values($items),'tracking_skipped_count'=>array_sum($skipped),'tracking_skipped_by_mode'=>$skipped,'priority_targets'=>['schema_version'=>'mmaf_priority_targets_v1','site_url'=>home_url('/'),'exported_at'=>gmdate('c'),'items'=>$bindings]];
     }
     public static function validateManifest(array $manifest): array {
         if(($manifest['schema_version']??'')!=='mmaf_priority_targets_v1'||($manifest['site_url']??'')!==home_url('/')||!is_array($manifest['items']??null)){throw new ImportException('Priority targets belong to a different registry/site.','priority');}

@@ -9,7 +9,7 @@ use MMAF\DataEngine\Services\RegularImport\Repository;
 /** Admin GETs only read projections. Decisions re-evaluate live input under the write lock. */
 final class Readiness {
     public const RULES='preparation-v3';
-    public const FINGERPRINT_VERSION=2;
+    public const FINGERPRINT_VERSION=3;
     public static function rules(): string { return self::RULES.'|'.\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_version(); }
     public static function fingerprint(int $id,bool $include_stats=true): string {
         global $wpdb; $t=Canonical::table_names(); $p=Pipeline::tables();
