@@ -1,7 +1,7 @@
 <?php
 require __DIR__.'/bootstrap.php';
 use MMAF\DataEngine\Migrations\Schema;
-use MMAF\DataEngine\Services\RegularImport\{Repository,Engine,Storage,Transaction,WriteGuard,DatabaseState};
+use MMAF\DataEngine\Services\RegularImport\{Repository,Engine,Storage,Transaction,WriteGuard,DatabaseState,Controller};
 use MMAF\DataEngine\Services\UfcSigningService;
 function ufc_import_check(bool $ok,string $label): void {if(!$ok){throw new RuntimeException($label);}echo "PASS: $label\n";}
 $archive=getenv('MMAF_UFC_PIPELINE_FIXTURE');if(!$archive || !is_file($archive)){throw new RuntimeException('Build the offline UFC ZIP fixture first.');}
@@ -11,6 +11,7 @@ try{
     $repo=new Repository();$job=$repo->create('synthetic-ufc.zip',filesize($archive),1);$dir=Storage::job($job);copy($archive,$dir.'/bundle.zip');$repo->update($job,['phase'=>'prepare','status'=>'queued']);
     for($n=0;$n<20;$n++){$state=$repo->get($job);if($state['status']==='awaiting_approval'){break;}$result=(new Engine())->work();if(empty($result['worked'])){throw new RuntimeException('UFC preview did not progress: '.wp_json_encode($result));}}
     $state=$repo->get($job);ufc_import_check($state['status']==='awaiting_approval','standalone ZIP reaches import preview');
+    $view=Controller::view($state);ufc_import_check(($view['source_runs']['ufc']??null)==='isolated-ufc-import' && ($view['database']??null)===DB_NAME && ($view['ufc_preview']['new']??0)>=1,'review screen receives source run, destination and UFC comparison');
     $items=$repo->items($job,'ufc_roster');$preview=json_decode($items[0]['payload_json']??'null',true);ufc_import_check(($preview['comparison']['new']??0)>=1 && ($preview['comparison']['unmatched']??0)>=1 && ($preview['destination']??'')===home_url('/'),'preview uses the shared matcher and identifies the target site');
     $meta=$state['meta'];$meta['baseline']=DatabaseState::integrity();$meta['protected_baseline']=DatabaseState::protectedState();$meta['backup']=['fixture_only'=>true];
     $repo->update($job,['meta'=>$meta,'approved_by'=>1,'approved_hash'=>$meta['approval_token'],'writes_started'=>1,'phase'=>'ufc','status'=>'queued']);
