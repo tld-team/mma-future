@@ -1,5 +1,6 @@
 <?php
 require __DIR__.'/bootstrap.php';
+require __DIR__.'/synthetic-fixtures.php';
 set_exception_handler(function($e){fwrite(STDERR,$e->getMessage().' at '.$e->getLine().PHP_EOL);exit(1);});
 
 use MMAF\DataEngine\Migrations\Schema;
@@ -11,14 +12,18 @@ use MMAF\DataEngine\Services\TrackingService;
 function tracking_expect($ok,$label){if(!$ok){throw new RuntimeException($label);}echo "PASS: $label\n";}
 
 global $wpdb;$t=Schema::table_names();
-$fixture=$wpdb->get_row("SELECT p.fighter_id,p.opponent_fighter_id,b.id bout_id,opp.display_name opponent_name,opp.wp_post_id opponent_post,s.calculated_at FROM {$t['bout_participants']} p JOIN {$t['bouts']} b ON b.id=p.bout_id JOIN {$t['fighters']} active ON active.id=p.fighter_id AND active.is_public=1 AND active.deleted_soft=0 JOIN {$t['fighters']} opp ON opp.id=p.opponent_fighter_id AND opp.deleted_soft=0 LEFT JOIN {$t['fighter_stats_current']} s ON s.fighter_id=opp.id WHERE b.deleted_soft=0 AND b.status IN ('valid','completed') AND s.fighter_id IS NOT NULL ORDER BY b.id DESC LIMIT 1",ARRAY_A);
-if(!$fixture){throw new RuntimeException('Fixture needs a public fighter with one recorded opponent and a current stats row.');}
-$run=(int)(new MMAF\DataEngine\Repositories\RankingRunRepository())->get_active_ranking_run_id();
-$score_before=$wpdb->get_var($wpdb->prepare("SELECT total_score FROM {$t['ranking_snapshots']} WHERE ranking_run_id=%d AND fighter_id=%d ORDER BY id LIMIT 1",$run,$fixture['fighter_id']));
-$identity_before=$wpdb->get_row($wpdb->prepare("SELECT f.id,f.display_name,s.source_fighter_id,s.source_url FROM {$t['fighters']} f LEFT JOIN {$t['fighter_sources']} s ON s.fighter_id=f.id AND s.source_type='tapology' WHERE f.id=%d ORDER BY s.is_primary DESC,s.id LIMIT 1",$fixture['opponent_fighter_id']),ARRAY_A);
-
 Transaction::begin();
 try{
+    [$active,$opponent]=fixture_canonical_baseline();
+    $post=wp_insert_post(['post_type'=>'mmaf_fighter','post_status'=>'publish','post_title'=>$opponent['display_name']]);
+    $wpdb->update($t['fighters'],['wp_post_id'=>$post],['id'=>$opponent['fighter_id']]);
+    $calculated_at='2026-10-20 12:00:00';
+    $wpdb->insert($t['fighter_stats_current'],['fighter_id'=>$opponent['fighter_id'],'calculated_at'=>$calculated_at,'created_at'=>$calculated_at]);
+    $fixture=$wpdb->get_row($wpdb->prepare("SELECT p.fighter_id,p.opponent_fighter_id,b.id bout_id,opp.display_name opponent_name,opp.wp_post_id opponent_post,s.calculated_at FROM {$t['bout_participants']} p JOIN {$t['bouts']} b ON b.id=p.bout_id JOIN {$t['fighters']} opp ON opp.id=p.opponent_fighter_id JOIN {$t['fighter_stats_current']} s ON s.fighter_id=opp.id WHERE p.fighter_id=%d AND p.opponent_fighter_id=%d ORDER BY b.id DESC LIMIT 1",$active['fighter_id'],$opponent['fighter_id']),ARRAY_A);
+    tracking_expect((bool)$fixture,'isolated public fighter has a recorded opponent and a stats row');
+    $run=(int)(new MMAF\DataEngine\Repositories\RankingRunRepository())->get_active_ranking_run_id();
+    $score_before=$wpdb->get_var($wpdb->prepare("SELECT total_score FROM {$t['ranking_snapshots']} WHERE ranking_run_id=%d AND fighter_id=%d ORDER BY id LIMIT 1",$run,$fixture['fighter_id']));
+    $identity_before=$wpdb->get_row($wpdb->prepare("SELECT f.id,f.display_name,s.source_fighter_id,s.source_url FROM {$t['fighters']} f LEFT JOIN {$t['fighter_sources']} s ON s.fighter_id=f.id AND s.source_type='tapology' WHERE f.id=%d ORDER BY s.is_primary DESC,s.id LIMIT 1",$fixture['opponent_fighter_id']),ARRAY_A);
     $service=new TrackingService();
     $result=$service->set_mode([(int)$fixture['opponent_fighter_id']],TrackingService::OPPONENT_ONLY,'integration_archive','https://example.test/tracking-evidence','admin',1);
     tracking_expect($result['updated']===1,'opponent-only decision is applied once');
