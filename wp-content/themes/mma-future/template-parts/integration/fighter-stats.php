@@ -40,6 +40,7 @@ if ( ! mmaf_fighter_record_available( $c ) ) { echo '<section class="mmaf-sectio
 <div class="mf-quick-stats__label font-semibold text-xs uppercase tracking-wide text-muted">Recorded finishes</div>
 </article>
 <!-- Card 4: MMA Future Score -->
+<?php if ( empty( $c['ufc_signing']['confirmed'] ) ) : ?>
 <article class="mf-quick-stats__card mf-quick-stats__card--active bg-white rounded-xl border border-slate-200 p-4 lg:p-5 flex flex-col items-center text-center">
 <div class="mf-quick-stats__icon w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-blue-50 flex items-center justify-center mb-3">
 <svg class="w-5 h-5 lg:w-6 lg:h-6 text-blue-600" fill="none" stroke="currentColor" viewbox="0 0 24 24">
@@ -49,6 +50,7 @@ if ( ! mmaf_fighter_record_available( $c ) ) { echo '<section class="mmaf-sectio
 <div class="mf-quick-stats__value font-heading font-bold text-2xl lg:text-3xl text-heading mb-1"><?php echo esc_html( mmaf_display_number( $overall['score'] ?? null, 2 ) ); ?></div>
 <div class="mf-quick-stats__label font-semibold text-xs uppercase tracking-wide text-muted"><?php echo esc_html($c['dates']['score_label']??'MMA Future Score'); ?></div>
 </article>
+<?php endif; ?>
 <!-- Card 5: Win Percentage -->
 <article class="mf-quick-stats__card bg-white rounded-xl border border-slate-200 p-4 lg:p-5 flex flex-col items-center text-center">
 <div class="mf-quick-stats__icon w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-indigo-50 flex items-center justify-center mb-3">

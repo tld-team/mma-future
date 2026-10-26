@@ -63,7 +63,7 @@ final class Calculation {
         global $wpdb;$t=Canonical::table_names();$o=Schema::tables();$id=(int)$job['id'];$cp=$job['checkpoint'];$summary=$job['summary'];$service=new StatsRebuildService();$repo=new FighterStatsRepository();
         if($job['phase']==='stats_rows'){
             $ids=$wpdb->get_col($wpdb->prepare("SELECT id FROM {$t['fighters']} WHERE id>%d AND id<=%d AND deleted_soft=0 ORDER BY id LIMIT %d",$cp['cursor'],$cp['max_id'],$limit));
-            $generation=[];foreach($service->stats_rows($ids) as $row){$row['calculated_at']=$cp['calculated_at'];$row['created_at']=$cp['calculated_at'];$row['updated_at']=$cp['calculated_at'];$generation[]=['generation_id'=>$id,'fighter_id'=>$row['fighter_id'],'row_json'=>wp_json_encode($row)];}BulkWriter::insert($o['stats'],$generation,true);
+            $generation=[];foreach($service->stats_rows($ids) as $row){$strategy=$row['_tracking_stats_strategy']??'calculated';unset($row['_tracking_stats_strategy'],$row['id']);if(empty($row['calculated_at'])){$row['calculated_at']=$cp['calculated_at'];}$row['created_at']=$cp['calculated_at'];$row['updated_at']=$cp['calculated_at'];$generation[]=['generation_id'=>$id,'fighter_id'=>$row['fighter_id'],'row_json'=>wp_json_encode($row)];$summary['stats_rows_'.$strategy]=($summary['stats_rows_'.$strategy]??0)+1;}BulkWriter::insert($o['stats'],$generation,true);
             if($ids){$cp['cursor']=(int)end($ids);}$summary['stats_rows_written']=($summary['stats_rows_written']??0)+count($ids);
             if(count($ids)<$limit){$cp['cursor']=0;Jobs::save($id,['phase'=>'diagnostics','checkpoint'=>$cp,'summary'=>$summary]);}else{Jobs::save($id,['checkpoint'=>$cp,'summary'=>$summary]);}return;
         }
@@ -80,7 +80,7 @@ final class Calculation {
             $values=array_map(static fn($col)=>"NULLIF(JSON_UNQUOTE(JSON_EXTRACT(row_json,'$.$col')),'null')",$columns);
             Repository::check($wpdb->query("DELETE FROM {$t['fighter_stats_current']}"));
             Repository::check($wpdb->query($wpdb->prepare("INSERT INTO {$t['fighter_stats_current']} (".implode(',',$columns).") SELECT ".implode(',',$values)." FROM {$o['stats']} WHERE generation_id=%d ORDER BY fighter_id",$id)));
-            $summary+=['rebuilt_at'=>$cp['calculated_at'],'fighters_total'=>$expected,'generation_id'=>$id,'reference_date'=>$cp['reference_date'],'calculation_policy'=>\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationPolicy()];$repo->set_last_rebuild_summary($summary);update_option('mmaf_stats_generation',$id,false);
+            $summary+=['rebuilt_at'=>$cp['calculated_at'],'fighters_total'=>$expected,'stats_rows_without_tracking_optimization'=>$expected,'stats_rows_recalculated_after_tracking'=>(int)($summary['stats_rows_calculated']??0),'stats_rows_work_avoided'=>(int)($summary['stats_rows_carried']??0),'generation_id'=>$id,'reference_date'=>$cp['reference_date'],'calculation_policy'=>\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationPolicy()];$repo->set_last_rebuild_summary($summary);update_option('mmaf_stats_generation',$id,false);
             (new AuditLogService())->write('stats_rebuilt','system',0,null,$summary,'Validated private statistics generation',(int)$job['actor_user_id']);
             // Publishing all rows and its durable phase marker is one transaction.
             $cp['cursor']=0;Jobs::save($id,['phase'=>'coverage','checkpoint'=>$cp,'summary'=>$summary]);return;
@@ -88,7 +88,7 @@ final class Calculation {
         if($job['phase']==='coverage'){
             $rows=$wpdb->get_results($wpdb->prepare("SELECT * FROM {$t['fighter_career_coverage']} WHERE fighter_id>%d ORDER BY fighter_id LIMIT %d",$cp['cursor'],$limit),ARRAY_A);
             $career=new \MMAF\DataEngine\Services\RegularImport\CareerHistory();foreach($rows as $row){$career->refresh_record_coverage($row,(int)$job['actor_user_id']);$cp['cursor']=(int)$row['fighter_id'];}
-            if(count($rows)<$limit){self::complete($job,$summary);Readiness::invalidate();Transaction::after_commit(static function(){do_action('mmaf_public_data_changed','stats');});}else{Jobs::save($id,['checkpoint'=>$cp]);}
+            if(count($rows)<$limit){$tracking=(new \MMAF\DataEngine\Services\TrackingService())->refresh_paused_candidates($cp['reference_date'],(int)$job['actor_user_id']);$summary['paused_fighters_checked']=($summary['paused_fighters_checked']??0)+(int)$tracking['checked'];$summary['return_candidates']=($summary['return_candidates']??0)+(int)$tracking['candidates'];$summary['paused_profile_refresh_pending']=($summary['paused_profile_refresh_pending']??0)+(int)($tracking['profile_refresh_pending']??0);self::complete($job,$summary);Readiness::invalidate();Transaction::after_commit(static function(){do_action('mmaf_public_data_changed','stats');});}else{Jobs::save($id,['checkpoint'=>$cp]);}
         }
     }
     private static function ranking(array $job,int $limit): void {
@@ -126,7 +126,7 @@ final class Calculation {
         }
     }
     private static function merge(array $a,array $b): array {
-        $add=['stats_rows_written','warnings_count','countable_bouts','skipped_bouts','malformed_bouts','participants_processed','eligible_fighters','ineligible_fighters','provisional_fighters','calculated_fighters','trusted_ranked_fighters','excluded_insufficient_sample','missing_prefight_count'];
+        $add=['stats_rows_written','stats_rows_carried','stats_rows_calculated','paused_fighters_checked','paused_profile_refresh_pending','return_candidates','warnings_count','countable_bouts','skipped_bouts','malformed_bouts','participants_processed','eligible_fighters','ineligible_fighters','provisional_fighters','calculated_fighters','trusted_ranked_fighters','excluded_insufficient_sample','missing_prefight_count'];
         foreach($b as $key=>$value){if(in_array($key,$add,true)){$a[$key]=($a[$key]??0)+(int)$value;}elseif(in_array($key,['warnings','eligibility_reasons','structural_warnings'],true)){foreach($value as $reason=>$n){$a[$key][$reason]=($a[$key][$reason]??0)+$n;}}elseif($key!=='ranked_rows'){$a[$key]=$value;}}
         return $a;
     }

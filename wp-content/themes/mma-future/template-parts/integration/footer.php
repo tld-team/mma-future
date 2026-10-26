@@ -3,31 +3,7 @@
 <footer class="py-12" style="background-color: #ffffff;">
 <div class="container mx-auto pl-2 pr-4 md:px-4">
 <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-<div>                    <?php
-                    // Footer Logo - same pattern as header
-                    if (has_custom_logo()) {
-                        $custom_logo_id = get_theme_mod('custom_logo');
-                        $logo = wp_get_attachment_image_src($custom_logo_id, 'full');
-                        
-                        if ($logo) : ?>
-                            <a href="<?php echo esc_url(home_url('/')); ?>" class="block w-full max-w-[180px] mb-4 no-underline transition-opacity duration-300 hover:opacity-80" rel="home">
-                                <span class="sr-only"><?php bloginfo('name'); ?></span>
-                                <img 
-                                    src="<?php echo esc_url($logo[0]); ?>" 
-                                    alt="<?php echo esc_attr(get_bloginfo('name')); ?>" 
-                                    class="w-full h-auto object-contain"
-                                />
-                            </a>
-                        <?php endif;
-                    } else {
-                        // Fallback: Site Title with icon
-                        ?>
-                        <a href="<?php echo esc_url(home_url('/')); ?>" class="no-underline" rel="home">
-                            <h3 class="text-xl font-heading font-bold mb-4 flex items-center hover:text-primary transition-colors" style="color: #0B1220;">
-                                <i class="fas fa-fist-raised text-primary mr-2"></i> <?php echo esc_html(get_bloginfo('name')); ?>
-                            </h3>
-                        </a>
-                    <?php } ?>
+<div><?php mmaf_brand_link( 'footer' ); ?>
 <p class="text-base leading-relaxed font-normal" style="color:#647488"><?php echo esc_html( mmaf_site_setting( 'footer_description' ) ); ?></p></div>
 <div class="ml-3 md:ml-0">
 <h4 class="text-lg font-heading font-bold mb-4" style="color: #0B1220;"><?php echo esc_html( $titles['explore'] ?? '' ); ?></h4>

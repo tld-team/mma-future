@@ -58,7 +58,12 @@ final class FighterService {
 		'last_weigh_in',
 		'in_ufc',
 	);
-	private const DECISION_FIELDS = array('status'=>'provisional','rankability_status'=>'pending_review','is_public'=>0,'is_rankable'=>0,'deleted_soft'=>0);
+	private const DECISION_FIELDS = array(
+		'status'=>'provisional','rankability_status'=>'pending_review','is_public'=>0,'is_rankable'=>0,'deleted_soft'=>0,
+		'tracking_mode'=>'normal','tracking_reason'=>null,'tracking_source'=>null,'tracking_evidence_url'=>null,
+		'tracking_changed_at'=>null,'tracking_revision'=>0,'tracking_last_checked_at'=>null,
+		'tracking_last_checked_bout_id'=>null,'tracking_return_candidate_at'=>null,
+	);
 	private const SPORTS_FIELDS = array('gender','date_of_birth','birth_year','weight_class','in_ufc');
 
 	private FighterRepository $fighters;
@@ -200,7 +205,8 @@ final class FighterService {
 			$input[$field]=$expected;
 		}
 		foreach (self::FACT_FIELDS as $field) {
-			if (!array_key_exists($field,$input) && array_key_exists($field,$before) && !($field==='in_ufc' && isset($input['mmaf_action']))) { $input[$field]=$before[$field]; }
+			if (!array_key_exists($field,$input) && array_key_exists($field,$before)) { $input[$field]=$before[$field]; }
+			if($field==='in_ufc' && array_key_exists($field,$before)){$input[$field]=$before[$field];}
 		}
 		$display_name = Sanitizer::text_or_null( $input['display_name'] ?? '' );
 

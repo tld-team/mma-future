@@ -284,13 +284,8 @@ final class RankingCalculatorService {
             $hard=array_values(array_unique(array_merge($preliminary[$id],$this->hard_ineligibility($evaluation))));
             $assessment=$hard?['status'=>'ineligible','period'=>['start'=>\MMAF\DataEngine\Services\Formula\FormulaV16::PERIOD_START,'end'=>$reference_date,'inclusive'=>true],'sample_size'=>$stats['wins']+$stats['losses'],'period_stats'=>$stats,'coverage'=>'not_assessed','verified_at'=>null,'career_verified_at'=>$career['verified_at']??null,'reasons'=>array_values($hard),'warnings'=>[],'total_score'=>null,'rank_position'=>null,'input_profile_hash'=>null]:$period->evaluate($id,$history,$career,$reference_date,$calculated_at);
             $source_inputs=$assessment['_source_inputs']??null;unset($assessment['_source_inputs']);
-            if(!empty($assessment['source_current_roster'])){
-                // A verified current UFC roster signal is an eligibility input;
-                // do not overwrite canonical or manually protected publication facts.
-                $effective=$fighter;$effective['in_ufc']=1;
-                $evaluation=$this->eligibility->evaluate($effective,$stats,$reference_date,($career['status']??'')==='accepted'?$career['record']:null,true);
-                $hard=array_values(array_unique(array_merge($hard,$this->hard_ineligibility($evaluation))));
-            }
+            // Source roster signals remain evidence only. UFC exclusion starts after
+            // an administrator confirms a durable signing event (fighters.in_ufc).
             $assessment['reasons']=array_values(array_unique(array_merge($assessment['reasons'],$evaluation['reasons'])));
             if($hard){$assessment['status']='ineligible';}
             elseif($assessment['reasons']){$assessment['status']='provisional';}
@@ -323,7 +318,7 @@ final class RankingCalculatorService {
         return ['rows'=>$rows,'summary'=>$summary,'assessments'=>$assessments];
     }
     private function hard_ineligibility(array $evaluation): array {
-        return array_values(array_filter($evaluation['reasons'],static fn($r)=>in_array($r,['deleted_soft','not_rankable_flag','rankability_status_not_rankable','ineligible_too_many_fights','ineligible_loss_limit','ineligible_ufc','ineligible_age_35_plus'],true) || strpos($r,'ineligible_status_')===0));
+        return array_values(array_filter($evaluation['reasons'],static fn($r)=>in_array($r,['deleted_soft','not_rankable_flag','rankability_status_not_rankable','ineligible_too_many_fights','ineligible_loss_limit','ineligible_ufc','ineligible_age_35_plus','tracking_mode_paused','tracking_mode_opponent_only'],true) || strpos($r,'ineligible_status_')===0));
     }
 	private function rows_for_boards( array $ranked ): \Generator {
 

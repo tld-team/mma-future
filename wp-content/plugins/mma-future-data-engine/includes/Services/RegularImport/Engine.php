@@ -32,7 +32,8 @@ final class Engine {
                 if($job['phase']==='backup'){
                     $meta=$job['meta'];$meta['backup']=Backup::create($id,$heartbeat);
                     $meta['baseline']=DatabaseState::integrity();$meta['calculation_input_baseline']=DatabaseState::calculationRevision();$meta['protected_baseline']=DatabaseState::protectedState();
-                    $this->repo->update($id,['meta'=>$meta,'phase'=>($meta['package']['mode']??'')==='career_history'?'career':'results','status'=>'queued','attempts'=>0,'writes_started'=>1,'error'=>null]);
+                    $mode=$meta['package']['mode']??'';$writePhase=$mode==='career_history'?'career':($mode==='ufc_roster'?'ufc':'results');
+                    $this->repo->update($id,['meta'=>$meta,'phase'=>$writePhase,'status'=>'queued','attempts'=>0,'writes_started'=>1,'error'=>null]);
                 }else{
                     Transaction::run(function() use ($job,$heartbeat){$this->step($job,$heartbeat);});
                 }
@@ -81,13 +82,14 @@ final class Engine {
             Repository::check($wpdb->delete($this->repo->tables['batches'],['job_id'=>$id]));
             $meta['package']=(new Package())->prepare($job,$this->repo,$heartbeat);
             $meta['check_revision']=DatabaseState::revision();
-            $this->repo->update($id,['meta'=>$meta,'bundle_hash'=>$meta['package']['bundle_hash'],'phase'=>($meta['package']['mode']??'')==='career_history'?'check_career':'check_results','status'=>'queued']);return;
+            $mode=$meta['package']['mode']??'';$checkPhase=$mode==='career_history'?'check_career':($mode==='ufc_roster'?'check_ufc':'check_results');
+            $this->repo->update($id,['meta'=>$meta,'bundle_hash'=>$meta['package']['bundle_hash'],'phase'=>$checkPhase,'status'=>'queued']);return;
         }
         if(($meta['package']['mode']??'')==='career_history' && $phase!=='preflight'){$this->careerStep($job);return;}
         if(strpos($phase,'check_')===0){
             $kind=substr($phase,6);$batch=$this->repo->nextBatch($id,$kind,true);
             if($batch){$this->checkBatch($job,$batch);$this->repo->batchUpdate((int)$batch['id'],['checked'=>1]);$this->repo->update($id,['status'=>'queued']);return;}
-            $next=['results'=>'check_profiles','profiles'=>'check_review','review'=>'ready'][$kind];
+            $next=['results'=>'check_profiles','profiles'=>'check_review','review'=>'check_ufc','ufc'=>'ready'][$kind];
             if($next==='ready'){
                 $revision=DatabaseState::revision();
                 if(!hash_equals($meta['check_revision'],$revision)){$this->restartCheck($job,$revision);return;}
@@ -113,10 +115,17 @@ final class Engine {
             $meta['career_verify_cursor']=$result['cursor'];
             $this->repo->update($id,['meta'=>$meta,'phase'=>$result['done']?'stats':'stored_career_verify','status'=>'queued']);return;
         }
-        if(in_array($phase,['results','profiles','review'],true)){
+        if(in_array($phase,['results','profiles','review','ufc'],true)){
             $batch=$this->repo->nextBatch($id,$phase,false);
             if($batch){$this->importBatch($job,$batch);$this->repo->update($id,['status'=>'queued']);return;}
-            $this->repo->update($id,['phase'=>['results'=>'profiles','profiles'=>'review','review'=>'stored_career'][$phase],'status'=>'queued']);return;
+            $next=['results'=>'profiles','profiles'=>'review','review'=>'ufc','ufc'=>(($meta['package']['mode']??'')==='ufc_roster'?'ufc_audit':'stored_career')][$phase];
+            $this->repo->update($id,['phase'=>$next,'status'=>'queued']);return;
+        }
+        if($phase==='ufc_audit'){
+            $this->verifyFiles($job);foreach($this->repo->batches($id) as $batch){if(!$batch['completed']){throw new ImportException('The UFC roster batch has no completed checkpoint.','audit');}}
+			if(DatabaseState::protectedState((int)$meta['protected_baseline']['max_fighter_id'])!==$meta['protected_baseline']){throw new ImportException('UFC evidence import changed protected fighter decisions.','audit');}
+            $meta['actual']=$this->actualCounts($id);$meta['completed_at']=gmdate('c');$this->repo->update($id,['meta'=>$meta,'status'=>'completed_with_review','phase'=>'done','finished_at'=>gmdate('Y-m-d H:i:s')]);
+            Storage::write(Storage::job($id).'/report.json',['mode'=>'ufc_roster','job_id'=>$id,'destination'=>['site_url'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null],'run_ids'=>['ufc'=>$meta['package']['headers']['ufc']['run_id']??null],'status'=>'completed_with_review','plan'=>$meta['plan'],'actual'=>$meta['actual'],'last_successful_import'=>get_option('mmaf_ufc_roster_last_import',null)]);return;
         }
         if($phase==='stats'){
             $previous=(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->get_last_rebuild_summary();
@@ -153,19 +162,23 @@ final class Engine {
             $this->repo->update($id,['meta'=>$meta,'status'=>$status,'phase'=>'done','finished_at'=>gmdate('Y-m-d H:i:s')]);
             $changed=0;foreach($counts as $count){$changed+=(int)($count['created']??0)+(int)($count['updated']??0);}
             if(!empty($meta['calculation_needed']) || (!isset($meta['calculation_needed']) && $changed)){\MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh((int)$job['approved_by'],false);}
-            Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'profile_changes'=>$this->profileChanges($id),'readiness'=>$meta['package']['readiness']??null,'event_coverage'=>$meta['package']['event_coverage']??['complete'=>false,'legacy'=>true],'priority_targets'=>$meta['package']['priority_targets']??null,'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit'],'receipt'=>$receipt]);return;
+            Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'destination'=>['site_url'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null],'run_ids'=>['events'=>$meta['package']['headers']['run_manifest']['run_id']??null,'profiles'=>$meta['package']['headers']['profiles']['run_id']??null,'ufc'=>$meta['package']['headers']['ufc']['run_id']??null],'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'profile_changes'=>$this->profileChanges($id),'readiness'=>$meta['package']['readiness']??null,'event_coverage'=>$meta['package']['event_coverage']??['complete'=>false,'legacy'=>true],'ufc_roster'=>isset($meta['package']['headers']['ufc'])?['included'=>true,'run_id'=>$meta['package']['headers']['ufc']['run_id']??null,'scraped_at'=>$meta['package']['headers']['ufc']['scraped_at']??null]:['included'=>false,'warning'=>$meta['package']['ufc_warning']??null,'last_successful_import'=>$meta['package']['ufc_roster_last_import']??null],'priority_targets'=>$meta['package']['priority_targets']??null,'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit'],'receipt'=>$receipt]);return;
         }
         throw new ImportException('Unknown import phase: '.$phase,'state');
     }
     private function restartCheck(array $job,string $revision): void {
         $meta=$job['meta'];$meta['check_revision']=$revision;$meta['notice']='Site data changed. Review the refreshed checks before starting.';
         unset($meta['approval_token']);$this->repo->resetCheck((int)$job['id']);
-        $this->repo->update((int)$job['id'],['phase'=>($meta['package']['mode']??'')==='career_history'?'check_career':'check_results','status'=>'queued','meta'=>$meta,'approved_by'=>null,'approved_hash'=>null,'data_revision'=>null]);
+        $mode=$meta['package']['mode']??'';$phase=$mode==='career_history'?'check_career':($mode==='ufc_roster'?'check_ufc':'check_results');
+        $this->repo->update((int)$job['id'],['phase'=>$phase,'status'=>'queued','meta'=>$meta,'approved_by'=>null,'approved_hash'=>null,'data_revision'=>null]);
     }
     private function checkBatch(array $job,array $batch): void {
         global $wpdb;
         $id=(int)$job['id'];$data=Package::payload($job,$batch);$json=wp_json_encode($data);$kind=$batch['kind'];
-        if($kind==='results'){
+        if($kind==='ufc'){
+            $preview=(new \MMAF\DataEngine\Services\UfcSigningService())->preview_document($data);
+            $this->repo->putItem($id,'ufc_roster',(string)$data['run_id'],(string)$data['run_id'],'review',['fighters'=>count($data['fighters']),'scraped_at'=>$data['scraped_at'],'comparison'=>$preview,'destination'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null]);
+        }elseif($kind==='results'){
             $plan=(new ScraperJsonDryRunService())->analyze_json_string($json,(int)$job['created_by'],false);
             if(empty($plan['is_valid'])){throw new ImportException('Results validation failed: '.implode('; ',array_slice($plan['summary']['validation_errors']??[],0,5)));}
             foreach(['fighters'=>'fighter','events'=>'event','bouts'=>'bout'] as $list=>$entity){foreach($plan[$list] as $row){
@@ -210,7 +223,10 @@ final class Engine {
     }
     private function importBatch(array $job,array $batch): void {
         global $wpdb;$id=(int)$job['id'];$actor=(int)$job['approved_by'];$data=Package::payload($job,$batch);$kind=$batch['kind'];$summary=[];$run=0;
-        if($kind==='results'){
+        if($kind==='ufc'){
+            $summary=(new \MMAF\DataEngine\Services\UfcSigningService())->import_document($data,$actor,$id);
+            $this->applied($id,'ufc_roster',(string)$data['run_id'],'review',$summary);
+        }elseif($kind==='results'){
             $result=(new ScraperJsonImportService())->import_json_string(wp_json_encode($data),$actor);$summary=$result['summary'];
             if(empty($result['is_valid'])||!empty($summary['item_failures'])||($summary['status']??'')==='failed'){throw new \RuntimeException('An import batch reported failed records.');}
             $run=(int)$summary['import_run_id'];$items=CanonicalSchema::table_names()['source_import_items'];
@@ -236,6 +252,11 @@ final class Engine {
                 if($category==='review'){++$summary['review'];Review::upsert($id,'profile_snapshot',$key,['source_fighter_id'=>$key,'reason'=>$saved['reason']??'No successful source snapshot is available.'],$actor);}
                 else{++$summary['stored'];}
                 if(!empty($saved['fighter_id'])&&!empty($saved['has_success'])&&$category!=='review'){
+					$fighter=(new \MMAF\DataEngine\Repositories\FighterRepository())->find((int)$saved['fighter_id']);$mode=$fighter?\MMAF\DataEngine\Services\TrackingService::mode($fighter):\MMAF\DataEngine\Services\TrackingService::NORMAL;
+					$pausedDue=$mode===\MMAF\DataEngine\Services\TrackingService::PAUSED && (new \MMAF\DataEngine\Services\TrackingService())->recheck_due((int)$saved['fighter_id']);
+					if($mode===\MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY || ($mode===\MMAF\DataEngine\Services\TrackingService::PAUSED && !$pausedDue)){
+						$summary['tracking_profiles_skipped']=($summary['tracking_profiles_skipped']??0)+1;$this->applied($id,'profile',$key,'unchanged',['fighter_id'=>(int)$saved['fighter_id'],'tracking_mode'=>$mode,'reason'=>'current_wordpress_tracking_decision']);continue;
+					}
                     $latest=$store->for_fighter((int)$saved['fighter_id']);
                     if($latest){
                         $payload=['schema_version'=>'tapology_fighter_profiles_v0_1','source'=>'tapology','profiles'=>[$latest['profile']],'profiles_total'=>1];

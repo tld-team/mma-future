@@ -42,7 +42,38 @@ final class MigrationRunner {
 				self::verify_operational_indexes($table,$statement);
 			}
 		}
+		self::migrate_legacy_ufc_flags();
+		self::migrate_tracking_modes();
 		update_option( 'mmaf_db_version', MMAF_DB_VERSION, false );
+		$ufc_tables=Schema::table_names();
+		if((int)$wpdb->get_var("SELECT COUNT(*) FROM {$ufc_tables['ufc_roster_observations']}")>0 && get_option('mmaf_ufc_roster_last_import')){(new \MMAF\DataEngine\Services\UfcSigningService())->enqueue_compare('schema_migration');}
+	}
+
+	private static function migrate_tracking_modes(): void {
+		global $wpdb;
+		$t = Schema::table_names();
+		$now = gmdate( 'Y-m-d H:i:s' );
+		$legacy = $wpdb->get_results( "SELECT id,is_public,is_rankable,rankability_status,tracking_mode,tracking_revision FROM {$t['fighters']} WHERE in_ufc=1 AND tracking_mode='normal'", ARRAY_A ) ?: array();
+		// A confirmed legacy UFC fact is already an audited permanent exclusion.
+		// No other fighter is archived by this additive migration.
+		self::query( $wpdb->prepare(
+			"UPDATE {$t['fighters']} SET tracking_mode='opponent_only',tracking_reason='confirmed_ufc_signing',tracking_source='legacy',tracking_changed_at=COALESCE(tracking_changed_at,%s),tracking_revision=GREATEST(tracking_revision,1),is_public=0,is_rankable=0,rankability_status='ineligible_ufc',updated_at=%s WHERE in_ufc=1 AND tracking_mode='normal'",
+			$now,
+			$now
+		) );
+		foreach ( $legacy as $before ) {
+			( new \MMAF\DataEngine\Services\AuditLogService() )->write( 'fighter_tracking_mode_migrated', 'fighter', (int) $before['id'], $before, array( 'tracking_mode'=>'opponent_only','tracking_reason'=>'confirmed_ufc_signing','tracking_source'=>'legacy','tracking_revision'=>max(1,(int)$before['tracking_revision']),'is_public'=>0,'is_rankable'=>0,'rankability_status'=>'ineligible_ufc' ), 'Migrated from the confirmed legacy UFC flag.', 0 );
+		}
+		self::query( "UPDATE {$wpdb->posts} p JOIN {$t['fighters']} f ON f.wp_post_id=p.ID SET p.post_status='draft',p.post_modified=UTC_TIMESTAMP(),p.post_modified_gmt=UTC_TIMESTAMP() WHERE f.tracking_mode<>'normal' AND p.post_type='mmaf_fighter' AND p.post_status='publish'" );
+	}
+
+	private static function migrate_legacy_ufc_flags(): void {
+		global $wpdb;
+		$t=Schema::table_names();$now=gmdate('Y-m-d H:i:s');
+		$sql="INSERT INTO {$t['ufc_signing_events']} (fighter_id,event_type,is_active,source_type,evidence_note,created_at)
+			SELECT f.id,'legacy',1,'legacy','Migrated from the existing in_ufc flag.',%s FROM {$t['fighters']} f
+			WHERE f.in_ufc=1 AND NOT EXISTS (SELECT 1 FROM {$t['ufc_signing_events']} e WHERE e.fighter_id=f.id AND e.is_active=1)";
+		self::query($wpdb->prepare($sql,$now));
 	}
 
 	/** Restore the exact original labels after widening their storage. */

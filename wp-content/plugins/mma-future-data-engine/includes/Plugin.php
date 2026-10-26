@@ -10,6 +10,7 @@ use MMAF\DataEngine\CLI\ImportLatestBundleCommand;
 use MMAF\DataEngine\CLI\ImportRunCommand;
 use MMAF\DataEngine\CLI\RankingsCommand;
 use MMAF\DataEngine\CLI\StatsCommand;
+use MMAF\DataEngine\CLI\UfcCommand;
 use MMAF\DataEngine\CPT\FighterPostType;
 use MMAF\DataEngine\Migrations\MigrationRunner;
 use MMAF\DataEngine\REST\RestServiceProvider;
@@ -50,6 +51,10 @@ final class Plugin {
 		RestServiceProvider::register();
 		Services\PublicVisibilityService::register();
 		Services\PublicCacheService::register();
+		add_action('mmaf_public_data_changed',static function($reason){
+			if($reason!=='fighter' || version_compare((string)get_option('mmaf_db_version','0'),MMAF_DB_VERSION,'<')){return;}
+			try{(new Services\UfcSigningService())->enqueue_compare('fighter_identity_changed');}catch(\RuntimeException $ignored){}
+		});
 		Services\RegularImport\Module::register();
 		Services\DataPipeline\Processor::register();
 		Services\Upcoming\Module::register();
@@ -77,6 +82,7 @@ final class Plugin {
 			ImportJsonCommand::register();
 			ImportLatestBundleCommand::register();
 			FighterCommand::register();
+			UfcCommand::register();
 		}
 	}
 }

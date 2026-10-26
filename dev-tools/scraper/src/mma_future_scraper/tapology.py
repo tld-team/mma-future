@@ -31,6 +31,7 @@ from .fighter_profiles import (
     parse_profile_snapshot,
     snapshot_profile_page,
 )
+from .fighter_profile_queue import load_tracking_decisions, tracking_allows_profile, tracking_decision_for
 from .logging_utils import log
 from .models import RESULTS_SCHEMA_VERSION, UPCOMING_SCHEMA_VERSION
 from .normalize import (
@@ -215,6 +216,7 @@ class TapologyScraper:
             source_event_id_from_url(value) or value for value in self.config.force_recheck_events
         }
         self._fighter_profile_cache: dict[str, dict[str, Any]] = {}
+        self._tracking_decisions = load_tracking_decisions(self.config.tracking_decisions_path)
         self._persistent_profile_cache: dict[str, Any] | None = None
         self._profile_fetches_started = 0
         self._profile_fetch_failures_seen = 0
@@ -480,6 +482,10 @@ class TapologyScraper:
             "total_pause_seconds": 0.0,
             "profile_fetches_before_cap": 0,
             "profile_enrichment_partial": False,
+            "profile_requests_before_tracking": 0,
+            "profile_requests_after_tracking": 0,
+            "tracking_skipped_count": 0,
+            "tracking_skipped_by_mode": {},
             "access_stop_reason": None,
             "consecutive_access_failures": 0,
             "event_fetch_failures": 0,
@@ -660,6 +666,8 @@ class TapologyScraper:
             "sport": self.config.sport,
             "exclude_promotions": list(self.config.exclude_promotions),
             "enrich_fighter_profiles": self._effective_enrich_fighter_profiles(),
+            "tracking_decisions_path": str(self.config.tracking_decisions_path) if self.config.tracking_decisions_path else None,
+            "tracking_decisions_revision": self._tracking_decisions.get("revision"),
             "use_profile_cache": self.config.use_profile_cache,
             "profile_cache_ttl_days": self.config.profile_cache_ttl_days,
             "page_pause_seconds": self.config.page_pause_seconds,
@@ -3565,6 +3573,18 @@ class TapologyScraper:
             url = canonical_url(fighter.get("url"))
             if not source_id and not url:
                 continue
+            if summary is not None:
+                summary["profile_requests_before_tracking"] = int(summary.get("profile_requests_before_tracking") or 0) + 1
+            decision = tracking_decision_for(self._tracking_decisions, source_id, url)
+            if not tracking_allows_profile(decision):
+                if summary is not None:
+                    mode = str((decision or {}).get("tracking_mode") or "unknown")
+                    summary["tracking_skipped_count"] = int(summary.get("tracking_skipped_count") or 0) + 1
+                    by_mode = summary.setdefault("tracking_skipped_by_mode", {})
+                    by_mode[mode] = int(by_mode.get(mode) or 0) + 1
+                continue
+            if summary is not None:
+                summary["profile_requests_after_tracking"] = int(summary.get("profile_requests_after_tracking") or 0) + 1
             try:
                 profile = self._fetch_event_fighter_profile(
                     context,

@@ -3,6 +3,7 @@
 <head>
 	<meta charset="<?php bloginfo('charset'); ?>">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="color-scheme" content="light dark">
 	<link rel="profile" href="https://gmpg.org/xfn/11">
 
 	<?php wp_head(); ?>
@@ -110,41 +111,7 @@
 				     LOGO / BRANDING (Left Side)
 				     ============================================================ -->
 				<div class="flex items-center lg:flex-1 overflow-hidden">
-					<?php
-					// Custom Logo or Site Title
-					if (has_custom_logo()) {
-						$custom_logo_id = get_theme_mod('custom_logo');
-						$logo = wp_get_attachment_image_src($custom_logo_id, 'full');
-						
-						if ($logo) : ?>
-							<a href="<?php echo esc_url(home_url('/')); ?>" class="block w-full max-w-[150px] h-20 flex items-center overflow-hidden no-underline transition-all duration-300 hover:opacity-80 header-logo" rel="home">
-								<span class="sr-only"><?php bloginfo('name'); ?></span>
-								<img 
-									src="<?php echo esc_url($logo[0]); ?>" 
-									alt="<?php echo esc_attr(get_bloginfo('name')); ?>" 
-									class="w-full max-h-20 object-contain transition-all duration-300 header-logo-img"
-								/>
-							</a>
-						<?php endif;
-					} else {
-						// Fallback: Site Title
-						$site_title = get_bloginfo('name');
-						
-						if (is_front_page() && is_home()) : ?>
-							<a href="<?php echo esc_url(home_url('/')); ?>" class="no-underline" rel="home">
-								<h1 class="text-2xl font-heading font-bold text-heading hover:text-primary transition-colors">
-									<?php echo esc_html($site_title); ?>
-								</h1>
-							</a>
-						<?php else : ?>
-							<a href="<?php echo esc_url(home_url('/')); ?>" class="no-underline" rel="home">
-								<span class="text-2xl font-heading font-bold text-heading hover:text-primary transition-colors">
-									<?php echo esc_html($site_title); ?>
-								</span>
-							</a>
-						<?php endif;
-					}
-					?>
+					<?php mmaf_brand_link( 'header' ); ?>
 				</div>
 
 				<!-- ============================================================
@@ -224,30 +191,7 @@
 		<!-- Mobile Menu Header -->
 		<div class="flex h-16 items-center justify-between px-6 overflow-hidden">
 				<!-- Logo in Mobile Menu -->
-				<?php
-				if (has_custom_logo()) {
-					$custom_logo_id = get_theme_mod('custom_logo');
-					$logo = wp_get_attachment_image_src($custom_logo_id, 'full');
-					
-					if ($logo) : ?>
-						<a href="<?php echo esc_url(home_url('/')); ?>" class="block w-full max-w-[120px] h-16 flex items-center overflow-hidden no-underline" rel="home">
-							<span class="sr-only"><?php bloginfo('name'); ?></span>
-							<img 
-								src="<?php echo esc_url($logo[0]); ?>" 
-								alt="<?php echo esc_attr(get_bloginfo('name')); ?>" 
-								class="w-full max-h-16 object-contain"
-							/>
-						</a>
-					<?php endif;
-				} else {
-					$site_title = get_bloginfo('name');
-					?>
-					<a href="<?php echo esc_url(home_url('/')); ?>" class="no-underline" rel="home">
-						<span class="text-xl font-heading font-bold text-heading">
-							<?php echo esc_html($site_title); ?>
-						</span>
-					</a>
-				<?php } ?>
+			<?php mmaf_brand_link( 'mobile' ); ?>
 
 			<!-- Close Button -->
 			<button 

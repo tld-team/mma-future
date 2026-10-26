@@ -11,6 +11,13 @@
  * @param WP_Customize_Manager $wp_customize Theme Customizer object.
  */
 function mma_future_customize_register( $wp_customize ) {
+	$wp_customize->add_setting( 'mmaf_dark_logo', array( 'type' => 'theme_mod', 'sanitize_callback' => 'absint', 'default' => 0 ) );
+	$wp_customize->add_control( new WP_Customize_Media_Control( $wp_customize, 'mmaf_dark_logo', array(
+		'label' => __( 'Logo for dark backgrounds', 'mma-future' ),
+		'section' => 'title_tagline',
+		'mime_type' => 'image',
+		'description' => __( 'A light, transparent version of the site logo.', 'mma-future' ),
+	) ) );
 	$wp_customize->get_setting( 'blogname' )->transport         = 'postMessage';
 	$wp_customize->get_setting( 'blogdescription' )->transport  = 'postMessage';
 	$wp_customize->get_setting( 'header_textcolor' )->transport = 'postMessage';
