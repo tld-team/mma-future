@@ -76,7 +76,11 @@ def export_import_bundle(
         if not run_manifest.get('run_id') or events_document.get('run',{}).get('run_id') != run_manifest['run_id']:
             raise ValueError('Event results and manifest belong to different runs')
         coverage_path=snapshot/'event_coverage.json'
-        coverage=json.loads(coverage_path.read_text()) if coverage_path.exists() else coverage_document(events_document['events'],run_id=run_manifest['run_id'])
+        observed=json.loads(coverage_path.read_text()).get('events',[]) if coverage_path.exists() else []
+        # Incremental runs retain earlier result rows, while their coverage file
+        # only describes events inspected in this run. Preserve those earlier
+        # rows as explicitly unverified legacy evidence in the exported copy.
+        coverage=coverage_document(events_document['events'],observed=observed,run_id=run_manifest['run_id'])
         if coverage.get('run_id')!=run_manifest['run_id']:raise ValueError('Event coverage and results belong to different runs')
         coverage_counts=validate_coverage(coverage,events_document['events'])
         atomic_write_json(coverage_path,coverage)

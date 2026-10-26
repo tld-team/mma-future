@@ -116,6 +116,19 @@ final class Controller {
         $view['performance']=$meta['performance']??null;
         $view['profile_changes']=(new Engine())->profileChanges($id,$batches);
         $view['preparation']=\MMAF\DataEngine\Services\DataPipeline\Processor::status();
+        $headers=$meta['package']['headers']??[];
+        $view['source_runs']=['events'=>$headers['run_manifest']['run_id']??null,'profiles'=>$headers['profiles']['run_id']??null,'ufc'=>$headers['ufc']['run_id']??null];
+        $view['database']=defined('DB_NAME')?DB_NAME:null;
+        $view['ufc_snapshot']=isset($headers['ufc'])?['scraped_at'=>$headers['ufc']['scraped_at']??null,'warning'=>null]:['scraped_at'=>null,'warning'=>$meta['package']['ufc_warning']??null];
+        if($job['status']==='awaiting_approval' && isset($headers['ufc'])){
+            $items=$repo->items($id,'ufc_roster',1);
+            $payload=$items?json_decode((string)$items[0]['payload_json'],true):null;
+            $comparison=is_array($payload)?($payload['comparison']??null):null;
+            if(is_array($comparison)){
+                $view['ufc_preview']=array_intersect_key($comparison,array_flip(['new','updated','conflicts','preserved_rejections','already_confirmed','unmatched']));
+                $view['ufc_preview']['sample_candidates']=array_slice($comparison['candidates']??[],0,10);
+            }
+        }
         $view['review_url']=add_query_arg(['page'=>'mmaf-review','tab'=>'needs_review','import_job_id'=>$id],admin_url('admin.php'));
         foreach(['backup','report','readiness','source_enrichment'] as $kind){$view[$kind.'_url']=html_entity_decode(wp_nonce_url(add_query_arg(['action'=>'mmaf_regular_import_download','job_id'=>$id,'kind'=>$kind],admin_url('admin-post.php')),'mmaf_import_download_'.$id.'_'.$kind),ENT_QUOTES,'UTF-8');}
         return $view;
