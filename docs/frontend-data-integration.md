@@ -20,6 +20,8 @@ Import stores profiles without publishing discovered fighters. Save preserves ad
 
 Public profiles can display recorded fights before a career is confirmed complete. Known zero values stay zero; unknown values stay null. The active ranking's calculation/activation dates and current statistics date remain separate.
 
+The homepage ranking overview links to the full rankings beside both movers and leaders. Movers compare the two most recent distinct activations of the selected board, with matching formula rules and data scope. They select the largest absolute position differences, including rises and falls; ties use current rank and fighter ID. Both snapshots use the same current public/non-UFC visibility and contiguous positions, matching the public list without blocking every comparison after a UFC signing. New entries have a current position and a separate `New` label, never an invented numeric change. Identical snapshots remain explicitly unchanged; incompatible methodology remains unavailable.
+
 ## Worker and one-time migration
 
 The staging server supervisor owns MMA Future work and runs once per minute. With `MMAF_SERVER_SUPERVISOR=true`, the legacy MMA Future WP-Cron callbacks do not run. Core WordPress cron runs separately. Do not run the historical regular-import shell runner alongside the operations supervisor. The [current runbook](admin-operations-runbook.md) describes release and recovery commands.
