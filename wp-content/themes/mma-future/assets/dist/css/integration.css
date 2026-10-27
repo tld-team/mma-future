@@ -1313,6 +1313,45 @@
   background: #f8fafc;
   color: #0f172a;
 }
+.rk-results-area { display: flow-root; }
+.rk-methodology {
+  position: sticky;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  pointer-events: none;
+}
+.rk-methodology__link {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  min-height: 44px;
+  padding: .625rem .875rem;
+  border: 1px solid #cbd9e9;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .04), 0 8px 24px rgba(15, 23, 42, .06);
+  color: #0047a8;
+  font-size: .8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  pointer-events: auto;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.rk-methodology__link:hover,
+.rk-methodology__link:focus-visible {
+  border-color: #93b4db;
+  background: #eff6ff;
+  color: #0047a8;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .04), 0 8px 24px rgba(0, 71, 168, .1);
+}
+.rk-methodology__link:active { background: #dbeafe; }
+.rk-methodology__icon { flex: none; width: 18px; height: 18px; }
+.rk-methodology__arrow { flex: none; width: 14px; height: 14px; color: #64748b; }
 .rk-wrap {
   display: block;
   max-height: none;

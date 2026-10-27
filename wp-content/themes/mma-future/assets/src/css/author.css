@@ -1,0 +1,68 @@
+/* Shared by the saved Founder block and its ACF editor preview. */
+.about-founder-bio-section {
+  --author-surface: #fff;
+  --author-text: #0f172a;
+  --author-secondary: #475569;
+  --author-border: #e2e8f0;
+  --author-accent: #0047a8;
+  --author-hover: #eff6ff;
+  --author-focus: #0047a8;
+  padding: 48px 0;
+  color: var(--author-text);
+  background: var(--mmaf-canvas, #fff);
+}
+.about-founder-bio-section *, .about-founder-bio-section *::before, .about-founder-bio-section *::after { box-sizing: border-box; }
+.about-founder-bio-section__container { max-width: 1152px; margin-inline: auto; padding-inline: 16px; }
+.about-founder-bio-section :is(.about-founder-bio-section__title, .about-founder-bio-section__name) { margin: 0; font-family: Sora, ui-sans-serif, system-ui, sans-serif; color: var(--author-text); font-weight: 800; letter-spacing: -.035em; line-height: 1.25; }
+.about-founder-bio-section .about-founder-bio-section__title { font-size: 30px; }
+.about-founder-bio-section .about-founder-bio-section__description { max-width: 65ch; margin: 12px 0 0; color: var(--author-secondary); line-height: 1.65; }
+.about-founder-bio-section__card { padding: 24px; border: 1px solid var(--author-border); border-radius: 20px; background: var(--author-surface); }
+.about-founder-bio-section__card--headed { margin-top: 28px; }
+.about-founder-bio-section__layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+.about-founder-bio-section__portrait { width: 128px; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 14px; background: var(--author-hover); }
+.about-founder-bio-section .about-founder-bio-section__image { display: block; width: 100%; height: 100%; max-width: none; margin: 0; object-fit: cover; object-position: 50% 42%; }
+.about-founder-bio-section__content { min-width: 0; }
+.about-founder-bio-section .about-founder-bio-section__name { font-size: 24px; overflow-wrap: anywhere; }
+.about-founder-bio-section .about-founder-bio-section__role { margin: 8px 0 0; color: var(--author-accent); font-size: 13px; line-height: 1.5; font-weight: 600; }
+.about-founder-bio-section__bio { max-width: 68ch; margin-top: 20px; font-size: 16px; line-height: 1.75; overflow-wrap: anywhere; }
+.about-founder-bio-section .about-founder-bio-section__bio, .about-founder-bio-section .about-founder-bio-section__bio p { color: var(--author-secondary); }
+.about-founder-bio-section__bio > :first-child { margin-top: 0; }
+.about-founder-bio-section__bio > :last-child { margin-bottom: 0; }
+.about-founder-bio-section__bio p + p { margin-top: 12px; }
+.about-founder-bio-section__bio a { color: var(--author-accent); text-decoration: underline; text-underline-offset: 3px; }
+.about-founder-bio-section .about-founder-bio-section__experience { margin: 20px 0 0; padding-left: 20px; color: var(--author-secondary); list-style: disc; font-size: 14px; line-height: 1.7; }
+.about-founder-bio-section__experience li + li { margin-top: 6px; }
+.about-founder-bio-section .about-founder-bio-section__quote { margin: 20px 0 0; padding: 12px 0 12px 20px; border: 0; border-left: 3px solid var(--author-accent); color: var(--author-secondary); background: transparent; font-style: italic; line-height: 1.7; }
+.about-founder-bio-section__quote p { margin: 0; }
+.about-founder-bio-section .about-founder-bio-section__signature { display: block; width: auto; max-width: 160px; max-height: 80px; height: auto; margin-top: 20px; object-fit: contain; }
+.about-founder-bio-section .about-founder-bio-section__socials { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 0; padding: 0; list-style: none; }
+.about-founder-bio-section__socials li { max-width: 100%; margin: 0; padding: 0; }
+.about-founder-bio-section a.about-founder-bio-section__social-link { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; max-width: 100%; padding: 10px 14px; border: 1px solid var(--author-border); border-radius: 10px; background: var(--author-surface); color: var(--author-accent); font-size: 13px; font-weight: 600; line-height: 1.5; text-decoration: none; overflow-wrap: anywhere; transition: background-color .16s, border-color .16s; }
+.about-founder-bio-section__social-link i { width: 16px; flex: 0 0 16px; text-align: center; font-size: 16px; }
+.about-founder-bio-section__external { flex: 0 0 14px; }
+.about-founder-bio-section a.about-founder-bio-section__social-link:hover { background: var(--author-hover); border-color: var(--author-accent); }
+.about-founder-bio-section a:focus-visible { outline: 2px solid var(--author-focus); outline-offset: 4px; }
+.about-founder-bio-section__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (min-width: 640px) {
+  .about-founder-bio-section { padding-block: 64px; }
+  .about-founder-bio-section__container { padding-inline: 24px; }
+  .about-founder-bio-section .about-founder-bio-section__title { font-size: 36px; }
+  .about-founder-bio-section__card { padding: 32px; }
+  .about-founder-bio-section .about-founder-bio-section__name { font-size: 28px; }
+}
+@media (min-width: 768px) {
+  .about-founder-bio-section__layout { grid-template-columns: 192px minmax(0, 1fr); gap: 32px; }
+  .about-founder-bio-section__layout--text-only { grid-template-columns: minmax(0, 1fr); }
+  .about-founder-bio-section__portrait { width: 192px; border-radius: 16px; }
+}
+@media (min-width: 1024px) {
+  .about-founder-bio-section { padding-block: 80px; }
+  .about-founder-bio-section__container { padding-inline: 32px; }
+  .about-founder-bio-section__layout { gap: 40px; }
+}
+@media (prefers-color-scheme: dark) {
+  .about-founder-bio-section { --author-surface: var(--mmaf-surface, #111c2e); --author-text: var(--mmaf-text, #dce3ec); --author-secondary: var(--mmaf-secondary, #cbd5e1); --author-border: var(--mmaf-border, #334155); --author-accent: var(--mmaf-link, #93c5fd); --author-hover: var(--mmaf-hover, #20324d); --author-focus: var(--mmaf-focus, #60a5fa); background: var(--mmaf-canvas, #0b1220); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-founder-bio-section a.about-founder-bio-section__social-link { transition: none; }
+}
