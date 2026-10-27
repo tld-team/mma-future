@@ -27,7 +27,16 @@ try{
  $page=(int)$wpdb->get_var("SELECT ID FROM {$wpdb->posts} WHERE post_type='page' AND post_status='publish' LIMIT 1");$wpdb->update($t['fighters'],['wp_post_id'=>$page],['id'=>$id]);expect(is_wp_error($service->fighter($id)),'a linked post of the wrong type is unavailable');
 }finally{Transaction::rollback();clean_post_cache($post_id);}
 $history=$service->history($id,['per_page'=>10]);expect(!is_wp_error($history)&&count($history['items'])<=10&&$history['total_pages']===(int)ceil($history['total']/10),'fight history pagination reports accurate totals');
-$private=false;foreach($history['items'] as $fight){if(!$fight['opponent']['permalink']){$private=true;}}
-expect($private,'private opponents retain a name without a profile link');
+// Make the privacy fixture explicit; a restored board can have every opponent public.
+$opponent_id=(int)($history['items'][0]['opponent']['fighter_id']??0);
+expect($opponent_id>0,'history fixture has a canonical opponent');
+Transaction::begin();
+try{
+ $wpdb->update($t['fighters'],['is_public'=>0],['id'=>$opponent_id]);
+ delete_transient(PublicCacheService::key('history',[$id,['per_page'=>10]]));
+ $private_history=$service->history($id,['per_page'=>10]);
+ $private=array_values(array_filter($private_history['items'],static fn($fight)=>(int)$fight['opponent']['fighter_id']===$opponent_id));
+ expect($private && $private[0]['opponent']['display_name'] && !$private[0]['opponent']['permalink'],'private opponents retain a name without a profile link');
+}finally{Transaction::rollback();delete_transient(PublicCacheService::key('history',[$id,['per_page'=>10]]));}
 PublicCacheService::flush();$old=PublicCacheService::key('proof');do_action('mmaf_public_data_changed','stats');$new=PublicCacheService::key('proof');expect($old!==$new,'successful data changes invalidate application cache keys');
 echo "Public contract checks completed.\n";

@@ -49,7 +49,7 @@ foreach ( array( 'home', 'about', 'contact', 'all-rankings' ) as $slug ) {
 }
 $server = rest_get_server();
 $request = new WP_REST_Request( 'GET', '/mma-future-site/v1/views/rankings' );
-$request->set_query_params( array( 'board' => 'male', 'q' => 'Pedro Henrique Dias', 'include_breakdown' => 1, 'prefix' => 'rest_fragment', 'view_url' => '/all-rankings/' ) );
+$request->set_query_params( array( 'board' => 'male', 'q' => $data['items'][0]['display_name'], 'include_breakdown' => 1, 'prefix' => 'rest_fragment', 'view_url' => '/all-rankings/' ) );
 $response = rest_do_request( $request ); $fragment = $response->get_data();
 assert_view( str_contains( $fragment['html'], '/all-rankings/?rest_fragment_' ) && ! str_contains( $fragment['html'], '/wp-json/' ), 'fragment sort links retain the public page and current filters' );
 assert_view( $response->get_status() === 200 && $fragment['total'] === 1 && str_contains( $fragment['html'], 'rest_fragment_detail_' ), 'REST fragments use the same presentation and search the entire board' );
