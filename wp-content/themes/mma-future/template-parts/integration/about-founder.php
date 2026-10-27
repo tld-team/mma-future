@@ -1,64 +1,72 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
-if ( ! mmaf_site_field( 'founder_name' ) ) { return; }
 
-// Empty ACF repeaters return false; only render populated rows.
-$experience_items = mmaf_site_field( 'experience_items' );
-$experience_items = array_filter( is_array( $experience_items ) ? $experience_items : array(), static function( $row ) {
-	return is_array( $row ) && is_string( $row['experience_text'] ?? null ) && '' !== trim( $row['experience_text'] );
-} );
-$founder_links = mmaf_site_field( 'founder_links' );
-$founder_links = array_filter( is_array( $founder_links ) ? $founder_links : array(), static function( $row ) {
-	$link = is_array( $row ) ? ( $row['link'] ?? null ) : null;
-	return is_array( $link ) && is_string( $link['url'] ?? null ) && '' !== trim( $link['url'] );
-} );
-$network_names = array(
-	'facebook.com' => 'Facebook', 'fb.com' => 'Facebook', 'instagram.com' => 'Instagram',
-	'youtube.com' => 'YouTube', 'youtu.be' => 'YouTube', 'linkedin.com' => 'LinkedIn',
-	'twitter.com' => 'X', 'x.com' => 'X', 'tiktok.com' => 'TikTok',
+$name = trim( (string) mmaf_site_field( 'founder_name' ) );
+if ( '' === $name ) { return; }
+$title = trim( (string) mmaf_site_field( 'section_title' ) );
+$description = trim( (string) mmaf_site_field( 'section_description' ) );
+$role = trim( (string) mmaf_site_field( 'founder_role' ) );
+$biography = (string) mmaf_site_field( 'founder_biography' );
+// Older content sometimes repeats the biography in the section introduction.
+if ( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( $description ) ) === preg_replace( '/\s+/u', ' ', trim( wp_strip_all_tags( $biography ) ) ) ) { $description = ''; }
+$quote = trim( (string) mmaf_site_field( 'founder_quote' ) );
+$photo = mmaf_site_image( mmaf_site_field( 'founder_photo' ), 'medium_large', array(
+	'class' => 'about-founder-bio-section__image',
+	'alt' => $name,
+	'sizes' => '(min-width: 768px) 192px, 128px',
+	'loading' => 'lazy',
+	'decoding' => 'async',
+) );
+$signature = mmaf_site_image( mmaf_site_field( 'signature_image' ), 'medium', array( 'class' => 'about-founder-bio-section__signature', 'alt' => '', 'loading' => 'lazy' ) );
+$experience = array_filter( (array) mmaf_site_field( 'experience_items' ), static fn( $row ) => is_array( $row ) && ! empty( trim( (string) ( $row['experience_text'] ?? '' ) ) ) );
+$links = array();
+$networks = array(
+	'facebook.com' => array( 'Facebook', 'fab fa-facebook-f' ), 'fb.com' => array( 'Facebook', 'fab fa-facebook-f' ),
+	'instagram.com' => array( 'Instagram', 'fab fa-instagram' ), 'youtube.com' => array( 'YouTube', 'fab fa-youtube' ),
+	'youtu.be' => array( 'YouTube', 'fab fa-youtube' ), 'linkedin.com' => array( 'LinkedIn', 'fab fa-linkedin-in' ),
+	'x.com' => array( 'X', 'fab fa-twitter' ), 'twitter.com' => array( 'X', 'fab fa-twitter' ), 'tiktok.com' => array( 'TikTok', 'fab fa-tiktok' ),
 );
-foreach ( $founder_links as $index => $row ) {
-	if ( is_string( $row['link']['title'] ?? null ) && '' !== trim( $row['link']['title'] ) ) { continue; }
-	$host = strtolower( (string) wp_parse_url( $row['link']['url'], PHP_URL_HOST ) );
-	$host = preg_replace( '/^(www|m|mobile)\./', '', $host );
-	$founder_links[$index]['link']['title'] = $network_names[$host] ?? ( $host ?: 'Profile' );
+foreach ( (array) mmaf_site_field( 'founder_links' ) as $row ) {
+	$link = is_array( $row ) ? ( $row['link'] ?? null ) : null;
+	if ( ! is_array( $link ) || ! is_string( $link['url'] ?? null ) || '' === trim( $link['url'] ) ) { continue; }
+	$url = esc_url( $link['url'], array( 'http', 'https' ) );
+	if ( ! $url ) { continue; }
+	$host = strtolower( (string) wp_parse_url( $link['url'], PHP_URL_HOST ) );
+	$icon = 'fas fa-link';
+	$label = preg_replace( '/^(www|m|mobile)\./', '', $host ) ?: 'Profile';
+	foreach ( $networks as $domain => [$network_name, $class] ) {
+		if ( $host === $domain || str_ends_with( $host, '.' . $domain ) ) { $icon = $class; $label = $network_name; break; }
+	}
+	$label = is_string( $link['title'] ?? null ) && '' !== trim( $link['title'] ) ? trim( $link['title'] ) : $label;
+	$links[] = array( 'url' => $url, 'title' => $label, 'icon' => $icon );
 }
+$heading_id = wp_unique_id( 'mmaf-author-' );
 ?>
-
-<section class="about-founder-bio-section py-12 sm:py-16 lg:py-20">
-<div class="about-founder-bio-section__container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-<h2 class="about-founder-bio-section__title text-3xl sm:text-4xl font-extrabold tracking-tight !text-slate-900"><?php echo esc_html( mmaf_site_field( 'section_title' ) ); ?></h2>
-<div class="about-founder-bio-section__card mt-8 !rounded-2xl !border !border-slate-200/70 !bg-white p-6 sm:p-8 transition-shadow duration-300 hover:shadow-card">
-<div class="about-founder-bio-section__layout grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6 lg:gap-8 items-start">
-<!-- Left column: Avatar + Socials -->
-<div class="about-founder-bio-section__left flex flex-col items-center lg:items-start">
-<div class="about-founder-bio-section__avatar w-full aspect-square rounded-2xl !bg-slate-100 flex items-center justify-center"><?php echo mmaf_site_image( mmaf_site_field( 'founder_photo' ), 'large', array( 'class' => 'w-full h-full object-cover rounded-2xl' ) ); ?></div>
-<?php if ( $founder_links ) : ?>
-<div class="about-founder-bio-section__socials mt-3 flex items-center gap-2"><?php foreach ( $founder_links as $row ) { mmaf_site_link( $row['link'], 'about-founder-bio-section__social-link inline-flex items-center justify-center p-2 rounded-full border border-slate-200 text-sm' ); } ?></div>
-<?php endif; ?>
-</div>
-<!-- Right column: Content -->
-<div class="about-founder-bio-section__content">
-<h3 class="about-founder-bio-section__name text-2xl sm:text-3xl font-extrabold tracking-tight !text-slate-900"><?php echo esc_html( mmaf_site_field( 'founder_name' ) ); ?></h3>
-<span class="about-founder-bio-section__role mt-2 inline-flex items-center rounded-full !bg-[rgba(0,71,168,0.10)] px-3 py-1 text-xs font-semibold !text-[#0047A8]"><?php echo esc_html( mmaf_site_field( 'founder_role' ) ); ?></span>
-<div class="about-founder-bio-section__bio mt-4 text-sm sm:text-base !text-slate-600 leading-relaxed max-w-3xl"><?php echo wp_kses_post( mmaf_site_field( 'founder_biography' ) ); ?></div>
-<!-- Facts grid -->
-<?php if ( $experience_items ) : ?>
-<div class="about-founder-bio-section__bullets mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3"><?php foreach ( $experience_items as $row ) : ?><div class="about-founder-bio-section__bullet flex items-start gap-3 !rounded-xl !border !border-slate-200/70 !bg-slate-50/40 px-4 py-3 transition-all duration-200 hover:!border-[#0047A8]/30 hover:!bg-white hover:shadow-sm hover:-translate-y-0.5">
-<span aria-hidden="true" class="mt-1.5 h-2 w-2 rounded-full !bg-[#0047A8] flex-shrink-0"></span>
-<span class="about-founder-bio-section__bullet-text text-sm !text-slate-700 leading-snug"><?php echo esc_html( $row['experience_text'] ); ?></span>
-</div><?php endforeach; ?></div>
-<?php endif; ?>
-<!-- Quote callout -->
-<?php if ( mmaf_site_field( 'founder_quote' ) ) : ?><div class="about-founder-bio-section__quote mt-6 !rounded-xl !border !border-[#0047A8]/20 p-5 transition-all duration-200 hover:!border-[#0047A8]/40 hover:shadow-sm" style="background: rgba(0,71,168,0.06);">
-<svg aria-hidden="true" class="about-founder-bio-section__quote-mark w-6 h-6 !text-slate-300" fill="currentColor" viewbox="0 0 24 24">
-<path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179z"></path>
-</svg>
-<p class="about-founder-bio-section__quote-text mt-2 italic text-sm sm:text-base !text-slate-700 leading-relaxed"><?php echo esc_html( mmaf_site_field( 'founder_quote' ) ); ?></p>
-<p class="about-founder-bio-section__quote-author mt-3 text-xs font-semibold uppercase tracking-wider !text-slate-500"><?php echo esc_html( mmaf_site_field( 'founder_name' ) ); ?></p>
-</div><?php endif; ?>
-<?php echo mmaf_site_image( mmaf_site_field( 'signature_image' ), 'medium', array( 'class' => 'max-w-40 mt-5' ) ); ?></div>
-</div>
-</div>
-</div>
+<section class="about-founder-bio-section" aria-labelledby="<?php echo esc_attr( $heading_id ); ?>">
+	<div class="about-founder-bio-section__container">
+		<?php if ( $title ) : ?>
+			<h2 id="<?php echo esc_attr( $heading_id ); ?>" class="about-founder-bio-section__title"><?php echo esc_html( $title ); ?></h2>
+		<?php endif; ?>
+		<?php if ( $description ) : ?><p class="about-founder-bio-section__description"><?php echo esc_html( $description ); ?></p><?php endif; ?>
+		<div class="about-founder-bio-section__card<?php echo $title || $description ? ' about-founder-bio-section__card--headed' : ''; ?>">
+			<div class="about-founder-bio-section__layout<?php echo $photo ? '' : ' about-founder-bio-section__layout--text-only'; ?>">
+				<?php if ( $photo ) : ?><div class="about-founder-bio-section__portrait"><?php echo $photo; // Generated by wp_get_attachment_image. ?></div><?php endif; ?>
+				<div class="about-founder-bio-section__content">
+					<?php if ( $title ) : ?><h3 class="about-founder-bio-section__name"><?php echo esc_html( $name ); ?></h3><?php else : ?><h2 id="<?php echo esc_attr( $heading_id ); ?>" class="about-founder-bio-section__name"><?php echo esc_html( $name ); ?></h2><?php endif; ?>
+					<?php if ( $role ) : ?><p class="about-founder-bio-section__role"><?php echo esc_html( $role ); ?></p><?php endif; ?>
+					<?php if ( trim( wp_strip_all_tags( $biography ) ) ) : ?><div class="about-founder-bio-section__bio"><?php echo wp_kses_post( $biography ); ?></div><?php endif; ?>
+					<?php if ( $experience ) : ?>
+						<ul class="about-founder-bio-section__experience"><?php foreach ( $experience as $item ) : ?><li><?php echo esc_html( $item['experience_text'] ); ?></li><?php endforeach; ?></ul>
+					<?php endif; ?>
+					<?php if ( $quote ) : ?><blockquote class="about-founder-bio-section__quote"><p><?php echo esc_html( $quote ); ?></p></blockquote><?php endif; ?>
+					<?php if ( $signature ) { echo $signature; } ?>
+					<?php if ( $links ) : ?>
+						<ul class="about-founder-bio-section__socials" aria-label="<?php echo esc_attr__( 'Author social profiles', 'mma-future' ); ?>">
+							<?php foreach ( $links as $link ) : ?><li><a class="about-founder-bio-section__social-link" href="<?php echo $link['url']; ?>" target="_blank" rel="noopener noreferrer" title="<?php echo esc_attr( $link['title'] ); ?>"><i class="<?php echo esc_attr( $link['icon'] ); ?>" aria-hidden="true"></i><span class="about-founder-bio-section__sr-only"><?php echo esc_html( $link['title'] ); ?><?php esc_html_e( ' (opens in a new tab)', 'mma-future' ); ?></span></a></li><?php endforeach; ?>
+						</ul>
+					<?php endif; ?>
+				</div>
+			</div>
+		</div>
+	</div>
 </section>

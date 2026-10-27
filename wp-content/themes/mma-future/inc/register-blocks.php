@@ -189,6 +189,9 @@ if ( ! function_exists( 'mma_future_register_acf_blocks' ) ) {
 						'anchor' => true,
 					),
 					'render_template' => $block['render_template'],
+					'enqueue_assets' => 'about-founder-bio-section' === $name ? static function() {
+						wp_enqueue_style( 'mmaf-author', get_template_directory_uri() . '/assets/dist/css/author.css', array(), mmaf_asset_version( 'assets/dist/css/author.css' ) );
+					} : null,
 				)
 			);
 		}
