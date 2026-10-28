@@ -109,13 +109,13 @@ final class PublicReadService extends AbstractRestController {
 		$rows=$this->public->movers((int)$current['id'],(int)$previous['id'],$board,$limit); $this->prime(array_column($rows,'wp_post_id'));
 		foreach($rows as $r) {
 
-			if((int)$r['rank_change']<=0 || count($response['items'])>=max(1,min(10,$limit))) { continue; }
-			$p=$this->profile_data($r['wp_post_id']); $response['items'][]=array('fighter_id'=>(int)$r['fighter_id'],'display_name'=>$r['display_name'],'current_rank'=>(int)$r['current_rank'],'previous_rank'=>(int)$r['previous_rank'],'rank_change'=>(int)$r['rank_change'],'permalink'=>$p['permalink'],'image'=>$p['image']);
+			if(0===(int)$r['rank_change'] || count($response['items'])>=max(1,min(10,$limit))) { continue; }
+			$p=$this->profile_data($r['wp_post_id']); $response['items'][]=array('fighter_id'=>(int)$r['fighter_id'],'display_name'=>$r['display_name'],'current_rank'=>(int)$r['current_rank'],'previous_rank'=>(int)$r['previous_rank'],'rank_change'=>(int)$r['rank_change'],'direction'=>(int)$r['rank_change']>0?'up':'down','permalink'=>$p['permalink'],'image'=>$p['image']);
 		}
         $new=$this->public->new_entries((int)$current['id'],(int)$previous['id'],$board,$options);$this->prime(array_column($new['rows'],'wp_post_id'));
         foreach($new['rows'] as $r){$response['new_fighter_ids'][]=(int)$r['fighter_id'];$p=$this->profile_data($r['wp_post_id']);$response['new_entries'][]=['fighter_id'=>(int)$r['fighter_id'],'display_name'=>$r['display_name'],'current_rank'=>(int)$r['current_rank'],'previous_rank'=>null,'rank_change'=>null,'label'=>'New','permalink'=>$p['permalink']];}
         if(isset($options['new_page']) || isset($options['new_per_page'])){$response['new_total']=$new['total'];$response['new_page']=max(1,(int)($options['new_page']??1));$response['new_per_page']=min(100,max(1,(int)($options['new_per_page']??25)));$response['new_total_pages']=(int)ceil($new['total']/$response['new_per_page']);}
-		$response['status']=$response['items']?'available':'unchanged'; $response['message']=$response['items']?null:'No upward movement between these activations.'; return $response;
+		$response['status']=$response['items']?'available':'unchanged'; $response['message']=$response['items']?null:'No rank changes between these ranking updates.'; return $response;
 	}
 
     public function fighter_cards(array $posts): array {

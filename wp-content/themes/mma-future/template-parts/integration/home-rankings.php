@@ -1,5 +1,10 @@
 <?php if ( ! defined( 'ABSPATH' ) ) { exit; }
-$top_movers = array_map( static fn( $m ) => $m + array( 'direction' => 'up', 'change' => $m['rank_change'], 'name' => $m['display_name'], 'url' => $m['permalink'] ), $movers['items'] ?? array() );
+$rankings_link = mmaf_site_field( 'primary_link' );
+if ( ! is_array( $rankings_link ) || empty( $rankings_link['url'] ) || empty( $rankings_link['title'] ) ) {
+    $rankings_link = array( 'url' => mmaf_rankings_url(), 'title' => 'See the full rankings' );
+}
+$rankings_link_class = 'group inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 shadow-sm text-slate-700 font-semibold text-sm transition-all duration-200 hover:bg-slate-50 hover:ring-black/15 hover:shadow-md hover:text-[#0B3AA4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/35 focus-visible:ring-offset-2 visited:text-slate-700 no-underline';
+$top_movers = array_map( static fn( $m ) => $m + array( 'direction' => $m['rank_change'] > 0 ? 'up' : 'down', 'change' => $m['rank_change'], 'name' => $m['display_name'], 'url' => $m['permalink'] ), $movers['items'] ?? array() );
 $top_five = array_map( static fn( $r ) => array( 'rank' => $r['rank'], 'name' => $r['display_name'], 'url' => $r['permalink'], 'record' => mmaf_record( mmaf_display_record($r) ), 'weight_class' => ucwords( str_replace( '_', ' ', $r['weight_class'] ) ), 'country' => $r['nationality'] ?: '—', 'finish_rate' => mmaf_display_percent( ($r['scoring_assessment']['period_stats']['finish_rate']??$r['stats']['finish_rate']) ), 'last_bout' => mmaf_display_date( $r['stats']['last_fight_date'] ), 'streak' => $r['stats']['streak'], 'score' => mmaf_display_number( $r['score'], 2 ), 'image_data' => $r['image'] ), $data['items'] ); ?>
 <section id="<?php echo esc_attr( $prefix ); ?>" class="py-16 bg-white">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -7,12 +12,12 @@ $top_five = array_map( static fn( $r ) => array( 'rank' => $r['rank'], 'name' =>
         <!-- Top Movers Section -->
         <?php if ( mmaf_site_field( 'show_top_movers' ) ) : ?><div class="mb-20">
             <!-- Header Row -->
-            <div class="flex justify-between items-center mb-10">
+            <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
                 <h2 class="text-xl md:text-2xl font-extrabold text-slate-900 leading-tight"><?php echo esc_html( mmaf_site_field( 'top_movers_title' ) ); ?></h2>
-<?php mmaf_presentation_link( mmaf_site_field( 'primary_link' ), 'group inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 shadow-sm text-slate-700 font-semibold text-sm transition-all duration-200 hover:bg-slate-50 hover:ring-black/15 hover:shadow-md hover:text-[#0B3AA4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/35 focus-visible:ring-offset-2 visited:text-slate-700 no-underline' ); ?>
+<?php mmaf_presentation_link( $rankings_link, $rankings_link_class ); ?>
             </div>
 
-<?php if ( 'available' === ( $movers['status'] ?? '' ) ) : ?><p class="text-xs text-slate-500 mb-6">Activated lists: <?php echo esc_html( mmaf_display_date( $movers['previous_activated_at'] ) ); ?> → <?php echo esc_html( mmaf_display_date( $movers['current_activated_at'] ) ); ?></p><?php endif; ?>
+<?php if ( in_array( $movers['status'] ?? '', array( 'available', 'unchanged' ), true ) ) : ?><p class="text-xs text-slate-500 mb-6">Biggest rises and falls among currently listed fighters. Ranking updates: <?php echo esc_html( mmaf_display_date( $movers['previous_activated_at'] ) ); ?> → <?php echo esc_html( mmaf_display_date( $movers['current_activated_at'] ) ); ?></p><?php endif; ?>
 <?php if ( ! $top_movers ) : ?><p class="text-sm text-slate-500"><?php echo esc_html( $movers['message'] ); ?></p><?php endif; ?>
             <!-- Top Movers Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -76,7 +81,11 @@ $top_five = array_map( static fn( $r ) => array( 'rank' => $r['rank'], 'name' =>
 
         <!-- Current Top 5 Section -->
         <div class="mt-12">
-            <h2 class="text-xl md:text-2xl font-extrabold text-slate-900 leading-tight mb-6"><?php echo esc_html( mmaf_site_field( 'section_title' ) ); ?></h2><?php if ( mmaf_site_field( 'section_description' ) ) : ?><p class="text-sm text-slate-500 mb-6"><?php echo esc_html( mmaf_site_field( 'section_description' ) ); ?></p><?php endif; ?><?php mmaf_render_dates( $data ); ?><?php if ( ! $top_five ) : ?><p>No active rankings are available.</p><?php endif; ?>
+            <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+                <h2 class="text-xl md:text-2xl font-extrabold text-slate-900 leading-tight"><?php echo esc_html( mmaf_site_field( 'section_title' ) ); ?></h2>
+                <?php mmaf_presentation_link( $rankings_link, $rankings_link_class ); ?>
+            </div>
+            <?php if ( mmaf_site_field( 'section_description' ) ) : ?><p class="text-sm text-slate-500 mb-6"><?php echo esc_html( mmaf_site_field( 'section_description' ) ); ?></p><?php endif; ?><?php mmaf_render_dates( $data ); ?><?php if ( ! $top_five ) : ?><p>No active rankings are available.</p><?php endif; ?>
 
             <!-- Top 5 List -->
             <div class="flex flex-col gap-4">

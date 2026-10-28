@@ -67,7 +67,15 @@ try{
     closeout_check($refreshed===1 && count(Readiness::read([$id,$failed['fighter_id']]))===1 && Readiness::refresh([$id,$failed['fighter_id']])===2,'readiness time budget leaves unprocessed rows available for a later bounded step');
     Readiness::invalidate($id);$background=\MMAF\DataEngine\Services\Operations\Module::work();
     closeout_check($background['worked'] && $background['readiness_refreshed']>0,'readiness work reports progress so the supervisor continues bounded steps within its time budget');
-    ob_start();MMAF\DataEngine\Admin\OperationsPage::progress(Jobs::get($report['id']),$result);$html=ob_get_clean();closeout_check(str_contains($html,'Explicit confirmation recorded') && str_contains($html,'no automatic unlocking'),'protection evidence is readable without raw JSON');
+    $confirmationPage=null;
+    for($page=1;$page<=max(1,(int)ceil((int)$report['total']/25));++$page){
+        $candidate=Jobs::items($report['id'],$page,25);
+        foreach($candidate['items'] as $item){foreach($item['result']['facts']??[] as $fact){
+            if(($fact['evidence']??'')==='Explicit confirmation recorded'){$confirmationPage=$candidate;break 2;}
+        }}
+        if($confirmationPage!==null){break;}
+    }
+    ob_start();MMAF\DataEngine\Admin\OperationsPage::progress(Jobs::get($report['id']),$confirmationPage??$result);$html=ob_get_clean();closeout_check($confirmationPage!==null && str_contains($html,'Explicit confirmation recorded') && str_contains($html,'no automatic unlocking'),'protection evidence is readable without raw JSON');
     $method=new ReflectionMethod(MMAF\DataEngine\Admin\FightersPage::class,'render_form');ob_start();$method->invoke(null,$id);$html=ob_get_clean();
     closeout_check(str_contains($html,'name="bulk_action" value="approve_and_prepare"') && str_contains($html,'Prepare &amp; publish profile') && !str_contains($html,'name="is_public"'),'single editor exposes the same frozen operation actions instead of editable publication flags');
     echo 'METRICS '.wp_json_encode(['peak_memory'=>memory_get_peak_usage(true)])."\n";
