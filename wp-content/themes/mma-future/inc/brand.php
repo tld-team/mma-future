@@ -1,5 +1,5 @@
 <?php
-/** Render one accessible home link with OS-aware logo sources. */
+/** Render one accessible home link with logos that follow the selected theme. */
 function mmaf_brand_link( string $place = 'header' ): void {
 	$classes = array(
 		'header' => 'block w-full max-w-[150px] h-20 flex items-center overflow-hidden no-underline transition-all duration-300 hover:opacity-80 header-logo',
@@ -22,13 +22,16 @@ function mmaf_brand_link( string $place = 'header' ): void {
 	$name = get_bloginfo( 'name' );
 	printf( '<a href="%s" class="mmaf-brand mmaf-brand--%s %s%s" rel="home" aria-label="%s">', esc_url( home_url( '/' ) ), esc_attr( $place ), esc_attr( $classes[ $place ] ), $light_url && ! $dark_url ? ' mmaf-brand--light-fallback' : '', esc_attr( $name ) );
 	if ( $light_url ) {
-		echo '<picture>';
-		if ( $dark_url ) {
-			printf( '<source media="(prefers-color-scheme: dark)" srcset="%s">', esc_url( $dark_url ) );
-		}
 		$meta = wp_get_attachment_metadata( $light_id );
+		echo $dark_url ? '<picture class="mmaf-brand__image--light">' : '<picture>';
 		printf( '<img src="%s" alt="" class="%s" width="%d" height="%d">', esc_url( $light_url ), esc_attr( $image_classes[ $place ] ), (int) ( $meta['width'] ?? 636 ), (int) ( $meta['height'] ?? 443 ) );
 		echo '</picture>';
+		if ( $dark_url ) {
+			$dark_meta = $dark_id ? wp_get_attachment_metadata( $dark_id ) : $meta;
+			echo '<picture class="mmaf-brand__image--dark">';
+			printf( '<img src="%s" alt="" class="%s" width="%d" height="%d">', esc_url( $dark_url ), esc_attr( $image_classes[ $place ] ), (int) ( $dark_meta['width'] ?? 636 ), (int) ( $dark_meta['height'] ?? 443 ) );
+			echo '</picture>';
+		}
 	} else {
 		printf( '<span class="mmaf-brand__title font-heading font-bold">%s</span>', esc_html( $name ) );
 	}

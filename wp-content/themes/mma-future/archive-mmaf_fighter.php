@@ -45,7 +45,7 @@ $archive_url = get_post_type_archive_link( 'mmaf_fighter' );
 					</div>
 					<dl class="mmaf-profile-card__stats">
 						<div><dt><?php echo mmaf_record_label($context); ?></dt><dd><?php echo esc_html( mmaf_fighter_record_available( $context ) ? mmaf_record( mmaf_display_record($context) ) : 'Not available' ); ?></dd></div>
-						<div><dt>Overall rank</dt><dd><?php echo esc_html( $overall ? '#' . $overall['rank'] : 'Unranked' ); ?></dd></div>
+						<?php if ( ! empty( $context['fighter']['in_ufc'] ) ) : ?><div><dt>Status</dt><dd>Signed with the UFC</dd></div><?php else : ?><div><dt>Overall rank</dt><dd><?php echo esc_html( $overall ? '#' . $overall['rank'] : 'Unranked' ); ?></dd></div><?php endif; ?>
 					</dl>
 					<div class="mmaf-profile-card__footer"><span>View profile</span><?php mmaf_view( 'icon-arrow' ); ?></div>
 				</a>

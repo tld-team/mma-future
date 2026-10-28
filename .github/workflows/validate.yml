@@ -154,3 +154,19 @@ jobs:
           MMAF_SYNC_DB_HOST: 127.0.0.1:3306
           MMAF_SYNC_DB_PASSWORD: root
         run: python3 tests/integration/verify-local-sync.py
+
+  calendar-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tests/frontend/package-lock.json
+      - name: Calendar renderer and interaction regressions
+        run: |
+          php -l tests/frontend/fixture.php
+          node --check wp-content/plugins/mma-future-data-engine/assets/event-calendar.js
+          npm --prefix tests/frontend ci --no-audit --no-fund
+          npm --prefix tests/frontend test

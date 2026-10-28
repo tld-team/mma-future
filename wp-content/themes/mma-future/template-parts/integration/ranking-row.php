@@ -1,8 +1,8 @@
 <?php if ( ! defined( 'ABSPATH' ) ) { exit; }  ?>
 
-<tr class="rk-main-row" data-fighter-id="<?php echo esc_attr( $r['fighter_id'] ); ?>" style="border-bottom:1px solid rgba(226,232,240,0.7)">
+<tr class="rk-main-row" data-fighter-id="<?php echo esc_attr( $r['fighter_id'] ); ?>">
 <td class="rk-td-rank px-4 py-3">
-<div class="rk-rank-num font-black tabular-nums" style="font-size:1.15rem;line-height:1;color:#0f172a"><?php echo esc_html( $r['rank']??'—' ); ?></div>
+<div class="rk-rank-num font-black tabular-nums" style="font-size:1.15rem;color:#0f172a"><?php echo esc_html( $r['rank']??'—' ); ?></div>
 
 </td>
 <td class="px-4 py-3">
@@ -29,7 +29,7 @@
 </td>
 </tr>
 <tr class="rk-detail-row" data-rk-detail="" id="<?php echo esc_attr( $prefix . '_detail_' . $r['fighter_id'] ); ?>">
-<td colspan="10" style="padding:0;background:#f8fafc;border-bottom:1px solid rgba(226,232,240,0.7)">
-<div class="flex flex-wrap items-center gap-8 px-5 py-5" style="border-top:1px solid rgba(226,232,240,0.7)"><?php mmaf_view( 'ranking-detail', compact( 'r', 'breakdown' ) ); ?></div>
+<td colspan="10">
+<div class="rk-detail-content flex flex-wrap items-center gap-8 px-5 py-5"><?php mmaf_view( 'ranking-detail', compact( 'r', 'breakdown' ) ); ?></div>
 </td>
 </tr>

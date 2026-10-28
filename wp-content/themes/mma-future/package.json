@@ -13,7 +13,7 @@
     "copy-fonts": "node copy-fonts.js",
     "tw": "npm run copy-fonts && npx @tailwindcss/cli -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --watch",
     "tw_build": "npm run copy-fonts && npm run copy-integration-styles && npx @tailwindcss/cli -i ./assets/src/css/input.css -o ./assets/dist/css/output.css --minify",
-    "copy-integration-styles": "cp assets/src/css/integration.css assets/dist/css/integration.css && cp assets/src/css/color-scheme.css assets/dist/css/color-scheme.css && cp assets/src/images/logo-dark.png assets/dist/images/logo-dark.png"
+    "copy-integration-styles": "cp assets/src/css/integration.css assets/dist/css/integration.css && node build-color-scheme.js && cp assets/src/js/color-scheme.js assets/dist/js/color-scheme.js && cp assets/src/images/logo-dark.png assets/dist/images/logo-dark.png"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.0.0",

@@ -168,6 +168,8 @@ function mmaf_asset_version(string $relative): string {
 }
 
 function mma_future_scripts() {
+	// Apply a saved appearance before the first paint; do not defer this script.
+	wp_enqueue_script( 'mmaf-color-scheme', get_template_directory_uri() . '/assets/dist/js/color-scheme.js', array(), mmaf_asset_version('assets/dist/js/color-scheme.js'), false );
 	/** ==============================            custom styles and scripts            ============================== */
 	/**  */
 	wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css', array(), mmaf_asset_version('assets/dist/css/output.css') );

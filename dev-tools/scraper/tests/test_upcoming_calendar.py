@@ -92,6 +92,52 @@ def test_upcoming_scrape_skips_matchup_detail_pages(monkeypatch, tmp_path):
     assert observed["config"].scrape_matchup_pages is False
 
 
+def test_natural_listing_end_publishes_an_importable_calendar(monkeypatch, tmp_path):
+    class SuccessfulScraper:
+        def __init__(self, config):
+            self.config = config
+
+        def run(self, *, results, upcoming):
+            atomic_write_json(
+                self.config.data_dir / "latest" / "upcoming.json",
+                {"run": {"run_id": "run-natural-end"}, "events": [raw_event()]},
+            )
+            return {
+                "successful": True,
+                "pagination_stop_reason": "natural_end_no_load_more_button",
+                "date_window_stop_confirmed": False,
+                "event_fetch_failures": 0,
+            }
+
+    monkeypatch.setattr("mma_future_scraper.upcoming_calendar.TapologyScraper", SuccessfulScraper)
+    data_dir = tmp_path / "upcoming"
+    result = scrape_upcoming(days=1, data_dir=data_dir, today=date(2026, 12, 31))
+    assert result["coverage"]["complete"] is True
+    output = tmp_path / "calendar.zip"
+    exported = export_upcoming_bundle(output, data_dir=data_dir)
+    assert exported["ready_for_import"] is True
+    with zipfile.ZipFile(output) as bundle:
+        manifest = json.loads(bundle.read("latest/run_manifest.json"))
+    assert manifest["status"] == "success"
+    assert manifest["counts"] == {"events": 1, "bouts": 1}
+
+
+@pytest.mark.parametrize(
+    "stop_reason",
+    ["max_pages", "max_events", "access_degraded", "load_more_timeout", "requested_stop"],
+)
+def test_interrupted_pagination_still_blocks_calendar_publication(stop_reason):
+    document = build_document(
+        {"run": {"run_id": "unfinished"}, "events": [raw_event()]},
+        {"pagination_stop_reason": stop_reason, "event_fetch_failures": 0},
+        start=date(2026, 12, 31),
+        end=date(2026, 12, 31),
+        timezone_name="Europe/Belgrade",
+    )
+    assert document["coverage"]["complete"] is False
+    assert build_run_manifest(document, {})["status"] == "incomplete"
+
+
 def test_incomplete_read_never_claims_complete_coverage():
     event = raw_event()
     event["warnings"] = ["fight_card_missing"]

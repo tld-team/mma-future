@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "assets": {
-    "assets/dist/css/color-scheme.css": "d8c14cbf461e1e9fb40836241a8499acaa99a18bb26a6b7660f956b90656f691",
-    "assets/dist/css/integration.css": "e3c13e3ca8f0e4feeffea4a432ea33e68a35ee52efdad418d2c198d1a0d30782",
-    "assets/dist/css/output.css": "126dabec0718e6ffed7ff68583d82f8c310f9ed4cd6dd8403a3b352684398a86",
+    "assets/dist/css/color-scheme.css": "1d32916cb8e464170ef52ec0855a3deb9e27b189a31c52d8fb39506187d27cbf",
+    "assets/dist/css/integration.css": "6a37c271e3949a1ff990cbbbdc1a1897926eefa6154d172627d6d150e0245953",
+    "assets/dist/css/output.css": "4b840bd9bd4664f3aebcdbdbdf571ca70f5948e520a1fac1f94b9d6c0731136c",
     "assets/dist/fonts/inter/Inter18pt-BlackItalic.eot": "8f2fd6d57c3953957d61d2f24e468192df1084284f800266f995acc9fd8016b8",
     "assets/dist/fonts/inter/Inter18pt-BlackItalic.ttf": "e2c082826d543dd25cfb6590ff224740850ac5340165c33d4e43221ebbb83000",
     "assets/dist/fonts/inter/Inter18pt-BlackItalic.woff": "ebe8d80551df28d98e46b78b4ba900e0745820a5083c47b692e1cbef2f63cd85",
@@ -76,6 +76,7 @@
     "assets/dist/fonts/sora/stylesheet.css": "77226a2901e14487c9abcf68354d10345b80669f277e1613b64108465711b601",
     "assets/dist/images/fighter-background.png": "73ac335121219f86f3e39acc8c483d04421e8bdf9c54cebd9a283e75b08aadd0",
     "assets/dist/images/logo-dark.png": "8b5e3b525ce0fccb3816bbf9e04c28446de6ff4e2415b2cd2e9e62bc8413f8df",
+    "assets/dist/js/color-scheme.js": "adb431b507cbffac17cd3f1b56f684284d0da2609530009a7e019a858d6b6e08",
     "assets/dist/js/integration.js": "4b8d1d93a6cc3b123829164b344adb8ec43b331cedaed225b914c13304a82db4",
     "assets/dist/js/integration.js.LICENSE.txt": "8c9946dfc859a2bfb26cc541125631cd96e7110fa20a702eb19275c9d1658805",
     "assets/dist/js/main.js": "d469f5b8a8a3017957fc16513d0d2c06490fa427b6e970ef48d2b2eb85558c9a"

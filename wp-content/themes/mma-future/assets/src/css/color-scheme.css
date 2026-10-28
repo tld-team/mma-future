@@ -1,8 +1,30 @@
-/* Light remains the default; only an explicit system dark preference activates these overrides. */
+/* The build scopes dark overrides to the selected theme, with a system fallback. */
 :root { color-scheme: light; }
 .mmaf-brand picture { display:block; width:100%; }
 .mmaf-brand img { display:block; width:100%; }
+.mmaf-brand .mmaf-brand__image--dark { display:none; }
 .mmaf-brand__title { color:#0b1220; }
+
+.header-actions { display:flex; align-items:center; flex-shrink:0; gap:8px; }
+.mmaf-theme-toggle {
+  display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+  width:44px; height:44px; padding:0; border:1px solid #e2e8f0; border-radius:12px;
+  background:#fff; color:#475569; box-shadow:none; cursor:pointer;
+  transition:background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.mmaf-theme-toggle[hidden] { display:none; }
+/* Reserve the control's space while its listener initializes. */
+:root[data-theme] .mmaf-theme-toggle[hidden] { display:inline-flex; visibility:hidden; }
+.mmaf-theme-toggle:hover { background:#f1f5f9; border-color:#cbd5e1; color:#0f172a; }
+.mmaf-theme-toggle:focus-visible { outline:2px solid #0047a8; outline-offset:3px; }
+.mmaf-theme-toggle svg { width:20px; height:20px; pointer-events:none; }
+.mmaf-theme-toggle__sun { display:none; }
+@media (min-width:1024px) {
+  .header-actions { flex:1; justify-content:flex-end; gap:12px; padding-left:16px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .mmaf-theme-toggle { transition:none; }
+}
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -11,7 +33,7 @@
     --mmaf-surface:#111c2e;
     --mmaf-raised:#18263b;
     --mmaf-hover:#20324d;
-    --mmaf-text:#f1f5f9;
+    --mmaf-text:#dce3ec;
     --mmaf-secondary:#cbd5e1;
     --mmaf-muted:#94a3b8;
     --mmaf-border:#334155;
@@ -22,6 +44,8 @@
   }
   body, #page, #primary, .site-main { background:var(--mmaf-canvas); color:var(--mmaf-secondary); }
   body :is(h1,h2,h3,h4,h5,h6) { color:var(--mmaf-text); }
+  /* Keep hero highlights calm without altering their light-mode treatment. */
+  .mf-hero .text-white, .mf-hero .opp-score-badge, .mf-hero-bubble__title, .hp-hero-section .text-white { color:var(--mmaf-text)!important; }
   body :is(a,button):focus-visible, body :is(input,select,textarea):focus-visible, body summary:focus-visible { outline:2px solid var(--mmaf-focus)!important; outline-offset:3px!important; }
   body :is(input,select,textarea) { color:var(--mmaf-text); background-color:var(--mmaf-surface); border-color:var(--mmaf-field-border); caret-color:var(--mmaf-text); }
   body :is(input,textarea)::placeholder { color:var(--mmaf-muted); }
@@ -38,6 +62,12 @@
   #mobile-menu .flex.h-16 { border-color:var(--mmaf-border); }
   .header-login-btn, .header-login-btn:hover { background:var(--mmaf-raised)!important; color:var(--mmaf-text)!important; border-color:var(--mmaf-field-border)!important; }
   .mmaf-brand__title { color:var(--mmaf-text); }
+  .mmaf-brand .mmaf-brand__image--light { display:none; }
+  .mmaf-brand .mmaf-brand__image--dark { display:block; }
+  .mmaf-theme-toggle { background:var(--mmaf-raised); border-color:var(--mmaf-border); color:var(--mmaf-secondary); }
+  .mmaf-theme-toggle:hover { background:var(--mmaf-hover); border-color:var(--mmaf-field-border); color:var(--mmaf-text); }
+  .mmaf-theme-toggle__moon { display:none; }
+  .mmaf-theme-toggle__sun { display:block; }
   .mmaf-brand--light-fallback picture { background:#fff; padding:3px 6px; border-radius:8px; }
   footer { background:var(--mmaf-surface)!important; color:var(--mmaf-secondary); }
   footer :is(h3,h4,[style*="color: #0B1220"]) { color:var(--mmaf-text)!important; }
@@ -49,11 +79,16 @@
   .mmaf-directory, .mmaf-section, .mmaf-history-empty, .mmaf-rankings-section { background:var(--mmaf-canvas)!important; color:var(--mmaf-secondary); }
   .rk-wrap :is(table,tbody,td) { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; color:var(--mmaf-secondary)!important; }
   .rk-wrap :is(thead,th) { background:var(--mmaf-raised)!important; border-color:var(--mmaf-border)!important; color:var(--mmaf-text)!important; }
+  .rk-wrap :is(thead,tbody) { background:transparent!important; }
+  .rk-wrap th { color:var(--mmaf-muted)!important; }
+  .mmaf-rankings-section .rk-wrap .rk-sort-btn { background:transparent!important; }
   .rk-main-row:hover :is(td,.rk-td-rank,.rk-td-rank-z) { background:var(--mmaf-hover)!important; }
   .rk-impact-tooltip { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; color:var(--mmaf-secondary)!important; }
   .rk-impact-tooltip strong { color:var(--mmaf-text)!important; }
   .rk-methodology__link { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; color:var(--mmaf-link)!important; }
-  .rk-methodology__link:hover { background:var(--mmaf-hover)!important; }
+  .rk-methodology__link:is(:hover,:focus-visible) { background:var(--mmaf-hover)!important; border-color:var(--mmaf-focus)!important; box-shadow:0 4px 10px #0003,0 12px 28px #0004; }
+  .rk-methodology__link:active { background:var(--mmaf-raised)!important; box-shadow:0 2px 6px #0003; }
+  .rk-methodology__arrow { color:var(--mmaf-muted); }
   .mmaf-directory :is(h1,h2,h3), .mmaf-rankings-section :is(h1,h2,h3) { color:var(--mmaf-text)!important; }
   .mmaf-profile-card, .mmaf-card, .mmaf-empty-state, .rk-card, .rk-detail-row { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; color:var(--mmaf-secondary); }
   .mmaf-profile-card:hover, .rk-card:hover { border-color:var(--mmaf-field-border)!important; box-shadow:0 6px 18px #0003; }
@@ -107,7 +142,7 @@
   /* Ranking values were retaining the light-theme navy utility colors. */
   .rk-wrap :is(.rk-rank-num,.rk-main-row a,.rk-main-row .tabular-nums,.rk-impact-total) { color:var(--mmaf-text)!important; }
   .rk-wrap .rk-main-row a:hover { color:var(--mmaf-link)!important; }
-  .rk-wrap :is(.rk-impact-total,.rk-impact-label) { color:var(--mmaf-muted)!important; }
+  .rk-wrap .rk-impact-label { color:var(--mmaf-muted)!important; }
 
   /* Calendar actions should read as calm controls on the dark panel. */
   .mmaf-calendar__nav-button, .mmaf-calendar__today { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; color:var(--mmaf-text)!important; }
@@ -194,7 +229,8 @@
   .mmaf-directory__intro, .mmaf-directory__summary { color:var(--mmaf-muted)!important; }
 
   /* Calendar cells and event details live outside the toolbar's styling scope. */
-  .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; color:var(--mmaf-secondary)!important; }
+  .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; --cal-surface:var(--mmaf-surface); --cal-hover:var(--mmaf-hover); --cal-link:#fca5a5; color:var(--mmaf-secondary)!important; }
+  .mmaf-calendar__mobile-count { background:#9f303b; }
   .mmaf-calendar :is(.mmaf-calendar__eyebrow,.mmaf-calendar__day-heading p,.mmaf-calendar__event-head p) { color:#fca5a5!important; }
   .mmaf-calendar__grid, .mmaf-calendar__event { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; }
   .mmaf-calendar__cell.is-uncovered, .mmaf-calendar__cell.is-past, .mmaf-calendar__blank { background:var(--mmaf-canvas)!important; color:var(--mmaf-muted)!important; }
