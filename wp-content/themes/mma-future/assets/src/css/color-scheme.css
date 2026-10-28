@@ -194,7 +194,8 @@
   .mmaf-directory__intro, .mmaf-directory__summary { color:var(--mmaf-muted)!important; }
 
   /* Calendar cells and event details live outside the toolbar's styling scope. */
-  .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; color:var(--mmaf-secondary)!important; }
+  .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; --cal-surface:var(--mmaf-surface); --cal-hover:var(--mmaf-hover); --cal-link:#fca5a5; color:var(--mmaf-secondary)!important; }
+  .mmaf-calendar__mobile-count { background:#9f303b; }
   .mmaf-calendar :is(.mmaf-calendar__eyebrow,.mmaf-calendar__day-heading p,.mmaf-calendar__event-head p) { color:#fca5a5!important; }
   .mmaf-calendar__grid, .mmaf-calendar__event { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; }
   .mmaf-calendar__cell.is-uncovered, .mmaf-calendar__cell.is-past, .mmaf-calendar__blank { background:var(--mmaf-canvas)!important; color:var(--mmaf-muted)!important; }
