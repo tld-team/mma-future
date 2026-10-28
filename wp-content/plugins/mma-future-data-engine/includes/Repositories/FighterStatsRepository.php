@@ -89,6 +89,7 @@ final class FighterStatsRepository {
 			}
 
 			foreach ( $rows as $row ) {
+				unset( $row['_tracking_stats_strategy'] );
 				$row['created_at'] = $now;
 				$row['updated_at'] = $now;
 

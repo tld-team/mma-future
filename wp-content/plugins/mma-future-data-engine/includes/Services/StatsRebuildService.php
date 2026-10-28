@@ -137,7 +137,15 @@ final class StatsRebuildService {
 			}
 		}
 
-		$this->stats->replace_all( $this->stats_rows() );
+		$strategy_counts = array( 'carried' => 0, 'calculated' => 0 );
+		$stats_rows = ( function() use ( &$strategy_counts ) {
+			foreach ( $this->stats_rows() as $row ) {
+				$strategy = (string) ( $row['_tracking_stats_strategy'] ?? 'calculated' );
+				$strategy_counts[ $strategy ] = (int) ( $strategy_counts[ $strategy ] ?? 0 ) + 1;
+				yield $row;
+			}
+		} )();
+		$this->stats->replace_all( $stats_rows );
         $coverageTable=\MMAF\DataEngine\Migrations\Schema::table_names()['fighter_career_coverage']; $last=0;
         $career=new \MMAF\DataEngine\Services\RegularImport\CareerHistory();
         do {
@@ -146,6 +154,7 @@ final class StatsRebuildService {
             if ($wpdb->last_error) { throw new \RuntimeException($wpdb->last_error); }
             foreach ($coverages as $coverage) { $last=(int)$coverage['fighter_id']; $career->refresh_record_coverage($coverage,$actor_user_id); }
         } while(count($coverages)===250);
+		$tracking = ( new TrackingService() )->refresh_paused_candidates( current_time( 'Y-m-d' ), $actor_user_id );
 
 
 		$summary = array(
@@ -156,6 +165,13 @@ final class StatsRebuildService {
 			'skipped_bouts'          => $skipped_bouts,
 			'malformed_bouts'        => $malformed_bouts,
 			'participants_processed' => $participants_processed,
+			'stats_rows_without_tracking_optimization' => $fighters_total,
+			'stats_rows_recalculated_after_tracking' => (int) $strategy_counts['calculated'],
+			'stats_rows_carried'    => (int) $strategy_counts['carried'],
+			'stats_rows_work_avoided' => (int) $strategy_counts['carried'],
+			'paused_fighters_checked' => (int) $tracking['checked'],
+			'paused_profile_refresh_pending' => (int) ( $tracking['profile_refresh_pending'] ?? 0 ),
+			'return_candidates'     => (int) $tracking['candidates'],
 			'warnings_count'         => $warnings_count,
 			'warnings'               => array_filter( $summary_warnings ),
 		);
@@ -286,8 +302,11 @@ final class StatsRebuildService {
 
 	public function stats_rows(?array $fighter_ids=null): \Generator {
 		foreach (null===$fighter_ids?$this->stats->fighter_batches():[$fighter_ids] as $ids) {
-			$rows=[]; foreach ($ids as $id) { $rows[$id]=$this->empty_fighter_stats($id); }
-			foreach ($this->stats->history_for_fighters($ids) as $bout) {
+			$ids=array_values(array_unique(array_filter(array_map('intval',$ids))));
+			$carried=$this->carried_stats($ids);$calculate=array_values(array_diff($ids,array_keys($carried)));
+			foreach($carried as $row){$row['_tracking_stats_strategy']='carried';yield $row;}
+			$rows=[]; foreach ($calculate as $id) { $rows[$id]=$this->empty_fighter_stats($id); }
+			foreach ($this->stats->history_for_fighters($calculate) as $bout) {
 				$id=(int)$bout['fighter_id']; $result=(string)$bout['result_for_fighter'];
 				if ((int)$bout['participant_count']!==2 || (int)$bout['deleted_soft']===1 || !in_array($bout['status'],self::COUNTABLE_STATUSES,true)) { continue; }
 				if (!in_array($result,self::COUNTABLE_RESULTS,true)) {
@@ -299,8 +318,17 @@ final class StatsRebuildService {
 				if ($result==='win' && (empty($bout['method_category']) || $bout['method_category']==='unknown')) { $this->add_fighter_warning($rows[$id],'missing_method_category'); }
 				$this->apply_participant_result($rows[$id],$bout,$result);
 			}
-			foreach ($rows as $row) { $this->finalize_fighter_stats($row); yield $this->database_row($row); }
+			foreach ($rows as $row) { $this->finalize_fighter_stats($row); $database=$this->database_row($row);$database['_tracking_stats_strategy']='calculated';yield $database; }
 		}
+	}
+
+	/** Reuse the last durable aggregate for permanent opponent-only identities. */
+	private function carried_stats(array $ids): array {
+		global $wpdb;if(!$ids){return [];}$t=\MMAF\DataEngine\Migrations\Schema::table_names();$in=implode(',',$ids);
+		$rows=$wpdb->get_results("SELECT s.* FROM {$t['fighter_stats_current']} s JOIN {$t['fighters']} f ON f.id=s.fighter_id LEFT JOIN (SELECT p.fighter_id,MAX(p.bout_id) latest_bout_id,MAX(GREATEST(COALESCE(b.updated_at,b.created_at,'1000-01-01 00:00:00'),COALESCE(e.updated_at,e.created_at,'1000-01-01 00:00:00'))) relevant_updated_at FROM {$t['bout_participants']} p JOIN {$t['bouts']} b ON b.id=p.bout_id LEFT JOIN {$t['events']} e ON e.id=b.event_id WHERE p.fighter_id IN ($in) AND b.deleted_soft=0 AND b.status IN ('valid','completed') AND p.result_for_fighter IN ('win','loss','draw','no_contest') AND (e.event_date IS NULL OR e.event_date<=UTC_DATE()) GROUP BY p.fighter_id) latest ON latest.fighter_id=f.id WHERE s.fighter_id IN ($in) AND (f.tracking_mode='opponent_only' OR (f.tracking_mode='paused' AND COALESCE(latest.latest_bout_id,0)<=COALESCE(f.tracking_last_checked_bout_id,0) AND (latest.relevant_updated_at IS NULL OR latest.relevant_updated_at<=f.tracking_last_checked_at)))",ARRAY_A);
+		if($wpdb->last_error){throw new \RuntimeException($wpdb->last_error);}$out=[];
+		foreach($rows?:[] as $row){unset($row['id'],$row['created_at'],$row['updated_at']);$out[(int)$row['fighter_id']]=$row;}
+		return $out;
 	}
 
 	private function participants_by_bout( array $participants ): array {

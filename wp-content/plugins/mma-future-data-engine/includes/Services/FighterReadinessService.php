@@ -400,6 +400,9 @@ final class FighterReadinessService {
 		if ( $id <= 0 ) {
 			return $this->blocked( array( 'invalid_fighter_id' ) );
 		}
+		if ( TrackingService::NORMAL !== TrackingService::mode( $fighter ) ) {
+			return $this->blocked( array( 'tracking_mode_' . TrackingService::mode( $fighter ) ) );
+		}
 
 		switch ( $action ) {
 			case 'approve_and_prepare':
@@ -633,6 +636,10 @@ final class FighterReadinessService {
 	private function state_blockers( array $item ): array {
 		$fighter = $item['fighter'];
 		$reasons = array();
+		$tracking_mode = TrackingService::mode( $fighter );
+		if ( TrackingService::NORMAL !== $tracking_mode ) {
+			$reasons[] = 'tracking_mode_' . $tracking_mode;
+		}
 
 		if ( 'verified' !== (string) ( $fighter['status'] ?? '' ) ) {
 			$reasons[] = 'not_verified';
@@ -663,6 +670,8 @@ final class FighterReadinessService {
 			'ineligible_ufc' => 'ufc_gate_fails',
 			'ineligible_too_many_fights' => 'too_many_fights_rule_fails',
 			'ineligible_loss_limit' => 'loss_limit_rule_fails',
+			'tracking_mode_paused' => 'tracking_mode_paused',
+			'tracking_mode_opponent_only' => 'tracking_mode_opponent_only',
 		);
 		$reasons = array();
 

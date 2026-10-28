@@ -1,0 +1,6 @@
+{
+  "name": "mmaf-calendar-tests",
+  "private": true,
+  "scripts": { "test": "node --test calendar.test.cjs" },
+  "devDependencies": { "jsdom": "26.1.0" }
+}

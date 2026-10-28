@@ -7,6 +7,8 @@ use MMAF\DataEngine\Services\Audit\DataQualityReportService;
 use MMAF\DataEngine\Services\Audit\FighterDuplicateAuditService;
 use MMAF\DataEngine\Services\AuditLogService;
 use MMAF\DataEngine\Services\FieldProvenanceService;
+use MMAF\DataEngine\Services\UfcSigningService;
+use MMAF\DataEngine\Services\TrackingService;
 use MMAF\DataEngine\Support\Capabilities;
 use MMAF\DataEngine\Support\DateTime;
 
@@ -35,7 +37,7 @@ final class ReviewPage {
 		}
 
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'overview';
-		if ( ! in_array( $tab, array( 'overview', 'likely_matches', 'duplicates', 'conflicts', 'needs_review', 'provisional' ), true ) ) {
+		if ( ! in_array( $tab, array( 'overview', 'tracking', 'ufc_signings', 'likely_matches', 'duplicates', 'conflicts', 'needs_review', 'provisional' ), true ) ) {
 			$tab = 'overview';
 		}
 
@@ -62,6 +64,10 @@ final class ReviewPage {
 
 			if ( 'overview' === $tab ) {
 				self::render_overview();
+			} elseif ( 'tracking' === $tab ) {
+				self::render_tracking();
+			} elseif ( 'ufc_signings' === $tab ) {
+				self::render_ufc_signings();
 			} elseif ( 'likely_matches' === $tab ) {
 				self::render_likely_matches();
 			} elseif ( 'duplicates' === $tab ) {
@@ -213,8 +219,11 @@ final class ReviewPage {
     }
 
 	private static function tabs(): array {
+		global $wpdb;$tables=Schema::table_names();$open=self::table_exists($tables['ufc_signing_candidates'])?(int)$wpdb->get_var("SELECT COUNT(*) FROM {$tables['ufc_signing_candidates']} WHERE status IN ('pending','deferred')"):0;
 		return array(
 			'overview'       => __( 'Overview', 'mma-future-data-engine' ),
+			'tracking'       => __( 'Tracking & Returns', 'mma-future-data-engine' ),
+			'ufc_signings'   => sprintf(__( 'UFC Signings (%d)', 'mma-future-data-engine' ),$open),
 			'likely_matches' => __( 'Likely Fighter Matches', 'mma-future-data-engine' ),
 			'duplicates'     => __( 'Duplicate Fighters', 'mma-future-data-engine' ),
 			'conflicts'      => __( 'Import Conflicts', 'mma-future-data-engine' ),
@@ -386,6 +395,59 @@ final class ReviewPage {
 
 		<h2><?php echo esc_html__( 'Latest Stats Rebuild Summary', 'mma-future-data-engine' ); ?></h2>
 		<?php self::render_key_value_table( is_array($latest_stats)?$latest_stats:['status'=>'Not recorded'] ); ?>
+		<?php
+	}
+
+	private static function render_tracking(): void {
+		$service=new TrackingService();$rows=$service->review_rows();$candidates=array_values(array_filter($rows,static fn($row)=>!empty($row['tracking_return_candidate_at'])));$suggestions=$service->suggestion_rows();
+		?>
+		<h2><?php esc_html_e('Archived fighters and return candidates','mma-future-data-engine'); ?></h2>
+		<p><?php echo esc_html(sprintf('%d archived or paused fighters; %d waiting for a return decision.',count($rows),count($candidates))); ?></p>
+		<table class="widefat striped"><thead><tr><th>Fighter</th><th>Mode</th><th>Decision</th><th>Last check</th><th>Return review</th></tr></thead><tbody>
+		<?php if(!$rows): ?><tr><td colspan="5">No archived fighters.</td></tr><?php endif; ?>
+		<?php foreach($rows as $row): ?><tr>
+			<td><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.(int)$row['id'])); ?>">#<?php echo (int)$row['id']; ?> <?php echo esc_html($row['display_name']); ?></a></td>
+			<td><?php echo esc_html($row['tracking_mode']); ?></td>
+			<td><?php echo esc_html(($row['tracking_reason']?:'No reason').' · '.($row['tracking_changed_at']?:'Unknown date')); ?><?php if(!empty($row['tracking_evidence_url'])): ?><br><a href="<?php echo esc_url($row['tracking_evidence_url']); ?>" target="_blank" rel="noopener noreferrer">Evidence</a><?php endif; ?></td>
+			<td><?php echo esc_html($row['tracking_last_checked_at']?:'Not checked'); ?></td>
+			<td><?php if(!empty($row['tracking_return_candidate_at'])): ?><strong>Candidate since <?php echo esc_html($row['tracking_return_candidate_at']); ?></strong><br>
+				<form method="post" style="display:inline-block;margin:4px"><?php wp_nonce_field(self::NONCE_ACTION,self::NONCE_NAME); ?><input type="hidden" name="mmaf_review_action" value="tracking_restore"><input type="hidden" name="fighter_id" value="<?php echo (int)$row['id']; ?>"><?php submit_button('Confirm return to review','primary button-small','submit',false); ?></form>
+				<form method="post" style="display:inline-block;margin:4px"><?php wp_nonce_field(self::NONCE_ACTION,self::NONCE_NAME); ?><input type="hidden" name="mmaf_review_action" value="tracking_keep_paused"><input type="hidden" name="fighter_id" value="<?php echo (int)$row['id']; ?>"><input type="text" required name="tracking_reason" placeholder="Reason to keep paused"><?php submit_button('Keep paused','secondary button-small','submit',false); ?></form>
+			<?php else: ?>—<?php endif; ?></td>
+		</tr><?php endforeach; ?></tbody></table>
+		<h2>Read-only proposals for currently normal fighters</h2><p><?php echo esc_html(sprintf('%d proposals. No decision is applied from this report; is_rankable=0 by itself is never a reason.',count($suggestions))); ?></p>
+		<table class="widefat striped"><thead><tr><th>Fighter</th><th>Suggested mode</th><th>Reasons</th><th>Evidence / conflict</th></tr></thead><tbody><?php if(!$suggestions): ?><tr><td colspan="4">No current proposals.</td></tr><?php endif; ?><?php foreach($suggestions as $item): ?><tr><td><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.(int)$item['fighter_id'])); ?>">#<?php echo (int)$item['fighter_id']; ?> <?php echo esc_html($item['display_name']); ?></a></td><td><?php echo esc_html($item['suggested_mode']); ?></td><td><?php echo esc_html(implode(', ',$item['reasons'])); ?></td><td><?php echo esc_html(wp_json_encode($item['evidence'],JSON_UNESCAPED_SLASHES)); ?><?php if($item['conflict']): ?><br><strong>Multiple rules require review</strong><?php endif; ?></td></tr><?php endforeach; ?></tbody></table>
+		<?php
+	}
+
+	private static function render_ufc_signings(): void {
+		$service=new UfcSigningService();$filter=sanitize_key(wp_unslash($_GET['ufc_status']??'open'));$search=sanitize_text_field(wp_unslash($_GET['ufc_search']??''));$page=max(1,absint($_GET['ufc_page']??1));$listing=$service->candidate_page($filter,$search,$page);$rows=$listing['rows'];$unmatched=$service->unmatched();$last=get_option('mmaf_ufc_roster_last_import',null);$state=$service->status();
+		echo '<h2>'.esc_html__('UFC signing review','mma-future-data-engine').'</h2>';
+		if($last){echo '<p>'.esc_html(sprintf(__('Last successful import: %s (run %s, scraped %s).','mma-future-data-engine'),$last['imported_at']??'—',$last['run_id']??'—',$last['scraped_at']??'—')).'</p>';}else{echo '<p>'.esc_html__('No UFC roster document has been imported yet.','mma-future-data-engine').'</p>';}
+		echo '<p>'.esc_html(sprintf('Destination: %s · Database: %s · Matcher: %s · intl: %s',$state['site_url'],$state['database']??'—',$state['matcher_version'],$state['intl_available']?'available':'unavailable — transliteration disabled')).'</p>';
+		if($last && strtotime($last['scraped_at']??'')<time()-48*3600){echo '<div class="notice notice-warning inline"><p>UFC evidence is older than 48 hours.</p></div>';}
+		echo '<form method="post">';wp_nonce_field(self::NONCE_ACTION,self::NONCE_NAME);echo '<input type="hidden" name="mmaf_review_action" value="ufc_compare">';submit_button('Ponovi poređenje','secondary','submit',false);echo '</form>';
+		if(!empty($state['compare_job'])){echo '<p>Comparison job #'.(int)$state['compare_job']['id'].' · '.esc_html($state['compare_job']['status']).' · processed '.(int)$state['compare_job']['processed'].'</p>';}
+		?>
+		<h3><?php esc_html_e('Manual confirmation from news','mma-future-data-engine'); ?></h3>
+		<form method="post" style="display:grid;grid-template-columns:120px minmax(260px,1fr) 160px;gap:8px;max-width:900px;align-items:start">
+			<?php wp_nonce_field(self::NONCE_ACTION,self::NONCE_NAME); ?><input type="hidden" name="mmaf_review_action" value="ufc_manual_confirm">
+			<input type="number" min="1" required name="fighter_id" placeholder="Fighter ID"><input type="url" required name="evidence_url" placeholder="https://…"><input type="date" name="signing_date">
+			<textarea required name="evidence_note" rows="3" placeholder="Evidence note" style="grid-column:1/3"></textarea><?php submit_button(__('Confirm UFC signing','mma-future-data-engine'),'primary','submit',false); ?>
+		</form>
+		<h3><?php echo esc_html(sprintf(__('UFC candidates (%d)','mma-future-data-engine'),$listing['total'])); ?></h3>
+		<form method="get"><input type="hidden" name="page" value="mmaf-review"><input type="hidden" name="tab" value="ufc_signings"><input type="search" name="ufc_search" value="<?php echo esc_attr($search); ?>" placeholder="Search fighter or source"><select name="ufc_status"><?php foreach(['open','pending','deferred','rejected','insufficient_evidence','confirmed','all'] as $choice): ?><option value="<?php echo esc_attr($choice); ?>" <?php selected($filter,$choice); ?>><?php echo esc_html($choice); ?></option><?php endforeach; ?></select><?php submit_button('Filter','secondary','submit',false); ?></form>
+		<table class="widefat striped"><thead><tr><th><?php esc_html_e('MMA Future fighter','mma-future-data-engine'); ?></th><th><?php esc_html_e('Roster.watch evidence','mma-future-data-engine'); ?></th><th><?php esc_html_e('Match','mma-future-data-engine'); ?></th><th><?php esc_html_e('Actions','mma-future-data-engine'); ?></th></tr></thead><tbody>
+		<?php foreach($rows as $row): $conflicts=json_decode((string)$row['conflicts_json'],true)?:[];$events=json_decode((string)$row['events_json'],true)?:[];$aliases=$service->aliases_for((int)$row['fighter_id']); ?>
+		<tr><td><strong><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.(int)$row['fighter_id'])); ?>"><?php echo esc_html($row['fighter_name']); ?></a></strong><br>#<?php echo (int)$row['fighter_id']; ?> · <?php echo $row['ranked']?'Ranked · ':'';echo $row['fighter_public']?'Public':'Private'; ?><br>Aliases: <?php echo esc_html($aliases?implode(', ',$aliases):'—'); ?><br><?php echo esc_html(($row['fighter_dob']?:'DOB unknown').' · '.($row['fighter_gender']?:'Gender unknown').' · '.($row['fighter_weight_class']?:'Class unknown')); ?></td>
+		<td><a href="<?php echo esc_url($row['source_url']); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html($row['source_name']); ?></a><br><?php echo esc_html($row['roster_status'].' · '.($row['source_dob']?:'DOB unknown').' · '.($row['source_gender']?:'Gender unknown').' · '.($row['source_weight_class']?:'Class unknown')); ?><br>Scraped: <?php echo esc_html($row['observed_at'].' · '.human_time_diff(strtotime($row['observed_at']),time()).' ago'); ?><?php foreach($events as $event): ?><div><?php echo esc_html(($event['date']?:'Date unknown').' · '.$event['action'].' · '.$event['text']); ?> <a href="<?php echo esc_url($event['source_url']??$row['source_url']); ?>" target="_blank" rel="noopener noreferrer">source</a></div><?php endforeach; ?></td>
+		<td><?php echo esc_html($row['match_reason'].' · matcher '.$row['matcher_version'].' · '.$row['status']); ?><?php if($conflicts): ?><pre style="white-space:pre-wrap"><?php echo esc_html(wp_json_encode($conflicts,JSON_PRETTY_PRINT)); ?></pre><?php endif; ?><?php $signals=json_decode((string)($row['signals_json']??''),true)?:[];if($signals): ?><p><?php echo esc_html(wp_json_encode($signals)); ?></p><?php endif; ?><?php if($row['decision_note']): ?><p>Last decision: <?php echo esc_html($row['decision_note'].' · '.$row['resolved_at']); ?></p><?php endif; ?><?php $history=$service->decision_history((int)$row['id']);if($history): ?><details><summary>Decision history (<?php echo count($history); ?> recent)</summary><?php foreach($history as $decision): ?><p><?php echo esc_html($decision['created_at'].' · '.$decision['action'].' · '.$decision['note'].' · run '.$decision['source_run_id']); ?></p><?php endforeach; ?></details><?php endif; ?></td><td>
+		<?php if(in_array($row['status'],['pending','deferred'],true)): ?><form method="post"><?php wp_nonce_field(self::NONCE_ACTION,self::NONCE_NAME); ?><input type="hidden" name="candidate_id" value="<?php echo (int)$row['id']; ?>"><input type="hidden" name="evidence_hash" value="<?php echo esc_attr($row['evidence_hash']); ?>"><input type="hidden" name="fighter_hash" value="<?php echo esc_attr($row['fighter_hash']); ?>"><textarea name="decision_note" required rows="2" placeholder="Reason for decision" style="width:100%"></textarea><?php if($conflicts): ?><input type="url" name="additional_evidence_url" placeholder="Additional evidence URL for confirmation" style="width:100%"> <?php endif; ?><br><?php foreach(['ufc_confirm'=>'Potvrdi UFC','ufc_reject'=>'Različit borac','ufc_insufficient_evidence'=>'Isti borac — nedovoljan dokaz','ufc_defer'=>'Odloži proveru'] as $action=>$label): ?><button class="button <?php echo $action==='ufc_confirm'?'button-primary':''; ?>" name="mmaf_review_action" value="<?php echo esc_attr($action); ?>"><?php echo esc_html($label); ?></button> <?php endforeach; ?></form><?php elseif(in_array($row['status'],['rejected','insufficient_evidence'],true)): ?><form method="post"><?php wp_nonce_field(self::NONCE_ACTION,self::NONCE_NAME); ?><input type="hidden" name="mmaf_review_action" value="ufc_reopen"><input type="hidden" name="candidate_id" value="<?php echo (int)$row['id']; ?>"><textarea required name="decision_note" rows="2" placeholder="Why correct this decision?"></textarea><button class="button">Reopen after correction</button></form><?php endif; ?>
+		</td></tr><?php endforeach; if(!$rows): ?><tr><td colspan="4"><?php esc_html_e('No pending UFC matches.','mma-future-data-engine'); ?></td></tr><?php endif; ?></tbody></table>
+		<?php if($listing['pages']>1): ?><p><?php for($p=1;$p<=$listing['pages'];++$p): ?><a class="button <?php echo $p===$page?'button-primary':''; ?>" href="<?php echo esc_url(add_query_arg(['ufc_page'=>$p,'ufc_status'=>$filter,'ufc_search'=>$search])); ?>"><?php echo (int)$p; ?></a> <?php endfor; ?></p><?php endif; ?>
+		<h3><?php echo esc_html(sprintf(__('Unmatched roster names (%d)','mma-future-data-engine'),$service->unmatched_count())); ?></h3><p class="description"><?php esc_html_e('These names are retained and matched again after later imports add or update fighters.','mma-future-data-engine'); ?></p>
+		<table class="widefat striped"><thead><tr><th><?php esc_html_e('Name','mma-future-data-engine'); ?></th><th><?php esc_html_e('Status','mma-future-data-engine'); ?></th><th><?php esc_html_e('DOB','mma-future-data-engine'); ?></th><th><?php esc_html_e('Observed','mma-future-data-engine'); ?></th></tr></thead><tbody><?php foreach($unmatched as $row): ?><tr><td><a href="<?php echo esc_url($row['source_url']); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html($row['display_name']); ?></a></td><td><?php echo esc_html($row['roster_status']); ?></td><td><?php echo esc_html($row['date_of_birth']?:'—'); ?></td><td><?php echo esc_html($row['observed_at']); ?></td></tr><?php endforeach; ?></tbody></table>
+		<h3><?php esc_html_e('Correct an incorrect confirmation','mma-future-data-engine'); ?></h3><form method="post" style="display:flex;gap:8px;align-items:start;max-width:800px"><?php wp_nonce_field(self::NONCE_ACTION,self::NONCE_NAME); ?><input type="hidden" name="mmaf_review_action" value="ufc_correct"><input type="number" min="1" required name="fighter_id" placeholder="Fighter ID"><textarea required name="correction_reason" rows="2" style="flex:1" placeholder="Required correction reason"></textarea><?php submit_button(__('Record correction','mma-future-data-engine'),'secondary','submit',false); ?></form>
 		<?php
 	}
 
@@ -737,6 +799,30 @@ final class ReviewPage {
 		$action = isset( $_POST['mmaf_review_action'] ) ? sanitize_key( wp_unslash( $_POST['mmaf_review_action'] ) ) : '';
 
 		try {
+			if(in_array($action,['tracking_restore','tracking_keep_paused'],true)){
+				$id=absint($_POST['fighter_id']??0);$restore=$action==='tracking_restore';
+				$reason=$restore?'admin_return_approved':sanitize_text_field(wp_unslash($_POST['tracking_reason']??''));
+				(new TrackingService())->set_mode([$id],$restore?TrackingService::NORMAL:TrackingService::PAUSED,$reason,'','admin',get_current_user_id());
+				return ['type'=>'success','message'=>$restore?__('Fighter returned to normal tracking and awaits the existing publication/ranking approval flow.','mma-future-data-engine'):__('Fighter remains paused; the return candidate was resolved.','mma-future-data-engine')];
+			}
+			if(in_array($action,['ufc_confirm','ufc_reject','ufc_defer','ufc_insufficient_evidence'],true)){
+				$id=absint($_POST['candidate_id']??0);(new UfcSigningService())->resolve_candidate($id,str_replace('ufc_','',$action),get_current_user_id(),sanitize_textarea_field(wp_unslash($_POST['decision_note']??'')),sanitize_text_field(wp_unslash($_POST['evidence_hash']??'')),sanitize_text_field(wp_unslash($_POST['fighter_hash']??'')),esc_url_raw(wp_unslash($_POST['additional_evidence_url']??'')));
+				return ['type'=>'success','message'=>$action==='ufc_confirm'?__('UFC signing confirmed and the fighter was removed from current rankings.','mma-future-data-engine'):__('UFC candidate updated.','mma-future-data-engine')];
+			}
+			if($action==='ufc_compare'){
+				$id=(new UfcSigningService())->enqueue_compare('admin');return ['type'=>'success','message'=>sprintf(__('UFC comparison queued as job #%d.','mma-future-data-engine'),$id)];
+			}
+			if($action==='ufc_reopen'){
+				(new UfcSigningService())->reopen_candidate(absint($_POST['candidate_id']??0),get_current_user_id(),sanitize_textarea_field(wp_unslash($_POST['decision_note']??'')));return ['type'=>'success','message'=>__('UFC candidate reopened with a correction record.','mma-future-data-engine')];
+			}
+			if($action==='ufc_manual_confirm'){
+				(new UfcSigningService())->confirm_manual(absint($_POST['fighter_id']??0),get_current_user_id(),esc_url_raw(wp_unslash($_POST['evidence_url']??'')),sanitize_textarea_field(wp_unslash($_POST['evidence_note']??'')),sanitize_text_field(wp_unslash($_POST['signing_date']??''))?:null);
+				return ['type'=>'success','message'=>__('Manual UFC signing confirmed.','mma-future-data-engine')];
+			}
+			if($action==='ufc_correct'){
+				(new UfcSigningService())->correct(absint($_POST['fighter_id']??0),get_current_user_id(),sanitize_textarea_field(wp_unslash($_POST['correction_reason']??'')));
+				return ['type'=>'success','message'=>__('Incorrect UFC confirmation corrected with an audit record.','mma-future-data-engine')];
+			}
 			if ( 'preview_link_source_existing' === $action ) {
 				return self::handle_preview_link_source_existing();
 			}

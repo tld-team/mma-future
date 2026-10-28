@@ -4,10 +4,10 @@ use MMAF\DataEngine\Migrations\Schema as Canonical;
 
 /** A source hash alone cannot see shared bout corrections or manual decisions. */
 final class PreparationFingerprint {
-    public const VERSION='career_period_v1';
+    public const VERSION='career_period_tracking_v2';
     public static function for_fighter(int $id,?string $sourceHash): string {
         global $wpdb;$t=Canonical::table_names();
-        $fighter=$wpdb->get_row($wpdb->prepare("SELECT id,date_of_birth,gender,weight_class,status,is_public,is_rankable,rankability_status,deleted_soft FROM {$t['fighters']} WHERE id=%d",$id),ARRAY_A);
+        $fighter=$wpdb->get_row($wpdb->prepare("SELECT id,date_of_birth,gender,weight_class,status,is_public,is_rankable,rankability_status,tracking_mode,tracking_revision,deleted_soft FROM {$t['fighters']} WHERE id=%d",$id),ARRAY_A);
         $boutIds=$wpdb->prepare("SELECT bout_id FROM {$t['bout_participants']} WHERE fighter_id=%d",$id);
         $fighterIds="SELECT fighter_id FROM {$t['bout_participants']} WHERE bout_id IN ($boutIds)";
         $sources=$wpdb->get_results($wpdb->prepare("SELECT fighter_id,source_type,source_fighter_id,source_url,identity_hash FROM {$t['fighter_sources']} WHERE fighter_id=%d OR fighter_id IN ($fighterIds) ORDER BY id",$id),ARRAY_A);

@@ -123,7 +123,11 @@ def build_document(
 
     pagination_complete = bool(
         summary.get("date_window_stop_confirmed")
-        or summary.get("pagination_stop_reason") in {None, "load_more_no_new_events"}
+        or summary.get("pagination_stop_reason") in {
+            None,
+            "load_more_no_new_events",
+            "natural_end_no_load_more_button",
+        }
     ) and summary.get("pagination_stop_reason") not in {"max_pages", "max_events"}
     event_failures = int(summary.get("event_fetch_failures") or 0)
     complete = pagination_complete and event_failures == 0 and incomplete == 0

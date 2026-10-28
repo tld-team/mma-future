@@ -51,6 +51,7 @@ class ScraperConfig:
     cumulative_results: bool = False
     fresh_results: bool = False
     enrich_fighter_profiles: bool | None = None
+    tracking_decisions_path: Path | None = None
     use_profile_cache: bool = True
     profile_cache_ttl_days: int | None = 7
     page_timeout_ms: int = 30_000
