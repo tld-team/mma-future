@@ -205,7 +205,12 @@
       }
     }
     count() { return this.dayRoot.querySelectorAll('[data-calendar-event]').length; }
-    focusFirst() { this.dayRoot.querySelector('summary')?.focus({preventScroll:true}); }
+    focusFirst() {
+      this.dayRoot.querySelector('summary')?.focus({preventScroll:true});
+      // Removing a long list can leave the viewport in the following section.
+      // Respect the day panel's scroll margin below the site's sticky header.
+      this.dayRoot.scrollIntoView?.({block:'start', behavior:'instant'});
+    }
     error(message, action) { return `<div class="mmaf-calendar__empty"><p>${esc(message)}</p><button type="button" class="mmaf-calendar__button" data-calendar-action="${action}">Try again</button></div>`; }
     renderFooter() {
       const footer = this.dayRoot.querySelector('[data-calendar-footer]');
