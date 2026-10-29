@@ -18,6 +18,7 @@ function setup(day = 5, params = {}, beforeInit) {
   const requests = [];
   win.fetch = async url => { requests.push(new URL(url)); return {ok:true,json:async()=>dataFor(url)}; };
   if (beforeInit) beforeInit(win);
+  win.HTMLElement.prototype.scrollIntoView = function () { win.lastScrollTarget = this; };
   win.eval(script);
   return {dom,win,doc:win.document,requests,close:()=>win.close()};
 }
@@ -50,6 +51,7 @@ for (const [day,total] of [[1,0],[2,1],[3,3],[4,4],[5,19],[6,23]]) {
         assert.equal(events(t.doc).length,3);
         assert.equal(t.doc.querySelectorAll('details[open]').length,0);
         assert.equal(t.doc.activeElement.tagName,'SUMMARY');
+        assert.equal(t.win.lastScrollTarget,t.doc.querySelector('[data-calendar-day]'));
         action(t.doc,'more').click(); await flush();
         assert.equal(events(t.doc).length,6 > total ? total : 6);
       }
