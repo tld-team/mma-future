@@ -541,7 +541,7 @@
 :where(:root[data-theme="dark"]) .mmaf-directory__eyebrow { color:var(--mmaf-link)!important; }
 :where(:root[data-theme="dark"]) .mmaf-directory__intro, :where(:root[data-theme="dark"]) .mmaf-directory__summary { color:var(--mmaf-muted)!important; }
 /* Calendar cells and event details live outside the toolbar's styling scope. */
-:where(:root[data-theme="dark"]) .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; --cal-surface:var(--mmaf-surface); --cal-hover:var(--mmaf-hover); --cal-link:#fca5a5; color:var(--mmaf-secondary)!important; }
+:where(:root[data-theme="dark"]) .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; --cal-surface:var(--mmaf-surface)!important; --cal-hover:var(--mmaf-hover)!important; --cal-link:#fca5a5!important; color:var(--mmaf-secondary)!important; }
 :where(:root[data-theme="dark"]) .mmaf-calendar__mobile-count { background:#9f303b; }
 :where(:root[data-theme="dark"]) .mmaf-calendar :is(.mmaf-calendar__eyebrow,.mmaf-calendar__day-heading p,.mmaf-calendar__event-head p) { color:#fca5a5!important; }
 :where(:root[data-theme="dark"]) .mmaf-calendar__grid, :where(:root[data-theme="dark"]) .mmaf-calendar__event { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; }
@@ -610,7 +610,7 @@
   :where(:root:not([data-theme])) .mmaf-directory__intro, :where(:root:not([data-theme])) .mmaf-directory__summary { color:var(--mmaf-muted)!important; }
 
   /* Calendar cells and event details live outside the toolbar's styling scope. */
-  :where(:root:not([data-theme])) .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; --cal-surface:var(--mmaf-surface); --cal-hover:var(--mmaf-hover); --cal-link:#fca5a5; color:var(--mmaf-secondary)!important; }
+  :where(:root:not([data-theme])) .mmaf-calendar { --cal-ink:var(--mmaf-secondary)!important; --cal-muted:var(--mmaf-muted)!important; --cal-line:var(--mmaf-border)!important; --cal-soft:var(--mmaf-raised)!important; --cal-surface:var(--mmaf-surface)!important; --cal-hover:var(--mmaf-hover)!important; --cal-link:#fca5a5!important; color:var(--mmaf-secondary)!important; }
   :where(:root:not([data-theme])) .mmaf-calendar__mobile-count { background:#9f303b; }
   :where(:root:not([data-theme])) .mmaf-calendar :is(.mmaf-calendar__eyebrow,.mmaf-calendar__day-heading p,.mmaf-calendar__event-head p) { color:#fca5a5!important; }
   :where(:root:not([data-theme])) .mmaf-calendar__grid, :where(:root:not([data-theme])) .mmaf-calendar__event { background:var(--mmaf-surface)!important; border-color:var(--mmaf-border)!important; }

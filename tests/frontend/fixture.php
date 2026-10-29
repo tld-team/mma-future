@@ -64,7 +64,7 @@ namespace {
 	require dirname( MMAF_PLUGIN_FILE ) . '/includes/Services/Upcoming/Renderer.php';
 	?>
 <!doctype html><html lang="en" data-theme="<?php echo 'dark' === ( $_GET['theme'] ?? 'light' ) ? 'dark' : 'light'; ?>"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>MMA Future — Calendar preview</title>
-<link rel="stylesheet" href="http://mma-future.local/wp-content/themes/mma-future/assets/dist/css/output.css"><link rel="stylesheet" href="/fixture.php?asset=event-calendar.css"><link rel="stylesheet" href="/fixture.php?asset=color-scheme.css">
+<link rel="stylesheet" href="http://mma-future.local/wp-content/themes/mma-future/assets/dist/css/output.css"><link rel="stylesheet" href="/fixture.php?asset=color-scheme.css"><link rel="stylesheet" href="/fixture.php?asset=event-calendar.css">
 <style>body{margin:0;background:var(--mmaf-canvas,#fff);color:var(--mmaf-text,#0f172a);font-family:Arial,sans-serif}main{padding:1px 0 32px}header.preview{padding:16px 24px;border-bottom:1px solid #64748b;font-size:12px}header.preview a{margin-left:12px;text-decoration:underline}</style></head><body><header class="preview">Calendar preview · isolated test data <a href="/fixture.php?theme=light">Light</a><a href="/fixture.php?theme=dark">Dark</a><a href="/fixture.php?nojs=1">Without JavaScript</a></header><main>
 <?php \MMAF\DataEngine\Services\Upcoming\Renderer::render(); ?>
 </main><?php if ( empty( $_GET['nojs'] ) ) : ?><script src="/fixture.php?asset=event-calendar.js"></script><?php endif; ?></body></html>
