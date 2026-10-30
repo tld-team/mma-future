@@ -14,9 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', dirname( __DIR__, 4 ) . DIRECTORY_SEPARATOR );
 }
 
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV13.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV14.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV15.php';
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV16.php';
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV17.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaRegistry.php';
+require_once dirname( __DIR__ ) . '/includes/Services/TrackingService.php';
 require_once dirname( __DIR__ ) . '/includes/Services/EligibilityService.php';
 
 use MMAF\DataEngine\Services\EligibilityService;
@@ -65,7 +69,7 @@ $assert( 'normalized_floor', 0.0, $formula->normalized_score( -100.0 ) );
 $assert( 'normalized_ceiling', 100.0, $formula->normalized_score( 100.0 ) );
 $assert( 'normalized_monotonic', true, $formula->normalized_score( 1.0 ) > $formula->normalized_score( 0.0 ) );
 
-$eligibility = new EligibilityService();
+$eligibility = new EligibilityService( FormulaV14::VERSION );
 $fighter = array(
 	'deleted_soft' => 0,
 	'is_rankable' => 1,

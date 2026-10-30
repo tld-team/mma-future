@@ -40,6 +40,7 @@ require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV13.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV14.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV15.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV16.php';
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV17.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaRegistry.php';
 require_once dirname( __DIR__ ) . '/includes/Services/TrackingService.php';
 require_once dirname( __DIR__ ) . '/includes/Services/EligibilityService.php';
@@ -97,7 +98,7 @@ $assertThrows = static function ( string $name, callable $callback ) use ( &$fai
 	}
 };
 
-$assert( 'registry_current_version', \MMAF\DataEngine\Services\Formula\FormulaV16::VERSION, FormulaRegistry::current_version() );
+$assert( 'registry_current_version', \MMAF\DataEngine\Services\Formula\FormulaV17::VERSION, FormulaRegistry::current_version() );
 $assertTrue( 'registry_direct_scores', FormulaRegistry::uses_direct_scores( FormulaV15::VERSION ) );
 $assertTrue( 'registry_legacy_normalized_v14', FormulaRegistry::uses_normalized_scores( 'v1.4' ) );
 
@@ -124,7 +125,7 @@ foreach ( array( 1 => 0.0, 0 => -2.0, -10 => -2.0, -11 => -5.0, -20 => -5.0, -21
 	$assert( 'loss_quality_' . str_replace( '-', 'minus_', (string) $input ), $expected, $formula->loss_quality_penalty_points( $input ) );
 }
 
-$eligibility = new EligibilityService();
+$eligibility = new EligibilityService( FormulaV15::VERSION );
 $fighter = array(
 	'deleted_soft' => 0,
 	'is_rankable' => 1,
@@ -183,7 +184,7 @@ $opponent_only_fighter = array_merge( $fighter, array( 'tracking_mode' => 'oppon
 $opponent_only_evaluation = $eligibility->evaluate( $opponent_only_fighter, $stats, '2026-06-22' );
 $assertTrue( 'opponent_only_not_calculated', ! $opponent_only_evaluation['eligible_for_calculation'], $opponent_only_evaluation['calculation_blocking_reasons'] );
 
-$calculator = new RankingCalculatorService();
+$calculator = new RankingCalculatorService( FormulaV15::VERSION );
 $score_fighter = new ReflectionMethod( RankingCalculatorService::class, 'score_fighter' );
 $score_fighter->setAccessible( true );
 $sort_ranked = new ReflectionMethod( RankingCalculatorService::class, 'sort_ranked' );

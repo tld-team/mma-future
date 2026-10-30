@@ -9,7 +9,7 @@ from .fighter_profile_queue import normalize_tapology_fighter_url
 from .utils import source_fighter_id_from_url, source_bout_id_from_url, source_event_id_from_url, canonical_url
 
 CONTRACT_VERSION = 1
-POLICY_VERSION = 'import_evidence_v1'
+POLICY_VERSION = 'import_hybrid_evidence_v2'
 CLASSIFICATION_EVIDENCE = {'profile_dom_classification', 'profile_section_classification', 'bout_dom_classification'}
 RESULTS = {'win':'wins','loss':'losses','draw':'draws','no_contest':'no_contests'}
 VOLATILE = {'scraped_at','profile_scraped_at','fetched_at','diagnostics','profile_cache_hit','profile_cache_source','profile_cache_scraped_at','first_seen_at','last_seen_at','last_scraped_at','run_id'}
@@ -142,9 +142,13 @@ def build_readiness(document, *, verification_now=None):
             day=row.get('fight_date')
             target=outside_issues if day and day<PERIOD_START else period_issues
             target.update(why)
-            if day and day>=PERIOD_START and not why:
-                if row.get('method_category') in (None,'','unknown'):detail_warnings['missing_method_category']+=1
-                if not row.get('opponent_record_raw'):detail_warnings['missing_prefight_record']+=1
+            if day and day>=PERIOD_START and row.get('record_eligible') is not False and not why and row.get('result') in ('win','loss'):
+                if row.get('result')=='win' and row.get('method_category') in (None,'','unknown'):
+                    period_issues['missing_recent_win_method']+=1
+                    detail_warnings['missing_recent_win_method']+=1
+                if not row.get('opponent_record_raw'):
+                    period_issues['missing_recent_prefight_record']+=1
+                    detail_warnings['missing_recent_prefight_record']+=1
         evidence=p.get('period_evidence') or {}
         proof=evidence.get('scope_verified') is True and evidence.get('first_page_verified') is True and evidence.get('load_complete') is True and evidence.get('chronological_descending') is True and (evidence.get('boundary_crossed') is True or evidence.get('history_exhausted') is True)
         if not proof:period_issues['period_coverage_unconfirmed']+=1

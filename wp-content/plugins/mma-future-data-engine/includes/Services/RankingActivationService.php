@@ -150,6 +150,11 @@ final class RankingActivationService {
             $invalid=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['ranking_snapshots']} r LEFT JOIN $assessment a ON a.ranking_run_id=r.ranking_run_id AND a.fighter_id=r.fighter_id WHERE r.ranking_run_id=%d AND (a.fighter_id IS NULL OR a.status<>'main' OR a.total_score IS NULL OR a.total_score<>r.total_score OR a.sample_size<>r.sample_size OR a.period_start<>'2026-05-09' OR JSON_UNQUOTE(JSON_EXTRACT(a.assessment_json,'$.coverage'))<>'confirmed' OR JSON_LENGTH(JSON_EXTRACT(a.assessment_json,'$.reasons'))<>0)",$run));
             if($wpdb->last_error || $invalid){throw new \RuntimeException('Main snapshots must match their immutable, confirmed v1.6 assessments.');}
         }
+        if($formula==='v1.7'){
+            $assessment=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
+            $invalid=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['ranking_snapshots']} r LEFT JOIN $assessment a ON a.ranking_run_id=r.ranking_run_id AND a.fighter_id=r.fighter_id WHERE r.ranking_run_id=%d AND (a.fighter_id IS NULL OR a.status<>'main' OR a.total_score IS NULL OR a.total_score<>r.total_score OR a.sample_size<>r.sample_size OR a.period_start<>'2026-05-09' OR JSON_UNQUOTE(JSON_EXTRACT(a.assessment_json,'$.methodology'))<>'professional_mma_hybrid_20260509_v1' OR JSON_UNQUOTE(JSON_EXTRACT(a.assessment_json,'$.coverage'))<>'confirmed' OR JSON_TYPE(JSON_EXTRACT(a.assessment_json,'$.career_record_used'))<>'OBJECT' OR JSON_TYPE(JSON_EXTRACT(a.assessment_json,'$.historical_record'))<>'OBJECT' OR COALESCE(CHAR_LENGTH(JSON_UNQUOTE(JSON_EXTRACT(a.assessment_json,'$.input_hash'))),0)<>64 OR JSON_EXTRACT(a.assessment_json,'$.known_points') IS NULL OR CAST(JSON_UNQUOTE(JSON_EXTRACT(a.assessment_json,'$.known_points')) AS DECIMAL(12,3))<>r.total_score OR JSON_LENGTH(JSON_EXTRACT(a.assessment_json,'$.reasons'))<>0)",$run));
+            if($wpdb->last_error || $invalid){throw new \RuntimeException('Main snapshots must match their immutable, complete v1.7 hybrid assessments.');}
+        }
         $out=['total'=>0,'boards'=>[],'warnings'=>0];
         foreach($groups as $g){
             if(!$g['board_key']){throw new \RuntimeException('Snapshot row has an empty board key.');}

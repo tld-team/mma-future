@@ -34,9 +34,9 @@ try{
     closeout_check($f->find($id)['nationality']===null && $provenance->has_manual_verified('fighter',$id,'nationality'),'intentional clearing is recorded and protected');
     $service->update($id,array_merge($input,['confirm_fact_fields'=>['stance']]),1);
     closeout_check($provenance->has_manual_verified('fighter',$id,'stance') && !$provenance->has_manual_verified('fighter',$id,'coach_name'),'explicit confirmation protects only the selected fact');
-    $failed=fixture_fighter(949733002,'Closeout failed profile');$bad=fixture_profile($failed,[],[],['status'=>'unavailable']);$store->put($bad,'tapology_fighter_profiles_v0_1');
+    $failed=fixture_fighter(949733002,'Closeout failed profile');$bad=fixture_profile($failed,[],[],['status'=>'unavailable','scraped_at'=>gmdate('Y-m-d\TH:i:s\Z',time()-180)]);$store->put($bad,'tapology_fighter_profiles_v0_1');
     $m=Processor::metadata([$failed['fighter_id']]);closeout_check(Readiness::decision($f->find($failed['fighter_id']),$m[$failed['fighter_id']])['reason']==='stored_profile_missing','first failed fetch cannot be advertised as a usable saved profile');
-    $good=fixture_profile($failed,[],[]);$store->put($good,'tapology_fighter_profiles_v0_1');$bad['scraped_at']='2026-10-11T10:00:00Z';$store->put($bad,'tapology_fighter_profiles_v0_1');
+    $good=fixture_profile($failed,[],[],['scraped_at'=>gmdate('Y-m-d\TH:i:s\Z',time()-120)]);$good['period_evidence']['checked_through']=substr($good['scraped_at'],0,10);$store->put($good,'tapology_fighter_profiles_v0_1');$bad['scraped_at']=gmdate('Y-m-d\TH:i:s\Z',time()-60);$store->put($bad,'tapology_fighter_profiles_v0_1');
     $m=Processor::metadata([$failed['fighter_id']]);closeout_check(Readiness::decision($f->find($failed['fighter_id']),$m[$failed['fighter_id']])['state']==='ready' && $m[$failed['fighter_id']]['last_attempt_status']==='unavailable','failed latest attempt retains availability of a previous successful profile');
     $first=Jobs::create('validate_selected_for_ranking',['ids'=>[$id]],1,'closeout-date-a');Jobs::save($first['id'],['checkpoint'=>array_merge($first['checkpoint'],['preview_reference_date'=>'2001-01-01'])]);fixture_drive_job($first['id'],'ready');
     $hash=Jobs::items($first['id'])['items'][0]['input_hash'];Jobs::control($first['id'],'cancel',1);

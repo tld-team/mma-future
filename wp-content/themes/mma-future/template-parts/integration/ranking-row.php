@@ -16,7 +16,7 @@
 </div>
 </td>
 <td class="rk-td-division px-4 py-3 text-xs font-medium" style="color:#94a3b8"><?php echo esc_html( ucwords( str_replace( '_', ' ', $r['weight_class'] ) ) ); ?></td>
-<td class="px-4 py-3 text-right"><span class="tabular-nums" style="font-size:1.1rem;font-weight:900;color:#0047A8"><?php echo esc_html( mmaf_display_number( $r['score'], 2 ) ); ?></span></td>
+<td class="px-4 py-3 text-right"><span class="tabular-nums" style="font-size:1.1rem;font-weight:900;color:#0047A8"><?php echo esc_html( mmaf_display_number( $r['score']??$r['known_points']??null, 2 ) ); ?></span><?php if(null===($r['score']??null) && null!==($r['known_points']??null)): ?><span class="block text-xs" style="color:#94a3b8">privremeno</span><?php endif; ?></td>
 <td class="rk-finishes-cell px-4 py-3 text-right"><?php mmaf_view( 'scoring-finishes', compact( 'r' ) ); ?></td>
 <td class="rk-impact-cell px-4 py-3 text-right"><?php mmaf_view( 'opponent-impact', compact( 'r' ) ); ?></td>
 <td class="rk-td-record px-4 py-3 text-sm font-mono tabular-nums" style="color:#475569"><?php echo esc_html( mmaf_record( mmaf_display_record($r) ) ); ?></td>

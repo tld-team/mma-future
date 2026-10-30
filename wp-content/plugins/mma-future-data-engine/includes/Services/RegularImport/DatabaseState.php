@@ -42,7 +42,7 @@ final class DatabaseState {
         if ($wpdb->last_error) { throw new \RuntimeException('Integrity check failed: '.$wpdb->last_error); }
         return $out;
     }
-    /** Freshness and protected career decisions are calculation inputs in v1.6. */
+    /** Freshness and protected career decisions are calculation inputs in evidence-backed formulas. */
     public static function calculationRevision(): string {
         $t=CanonicalSchema::table_names();$hash=hash_init('sha256');
         $queries=[

@@ -6,7 +6,7 @@ final class Report {
     public static function rows(int $limit=0,int $offset=0,int $run=0): array {
         global $wpdb;$t=\MMAF\DataEngine\Migrations\Schema::table_names();
         $s=\MMAF\DataEngine\Services\Scoring\Schema::tables();$p=\MMAF\DataEngine\Services\DataPipeline\Schema::tables();
-        if(!$run){$run=(int)$wpdb->get_var("SELECT MAX(id) FROM {$t['ranking_runs']} WHERE formula_version='v1.6' AND status IN ('draft','completed','active')");}
+        if(!$run){$run=(int)$wpdb->get_var("SELECT MAX(id) FROM {$t['ranking_runs']} WHERE formula_version IN ('v1.6','v1.7') AND status IN ('draft','completed','active')");}
         $bound=$limit?$wpdb->prepare(' LIMIT %d OFFSET %d',$limit,$offset):'';
         $rows=$wpdb->get_results($wpdb->prepare("SELECT r.*,f.display_name,f.is_public,f.is_rankable,f.rankability_status,f.deleted_soft,p.source_fetched_at,p.last_attempt_at,p.last_attempt_status,p.last_error,a.status AS assessment_status,a.assessment_json FROM ".Schema::table()." r LEFT JOIN {$t['fighters']} f ON f.id=r.fighter_id LEFT JOIN {$p['profiles']} p ON p.source_type='tapology' AND p.source_fighter_id=r.source_fighter_id LEFT JOIN {$s['assessments']} a ON a.fighter_id=r.fighter_id AND a.ranking_run_id=%d ORDER BY r.id$bound",$run),ARRAY_A);
         if($wpdb->last_error){throw new \RuntimeException('Cannot read priority status.');}

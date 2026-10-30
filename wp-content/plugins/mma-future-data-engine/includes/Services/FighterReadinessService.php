@@ -557,17 +557,36 @@ final class FighterReadinessService {
 	private function evaluate_rows( array $rows, ?string $reference_date = null ): array {
 		$reference_date = $reference_date ? $reference_date : current_time( 'Y-m-d' );
 		$items = array();
+		$preview_rows = array_map(
+			static function( array $row ): array {
+				$row['status'] = 'verified';
+				$row['is_rankable'] = 1;
+				$row['rankability_status'] = 'rankable';
+				return $row;
+			},
+			$rows
+		);
+		$hybrid_assessments = $preview_rows
+			? ( ( new RankingCalculatorService() )->score_batch( $preview_rows, $reference_date, gmdate( 'Y-m-d H:i:s' ) )['assessments'] ?? array() )
+			: array();
 
 		foreach ( $rows as $row ) {
-			$stats = $this->stats_from_row( $row );
 			$fighter = $this->fighter_from_row( $row );
+			$hybrid = $hybrid_assessments[ (int) $fighter['id'] ] ?? null;
+			$career = is_array( $hybrid['career_record_used'] ?? null ) ? $hybrid['career_record_used'] : null;
+			$stats = $this->stats_from_row( $row );
+			$eligibility_stats = is_array( $hybrid['period_record'] ?? null ) ? $hybrid['period_record'] : $stats;
+			if ( is_array( $eligibility_stats ) && ! empty( $hybrid['last_professional_fight_date'] ) ) {
+				$eligibility_stats['last_fight_date'] = $hybrid['last_professional_fight_date'];
+			}
 			$simulated = $fighter;
 			$simulated['status'] = 'verified';
 			$simulated['is_rankable'] = 1;
 			$simulated['rankability_status'] = 'rankable';
 
-			$current_evaluation = $this->eligibility->evaluate( $fighter, $stats, $reference_date );
-			$formula_evaluation = $this->eligibility->evaluate( $simulated, $stats, $reference_date );
+			$current_evaluation = $this->eligibility->evaluate( $fighter, $eligibility_stats, $reference_date, $career, true );
+			$formula_evaluation = $hybrid['eligibility'] ?? $this->eligibility->evaluate( $simulated, $eligibility_stats, $reference_date, $career, true );
+			$career_count = is_array( $career ) ? (int) ( $career['pro_fights_count'] ?? array_sum( array_intersect_key( $career, array_flip( array( 'wins', 'losses', 'draws', 'nc' ) ) ) ) ) : 0;
 
 			$item = array(
 				'fighter'                    => $fighter,
@@ -577,14 +596,15 @@ final class FighterReadinessService {
 				'has_tapology_source'        => ! empty( $row['tapology_source_row_id'] ) && ! empty( $row['tapology_source_url'] ),
 				'has_birth'                  => ! empty( $fighter['date_of_birth'] ) || ! empty( $fighter['birth_year'] ),
 				'has_weight_class'           => ! empty( $fighter['weight_class'] ) && 'unknown' !== (string) $fighter['weight_class'],
-				'has_stats'                  => is_array( $stats ),
-				'has_last_fight'             => is_array( $stats ) && ! empty( $stats['last_fight_date'] ),
-				'has_countable_bout_history' => is_array( $stats ) && (int) ( $stats['pro_fights_count'] ?? 0 ) > 0,
+				'hybrid_assessment'           => $hybrid,
+				'has_stats'                  => is_array( $stats ) || is_array( $career ),
+				'has_last_fight'             => is_array( $eligibility_stats ) && ! empty( $eligibility_stats['last_fight_date'] ),
+				'has_countable_bout_history' => $career_count > 0 || ( is_array( $stats ) && (int) ( $stats['pro_fights_count'] ?? 0 ) > 0 ),
 			);
 
 			$item['data_blocker_codes'] = $this->data_blockers( $item );
 			$item['state_blocker_codes'] = $this->state_blockers( $item );
-			$item['formula_blocker_codes'] = $this->formula_blockers( $formula_evaluation );
+			$item['formula_blocker_codes'] = array_values( array_unique( array_merge( $this->formula_blockers( $formula_evaluation ), (array) ( $hybrid['reasons'] ?? array() ) ) ) );
 			$item['rankable_blocker_codes'] = $this->rankable_blockers( $item );
 			$item['public_blocker_codes'] = $this->public_blockers( $item );
 			$item['blocker_codes'] = array_values( array_unique( array_merge( $item['data_blocker_codes'], $item['state_blocker_codes'], $item['formula_blocker_codes'] ) ) );

@@ -579,6 +579,9 @@ final class RankingsPage {
 	}
 
 	private static function tie_breaker_policy_text( string $formula_version ): string {
+		if ( 'v1.7' === $formula_version ) {
+			return __( 'Equal totals are ordered by wins from 9 May 2026, recent win finish rate, younger age, most recent professional fight, then fighter ID.', 'mma-future-data-engine' );
+		}
 		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
 			return __( 'Equal totals are ordered by wins, finish rate, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' );
 		}
@@ -587,6 +590,7 @@ final class RankingsPage {
 	}
 
 	private static function preview_score_description( string $formula_version ): string {
+		if($formula_version==='v1.7'){return 'Formula v1.7: base points use the accepted full-career W/L record; finish and opponent-quality adjustments use only complete, verified professional MMA results from 9 May 2026. Age is applied once. A fighter may rank with zero recent bouts when the empty period and career activity are verified.';}
 		if($formula_version==='v1.6'){return 'MMA Future bodovi od 9. maja 2026. Base, finish and opponent contributions use accepted period bouts; age uses the reference date. Career totals determine the 30-fight and win/loss limits. Main positions require accepted, current career facts and confirmed period coverage. Tie breakers use period wins, finish rate and last fight. A small sample warning does not mean incomplete coverage.';}
 		if ( FormulaRegistry::uses_direct_scores( $formula_version ) ) {
 			return __( 'Formula v1.5 uses a direct score contract: base + finish + age + opponent differential + loss quality = total. Sample size is informational only. Tie-breakers: wins, finish rate, younger age, most recent last fight, then fighter ID.', 'mma-future-data-engine' );

@@ -8,11 +8,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class EligibilityService {
-	public function evaluate( array $fighter, ?array $stats, string $reference_date, ?array $career_record=null, bool $career_scope=false ): array {
+	private ?string $formula_version;
+
+	public function __construct( ?string $formula_version = null ) {
+		$this->formula_version = $formula_version;
+	}
+
+	public function evaluate( array $fighter, ?array $stats, string $reference_date, ?array $career_record=null, bool $career_scope=false, ?string $formula_version=null ): array {
 		$reasons  = array();
 		$warnings = array();
 		$gates    = array();
-		$config   = FormulaRegistry::current_config();
+		$resolved_version = $formula_version ?: $this->formula_version;
+		$config   = $resolved_version ? FormulaRegistry::config_for_version( $resolved_version ) : FormulaRegistry::current_config();
 		$rules    = $config['eligibility'];
 
 		$tracking_mode = TrackingService::mode( $fighter );
@@ -177,7 +184,22 @@ final class EligibilityService {
 			)
 		);
 
-		$loss_limit = $this->loss_limit( $wins );
+		if ( isset( $rules['min_career_win_loss_bouts'] ) ) {
+			$career_win_loss_bouts = $wins + $losses;
+			$this->gate(
+				$gates,
+				'min_career_win_loss_bouts',
+				$career_win_loss_bouts >= (int) $rules['min_career_win_loss_bouts'],
+				'insufficient_career_sample_size',
+				$reasons,
+				array(
+					'career_win_loss_bouts' => $career_win_loss_bouts,
+					'min' => (int) $rules['min_career_win_loss_bouts'],
+				)
+			);
+		}
+
+		$loss_limit = $this->loss_limit( $wins, (array) ( $rules['loss_limit_by_wins'] ?? array() ) );
 		$passes_loss_limit = null === $loss_limit || $losses <= $loss_limit;
 		$this->gate(
 			$gates,
@@ -307,21 +329,12 @@ final class EligibilityService {
 		}
 	}
 
-	private function loss_limit( int $wins ): ?int {
-		if ( $wins >= 20 ) {
-			return 5;
-		}
-
-		if ( $wins >= 15 ) {
-			return 4;
-		}
-
-		if ( $wins >= 10 ) {
-			return 3;
-		}
-
-		if ( $wins >= 5 ) {
-			return 2;
+	private function loss_limit( int $wins, array $limits ): ?int {
+		krsort( $limits, SORT_NUMERIC );
+		foreach ( $limits as $minimum_wins => $allowed_losses ) {
+			if ( $wins >= (int) $minimum_wins ) {
+				return (int) $allowed_losses;
+			}
 		}
 
 		return null;

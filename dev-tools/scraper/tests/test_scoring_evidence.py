@@ -38,11 +38,25 @@ def test_period_requires_first_page_order_and_reliable_boundary():
 
 def test_cache_age_and_uncovered_correction():
     _,profile=source();checked=datetime(2026,10,10,10,tzinfo=timezone.utc)
+    for fight in profile['fight_history']:
+        if fight['fight_date']>='2026-05-09':fight['opponent_record_raw']='5-5-0'
     assert not needs_refresh(profile,now=checked+timedelta(days=7))
     assert needs_refresh(profile,now=checked+timedelta(days=7,seconds=1))
     row=deepcopy(profile['fight_history'][0]);row['result']='no_contest'
     assert needs_refresh(profile,now=checked,known_results=[row])
+
+def test_hybrid_refresh_requires_recent_prefight_and_win_method_only():
+    _,profile=source();checked=datetime(2026,10,10,10,tzinfo=timezone.utc)
+    assert needs_refresh(profile,now=checked)
+    for fight in profile['fight_history']:
+        if fight['fight_date']>='2026-05-09':fight['opponent_record_raw']='5-5-0'
+    assert not needs_refresh(profile,now=checked)
+    profile['fight_history'][0]['method_category']='unknown'
+    assert needs_refresh(profile,now=checked)
+    profile['fight_history'][0].update(result='loss',method_category='unknown')
+    assert not needs_refresh(profile,now=checked)
     assert not needs_refresh(profile,now=checked,known_results=[profile['fight_history'][0]])
+    row=deepcopy(profile['fight_history'][0])
     row.update(source_bout_id='tapology_bout_999999',fight_date='2026-10-10',result='win')
     assert needs_refresh(profile,now=checked,known_results=[row])
 

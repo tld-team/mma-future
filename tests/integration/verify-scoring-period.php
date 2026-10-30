@@ -27,7 +27,7 @@ try {
     check($result['status']==='main' && $result['coverage']==='confirmed' && $result['sample_size']===2,'confirmed period is rankable despite incomplete older career history');
     check($result['period_stats']['wins']===2 && $result['period_stats']['losses']===0,'May 8 is excluded and May 9 is included by fight date, independent of import date');
     $runs=new RankingRunRepository();$run=$runs->create('v1.6',\MMAF\DataEngine\Services\Formula\FormulaV16::config(),'2026-10-14','2026-10-14 12:00:00','draft','Synthetic period fixture');
-    $calculator=new RankingCalculatorService();$fighters=$runs->list_fighters_with_stats([$a['fighter_id']]);
+    $calculator=new RankingCalculatorService('v1.6');$fighters=$runs->list_fighters_with_stats([$a['fighter_id']]);
     $batch=$calculator->score_batch($fighters,'2026-10-14','2026-10-14 12:00:00',$run);
     check(count($batch['rows'])===1 && $batch['rows'][0]['sample_size']===2 && $batch['rows'][0]['breakdown']['base_record_points']===1.0,'v1.6 scores exactly two period wins with unchanged v1.5 coefficients');
     check($batch['rows'][0]['breakdown']['tie_breaker']['wins']===2,'tie breakers use period wins rather than lifetime or all recorded wins');

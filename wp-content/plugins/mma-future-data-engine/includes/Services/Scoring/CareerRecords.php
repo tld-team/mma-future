@@ -84,7 +84,8 @@ final class CareerRecords {
                 }
                 if(count(array_unique(array_map('wp_json_encode',$source_records)))>1){$review=true;$reason='Accepted source aggregates disagree; review career record.';}
             }
-            $out[$id]=['status'=>$review?'review':'accepted','record'=>$record,'observation_id'=>(int)$selected['id'],'source_type'=>$selected['source_type'],'source_url'=>$selected['source_url'],'observed_at'=>$selected['observed_at'],'verified_at'=>$selected['observed_at'],'protected'=>(bool)$selected['protected'],'reason'=>$reason,'review_required'=>$review];
+            $evidence=json_decode((string)($selected['evidence_json']??''),true);
+            $out[$id]=['status'=>$review?'review':'accepted','record'=>$record,'observation_id'=>(int)$selected['id'],'source_type'=>$selected['source_type'],'source_url'=>$selected['source_url'],'observed_at'=>$selected['observed_at'],'verified_at'=>$selected['observed_at'],'profile_hash'=>is_array($evidence)?($evidence['profile_hash']??null):null,'protected'=>(bool)$selected['protected'],'reason'=>$reason,'review_required'=>$review];
         }
         $known=(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->records_for_fighters(array_keys($out));
         foreach($out as $id=>&$record){

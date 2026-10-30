@@ -6,6 +6,7 @@ use MMAF\DataEngine\Repositories\RankingCurrentRepository;
 use MMAF\DataEngine\Repositories\RankingRunRepository;
 use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 use MMAF\DataEngine\Services\Formula\FormulaV15;
+use MMAF\DataEngine\Services\Formula\FormulaV17;
 use MMAF\DataEngine\Support\DateTime;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -51,24 +52,24 @@ final class RankingCalculatorService {
 	private RankingRunRepository $runs;
 	private RankingCurrentRepository $rankings;
 	private EligibilityService $eligibility;
-	private FormulaV15 $formula;
+	private FormulaV15|FormulaV17 $formula;
 	private AuditLogService $audit_log;
     private string $version;
     private array $config;
 
 	public function __construct(?string $version=null) {
         $this->version=$version??FormulaRegistry::current_version();
-        if(!in_array($this->version,['v1.5','v1.6'],true)){throw new \InvalidArgumentException('Only v1.5 and v1.6 calculation engines are supported.');}
+		if(!in_array($this->version,['v1.5','v1.6','v1.7'],true)){throw new \InvalidArgumentException('Only v1.5, v1.6 and v1.7 calculation engines are supported.');}
         $this->config=FormulaRegistry::config_for_version($this->version);
 		$this->runs       = new RankingRunRepository();
 		$this->rankings   = new RankingCurrentRepository();
 		$this->eligibility = new EligibilityService();
-		$this->formula    = new FormulaV15();
+		$this->formula    = FormulaV17::VERSION === $this->version ? new FormulaV17() : new FormulaV15();
 		$this->audit_log  = new AuditLogService();
 	}
 
 	public function calculate_draft( int $actor_user_id = 0, ?string $reference_date = null, string $reason = 'Manual draft ranking calculation' ): array {
-        if($this->version==='v1.6' && version_compare((string)get_option('mmaf_db_version','0'),'1.11.0','<')){throw new \RuntimeException('Migrate the additive schema before creating Formula v1.6 ranking drafts.');}
+		if(in_array($this->version,['v1.6','v1.7'],true) && version_compare((string)get_option('mmaf_db_version','0'),'1.11.0','<')){throw new \RuntimeException('Migrate the additive schema before creating evidence-backed ranking drafts.');}
 		\MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		$reference_date = $reference_date ? $reference_date : current_time( 'Y-m-d' );
 		$calculated_at  = DateTime::mysql_now();
@@ -155,6 +156,7 @@ final class RankingCalculatorService {
     }
 
 	public function score_batch( array $fighters, string $reference_date, string $calculated_at, int $run_id=0 ): array {
+		if($this->version===FormulaV17::VERSION){return $this->score_hybrid_batch($fighters,$reference_date,$calculated_at,$run_id);}
         if($this->version===\MMAF\DataEngine\Services\Formula\FormulaV16::VERSION){return $this->score_period_batch($fighters,$reference_date,$calculated_at,$run_id);}
 		$ranked              = array();
 		$eligible_count      = 0;
@@ -169,13 +171,13 @@ final class RankingCalculatorService {
 
 		foreach ([$fighters] as $fighters) {
 			$eligible_ids=[];
-			foreach ($fighters as $candidate) { if (!empty($this->eligibility->evaluate($candidate,$this->stats_from_row($candidate),$reference_date)['eligible_for_calculation'])) { $eligible_ids[]=(int)$candidate['id']; } }
+			foreach ($fighters as $candidate) { if (!empty($this->eligibility->evaluate($candidate,$this->stats_from_row($candidate),$reference_date,null,false,$this->version)['eligible_for_calculation'])) { $eligible_ids[]=(int)$candidate['id']; } }
 			$source_types=$eligible_ids?$this->runs->source_types_by_fighter($eligible_ids):[];
 			$scoring_items=$eligible_ids?$this->scoring_items_by_fighter($eligible_ids):[];
 		foreach ( $fighters as $fighter ) {
 			$fighter_id = (int) $fighter['id'];
 			$stats      = $this->stats_from_row( $fighter );
-			$evaluation = $this->eligibility->evaluate( $fighter, $stats, $reference_date );
+			$evaluation = $this->eligibility->evaluate( $fighter, $stats, $reference_date, null, false, $this->version );
 			$warnings   = $evaluation['warnings'];
 
 			foreach ( $evaluation['reasons'] as $reason ) {
@@ -270,7 +272,7 @@ final class RankingCalculatorService {
         $ids=[];$preliminary=[];
         foreach($fighters as $fighter){
             $id=(int)$fighter['id'];$career=$records[$id]??null;
-            $preliminary[$id]=$this->hard_ineligibility($this->eligibility->evaluate($fighter,$this->stats_from_row($fighter),$reference_date,($career['status']??'')==='accepted'?$career['record']:null,true));
+			$preliminary[$id]=$this->hard_ineligibility($this->eligibility->evaluate($fighter,$this->stats_from_row($fighter),$reference_date,($career['status']??'')==='accepted'?$career['record']:null,true,$this->version));
             if(!$preliminary[$id]){$ids[]=$id;}
         }
         $histories=[];foreach((new \MMAF\DataEngine\Repositories\FighterStatsRepository())->history_for_fighters($ids) as $row){$histories[(int)$row['fighter_id']][]=$row;}
@@ -280,7 +282,7 @@ final class RankingCalculatorService {
         foreach($fighters as $fighter){
             $id=(int)$fighter['id'];$career=$records[$id]??null;$history=$histories[$id]??[];
             $stats=$period::stats($history,$reference_date);
-            $evaluation=$this->eligibility->evaluate($fighter,$stats,$reference_date,($career['status']??'')==='accepted'?$career['record']:null,true);
+			$evaluation=$this->eligibility->evaluate($fighter,$stats,$reference_date,($career['status']??'')==='accepted'?$career['record']:null,true,$this->version);
             $hard=array_values(array_unique(array_merge($preliminary[$id],$this->hard_ineligibility($evaluation))));
             $assessment=$hard?['status'=>'ineligible','period'=>['start'=>\MMAF\DataEngine\Services\Formula\FormulaV16::PERIOD_START,'end'=>$reference_date,'inclusive'=>true],'sample_size'=>$stats['wins']+$stats['losses'],'period_stats'=>$stats,'coverage'=>'not_assessed','verified_at'=>null,'career_verified_at'=>$career['verified_at']??null,'reasons'=>array_values($hard),'warnings'=>[],'total_score'=>null,'rank_position'=>null,'input_profile_hash'=>null]:$period->evaluate($id,$history,$career,$reference_date,$calculated_at);
             $source_inputs=$assessment['_source_inputs']??null;unset($assessment['_source_inputs']);
@@ -317,8 +319,206 @@ final class RankingCalculatorService {
         }
         return ['rows'=>$rows,'summary'=>$summary,'assessments'=>$assessments];
     }
+
+	private function score_hybrid_batch( array $fighters, string $reference_date, string $calculated_at, int $run_id ): array {
+		$ids = array_map( 'intval', array_column( $fighters, 'id' ) );
+		$records = ( new \MMAF\DataEngine\Services\Scoring\CareerRecords() )->for_fighters( $ids );
+		$histories = array();
+		foreach ( ( new \MMAF\DataEngine\Repositories\FighterStatsRepository() )->history_for_fighters( $ids ) as $row ) {
+			$histories[ (int) $row['fighter_id'] ][] = $row;
+		}
+		$items = $ids ? $this->scoring_items_by_fighter( $ids ) : array();
+		$sources = $ids ? $this->runs->source_types_by_fighter( $ids ) : array();
+		$hybrid = new \MMAF\DataEngine\Services\Scoring\HybridAssessment();
+		$rows = array();
+		$assessments = array();
+		$summary = array(
+			'ranking_run_id' => $run_id,
+			'calculated_at' => $calculated_at,
+			'formula_version' => $this->version,
+			'reference_date' => $reference_date,
+			'status' => 'draft',
+			'is_active' => 0,
+			'eligible_fighters' => 0,
+			'ineligible_fighters' => 0,
+			'provisional_fighters' => 0,
+			'calculated_fighters' => 0,
+			'trusted_ranked_fighters' => 0,
+			'excluded_insufficient_sample' => 0,
+			'missing_prefight_count' => 0,
+			'warnings_count' => 0,
+			'ranked_rows' => 0,
+			'boards_generated' => self::BOARD_KEYS,
+			'eligibility_reasons' => array(),
+			'structural_warnings' => array(),
+			'storage_strategy' => 'Immutable accepted career aggregate plus verified recent-period inputs; final score only for complete main assessments.',
+		);
+
+		foreach ( $fighters as $fighter ) {
+			$id = (int) $fighter['id'];
+			$career = $records[ $id ] ?? null;
+			$history = $histories[ $id ] ?? array();
+			$accepted_ids = array_map(
+				'intval',
+				array_column(
+					array_filter( $history, array( \MMAF\DataEngine\Services\Scoring\PeriodAssessment::class, 'accepted' ) ),
+					'bout_id'
+				)
+			);
+			$scoring = array_values(
+				array_filter(
+					$items[ $id ] ?? array(),
+					static fn( $item ) => in_array( (int) $item['bout_id'], $accepted_ids, true )
+						&& \MMAF\DataEngine\Services\Scoring\PeriodAssessment::valid_date( $item['event_date'] ?? null )
+						&& $item['event_date'] >= FormulaV17::PERIOD_START
+						&& $item['event_date'] <= $reference_date
+				)
+			);
+
+			$assessment = $hybrid->evaluate( $id, $history, $career, $scoring, $reference_date, $calculated_at );
+			$source_inputs = $assessment['_source_inputs'] ?? null;
+			unset( $assessment['_source_inputs'] );
+
+			$period_stats = $assessment['period_record'];
+			$eligibility_stats = $period_stats;
+			$eligibility_stats['last_fight_date'] = $assessment['last_professional_fight_date'];
+			$eligibility_stats['calculated_at'] = $calculated_at;
+			$evaluation = $this->eligibility->evaluate(
+				$fighter,
+				$eligibility_stats,
+				$reference_date,
+				( $career['status'] ?? '' ) === 'accepted' ? $career['record'] : null,
+				true,
+				$this->version
+			);
+			$hard = $this->hard_ineligibility( $evaluation );
+			$assessment['reasons'] = array_values( array_unique( array_merge( $assessment['reasons'], $evaluation['reasons'] ) ) );
+			$assessment['eligibility'] = $evaluation;
+
+			$calculation = null;
+			$invalid_historical = array_intersect(
+				$assessment['reasons'],
+				array( 'career_period_record_conflict', 'historical_record_conflict', 'career_period_snapshot_mismatch', 'career_snapshot_after_reference_date', 'period_snapshot_after_reference_date' )
+			);
+			if ( null !== $evaluation['age'] && is_array( $assessment['historical_record'] ) && ! $invalid_historical ) {
+				$calculation = $this->score_fighter( $fighter, $eligibility_stats, $evaluation, $scoring, $sources[ $id ] ?? array(), $calculated_at );
+				$calculation = $this->add_historical_base( $calculation, $assessment );
+				$assessment['historical_base_points'] = $calculation['breakdown']['historical_base_points'];
+				$assessment['period_base_points'] = $calculation['breakdown']['period_base_points'];
+				$assessment['career_base_points'] = $calculation['breakdown']['career_base_points'];
+				$assessment['period_finishes_points'] = $calculation['breakdown']['finishes_points'];
+				$assessment['period_opponent_differential_points'] = $calculation['breakdown']['opponent_differential_points'];
+				$assessment['period_loss_quality_penalty_points'] = $calculation['breakdown']['loss_quality_penalty_points'];
+				$assessment['age_adjustment_points'] = $calculation['breakdown']['age_adjustment_points'];
+				$assessment['known_points'] = $calculation['breakdown']['known_points'];
+				++$summary['calculated_fighters'];
+				$summary['missing_prefight_count'] += (int) $calculation['source_summary']['prefight_records_missing_count'];
+			}
+
+			if ( $hard ) {
+				$assessment['status'] = 'ineligible';
+			} elseif ( $assessment['reasons'] ) {
+				$assessment['status'] = 'provisional';
+			} else {
+				$assessment['status'] = 'main';
+			}
+			$assessment['total_score'] = 'main' === $assessment['status'] && $calculation ? $calculation['breakdown']['total_score'] : null;
+			$assessment['warnings'] = array_values( array_unique( array_merge( $assessment['warnings'], $evaluation['warnings'], $calculation['warnings'] ?? array() ) ) );
+			$assessment['boards'] = array();
+			foreach ( self::BOARD_KEYS as $board ) {
+				if ( $this->item_matches_board( array( 'fighter' => $fighter, 'eligibility' => $evaluation ), $board ) ) {
+					$assessment['boards'][] = $board;
+				}
+			}
+			$assessments[ $id ] = $assessment;
+
+			$hybrid->save(
+				$run_id,
+				$id,
+				$assessment,
+				array(
+					'career_record' => $career,
+					'recorded_stats' => $this->stats_from_row( $fighter ),
+					'period_stats' => $period_stats,
+					'historical_record' => $assessment['historical_record'],
+					'fighter' => $fighter,
+					'accepted_period_bouts' => $scoring,
+					'breakdown' => $calculation['breakdown'] ?? null,
+					'profile_hash' => $assessment['input_profile_hash'],
+					'source_evidence' => $source_inputs,
+					'formula_config' => $this->config,
+				),
+				$calculated_at
+			);
+
+			++$summary[ 'main' === $assessment['status'] ? 'eligible_fighters' : ( 'provisional' === $assessment['status'] ? 'provisional_fighters' : 'ineligible_fighters' ) ];
+			$summary['warnings_count'] += count( $assessment['warnings'] );
+			foreach ( $assessment['reasons'] as $reason ) {
+				$summary['eligibility_reasons'][ $reason ] = ( $summary['eligibility_reasons'][ $reason ] ?? 0 ) + 1;
+			}
+
+			if ( 'main' !== $assessment['status'] || ! $calculation ) {
+				continue;
+			}
+
+			$calculation['source_summary']['career_record'] = $career;
+			$calculation['source_summary']['scoring_assessment'] = $assessment;
+			$calculation['quality_flags'] = array_values( array_diff( $calculation['quality_flags'], array( 'provisional_sample_size', 'insufficient_sample_size' ) ) );
+			if ( $assessment['sample_size'] > 0 && $assessment['sample_size'] < 3 ) {
+				$calculation['quality_flags'][] = 'small_scoring_sample';
+			}
+			++$summary['trusted_ranked_fighters'];
+			$rows[] = array(
+				'fighter' => $fighter,
+				'stats' => $eligibility_stats,
+				'total_score' => $assessment['total_score'],
+				'raw_score' => $calculation['breakdown']['raw_score'],
+				'normalized_score' => null,
+				'confidence_score' => null,
+				'sample_size' => $assessment['sample_size'],
+				'quality_flags' => array_values( array_unique( $calculation['quality_flags'] ) ),
+				'breakdown' => $calculation['breakdown'],
+				'eligibility' => $evaluation,
+				'warnings' => $assessment['warnings'],
+				'source_summary' => $calculation['source_summary'],
+			);
+		}
+
+		return array( 'rows' => $rows, 'summary' => $summary, 'assessments' => $assessments );
+	}
+
+	private function add_historical_base( array $calculation, array $assessment ): array {
+		$formula = new FormulaV17();
+		$historical_points = $formula->historical_base_points( $assessment['historical_record'] );
+		$period_points = $formula->historical_base_points( $assessment['period_record'] );
+		$career_points = $formula->historical_base_points( $assessment['career_record_used'] );
+		$scored_period_base = (float) $calculation['breakdown']['base_record_points'];
+		$known_points = round( (float) $calculation['breakdown']['total_score'] - $scored_period_base + $career_points, 3 );
+		$calculation['breakdown']['historical_record'] = $assessment['historical_record'];
+		$calculation['breakdown']['period_record'] = $assessment['period_record'];
+		$calculation['breakdown']['career_record'] = $assessment['career_record_used'];
+		$calculation['breakdown']['historical_base_points'] = $historical_points;
+		$calculation['breakdown']['period_base_points'] = $period_points;
+		$calculation['breakdown']['career_base_points'] = $career_points;
+		$calculation['breakdown']['period_wins_points'] = $formula->base_record_points( 'win' ) * (int) ( $assessment['period_record']['wins'] ?? 0 );
+		$calculation['breakdown']['period_losses_points'] = $formula->base_record_points( 'loss' ) * (int) ( $assessment['period_record']['losses'] ?? 0 );
+		$calculation['breakdown']['base_record_points'] = $calculation['breakdown']['career_base_points'];
+		$calculation['breakdown']['known_points'] = $known_points;
+		$calculation['breakdown']['raw_score'] = $known_points;
+		$calculation['breakdown']['total_score'] = $known_points;
+		$calculation['breakdown']['score_scope'] = FormulaV17::SCOPE;
+		$calculation['warnings'] = array_values( array_diff( $calculation['warnings'], array( 'no_countable_fights' ) ) );
+
+		return $calculation;
+	}
+
     private function hard_ineligibility(array $evaluation): array {
-        return array_values(array_filter($evaluation['reasons'],static fn($r)=>in_array($r,['deleted_soft','not_rankable_flag','rankability_status_not_rankable','ineligible_too_many_fights','ineligible_loss_limit','ineligible_ufc','ineligible_age_35_plus','tracking_mode_paused','tracking_mode_opponent_only'],true) || strpos($r,'ineligible_status_')===0));
+		$hard = ['deleted_soft','not_rankable_flag','rankability_status_not_rankable','ineligible_too_many_fights','ineligible_loss_limit','ineligible_ufc','ineligible_age_35_plus','tracking_mode_paused','tracking_mode_opponent_only'];
+		if ( FormulaV17::VERSION === $this->version ) {
+			$hard[] = 'ineligible_inactive_24_months';
+			$hard[] = 'insufficient_career_sample_size';
+		}
+		return array_values(array_filter($evaluation['reasons'],static fn($r)=>in_array($r,$hard,true) || strpos($r,'ineligible_status_')===0));
     }
 	private function rows_for_boards( array $ranked ): \Generator {
 
@@ -596,6 +796,7 @@ final class RankingCalculatorService {
 				b.result_type,
 				b.method_category,
 				b.is_scoring_candidate,
+				(SELECT bs.source_bout_id FROM {$tables['bout_sources']} bs WHERE bs.bout_id=p.bout_id AND bs.source_type='tapology' ORDER BY bs.id LIMIT 1) AS source_bout_id,
 				e.event_date,
 				e.id AS event_exists,
 				f.id AS fighter_exists
@@ -672,6 +873,13 @@ final class RankingCalculatorService {
 	}
 
 	private function opponent_prefight_diff( array $item ): ?int {
+		if ( FormulaV17::VERSION === $this->version ) {
+			if ( null === ( $item['opponent_prefight_wins'] ?? null ) || null === ( $item['opponent_prefight_losses'] ?? null ) ) {
+				return null;
+			}
+
+			return (int) $item['opponent_prefight_wins'] - (int) $item['opponent_prefight_losses'];
+		}
 		if ( null !== $item['opponent_prefight_diff'] ) {
 			return (int) $item['opponent_prefight_diff'];
 		}
@@ -767,6 +975,6 @@ final class RankingCalculatorService {
 	}
 
 	private function storage_strategy(): string {
-		return 'draft rows are stored in mmaf_ranking_snapshots by ranking_run_id; mmaf_ranking_current is live-only; Formula v1.5 stores direct component totals in total_score and raw_score, while normalized_score and confidence_score stay NULL until a manual activation chooses a completed draft.';
+		return 'draft rows are stored in mmaf_ranking_snapshots by ranking_run_id; mmaf_ranking_current is live-only; direct-score formulas v1.5-v1.7 store the same component total in total_score and raw_score, while normalized_score and confidence_score stay NULL until a manual activation chooses a completed draft.';
 	}
 }

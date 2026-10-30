@@ -127,7 +127,7 @@
 <h3 class="mf-hero-bubble__title"><?php echo esc_html( 'How is the MMA Future Score calculated?' ); ?></h3>
 </div>
 <!-- Description -->
-<p class="mf-hero-bubble__text"><?php echo esc_html(($c['dates']['formula_version']??'')==='v1.6'?'MMA Future bodovi od 9. maja 2026. Career records determine eligibility; accepted period results, finishes, age and pre-fight opponent records determine points.':'The activated formula adds the saved contributions from professional fight results, finishes, age and pre-fight opponent records.'); ?></p>
+<p class="mf-hero-bubble__text"><?php $fv=$c['dates']['formula_version']??''; echo esc_html($fv==='v1.7'?'Osnovni poeni za celu karijeru; završnice i kvalitet protivnika od 9. maja 2026.':($fv==='v1.6'?'MMA Future bodovi od 9. maja 2026. Career records determine eligibility; accepted period results, finishes, age and pre-fight opponent records determine points.':'The activated formula adds the saved contributions from professional fight results, finishes, age and pre-fight opponent records.')); ?></p>
 <!-- Expandable More Info -->
 <div class="mf-hero-bubble__more" data-expandable="" id="<?php echo esc_attr( $prefix . '_more' ); ?>">
 <p class="mf-hero-bubble__text mf-hero-bubble__text--muted">The score is a direct total, not a percentage. Only the reviewed, activated ranking appears here. Statistics can have a newer update date.</p>
