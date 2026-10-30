@@ -43,6 +43,18 @@ def test_postfight_records_never_become_prefight():
     assert main['fighter_b']['prefight_record']['is_missing']
     assert main['result']['time']=='3:42' and main['result']['round']==1
 
+
+def test_event_card_only_mode_never_opens_matchup_pages(monkeypatch):
+    data=json.loads((FIXTURES/'pfl_new_york.json').read_text())
+    scraper=TapologyScraper(ScraperConfig(scrape_matchup_pages=False))
+    def forbidden(*args):raise AssertionError('Individual bout pages must remain closed')
+    monkeypatch.setattr(scraper,'_scrape_matchup_page',forbidden)
+    event={'source_event_id':'tapology_event_144072','event_url':data['url'],'event_date':'2026-07-31','event_name':data['title'],'source_mma_bouts_total':9,'warnings':[],'skipped_bouts':[]}
+    event['bouts']=scraper._parse_bouts(Card(data['rows']),event,Page(data['url']),NoNetwork(),'results',{'warnings':[]})
+    assert len(event['bouts'])==9 and event['event_coverage']['status']=='complete'
+    assert event['bouts'][0]['result']['time']=='3:42'
+    assert event['bouts'][0]['fighter_a']['prefight_record']['is_missing']
+
 def test_unresolved_rows_remain_partial_not_amateur_or_non_mma():
     d=json.loads((FIXTURES/'pfl_mena.json').read_text());rows=copy.deepcopy(d['rows'])
     rows[0]['classification_text']='';rows[0]['classification_evidence']=None

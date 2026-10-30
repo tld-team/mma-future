@@ -141,6 +141,10 @@ final class RankingActivationService {
         global $wpdb;$t=\MMAF\DataEngine\Migrations\Schema::table_names();
         $groups=$wpdb->get_results($wpdb->prepare("SELECT board_key,COUNT(*) n,COUNT(DISTINCT fighter_id) fighters,COUNT(DISTINCT rank_position) ranks,MIN(rank_position) first_rank,MAX(rank_position) last_rank FROM {$t['ranking_snapshots']} WHERE ranking_run_id=%d GROUP BY board_key",$run),ARRAY_A);
         if(!$groups){throw new \RuntimeException('Ranking run has no draft snapshot rows to activate.');}
+        $signed=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['ranking_snapshots']} r JOIN {$t['fighters']} f ON f.id=r.fighter_id WHERE r.ranking_run_id=%d AND f.in_ufc=1",$run));
+        if($signed){throw new \RuntimeException('This draft contains a fighter with a confirmed UFC signing. Prepare a new draft before activation.');}
+		$excluded=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['ranking_snapshots']} r JOIN {$t['fighters']} f ON f.id=r.fighter_id WHERE r.ranking_run_id=%d AND f.tracking_mode<>'normal'",$run));
+		if($excluded){throw new \RuntimeException('This draft contains a fighter who is no longer actively tracked. Prepare a new draft before activation.');}
         if($formula==='v1.6'){
             $assessment=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
             $invalid=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['ranking_snapshots']} r LEFT JOIN $assessment a ON a.ranking_run_id=r.ranking_run_id AND a.fighter_id=r.fighter_id WHERE r.ranking_run_id=%d AND (a.fighter_id IS NULL OR a.status<>'main' OR a.total_score IS NULL OR a.total_score<>r.total_score OR a.sample_size<>r.sample_size OR a.period_start<>'2026-05-09' OR JSON_UNQUOTE(JSON_EXTRACT(a.assessment_json,'$.coverage'))<>'confirmed' OR JSON_LENGTH(JSON_EXTRACT(a.assessment_json,'$.reasons'))<>0)",$run));

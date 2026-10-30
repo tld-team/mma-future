@@ -55,7 +55,9 @@ final class Processor {
     public static function enqueue(int $id,int $actor=0,int $job=0): void {
         global $wpdb; $t=Canonical::table_names(); $queue=Schema::tables()['queue'];
         $fighter=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighters']} WHERE id=%d",$id),ARRAY_A);
-        if (!$fighter || $fighter['deleted_soft'] || (!$fighter['is_public'] && (!$fighter['is_rankable'] || $fighter['rankability_status']!=='rankable'))) { return; }
+        if (!$fighter || $fighter['deleted_soft'] || \MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY===\MMAF\DataEngine\Services\TrackingService::mode($fighter)) { return; }
+		$paused_due=\MMAF\DataEngine\Services\TrackingService::PAUSED===\MMAF\DataEngine\Services\TrackingService::mode($fighter) && (new \MMAF\DataEngine\Services\TrackingService())->recheck_due($id);
+		if (!$paused_due && !$fighter['is_public'] && (!$fighter['is_rankable'] || $fighter['rankability_status']!=='rankable')) { return; }
         $profile=(new ProfileStore())->for_fighter($id); $hash=$profile['content_hash']??null;
         $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM $queue WHERE fighter_id=%d",$id),ARRAY_A);
         if ($old && $hash && $old['processed_hash']===$hash && hash_equals((string)($old['processed_context_hash']??''),PreparationFingerprint::for_fighter($id,$hash)) && in_array($old['status'],['completed','review'],true)) { return; }
@@ -132,7 +134,9 @@ final class Processor {
         WriteGuard::assertAllowed();
         global $wpdb; $t=Canonical::table_names();
         $fighter=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighters']} WHERE id=%d",$id),ARRAY_A);
-        if (!$fighter || $fighter['deleted_soft'] || (!$fighter['is_public'] && !$fighter['is_rankable'] && !\MMAF\DataEngine\Services\Operations\Authority::allows($operation,$id))) { return ['review'=>true,'reason'=>'Fighter is outside the approved scope.']; }
+        if (!$fighter || $fighter['deleted_soft'] || \MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY===\MMAF\DataEngine\Services\TrackingService::mode($fighter)) { return ['review'=>true,'reason'=>'Fighter is outside active tracking.']; }
+		$paused_due=\MMAF\DataEngine\Services\TrackingService::PAUSED===\MMAF\DataEngine\Services\TrackingService::mode($fighter) && (new \MMAF\DataEngine\Services\TrackingService())->recheck_due($id);
+		if (!$paused_due && !$fighter['is_public'] && !$fighter['is_rankable'] && !\MMAF\DataEngine\Services\Operations\Authority::allows($operation,$id)) { return ['review'=>true,'reason'=>'Fighter is outside the approved scope.']; }
         $saved=(new ProfileStore())->for_fighter($id);
         if (!$saved) { return ['review'=>true,'reason'=>'No unambiguous successful stored source profile is available. Existing canonical data is retained.']; }
         $raw=$saved['profile']; $raw['scraped_at']=$saved['source_fetched_at'];

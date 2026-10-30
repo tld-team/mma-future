@@ -3,6 +3,7 @@
 <head>
 	<meta charset="<?php bloginfo('charset'); ?>">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="color-scheme" content="light dark">
 	<link rel="profile" href="https://gmpg.org/xfn/11">
 
 	<?php wp_head(); ?>
@@ -110,62 +111,7 @@
 				     LOGO / BRANDING (Left Side)
 				     ============================================================ -->
 				<div class="flex items-center lg:flex-1 overflow-hidden">
-					<?php
-					// Custom Logo or Site Title
-					if (has_custom_logo()) {
-						$custom_logo_id = get_theme_mod('custom_logo');
-						$logo = wp_get_attachment_image_src($custom_logo_id, 'full');
-						
-						if ($logo) : ?>
-							<a href="<?php echo esc_url(home_url('/')); ?>" class="block w-full max-w-[150px] h-20 flex items-center overflow-hidden no-underline transition-all duration-300 hover:opacity-80 header-logo" rel="home">
-								<span class="sr-only"><?php bloginfo('name'); ?></span>
-								<img 
-									src="<?php echo esc_url($logo[0]); ?>" 
-									alt="<?php echo esc_attr(get_bloginfo('name')); ?>" 
-									class="w-full max-h-20 object-contain transition-all duration-300 header-logo-img"
-								/>
-							</a>
-						<?php endif;
-					} else {
-						// Fallback: Site Title
-						$site_title = get_bloginfo('name');
-						
-						if (is_front_page() && is_home()) : ?>
-							<a href="<?php echo esc_url(home_url('/')); ?>" class="no-underline" rel="home">
-								<h1 class="text-2xl font-heading font-bold text-heading hover:text-primary transition-colors">
-									<?php echo esc_html($site_title); ?>
-								</h1>
-							</a>
-						<?php else : ?>
-							<a href="<?php echo esc_url(home_url('/')); ?>" class="no-underline" rel="home">
-								<span class="text-2xl font-heading font-bold text-heading hover:text-primary transition-colors">
-									<?php echo esc_html($site_title); ?>
-								</span>
-							</a>
-						<?php endif;
-					}
-					?>
-				</div>
-
-				<!-- ============================================================
-				     MOBILE MENU TOGGLE (Center on Mobile)
-				     ============================================================ -->
-				<div class="flex lg:hidden">
-					<button 
-						type="button" 
-						id="mobile-menu-toggle" 
-						class="mobile-menu-toggle relative inline-flex items-center justify-center w-10 h-10 text-body hover:text-heading focus:outline-none transition-colors duration-200 ease-out"
-						aria-expanded="false" 
-						aria-controls="mobile-menu"
-						aria-label="<?php esc_attr_e('Toggle menu', 'mma-future'); ?>"
-					>
-						<span class="sr-only"><?php esc_html_e('Open main menu', 'mma-future'); ?></span>
-						<svg class="burger-icon h-7 w-7 text-[#64748B] transition-all duration-300 ease-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-							<path class="burger-line-top" d="M3.75 6.75h16.5" />
-							<path class="burger-line-middle" d="M3.75 12h16.5" />
-							<path class="burger-line-bottom" d="M3.75 17.25h16.5" />
-						</svg>
-					</button>
+					<?php mmaf_brand_link( 'header' ); ?>
 				</div>
 
 				<!-- ============================================================
@@ -186,12 +132,29 @@
 				?>
 
 				<!-- ============================================================
-				     LOGIN / CTA BUTTON (Right Side)
+				     APPEARANCE / ACCOUNT / MOBILE MENU (Right Side)
 				     ============================================================ -->
-				<div class="hidden lg:flex lg:flex-1 lg:items-center lg:justify-end">
-					<a 
-						href="/wp-admin" 
-						class="header-login-btn inline-flex items-center gap-1.5 h-10 px-4 text-base font-heading font-semibold no-underline rounded-[12px] border border-[#E2E8F0] bg-white text-[#0F172A]"
+				<div class="header-actions">
+					<button
+						type="button"
+						class="mmaf-theme-toggle"
+						data-theme-toggle
+						data-label-light="<?php esc_attr_e('Switch to light mode', 'mma-future'); ?>"
+						data-label-dark="<?php esc_attr_e('Switch to dark mode', 'mma-future'); ?>"
+						aria-label="<?php esc_attr_e('Switch to dark mode', 'mma-future'); ?>"
+						hidden
+					>
+						<svg class="mmaf-theme-toggle__moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+							<path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z" />
+						</svg>
+						<svg class="mmaf-theme-toggle__sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+							<circle cx="12" cy="12" r="4" />
+							<path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+						</svg>
+					</button>
+					<a
+						href="/wp-admin"
+						class="header-login-btn hidden lg:inline-flex items-center gap-1.5 h-10 px-4 text-base font-heading font-semibold no-underline rounded-[12px] border border-[#E2E8F0] bg-white text-[#0F172A]"
 						style="text-decoration: none !important;"
 					>
 						<svg class="header-login-btn-icon h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -199,6 +162,24 @@
 						</svg>
 						<?php esc_html_e('Log in', 'mma-future'); ?>
 					</a>
+
+					<div class="flex lg:hidden">
+						<button
+							type="button"
+							id="mobile-menu-toggle"
+							class="mobile-menu-toggle relative inline-flex items-center justify-center w-10 h-10 text-body hover:text-heading focus:outline-none transition-colors duration-200 ease-out"
+							aria-expanded="false"
+							aria-controls="mobile-menu"
+							aria-label="<?php esc_attr_e('Toggle menu', 'mma-future'); ?>"
+						>
+							<span class="sr-only"><?php esc_html_e('Open main menu', 'mma-future'); ?></span>
+							<svg class="burger-icon h-7 w-7 text-[#64748B] transition-all duration-300 ease-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+								<path class="burger-line-top" d="M3.75 6.75h16.5" />
+								<path class="burger-line-middle" d="M3.75 12h16.5" />
+								<path class="burger-line-bottom" d="M3.75 17.25h16.5" />
+							</svg>
+						</button>
+					</div>
 				</div>
 
 			</div><!-- .flex -->
@@ -224,30 +205,7 @@
 		<!-- Mobile Menu Header -->
 		<div class="flex h-16 items-center justify-between px-6 overflow-hidden">
 				<!-- Logo in Mobile Menu -->
-				<?php
-				if (has_custom_logo()) {
-					$custom_logo_id = get_theme_mod('custom_logo');
-					$logo = wp_get_attachment_image_src($custom_logo_id, 'full');
-					
-					if ($logo) : ?>
-						<a href="<?php echo esc_url(home_url('/')); ?>" class="block w-full max-w-[120px] h-16 flex items-center overflow-hidden no-underline" rel="home">
-							<span class="sr-only"><?php bloginfo('name'); ?></span>
-							<img 
-								src="<?php echo esc_url($logo[0]); ?>" 
-								alt="<?php echo esc_attr(get_bloginfo('name')); ?>" 
-								class="w-full max-h-16 object-contain"
-							/>
-						</a>
-					<?php endif;
-				} else {
-					$site_title = get_bloginfo('name');
-					?>
-					<a href="<?php echo esc_url(home_url('/')); ?>" class="no-underline" rel="home">
-						<span class="text-xl font-heading font-bold text-heading">
-							<?php echo esc_html($site_title); ?>
-						</span>
-					</a>
-				<?php } ?>
+			<?php mmaf_brand_link( 'mobile' ); ?>
 
 			<!-- Close Button -->
 			<button 

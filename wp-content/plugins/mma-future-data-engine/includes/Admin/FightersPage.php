@@ -10,6 +10,8 @@ use MMAF\DataEngine\Repositories\RestReadRepository;
 use MMAF\DataEngine\Services\AuditLogService;
 use MMAF\DataEngine\Services\FighterReadinessService;
 use MMAF\DataEngine\Services\FighterService;
+use MMAF\DataEngine\Services\UfcSigningService;
+use MMAF\DataEngine\Services\TrackingService;
 use MMAF\DataEngine\Support\Capabilities;
 use MMAF\DataEngine\Support\Sanitizer;
 
@@ -126,6 +128,18 @@ final class FightersPage {
 
 		if ( 'stats_override_save' === $action || 'stats_override_clear' === $action ) {
 			return self::handle_stats_override_post( $action );
+		}
+		if(in_array($action,['ufc_manual_confirm','ufc_correct'],true)){
+			check_admin_referer('mmaf_ufc_fighter_action','mmaf_ufc_nonce');$fighter_id=absint($_POST['fighter_id']??0);
+			try{if($action==='ufc_manual_confirm'){(new UfcSigningService())->confirm_manual($fighter_id,get_current_user_id(),esc_url_raw(wp_unslash($_POST['evidence_url']??'')),sanitize_textarea_field(wp_unslash($_POST['evidence_note']??'')),sanitize_text_field(wp_unslash($_POST['signing_date']??''))?:null);$message=__('UFC signing confirmed and removed from the active public ranking.','mma-future-data-engine');}
+			else{(new UfcSigningService())->correct($fighter_id,get_current_user_id(),sanitize_textarea_field(wp_unslash($_POST['correction_reason']??'')));$message=__('UFC signing confirmation corrected with an audit record.','mma-future-data-engine');}
+			return ['type'=>'success','message'=>$message,'redirect_fallback'=>['action'=>'edit','fighter_id'=>$fighter_id]];}catch(\Throwable $error){return ['type'=>'error','message'=>$error->getMessage(),'redirect_fallback'=>['action'=>'edit','fighter_id'=>$fighter_id]];}
+		}
+		if('tracking_decision'===$action){
+			check_admin_referer('mmaf_tracking_decision','mmaf_tracking_nonce');$fighter_id=absint($_POST['fighter_id']??0);
+			try{$result=(new TrackingService())->set_mode([$fighter_id],sanitize_key(wp_unslash($_POST['tracking_mode']??'')),sanitize_text_field(wp_unslash($_POST['tracking_reason']??'')),esc_url_raw(wp_unslash($_POST['tracking_evidence_url']??'')),'admin',get_current_user_id());
+				return ['type'=>'success','message'=>sprintf(__('Tracking decision saved. %d fighter updated.','mma-future-data-engine'),(int)$result['updated']),'redirect_fallback'=>['action'=>'edit','fighter_id'=>$fighter_id]];
+			}catch(\Throwable $error){return ['type'=>'error','message'=>$error->getMessage(),'redirect_fallback'=>['action'=>'edit','fighter_id'=>$fighter_id]];}
 		}
 
 		if ( ! isset( $_POST['mmaf_fighter_nonce'] ) ) {
@@ -275,6 +289,12 @@ final class FightersPage {
 		$fighter_ids = isset( $_POST['fighter_ids'] ) && is_array( $_POST['fighter_ids'] ) ? array_map( 'absint', wp_unslash( $_POST['fighter_ids'] ) ) : array();
 
         try {
+			$tracking_actions=['tracking_pause'=>TrackingService::PAUSED,'tracking_opponent_only'=>TrackingService::OPPONENT_ONLY,'tracking_restore'=>TrackingService::NORMAL];
+			if(isset($tracking_actions[$bulk_action])){
+				if(($_POST['selection_mode']??'')==='filtered'){throw new \InvalidArgumentException('Tracking decisions require an explicit reviewed selection on this page.');}
+				$result=(new TrackingService())->set_mode($fighter_ids,$tracking_actions[$bulk_action],sanitize_text_field(wp_unslash($_POST['tracking_reason']??'')),esc_url_raw(wp_unslash($_POST['tracking_evidence_url']??'')),'admin',get_current_user_id());
+				wp_safe_redirect(self::page_url(['mmaf_notice'=>sprintf('Tracking decision saved: %d updated, %d unchanged.',$result['updated'],$result['unchanged'])]));exit;
+			}
             $selection=['mode'=>($_POST['selection_mode']??'')==='filtered'?'filtered':'ids','ids'=>$fighter_ids,'search'=>sanitize_text_field(wp_unslash($_GET['s']??'')),'filters'=>self::current_filters()];
             $operation=\MMAF\DataEngine\Services\Operations\Jobs::create($bulk_action,$selection,get_current_user_id(),sanitize_text_field(wp_unslash($_POST['request_key']??'')));
             wp_safe_redirect(admin_url('admin.php?page=mmaf-operations&operation_id='.(int)$operation['id']));exit;
@@ -302,7 +322,7 @@ final class FightersPage {
         $query_filters = array_merge(['s' => $search], self::filter_query_args($filters));
         $latest = \MMAF\DataEngine\Services\Operations\Membership::latest();
         $filter_options = self::filter_options();
-        $views = ['All fighters' => [], 'Needs review' => ['preparation' => 'review'], 'Ready for preparation' => ['preparation' => 'ready'], 'Preparing' => ['preparation' => 'preparing'], 'Failed' => ['preparation' => 'failed'], 'Public' => ['public_state' => 'public'], 'Ranking approved' => ['rankable_state' => 'rankable']];
+        $views = ['All fighters' => [], 'Paused' => ['tracking_mode' => 'paused'], 'Opponent only' => ['tracking_mode' => 'opponent_only'], 'Needs review' => ['preparation' => 'review'], 'Ready for preparation' => ['preparation' => 'ready'], 'Preparing' => ['preparation' => 'preparing'], 'Failed' => ['preparation' => 'failed'], 'Public' => ['public_state' => 'public'], 'Ranking approved' => ['rankable_state' => 'rankable']];
         if ($latest > 0) { $views = array_slice($views, 0, 1, true) + ['Latest import' => ['import_job' => (string) $latest]] + array_slice($views, 1, null, true); }
         ?>
         <p class="mmaf-page-intro">Pronađi borca, proveri pripremu i prepreke, pa otvori pregled operacije za izabrani skup. <a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-operations')); ?>">Operations and results</a></p>
@@ -373,9 +393,9 @@ final class FightersPage {
                         <tr>
                             <td class="mmaf-select-cell"><input class="mmaf-fighter-row-checkbox" type="checkbox" name="fighter_ids[]" value="<?php echo esc_attr($id); ?>" aria-label="<?php echo esc_attr('Select ' . $fighter['display_name']); ?>"></td>
                             <td class="mmaf-name-cell"><a class="mmaf-fighter-name" href="<?php echo esc_url($edit_url); ?>"><?php echo esc_html($fighter['display_name']); ?></a><span class="mmaf-muted mmaf-line">#<?php echo esc_html($id); ?> · <?php if ($import): ?><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-regular-import&job_id=' . $import)); ?>">Import #<?php echo esc_html($import); ?></a><?php else: ?>Legacy import<?php endif; ?></span>
-                                <details class="mmaf-row-details"><summary>Details</summary><dl><dt>Approval</dt><dd><?php echo esc_html(self::option_label($fighter['status'])); ?></dd><dt>Ranking eligibility</dt><dd><?php echo esc_html(self::option_label($fighter['rankability_status'])); ?></dd><dt>DOB / year</dt><dd><?php echo esc_html(($fighter['date_of_birth'] ?? 'Unknown') . ' / ' . ($fighter['birth_year'] ?? 'Unknown')); ?></dd><dt>Last successful profile</dt><dd><?php echo esc_html($meta['source_fetched_at'] ?? 'Unknown'); ?></dd><dt>Last attempt</dt><dd><?php echo esc_html(($meta['last_attempt_at'] ?? 'Unknown') . ' · ' . ($meta['last_attempt_status'] ?? 'Unknown')); ?></dd><dt>Readiness checked</dt><dd><?php echo esc_html($check['checked_at'] ?? 'Waiting for background check'); ?></dd><dt>Fighter updated</dt><dd><?php echo esc_html($fighter['updated_at'] ?? 'Unknown'); ?></dd><dt>Import evidence</dt><dd><?php echo esc_html($import ? 'Import #' . $import : 'Legacy / unknown import'); ?></dd></dl><?php self::render_post_link(!empty($fighter['wp_post_id']) ? get_post((int) $fighter['wp_post_id']) : null); ?></details>
+                                <details class="mmaf-row-details"><summary>Details</summary><dl><dt>Approval</dt><dd><?php echo esc_html(self::option_label($fighter['status'])); ?></dd><dt>Tracking</dt><dd><?php echo esc_html(self::option_label($fighter['tracking_mode']??'normal').' · '.($fighter['tracking_reason']??'No exclusion reason')); ?></dd><dt>Ranking eligibility</dt><dd><?php echo esc_html(self::option_label($fighter['rankability_status'])); ?></dd><dt>DOB / year</dt><dd><?php echo esc_html(($fighter['date_of_birth'] ?? 'Unknown') . ' / ' . ($fighter['birth_year'] ?? 'Unknown')); ?></dd><dt>Last successful profile</dt><dd><?php echo esc_html($meta['source_fetched_at'] ?? 'Unknown'); ?></dd><dt>Last attempt</dt><dd><?php echo esc_html(($meta['last_attempt_at'] ?? 'Unknown') . ' · ' . ($meta['last_attempt_status'] ?? 'Unknown')); ?></dd><dt>Readiness checked</dt><dd><?php echo esc_html($check['checked_at'] ?? 'Waiting for background check'); ?></dd><dt>Fighter updated</dt><dd><?php echo esc_html($fighter['updated_at'] ?? 'Unknown'); ?></dd><dt>Import evidence</dt><dd><?php echo esc_html($import ? 'Import #' . $import : 'Legacy / unknown import'); ?></dd></dl><?php self::render_post_link(!empty($fighter['wp_post_id']) ? get_post((int) $fighter['wp_post_id']) : null); ?></details>
                             </td>
-                            <td class="mmaf-status-cell"><strong class="mmaf-line"><?php echo esc_html(ucfirst(self::option_label($fighter['status']))); ?></strong><span class="mmaf-line"><?php echo esc_html($fighter['is_public'] ? 'Public profile' : 'Private profile'); ?></span><span class="mmaf-line"><?php echo esc_html($fighter['is_rankable'] ? 'Ranking approved' : 'Ranking not approved'); ?></span><small class="mmaf-muted mmaf-line"><?php echo esc_html(empty($meta['active_board_count']) ? 'Outside active ranking' : 'Active ranking #' . $meta['active_ranking_run_id'] . ' · ' . $meta['active_board_count'] . ' boards'); ?></small></td>
+                            <td class="mmaf-status-cell"><strong class="mmaf-line"><?php echo esc_html(ucfirst(self::option_label($fighter['status']))); ?></strong><span class="mmaf-line">Tracking: <?php echo esc_html(self::option_label($fighter['tracking_mode']??'normal')); ?></span><span class="mmaf-line"><?php echo esc_html($fighter['is_public'] ? 'Public profile' : 'Private profile'); ?></span><span class="mmaf-line"><?php echo esc_html($fighter['is_rankable'] ? 'Ranking approved' : 'Ranking not approved'); ?></span><small class="mmaf-muted mmaf-line"><?php echo esc_html(empty($meta['active_board_count']) ? 'Outside active ranking' : 'Active ranking #' . $meta['active_ranking_run_id'] . ' · ' . $meta['active_board_count'] . ' boards'); ?></small></td>
                             <td class="mmaf-record-cell"><?php echo esc_html(ucwords(str_replace('_', ' ', trim(($fighter['gender'] ?? '') . ' / ' . ($fighter['weight_class'] ?? ''), ' /'))) ?: 'Unknown'); ?><strong class="mmaf-line mmaf-record"><?php echo esc_html($stats ? self::record_summary($stats) : 'Not checked'); ?></strong></td>
                             <td class="mmaf-preparation-cell"><span class="mmaf-badge mmaf-badge-<?php echo esc_attr($tone); ?>"><?php echo esc_html($state); ?></span><span class="mmaf-line">Career: <?php echo esc_html(ucfirst($meta['coverage_status'] ?? 'Unknown')); ?></span><?php if (!empty($check['stale'])): ?><small class="mmaf-stale mmaf-line">Check needs refresh</small><?php elseif (!$check): ?><small class="mmaf-muted mmaf-line">Awaiting background check</small><?php endif; ?></td>
                             <td class="mmaf-attention-cell"><?php if ($attention): ?><span class="mmaf-line"><?php echo esc_html($attention); ?></span><?php endif; ?><?php if ($blockers): ?><details class="mmaf-row-details"><summary>Ranking checks</summary><p><?php echo esc_html($blockers); ?></p></details><?php endif; ?><?php if ($reason || $blockers): ?><a class="mmaf-line mmaf-next-action" href="<?php echo esc_url(admin_url('admin.php?page=mmaf-review&fighter_id=' . $id)); ?>">Review evidence</a><?php else: ?><span class="mmaf-muted">No recorded blockers</span><?php endif; ?></td>
@@ -492,7 +512,13 @@ final class FightersPage {
                         <option value="mark_not_rankable">Mark as not rankable</option>
                         <option value="move_to_provisional">Move to provisional / pending review</option>
                     </optgroup>
+					<optgroup label="Tracking decisions">
+						<option value="tracking_pause">Pause tracking</option>
+						<option value="tracking_opponent_only">Archive as opponent only</option>
+						<option value="tracking_restore">Return to normal tracking review</option>
+					</optgroup>
                 </select>
+				<p><label>Tracking reason <input type="text" name="tracking_reason" placeholder="Required for tracking actions"></label> <label>Evidence URL <input type="url" name="tracking_evidence_url" placeholder="https://…"></label></p>
             </div>
             <button type="submit" class="button mmaf-apply-fighters">Prepare operation preview</button>
             <span id="mmaf-selected-count" role="status" aria-live="polite" data-label="%d selected on this page" data-filtered-label="All matching fighters selected">Choose fighters below</span>
@@ -627,9 +653,7 @@ final class FightersPage {
 			<?php self::open_section( __( 'Ranking/publication status', 'mma-future-data-engine' ) ); ?>
                 <p class="description">Save čuva činjenice. Odobravanje, objava i ranking status menjaju se kroz zasebne operacije posle pripreme.</p>
                 <p><strong>Approval:</strong> <?php echo esc_html($fighter['status']); ?> · <strong>Visibility:</strong> <?php echo esc_html($fighter['is_public']?'Public':'Private'); ?> · <strong>Ranking permission:</strong> <?php echo esc_html($fighter['is_rankable']?'Approved':'Not approved'); ?> · <?php echo esc_html($fighter['rankability_status']); ?></p>
-                <table class="form-table"><tbody>
-                    <?php self::checkbox_row('in_ufc','In UFC',$fighter['in_ufc'],'Činjenica za proveru podobnosti; ne objavljuje profil.'); ?>
-                </tbody></table>
+				<p><strong>UFC signing:</strong> <?php echo esc_html($fighter['in_ufc']?'Confirmed — permanently excluded from MMA Future rankings':'Not confirmed'); ?></p>
 			<?php self::close_section(); ?>
 
 			<?php self::open_section( __( 'External source profile', 'mma-future-data-engine' ) ); ?>
@@ -667,16 +691,39 @@ final class FightersPage {
 			<?php self::close_section(); ?>
 
             <details><summary>Confirm selected facts</summary><p>Označi samo činjenice koje si izričito proverio. Neizmenjena polja ne dobijaju novu ručnu zaštitu običnim Save-om.</p>
-                <?php foreach (FighterService::FACT_FIELDS as $field): ?>
+				<?php foreach (array_diff(FighterService::FACT_FIELDS,['in_ufc']) as $field): ?>
                     <label style="display:block"><input type="checkbox" name="confirm_fact_fields[]" value="<?php echo esc_attr($field); ?>"> <?php echo esc_html(ucwords(str_replace('_',' ',$field)).': '.($fighter[$field] ?? 'Unknown')); ?></label>
                 <?php endforeach; ?>
             </details>
 			<?php submit_button( $is_edit ? __( 'Save facts and confirmations', 'mma-future-data-engine' ) : __( 'Create Fighter', 'mma-future-data-engine' ) ); ?>
 		</form>
-        <?php if($is_edit): self::render_single_operations($fighter_id); endif; ?>
+		<?php if($is_edit): self::render_tracking_actions($fighter); self::render_ufc_actions($fighter_id,(bool)$fighter['in_ufc']); self::render_single_operations($fighter_id); endif; ?>
         <?php if($is_edit): \MMAF\DataEngine\Services\Scoring\Admin::render($fighter_id); endif; ?>
 		<?php
 	}
+
+	private static function render_tracking_actions(array $fighter): void { ?>
+		<section><h2>Tracking mode</h2>
+			<p><strong><?php echo esc_html(ucwords(str_replace('_',' ',(string)($fighter['tracking_mode']??'normal')))); ?></strong><?php if(!empty($fighter['tracking_reason'])): ?> · <?php echo esc_html((string)$fighter['tracking_reason']); ?><?php endif; ?><?php if(!empty($fighter['tracking_changed_at'])): ?> · <?php echo esc_html((string)$fighter['tracking_changed_at']); ?> UTC<?php endif; ?></p>
+			<?php if(!empty($fighter['tracking_return_candidate_at'])): ?><div class="notice notice-info inline"><p>This paused fighter has new qualifying evidence and is waiting for an administrator to confirm a return.</p></div><?php endif; ?>
+			<form method="post" action="<?php echo esc_url(self::page_url(['action'=>'edit','fighter_id'=>(int)$fighter['id']])); ?>" style="max-width:850px">
+				<?php wp_nonce_field('mmaf_tracking_decision','mmaf_tracking_nonce'); ?><input type="hidden" name="mmaf_action" value="tracking_decision"><input type="hidden" name="fighter_id" value="<?php echo (int)$fighter['id']; ?>">
+				<p><label>Mode<br><select name="tracking_mode" required><option value="normal" <?php selected(($fighter['tracking_mode']??'normal'),'normal'); ?>>Normal — return to admin review</option><option value="paused" <?php selected(($fighter['tracking_mode']??'normal'),'paused'); ?>>Paused — recheck after a new completed pro bout</option><option value="opponent_only" <?php selected(($fighter['tracking_mode']??'normal'),'opponent_only'); ?>>Opponent only — permanent archive</option></select></label></p>
+				<p><label>Reason code<br><input class="regular-text" name="tracking_reason" required placeholder="inactive_24_months, loss_limit, age_over_34…"></label></p>
+				<p><label>Evidence URL, when available<br><input class="large-text" type="url" name="tracking_evidence_url" placeholder="https://…"></label></p>
+				<?php submit_button('Save tracking decision','secondary','submit',false); ?>
+			</form>
+		</section>
+	<?php }
+
+	private static function render_ufc_actions(int $fighter_id,bool $confirmed): void { global $wpdb;$tables=\MMAF\DataEngine\Migrations\Schema::table_names();$open=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$tables['ufc_signing_candidates']} WHERE fighter_id=%d AND status IN ('pending','deferred')",$fighter_id)); ?>
+		<section><h2>UFC signing</h2><?php if($open): ?><p><strong><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-review&tab=ufc_signings&ufc_search='.rawurlencode((string)$fighter_id))); ?>"><?php echo (int)$open; ?> UFC review candidate(s)</a></strong></p><?php endif; ?><?php if(!$confirmed): ?>
+		<form method="post" action="<?php echo esc_url(self::page_url(['action'=>'edit','fighter_id'=>$fighter_id])); ?>" style="max-width:850px">
+			<?php wp_nonce_field('mmaf_ufc_fighter_action','mmaf_ufc_nonce'); ?><input type="hidden" name="mmaf_action" value="ufc_manual_confirm"><input type="hidden" name="fighter_id" value="<?php echo (int)$fighter_id; ?>">
+			<p><label>Evidence URL<br><input class="large-text" type="url" required name="evidence_url" placeholder="https://…"></label></p><p><label>Actual signing date, if known<br><input type="date" name="signing_date"></label></p><p><label>Evidence note<br><textarea class="large-text" rows="3" required name="evidence_note"></textarea></label></p><?php submit_button('Confirm UFC signing','primary','submit',false); ?>
+		</form><?php else: $signing=(new UfcSigningService())->signing($fighter_id); ?><p><strong>Signed with the UFC.</strong> This fighter is no longer ranked by MMA Future.</p><?php if(!empty($signing['evidence_url'])): ?><p><a href="<?php echo esc_url($signing['evidence_url']); ?>" target="_blank" rel="noopener noreferrer">Open evidence</a></p><?php endif; ?>
+		<form method="post" action="<?php echo esc_url(self::page_url(['action'=>'edit','fighter_id'=>$fighter_id])); ?>" style="max-width:850px"><?php wp_nonce_field('mmaf_ufc_fighter_action','mmaf_ufc_nonce'); ?><input type="hidden" name="mmaf_action" value="ufc_correct"><input type="hidden" name="fighter_id" value="<?php echo (int)$fighter_id; ?>"><p><label>Correction reason<br><textarea class="large-text" rows="3" required name="correction_reason"></textarea></label></p><?php submit_button('Correct incorrect confirmation','secondary','submit',false); ?></form><?php endif; ?></section>
+	<?php }
 
     private static function render_single_operations(int $id): void {
         echo '<section><h2>Approval and publication</h2><p>Operacije koriste sačuvane podatke. Prvo sačuvaj izmene, zatim pregledaj i potvrdi obuhvat.</p><p data-mmaf-unsaved-notice hidden role="status">Save changes first</p>';
@@ -1151,6 +1198,8 @@ final class FightersPage {
 		if ( ! in_array( $rankable_state, array( 'rankable', 'not_rankable' ), true ) ) {
 			$rankable_state = '';
 		}
+		$tracking_mode=isset($_GET['tracking_mode'])?sanitize_key(wp_unslash($_GET['tracking_mode'])):'';
+		if(!in_array($tracking_mode,TrackingService::MODES,true)){$tracking_mode='';}
 
 		$readiness_issue = isset( $_GET['readiness_issue'] ) ? sanitize_key( wp_unslash( $_GET['readiness_issue'] ) ) : '';
 		if ( ! in_array( $readiness_issue, array( 'missing_dob', 'missing_weight_class', 'provisional_tapology' ), true ) ) {
@@ -1168,6 +1217,7 @@ final class FightersPage {
 			'rankability_status' => $rankability_status,
 			'public_state'       => $public_state,
 			'rankable_state'     => $rankable_state,
+			'tracking_mode'      => $tracking_mode,
 			'readiness_issue'    => $readiness_issue,
 			'sort'               => isset( $_GET['sort'] ) && 'newest' === sanitize_key( wp_unslash( $_GET['sort'] ) ) ? 'newest' : '',
 		);
@@ -1182,6 +1232,7 @@ final class FightersPage {
 				'rankability_status' => 'rankability_status',
 				'public_state'       => 'public_state',
 				'rankable_state'     => 'rankable_state',
+				'tracking_mode'      => 'tracking_mode',
 				'readiness_issue'    => 'readiness_issue',
 				'sort'               => 'sort',
 			) as $filter_key => $query_key
@@ -1208,6 +1259,7 @@ final class FightersPage {
             'fighter_status' => ['Approval status', Sanitizer::FIGHTER_STATUSES],
             'public_state' => ['Profile visibility', ['public' => 'Public', 'not_public' => 'Private']],
             'rankable_state' => ['Ranking permission', ['rankable' => 'Approved', 'not_rankable' => 'Not approved']],
+			'tracking_mode' => ['Tracking mode', ['normal'=>'Normal','paused'=>'Paused','opponent_only'=>'Opponent only']],
             'rankability_status' => ['Ranking eligibility', Sanitizer::RANKABILITY_STATUSES],
             'reason' => ['Preparation blocker', ['identity_conflict' => 'Identity conflict', 'stored_profile_missing' => 'No stored profile', 'excluded_identity' => 'Excluded identity', 'technical_failure' => 'Technical failure']],
             'readiness_issue' => ['Missing facts / source', ['missing_dob' => 'Missing DOB/year', 'missing_weight_class' => 'Missing weight', 'provisional_tapology' => 'Provisional + Tapology']],

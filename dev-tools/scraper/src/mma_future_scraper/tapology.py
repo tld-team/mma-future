@@ -31,6 +31,7 @@ from .fighter_profiles import (
     parse_profile_snapshot,
     snapshot_profile_page,
 )
+from .fighter_profile_queue import load_tracking_decisions, tracking_allows_profile, tracking_decision_for
 from .logging_utils import log
 from .models import RESULTS_SCHEMA_VERSION, UPCOMING_SCHEMA_VERSION
 from .normalize import (
@@ -215,6 +216,7 @@ class TapologyScraper:
             source_event_id_from_url(value) or value for value in self.config.force_recheck_events
         }
         self._fighter_profile_cache: dict[str, dict[str, Any]] = {}
+        self._tracking_decisions = load_tracking_decisions(self.config.tracking_decisions_path)
         self._persistent_profile_cache: dict[str, Any] | None = None
         self._profile_fetches_started = 0
         self._profile_fetch_failures_seen = 0
@@ -252,6 +254,11 @@ class TapologyScraper:
         self._active_summary: dict[str, Any] | None = None
         self._coverage_entries: dict[str, dict] = {}
         self._active_run_dir: Path | None = None
+        self._results_resume_events: list[dict[str, Any]] = []
+        self._results_resume_ids: set[str] = set()
+        self._results_resume_excluded: dict[str, dict[str, Any]] = {}
+        self._results_empty_until: dict[str, datetime] = {}
+        self._results_live_fetches = 0
 
     def inspect_filters(self) -> list[dict[str, Any]]:
         self._store.ensure_dirs()
@@ -295,6 +302,8 @@ class TapologyScraper:
         log("info", "run_start", run_id=run_id, headless=self.config.headless)
         playwright = browser = context = None
         try:
+            if results and self.config.resume_results_checkpoints:
+                self._load_results_resume(summary, run_dir)
             direct_event_items = self._resolve_direct_forced_event_items(state_bundle)
             playwright, browser, context = launch_browser(self.config)
             log(
@@ -392,9 +401,9 @@ class TapologyScraper:
             )
             log("error", "run_failed", reason=str(exc), run_dir=str(run_dir))
             return summary
-        except Exception as exc:
+        except (Exception, KeyboardInterrupt) as exc:
             partial_results_doc = self._partial_results_doc or results_doc
-            summary["errors"].append(f"unexpected_error:{exc}")
+            summary["errors"].append("operator_interrupted" if isinstance(exc, KeyboardInterrupt) else f"unexpected_error:{exc}")
             summary["successful"] = False
             summary["latest_updated"] = False
             summary["state_updated"] = False
@@ -417,9 +426,11 @@ class TapologyScraper:
                 debug_doc=self._finish_debug_document(summary["finished_at"]),
             )
             log("error", "run_failed", reason=str(exc), run_dir=str(run_dir))
+            if isinstance(exc, KeyboardInterrupt):
+                raise
             return summary
         finally:
-            if self._active_run_dir:
+            if self._active_run_dir and not success:
                 write_json(run_dir / 'event_coverage.json', coverage_document(results_doc.get('events', []), self._coverage_entries.values(), run_id))
             self._active_summary = None
             if context:
@@ -480,6 +491,10 @@ class TapologyScraper:
             "total_pause_seconds": 0.0,
             "profile_fetches_before_cap": 0,
             "profile_enrichment_partial": False,
+            "profile_requests_before_tracking": 0,
+            "profile_requests_after_tracking": 0,
+            "tracking_skipped_count": 0,
+            "tracking_skipped_by_mode": {},
             "access_stop_reason": None,
             "consecutive_access_failures": 0,
             "event_fetch_failures": 0,
@@ -646,6 +661,10 @@ class TapologyScraper:
             "force_full_scan": self.config.force_full_scan,
             "skip_known_complete": self.config.skip_known_complete,
             "cumulative_results": self.config.cumulative_results,
+            "resume_results_checkpoints": [str(path) for path in self.config.resume_results_checkpoints],
+            "max_event_fetches": self.config.max_event_fetches,
+            "scrape_matchup_pages": self.config.scrape_matchup_pages,
+            "empty_results_cooldown_hours": self.config.empty_results_cooldown_hours,
             "fresh_results": self.config.fresh_results,
             "effective_force_full_scan": self._effective_force_full_scan(),
             "debug": self.config.debug,
@@ -660,6 +679,8 @@ class TapologyScraper:
             "sport": self.config.sport,
             "exclude_promotions": list(self.config.exclude_promotions),
             "enrich_fighter_profiles": self._effective_enrich_fighter_profiles(),
+            "tracking_decisions_path": str(self.config.tracking_decisions_path) if self.config.tracking_decisions_path else None,
+            "tracking_decisions_revision": self._tracking_decisions.get("revision"),
             "use_profile_cache": self.config.use_profile_cache,
             "profile_cache_ttl_days": self.config.profile_cache_ttl_days,
             "page_pause_seconds": self.config.page_pause_seconds,
@@ -828,6 +849,12 @@ class TapologyScraper:
             "failed_bout_examples",
             "failed_profile_examples",
             "popup_dismissals_count",
+            "event_fetch_attempts",
+            "results_events_resumed",
+            "results_events_deferred",
+            "results_events_skipped_from_checkpoint",
+            "results_exclusions_skipped_from_checkpoint",
+            "results_empty_events_skipped",
         ):
             if key in summary and summary.get(key) is not None:
                 counts[key] = summary.get(key)
@@ -1186,6 +1213,64 @@ class TapologyScraper:
         summary["upcoming_events_resumed"] = len(events)
         log("info", "upcoming_resume_loaded", checkpoint=str(path), events=len(events))
         return events
+
+    def _load_results_resume(self, summary: dict[str, Any], run_dir: Path) -> None:
+        from .results_resume import load_results_checkpoints, timestamp
+
+        expected_filters = self._empty_document("results", "", "")["filters"]
+        recovered = load_results_checkpoints(self.config.resume_results_checkpoints, filters=expected_filters)
+        observed_at = {}
+        payloads = (self._state_bundle or {}).get("event_payloads", {})
+        for event in recovered.events:
+            sid = event["source_event_id"]
+            if not self._event_matches_date_window(event):
+                continue
+            proof = event["event_coverage"]
+            current = payloads.get(sid) or {}
+            current_proof = current.get("event_coverage") or {}
+            if current_proof.get("observed_at") and timestamp(current_proof["observed_at"]) >= timestamp(proof["observed_at"]):
+                # Never replace a newer committed observation with a checkpoint.
+                if current_proof.get("status") == "complete" and not current.get("needs_recheck"):
+                    self._results_resume_ids.add(sid)
+                continue
+            self._results_resume_events.append(event)
+            self._results_resume_ids.add(sid)
+            self._coverage_entries[sid] = deepcopy(proof)
+            observed_at[sid] = proof["observed_at"]
+        self._results_resume_excluded = {}
+        for proof in recovered.excluded:
+            sid = proof["source_event_id"]
+            current_proof = (payloads.get(sid, {}).get("event_coverage") or {})
+            if current_proof.get("observed_at") and timestamp(current_proof["observed_at"]) >= timestamp(proof["observed_at"]):
+                continue
+            self._results_resume_excluded[sid] = proof
+        for sid in set(observed_at) | set(self._results_resume_excluded):
+            write_json(run_dir / "event_snapshots" / f"{sid}.json", json.loads(recovered.snapshots[sid].read_text(encoding="utf-8")))
+        report = recovered.report()
+        report["events_to_restore"] = len(self._results_resume_events)
+        report["events_already_committed"] = len(self._results_resume_ids) - len(self._results_resume_events)
+        if self.config.empty_results_cooldown_hours:
+            reference = timestamp(summary["started_at"])
+            for entry in recovered.deferred:
+                if not entry.get("verified_empty_results"):
+                    continue
+                sid = entry["source_event_id"]
+                observed = timestamp(entry["observed_at"])
+                current_proof = (payloads.get(sid, {}).get("event_coverage") or {})
+                if current_proof.get("observed_at") and timestamp(current_proof["observed_at"]) > observed:
+                    continue
+                until = observed + timedelta(hours=self.config.empty_results_cooldown_hours)
+                if until > reference:
+                    self._results_empty_until[sid] = until
+        report["empty_results_deferred_until"] = {sid: until.isoformat() for sid, until in self._results_empty_until.items()}
+        write_json(run_dir / "results_resume_report.json", report)
+        summary["results_resume_sources"] = recovered.sources
+        summary["results_events_resumed"] = len(self._results_resume_events)
+        summary["results_resumed_observed_at"] = observed_at
+        summary["results_events_deferred"] = len(recovered.deferred)
+        self._write_results_checkpoint("results", str(summary["run_id"]), str(summary["started_at"]),
+                                       run_dir, summary, self._results_resume_events)
+        log("info", "results_resume_loaded", complete=len(self._results_resume_events), excluded=len(recovered.excluded), deferred=len(recovered.deferred))
 
     def _new_fightcenter_page(self, context: Any) -> Any:
         if self.config.operator_navigates_to_fightcenter and self.config.use_current_page:
@@ -2331,7 +2416,8 @@ class TapologyScraper:
         run_dir: Path,
         summary: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        events = self._resume_upcoming_events(summary) if kind == "upcoming" else []
+        events = self._resume_upcoming_events(summary) if kind == "upcoming" else deepcopy(self._results_resume_events)
+        results_resumed_count = len(events) if kind == "results" else 0
         resumed_event_urls = {
             canonical_url(event.get("event_url"))
             for event in events
@@ -2380,7 +2466,9 @@ class TapologyScraper:
             )
             summary["pages_scanned"] = int(summary.get("pages_scanned") or 0) + 1
             for item in list_items:
-                if self.config.max_events and len(events) >= self.config.max_events:
+                if self.config.max_events and len(events) - results_resumed_count >= self.config.max_events:
+                    break
+                if kind == "results" and self.config.max_event_fetches and self._results_live_fetches >= self.config.max_event_fetches:
                     break
                 if kind == "upcoming" and (
                     canonical_url(item.get("event_url")) in resumed_event_urls
@@ -2449,6 +2537,19 @@ class TapologyScraper:
                     continue
                 if kind == "results" and self.config.cumulative_results:
                     self._record_cumulative_scope_item(summary, item)
+                if kind == "results":
+                    sid = item.get("source_event_id") or source_event_id_from_url(item.get("event_url"))
+                    if sid in self._results_resume_ids:
+                        summary["results_events_skipped_from_checkpoint"] = int(summary.get("results_events_skipped_from_checkpoint") or 0) + 1
+                        continue
+                    if sid in self._results_resume_excluded:
+                        self._coverage_entries[sid] = deepcopy(self._results_resume_excluded[sid])
+                        self._record_cumulative_excluded_item(summary, item)
+                        summary["results_exclusions_skipped_from_checkpoint"] = int(summary.get("results_exclusions_skipped_from_checkpoint") or 0) + 1
+                        continue
+                    if sid in self._results_empty_until and datetime.now(timezone.utc) < self._results_empty_until[sid]:
+                        summary["results_empty_events_skipped"] = int(summary.get("results_empty_events_skipped") or 0) + 1
+                        continue
                 if kind == "results" and self._state_bundle is not None:
                     should_scrape, reason = should_recheck_event(
                         list_item=item,
@@ -2531,6 +2632,9 @@ class TapologyScraper:
                         )
                     item["recheck_reason"] = reason
                 try:
+                    if kind == "results":
+                        self._results_live_fetches += 1
+                        summary["event_fetch_attempts"] = self._results_live_fetches
                     event = self._scrape_event_page(context, item, kind, run_dir, summary)
                     if self._event_is_skipped_ufc(event):
                         self._record_skipped_ufc_event(summary, event)
@@ -2596,7 +2700,10 @@ class TapologyScraper:
                     except FatalScrapeError as fatal:
                         setattr(fatal, "partial_events", list(events))
                         raise
-            if self.config.max_events and len(events) >= self.config.max_events:
+            if kind == "results" and self.config.max_event_fetches and self._results_live_fetches >= self.config.max_event_fetches:
+                summary["pagination_stop_reason"] = "max_event_fetches"
+                break
+            if self.config.max_events and len(events) - results_resumed_count >= self.config.max_events:
                 summary["pagination_stop_reason"] = "max_events"
                 break
             if stop_requested:
@@ -3565,6 +3672,18 @@ class TapologyScraper:
             url = canonical_url(fighter.get("url"))
             if not source_id and not url:
                 continue
+            if summary is not None:
+                summary["profile_requests_before_tracking"] = int(summary.get("profile_requests_before_tracking") or 0) + 1
+            decision = tracking_decision_for(self._tracking_decisions, source_id, url)
+            if not tracking_allows_profile(decision):
+                if summary is not None:
+                    mode = str((decision or {}).get("tracking_mode") or "unknown")
+                    summary["tracking_skipped_count"] = int(summary.get("tracking_skipped_count") or 0) + 1
+                    by_mode = summary.setdefault("tracking_skipped_by_mode", {})
+                    by_mode[mode] = int(by_mode.get(mode) or 0) + 1
+                continue
+            if summary is not None:
+                summary["profile_requests_after_tracking"] = int(summary.get("profile_requests_after_tracking") or 0) + 1
             try:
                 profile = self._fetch_event_fighter_profile(
                     context,
@@ -4019,7 +4138,7 @@ class TapologyScraper:
                     if details:
                         self._apply_matchup_details(bout, details)
                 else:
-                    reason = "calendar_mode" if bout.get("bout_url") else "no_bout_url"
+                    reason = ("calendar_mode" if kind == "upcoming" else "matchup_pages_disabled") if bout.get("bout_url") else "no_bout_url"
                     log("info", "matchup_page_skipped", reason=reason, event_url=event.get("event_url"))
                 if kind=='results' and bout.get('result_type') not in {'win_loss','draw','no_contest'}:
                     event.setdefault('skipped_bouts',[]).append(self._skipped_bout_record(row,page.url,'no_result'))
@@ -4481,6 +4600,11 @@ class TapologyScraper:
     def _copy_summary_skip_counts(self, document: dict[str, Any], summary: dict[str, Any], kind: str) -> None:
         document["run"]["events_skipped_ufc"] = summary.get("events_skipped_ufc", 0)
         if kind == "results":
+            for key in ("results_resume_sources", "results_events_resumed", "results_resumed_observed_at",
+                        "results_events_deferred", "results_events_skipped_from_checkpoint",
+                        "results_exclusions_skipped_from_checkpoint", "results_empty_events_skipped", "event_fetch_attempts"):
+                if key in summary:
+                    document["run"][key] = deepcopy(summary[key])
             document["run"]["skipped_events_no_usable_bouts"] = summary.get("skipped_events_no_usable_bouts", 0)
             document["run"]["skipped_events_non_mma_or_no_results"] = summary.get(
                 "skipped_events_non_mma_or_no_results", 0

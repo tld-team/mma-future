@@ -46,7 +46,7 @@ final class DatabaseState {
     public static function calculationRevision(): string {
         $t=CanonicalSchema::table_names();$hash=hash_init('sha256');
         $queries=[
-            ['fighters',"SELECT id,date_of_birth,gender,weight_class,status,is_public,is_rankable,rankability_status,in_ufc,deleted_soft FROM {$t['fighters']} ORDER BY id",'id'],
+            ['fighters',"SELECT id,date_of_birth,gender,weight_class,status,is_public,is_rankable,rankability_status,in_ufc,tracking_mode,tracking_revision,tracking_last_checked_bout_id,tracking_return_candidate_at,deleted_soft FROM {$t['fighters']} ORDER BY id",'id'],
             ['events',"SELECT id,event_date,status,deleted_soft FROM {$t['events']} ORDER BY id",'id'],
             ['bouts',"SELECT * FROM {$t['bouts']} ORDER BY id",'id'],
             ['participants',"SELECT * FROM {$t['bout_participants']} ORDER BY id",'id'],
@@ -66,7 +66,7 @@ final class DatabaseState {
     public static function protectedState(?int $maxId=null): array {
         global $wpdb;$t=CanonicalSchema::table_names();
         $maxId=$maxId??(int)$wpdb->get_var("SELECT MAX(id) FROM {$t['fighters']}");
-        $flags=self::rows($wpdb->prepare("SELECT f.id,f.is_public,f.is_rankable,f.status,f.rankability_status,f.deleted_soft,f.in_ufc,p.post_status FROM {$t['fighters']} f LEFT JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.id<=%d ORDER BY f.id",$maxId),'f.id');
+        $flags=self::rows($wpdb->prepare("SELECT f.id,f.is_public,f.is_rankable,f.status,f.rankability_status,f.deleted_soft,f.in_ufc,f.tracking_mode,f.tracking_reason,f.tracking_source,f.tracking_evidence_url,f.tracking_changed_at,f.tracking_revision,f.tracking_last_checked_at,f.tracking_last_checked_bout_id,f.tracking_return_candidate_at,p.post_status FROM {$t['fighters']} f LEFT JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.id<=%d ORDER BY f.id",$maxId),'f.id');
         $manual=(static function()use($wpdb,$t){
             $cursor=null;
             do{

@@ -63,6 +63,14 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-pages", type=int, default=None, help="Maximum list pages to traverse")
     run.add_argument("--max-events", type=int, default=None, help="Maximum events to open")
     run.add_argument("--limit-events", type=int, default=None, help="Alias for --max-events")
+    run.add_argument("--max-event-fetches", type=positive_int, default=None,
+                     help="Cap live event page attempts, including pages without usable bouts.")
+    run.add_argument("--resume-results-from", type=Path, action="append", default=[],
+                     help="Reuse verified complete results from a local checkpoint; may be repeated.")
+    run.add_argument("--no-scrape-matchup-pages", dest="scrape_matchup_pages", action="store_false", default=True,
+                     help="Use event-card results without opening individual bout detail pages.")
+    run.add_argument("--empty-results-cooldown-hours", type=non_negative_int, default=0,
+                     help="Defer recently verified empty result cards from checkpoints for this many hours.")
     run.add_argument(
         "--mode",
         choices=["daily", "backfill"],
@@ -141,6 +149,12 @@ def build_parser() -> argparse.ArgumentParser:
         dest="enrich_fighter_profiles",
         action="store_false",
         help="Disable event-level fighter profile enrichment",
+    )
+    run.add_argument(
+        "--tracking-decisions",
+        type=Path,
+        default=None,
+        help="Private WordPress tracking manifest used to skip archived profile requests.",
     )
     run.add_argument("--slow-mo", type=int, default=0, help="Playwright slow motion in milliseconds")
     run.add_argument(
@@ -355,6 +369,11 @@ def build_parser() -> argparse.ArgumentParser:
     upcoming_export = subparsers.add_parser("export-upcoming-bundle", help="Create a mmaf_upcoming_v1 ZIP for controlled WordPress import")
     upcoming_export.add_argument("--output", type=Path, required=True)
     upcoming_export.add_argument("--data-dir", type=Path, default=None)
+    ufc=subparsers.add_parser('check-ufc-roster',help='Fetch current/former UFC lists and the roster.watch change log')
+    ufc_head=ufc.add_mutually_exclusive_group();ufc_head.add_argument('--headless',action='store_true',default=True);ufc_head.add_argument('--headed',action='store_true')
+    ufc.add_argument('--slow-mo',type=int,default=0);ufc.add_argument('--latest-dir',type=Path,default=LATEST_DIR);add_browser_options(ufc)
+    ufc_export=subparsers.add_parser('export-ufc-roster-bundle',help='Create a standalone UFC roster import ZIP')
+    ufc_export.add_argument('--output',type=Path,required=True);ufc_export.add_argument('--latest-dir',type=Path,default=LATEST_DIR)
     subparsers.add_parser("validate-latest", help="Validate latest JSON files exist and have basic schema integrity")
     gate = subparsers.add_parser(
         "pre-import-check",
@@ -398,6 +417,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_QUEUE_PATH,
         help="Queue JSON output path",
+    )
+    queue.add_argument(
+        "--tracking-decisions",
+        type=Path,
+        default=None,
+        help="Private JSON exported by `wp mmaf fighter tracking-export`; current WordPress decisions filter profile requests.",
     )
 
     enrich = subparsers.add_parser(
@@ -587,6 +612,17 @@ def _dispatch(args) -> int:
             return 2
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
+    if args.command == 'check-ufc-roster':
+        from .ufc_roster import check_ufc_roster
+        try: result=check_ufc_roster(latest_dir=args.latest_dir,config=ScraperConfig(headless=not args.headed,slow_mo=args.slow_mo,browser_engine=args.browser_engine,browser_channel=args.browser_channel,browser_executable_path=args.browser_executable_path))
+        except Exception as error:
+            print(json.dumps({"ok":False,"error":str(error),"status_file":str(args.latest_dir / 'ufc_roster_status.json')},ensure_ascii=False,indent=2),file=sys.stderr)
+            return 2
+        print(json.dumps(result,ensure_ascii=False,indent=2));return 0
+    if args.command == 'export-ufc-roster-bundle':
+        from .import_bundle import export_ufc_roster_bundle
+        result=export_ufc_roster_bundle(args.output,latest_dir=args.latest_dir);print(json.dumps(result,ensure_ascii=False,indent=2));return 0
+
     if args.command=='prepare-import-recovery':
         from .import_recovery import prepare_recovery
         print(json.dumps(prepare_recovery(args.source_profiles,args.snapshots_dir,args.output_dir),ensure_ascii=False,indent=2));return 0
@@ -681,6 +717,7 @@ def _dispatch(args) -> int:
             queue_mode=args.queue_mode,
             output_path=args.output,
             report_path=args.output.with_name("fighter_profile_queue_report.json"),
+            tracking_decisions_path=args.tracking_decisions,
         )
         print(
             json.dumps(
@@ -695,6 +732,10 @@ def _dispatch(args) -> int:
                     "refreshable_count": queue_document.get("refreshable_count"),
                     "fresh_count": queue_document.get("fresh_count"),
                     "mode_filtered_count": queue_document.get("mode_filtered_count"),
+                    "tracking_skipped_count": queue_document.get("tracking_skipped_count"),
+                    "tracking_skipped_by_mode": queue_document.get("tracking_skipped_by_mode"),
+                    "profile_requests_before_tracking": queue_document.get("profile_requests_before_tracking"),
+                    "profile_requests_after_tracking": queue_document.get("profile_requests_after_tracking"),
                     "missing_url_count": queue_document.get("missing_url_count"),
                     "duplicate_url_count": report.get("duplicate_url_count"),
                     "count_by_stale_reason": report.get("count_by_stale_reason"),
@@ -816,6 +857,9 @@ def _dispatch(args) -> int:
         return 0
 
     if args.command == "run":
+        if args.resume_results_from and (not args.results_only or args.fresh_results or args.force_full_scan or args.force_recheck_event):
+            print("error: results resume requires --results-only and cannot be combined with forced/fresh scraping", file=sys.stderr)
+            return 2
         if args.cumulative_results and args.fresh_results:
             print(
                 "error: --cumulative-results cannot be combined with --fresh-results",
@@ -891,6 +935,10 @@ def _dispatch(args) -> int:
                 slow_mo=args.slow_mo,
                 max_pages=args.max_pages,
                 max_events=args.limit_events if args.limit_events is not None else args.max_events,
+                max_event_fetches=args.max_event_fetches,
+                resume_results_checkpoints=tuple(args.resume_results_from),
+                scrape_matchup_pages=args.scrape_matchup_pages,
+                empty_results_cooldown_hours=args.empty_results_cooldown_hours,
                 promotion_scope=args.promotion_scope,
                 sport=args.sport,
                 from_date=args.from_date,
@@ -904,6 +952,7 @@ def _dispatch(args) -> int:
                 cumulative_results=args.cumulative_results,
                 fresh_results=args.fresh_results,
                 enrich_fighter_profiles=args.enrich_fighter_profiles,
+                tracking_decisions_path=args.tracking_decisions,
                 use_profile_cache=args.profile_cache_ttl_days is not None,
                 profile_cache_ttl_days=args.profile_cache_ttl_days,
                 page_pause_seconds=args.page_pause_seconds,

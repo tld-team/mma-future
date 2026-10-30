@@ -4,7 +4,7 @@ use MMAFVendor\JsonMachine\RecursiveItems;
 
 final class Package {
     public const REQUIRED = ['results.json','daily_summary.json','manual_review.json','run_manifest.json','changes.json','fighter_profiles.json','fighter_profiles_report.json'];
-    public const OPTIONAL = ['state_report.json','package_manifest.json','career_history.json','readiness_report.json','source_enrichment_queue.json','event_coverage.json','priority_targets.json'];
+    public const OPTIONAL = ['state_report.json','package_manifest.json','career_history.json','readiness_report.json','source_enrichment_queue.json','event_coverage.json','priority_targets.json','ufc_roster.json'];
     public function prepare(array $job, Repository $repo, callable $heartbeat): array {
         $id=(int)$job['id']; $dir=Storage::job($id); $source=$dir.'/source';
         if (is_dir($source)) { Storage::removeTree($source); }
@@ -34,13 +34,14 @@ final class Package {
                 chmod($source.'/'.$base,0600); $seen[$base]=['bytes'=>$written,'sha256'=>hash_file('sha256',$source.'/'.$base)]; $heartbeat();
             }
         } finally { $zip->close(); }
-        $required = isset($seen['career_history.json']) ? ['career_history.json','package_manifest.json'] : self::REQUIRED;
+        $transport=isset($seen['package_manifest.json'])?Storage::read($source.'/package_manifest.json'):[];
+        $mode=(string)($transport['mode']??'full');
+        $required = $mode==='ufc_roster' ? ['ufc_roster.json','package_manifest.json'] : (isset($seen['career_history.json']) ? ['career_history.json','package_manifest.json'] : self::REQUIRED);
         if (array_diff($required,array_keys($seen))) { throw new ImportException('Required scraper files are missing: '.implode(', ',array_diff($required,array_keys($seen)))); }
         if (isset($seen['package_manifest.json'])) {
-            $transport=Storage::read($source.'/package_manifest.json');
             if (($transport['format']??'')!=='mmaf-import-bundle' || ($transport['format_version']??0)!==1) { throw new ImportException('Unsupported import package version.'); }
             if(isset($transport['contract_version']) && !in_array($transport['contract_version'],[1,2],true)){throw new ImportException('Unsupported import evidence contract.','contract');}
-            if(!in_array($transport['mode']??'full',['full','delta','career_history'],true)){throw new ImportException('Unsupported import package mode.','contract');}
+            if(!in_array($transport['mode']??'full',['full','delta','career_history','ufc_roster'],true)){throw new ImportException('Unsupported import package mode.','contract');}
             $listed=array_keys($transport['files']??[]);$actual=array_values(array_diff(array_keys($seen),['package_manifest.json']));sort($listed);sort($actual);
             if($listed!==$actual){throw new ImportException('Package file list disagrees with its manifest.','checksum');}
             foreach ($seen as $file=>$info) {
@@ -51,6 +52,12 @@ final class Package {
         }
         $hashes=$seen; unset($hashes['package_manifest.json']); ksort($hashes);
         $meta=['files'=>$seen,'bundle_hash'=>hash('sha256',wp_json_encode($hashes)),'expanded_bytes'=>$total,'headers'=>[],'counts'=>[]];
+        if($mode==='ufc_roster'){
+            $document=Storage::read($source.'/ufc_roster.json');(new \MMAF\DataEngine\Services\UfcSigningService())->validate_document($document);
+            if($this->ufc_warning($document)){throw new ImportException('UFC roster is stale or older than the last imported snapshot: '.$this->ufc_warning($document),'ufc_stale');}
+            $path=$dir.'/ufc-0.json';Storage::write($path,['document'=>$document]);$repo->addBatch($id,'ufc',0,hash_file('sha256',$path),count($document['fighters']));
+            $meta['mode']='ufc_roster';$meta['headers']['ufc']=array_diff_key($document,['fighters'=>true]);$meta['counts']['ufc']=count($document['fighters']);$meta['date_from']=null;$meta['date_to']=null;return $meta;
+        }
         $coverage=null;
         if(($transport['contract_version']??1)===2 && !isset($seen['career_history.json'])){
             $coverage=EventCoverage::read($source.'/event_coverage.json');
@@ -147,7 +154,20 @@ final class Package {
         }
         if(!$coverage){$meta['event_coverage']=['complete'=>false,'legacy'=>true,'counts'=>['legacy'=>$meta['counts']['results']]];}
         sort($dates);$meta['date_from']=$dates[0]??null;$meta['date_to']=$dates ? end($dates):null;
+        if(isset($seen['ufc_roster.json'])){
+            $document=Storage::read($source.'/ufc_roster.json');(new \MMAF\DataEngine\Services\UfcSigningService())->validate_document($document);
+            $warning=$this->ufc_warning($document);
+            if($warning){$meta['ufc_warning']=$warning;$meta['ufc_roster_last_import']=get_option('mmaf_ufc_roster_last_import',null);}
+            else{$path=$dir.'/ufc-0.json';Storage::write($path,['document'=>$document]);$repo->addBatch($id,'ufc',0,hash_file('sha256',$path),count($document['fighters']));
+                $meta['headers']['ufc']=array_diff_key($document,['fighters'=>true]);$meta['counts']['ufc']=count($document['fighters']);}
+        }else{$meta['ufc_roster_not_included']=true;$meta['ufc_roster_last_import']=get_option('mmaf_ufc_roster_last_import',null);}
         return $meta;
+    }
+    private function ufc_warning(array $document): ?string {
+        $time=strtotime((string)$document['scraped_at']);if(!$time || $time<time()-48*3600){return 'UFC snapshot is older than 48 hours.';}
+        if($time>time()+900){return 'UFC snapshot timestamp is in the future.';}
+        $last=get_option('mmaf_ufc_roster_last_import',[]);if(!empty($last['scraped_at']) && $time<strtotime($last['scraped_at'])){return 'UFC snapshot predates the imported snapshot.';}
+        return null;
     }
     /** Traverse the entire document, including trailing content; only one source row is materialized. */
     private function scan(string $file,?string $field,?callable $row): array {
@@ -180,6 +200,7 @@ final class Package {
         $path=Storage::job((int)$job['id']).'/'.$batch['kind'].'-'.$batch['batch_index'].'.json';
         if (!is_file($path) || !hash_equals($batch['payload_hash'],hash_file('sha256',$path))) { throw new ImportException('Prepared batch checksum mismatch.','checksum'); }
         $data=$job['meta']['package']['headers'][$batch['kind']];
+        if($batch['kind']==='ufc'){return Storage::read($path)['document'];}
         $field=['results'=>'events','profiles'=>'profiles','review'=>'items','career'=>'profiles'][$batch['kind']];
         $data[$field]=Storage::read($path)['rows'];
         if ($batch['kind']==='profiles') { $data['profiles_total']=count($data[$field]); }

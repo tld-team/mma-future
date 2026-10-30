@@ -168,6 +168,8 @@ function mmaf_asset_version(string $relative): string {
 }
 
 function mma_future_scripts() {
+	// Apply a saved appearance before the first paint; do not defer this script.
+	wp_enqueue_script( 'mmaf-color-scheme', get_template_directory_uri() . '/assets/dist/js/color-scheme.js', array(), mmaf_asset_version('assets/dist/js/color-scheme.js'), false );
 	/** ==============================            custom styles and scripts            ============================== */
 	/**  */
 	wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css', array(), mmaf_asset_version('assets/dist/css/output.css') );
@@ -182,6 +184,7 @@ function mma_future_scripts() {
 	/** ==============================            default styles and scripts            ============================== */
 
 	wp_enqueue_style( 'mma-future-style', get_stylesheet_uri(), array(), _S_VERSION );
+	wp_enqueue_style( 'mmaf-color-scheme', get_template_directory_uri() . '/assets/dist/css/color-scheme.css', array( 'mma-main', 'mma-future-style', 'mmaf-integration' ), mmaf_asset_version('assets/dist/css/color-scheme.css') );
 	wp_style_add_data( 'mma-future-style', 'rtl', 'replace' );
 
 	wp_enqueue_script( 'mma-future-navigation', get_template_directory_uri() . '/js/navigation.js', array(), _S_VERSION, true );
@@ -230,6 +233,7 @@ require get_template_directory() . '/inc/template-functions.php';
  * Customizer additions.
  */
 require get_template_directory() . '/inc/customizer.php';
+require get_template_directory() . '/inc/brand.php';
 
 /**
  * Register blocks

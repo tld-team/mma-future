@@ -49,6 +49,7 @@ php -d memory_limit=512M tests/integration/verify-public.php
 php -d memory_limit=512M tests/integration/verify-movers.php
 php -d memory_limit=512M tests/integration/verify-contact.php
 php -d memory_limit=512M tests/integration/verify-readiness.php
+php -d memory_limit=512M tests/integration/verify-ufc-signings.php
 php tests/unit/json-document.php
 ```
 

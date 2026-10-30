@@ -15,6 +15,16 @@ final class EligibilityService {
 		$config   = FormulaRegistry::current_config();
 		$rules    = $config['eligibility'];
 
+		$tracking_mode = TrackingService::mode( $fighter );
+		$this->gate(
+			$gates,
+			'tracking_mode',
+			TrackingService::NORMAL === $tracking_mode,
+			'tracking_mode_' . $tracking_mode,
+			$reasons,
+			array( 'value' => $tracking_mode )
+		);
+
 		$this->gate(
 			$gates,
 			'deleted_soft',

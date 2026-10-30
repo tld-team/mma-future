@@ -32,6 +32,39 @@ SOURCE_DERIVED_INDEX = "derived_index"
 SOURCE_INPUT_FILE = "input_file"
 
 
+def load_tracking_decisions(path: Path | None) -> dict[str, Any]:
+    index: dict[str, Any] = {"by_id": {}, "by_url": {}, "revision": None}
+    if path is None:
+        return index
+    payload = _read_json(path)
+    if payload.get("schema_version") != "mmaf_tracking_decisions_v1" or not isinstance(payload.get("fighters"), list):
+        raise ValueError("invalid_tracking_decisions_document")
+    index["revision"] = str(payload.get("revision") or "") or None
+    for row in payload["fighters"]:
+        if not isinstance(row, dict):
+            continue
+        source_id = row.get("source_fighter_id")
+        url = normalize_tapology_fighter_url(row.get("source_url"))
+        if source_id:
+            index["by_id"][str(source_id)] = row
+        if url:
+            index["by_url"][url] = row
+    return index
+
+
+def tracking_decision_for(index: dict[str, Any], source_id: str | None, source_url: str | None) -> dict[str, Any] | None:
+    if source_id and str(source_id) in index.get("by_id", {}):
+        return index["by_id"][str(source_id)]
+    return index.get("by_url", {}).get(normalize_tapology_fighter_url(source_url) or "")
+
+
+def tracking_allows_profile(decision: dict[str, Any] | None) -> bool:
+    if not decision:
+        return True
+    mode = decision.get("tracking_mode") or "normal"
+    return mode == "normal" or (mode == "paused" and bool(decision.get("recheck_due")))
+
+
 def build_fighter_profile_queue(
     *,
     latest_results_path: Path = LATEST_DIR / "results.json",
@@ -46,8 +79,9 @@ def build_fighter_profile_queue(
     queue_mode: str = "default",
     output_path: Path = DEFAULT_QUEUE_PATH,
     report_path: Path = DEFAULT_QUEUE_REPORT_PATH,
+    tracking_decisions_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Path]]:
-    builder = _QueueBuilder(existing_profiles_path=existing_profiles_path)
+    builder = _QueueBuilder(existing_profiles_path=existing_profiles_path,tracking_decisions_path=tracking_decisions_path)
     builder.collect_results(latest_results_path, SOURCE_LATEST_RESULTS)
     builder.collect_results(latest_upcoming_path, SOURCE_LATEST_UPCOMING, kind="upcoming")
     if include_run_history:
@@ -77,6 +111,11 @@ def build_fighter_profile_queue(
             "refreshable_count": queue["refreshable_count"],
             "fresh_count": queue["fresh_count"],
             "warnings": sorted(set(builder.warnings)),
+            "tracking_decisions_revision": builder.tracking_revision,
+            "tracking_skipped_count": queue["tracking_skipped_count"],
+            "tracking_skipped_by_mode": queue["tracking_skipped_by_mode"],
+            "profile_requests_before_tracking": len(queue["queue"]) + queue["tracking_skipped_count"],
+            "profile_requests_after_tracking": len(queue["queue"]),
         }
     )
     report = build_fighter_profile_queue_report(queue, builder=builder)
@@ -132,6 +171,10 @@ def build_fighter_profile_queue_report(
         "refreshable_count": int(queue_document.get("refreshable_count") or 0),
         "fresh_count": int(queue_document.get("fresh_count") or 0),
         "mode_filtered_count": int(queue_document.get("mode_filtered_count") or 0),
+        "tracking_skipped_count": int(queue_document.get("tracking_skipped_count") or 0),
+        "tracking_skipped_by_mode": dict(queue_document.get("tracking_skipped_by_mode") or {}),
+        "profile_requests_before_tracking": int(queue_document.get("profile_requests_before_tracking") or 0),
+        "profile_requests_after_tracking": int(queue_document.get("profile_requests_after_tracking") or 0),
         "missing_url_count": int(queue_document.get("missing_url_count") or 0),
         "duplicate_url_count": duplicate_url_count,
         "count_by_stale_reason": dict(
@@ -220,7 +263,7 @@ def normalize_tapology_fighter_url(url: str | None) -> str | None:
 
 
 class _QueueBuilder:
-    def __init__(self, *, existing_profiles_path: Path):
+    def __init__(self, *, existing_profiles_path: Path, tracking_decisions_path: Path | None = None):
         self.existing_profiles = _existing_profiles(existing_profiles_path)
         self.existing_profiles_by_url = {
             url: profile for url, profile in self.existing_profiles["by_url"].items()
@@ -242,6 +285,11 @@ class _QueueBuilder:
             SOURCE_INPUT_FILE: set(),
         }
         self.warnings: list[str] = []
+        self.tracking_index = load_tracking_decisions(tracking_decisions_path)
+        self.tracking_revision: str | None = self.tracking_index["revision"]
+
+    def _tracking_decision(self, item: dict[str, Any]) -> dict[str, Any] | None:
+        return tracking_decision_for(self.tracking_index, item.get("source_fighter_id"), item.get("source_url"))
 
     def collect_results(self, path: Path, source_type: str, *, kind: str = "results") -> None:
         payload = _read_json(path)
@@ -396,8 +444,17 @@ class _QueueBuilder:
         refreshable_count = 0
         fresh_count = 0
         mode_filtered_count = 0
+        tracking_skipped: Counter[str] = Counter()
         for entry in self.entries.values():
             item = deepcopy(entry)
+            decision = self._tracking_decision(item)
+            if decision:
+                item["tracking_mode"] = decision.get("tracking_mode") or "normal"
+                item["tracking_revision"] = decision.get("revision")
+                mode = item["tracking_mode"]
+                if mode == "opponent_only" or (mode == "paused" and not decision.get("recheck_due")):
+                    tracking_skipped[mode] += 1
+                    continue
             item["seen_in"] = sorted(item["seen_in"])
             item["seen_event_internal_ids"] = sorted(item.get("seen_event_internal_ids") or [])
             item["seen_event_source_ids"] = sorted(item.get("seen_event_source_ids") or [])
@@ -430,6 +487,8 @@ class _QueueBuilder:
             "refreshable_count": refreshable_count,
             "fresh_count": fresh_count,
             "mode_filtered_count": mode_filtered_count,
+            "tracking_skipped_count": sum(tracking_skipped.values()),
+            "tracking_skipped_by_mode": dict(sorted(tracking_skipped.items())),
             "queue": entries,
         }
 

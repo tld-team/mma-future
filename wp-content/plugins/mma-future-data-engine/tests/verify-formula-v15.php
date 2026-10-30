@@ -39,7 +39,9 @@ require_once dirname( __DIR__ ) . '/includes/Services/AuditLogService.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV13.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV14.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV15.php';
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV16.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaRegistry.php';
+require_once dirname( __DIR__ ) . '/includes/Services/TrackingService.php';
 require_once dirname( __DIR__ ) . '/includes/Services/EligibilityService.php';
 require_once dirname( __DIR__ ) . '/includes/Services/RankingCalculatorService.php';
 require_once dirname( __DIR__ ) . '/includes/Services/RankingActivationService.php';
@@ -95,7 +97,7 @@ $assertThrows = static function ( string $name, callable $callback ) use ( &$fai
 	}
 };
 
-$assert( 'registry_current_version', FormulaV15::VERSION, FormulaRegistry::current_version() );
+$assert( 'registry_current_version', \MMAF\DataEngine\Services\Formula\FormulaV16::VERSION, FormulaRegistry::current_version() );
 $assertTrue( 'registry_direct_scores', FormulaRegistry::uses_direct_scores( FormulaV15::VERSION ) );
 $assertTrue( 'registry_legacy_normalized_v14', FormulaRegistry::uses_normalized_scores( 'v1.4' ) );
 
@@ -173,6 +175,13 @@ $assert( 'scheduled_bout_ignored_old_last_fight_stays_ineligible', false, $evalu
 $stats['last_fight_date'] = '2026-06-01';
 $evaluation_returned_after_new_fight = $eligibility->evaluate( $fighter, $stats, '2026-06-22' );
 $assert( 'new_held_bout_returns_fighter_to_eligibility', true, $evaluation_returned_after_new_fight['eligible'] );
+$paused_fighter = array_merge( $fighter, array( 'tracking_mode' => 'paused' ) );
+$paused_evaluation = $eligibility->evaluate( $paused_fighter, $stats, '2026-06-22' );
+$assert( 'paused_fighter_ineligible', false, $paused_evaluation['eligible'] );
+$assertTrue( 'paused_fighter_reason', in_array( 'tracking_mode_paused', $paused_evaluation['reasons'], true ), $paused_evaluation['reasons'] );
+$opponent_only_fighter = array_merge( $fighter, array( 'tracking_mode' => 'opponent_only' ) );
+$opponent_only_evaluation = $eligibility->evaluate( $opponent_only_fighter, $stats, '2026-06-22' );
+$assertTrue( 'opponent_only_not_calculated', ! $opponent_only_evaluation['eligible_for_calculation'], $opponent_only_evaluation['calculation_blocking_reasons'] );
 
 $calculator = new RankingCalculatorService();
 $score_fighter = new ReflectionMethod( RankingCalculatorService::class, 'score_fighter' );

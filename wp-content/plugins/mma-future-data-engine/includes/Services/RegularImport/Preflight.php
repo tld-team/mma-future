@@ -21,7 +21,7 @@ final class Preflight {
         }
         $due=true;
         if(defined('MMAF_OPERATIONS_DIR')){$path=MMAF_OPERATIONS_DIR.'/restore-status.json';$evidence=is_file($path)?json_decode(file_get_contents($path),true):[];$checked=strtotime((string)($evidence['checked_at']??''));$due=empty($evidence['ok']) || ($evidence['schema']??'')!==get_option('mmaf_db_version') || !$checked || time()-$checked>30*86400;}
-        return ['ready'=>!$problems,'problems'=>$problems,'backup_estimated_bytes'=>$estimate*2+134217728+$media['bytes'],'media_files'=>$media['files'],'capacity'=>$capacity,'restore_verification'=>$restore,'restore_verification_due'=>$due];
+        return ['ready'=>!$problems,'problems'=>$problems,'ufc_transliteration_available'=>function_exists('transliterator_transliterate'),'ufc_warning'=>function_exists('transliterator_transliterate')?null:'PHP intl is unavailable; UFC matching continues without transliteration.','backup_estimated_bytes'=>$estimate*2+134217728+$media['bytes'],'media_files'=>$media['files'],'capacity'=>$capacity,'restore_verification'=>$restore,'restore_verification_due'=>$due];
     }
     public static function recordCapacity(array $input): array {
         if(!defined('MMAF_OPERATIONS_DIR')){throw new ImportException('Private operations storage is unavailable.','setup');}
