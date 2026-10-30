@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "assets": {
-    "assets/dist/.DS_Store": "9404f7955ea32d6361faa7b5fddf7eb606b7f9878350eb3ab2130f00299af4d1",
     "assets/dist/css/color-scheme.css": "cfd8214052eca02b49ffdc2182dbbc0d982422ffccb7231798eea743856d0e42",
     "assets/dist/css/integration.css": "6a37c271e3949a1ff990cbbbdc1a1897926eefa6154d172627d6d150e0245953",
     "assets/dist/css/output.css": "4b840bd9bd4664f3aebcdbdbdf571ca70f5948e520a1fac1f94b9d6c0731136c",

@@ -85,17 +85,29 @@ final class PublicReadRepository {
         if($run){$run['activated_at']=$row['activated_at'];}return $run;
     }
     public function movers(int $current,int $previous,string $board,int $limit=3): array {
-        global $wpdb;$t=$this->tables;
-        return $wpdb->get_results($wpdb->prepare("SELECT c.fighter_id,c.rank_position current_rank,p.rank_position previous_rank,(p.rank_position-c.rank_position) rank_change,f.display_name,f.wp_post_id FROM {$t['ranking_snapshots']} c JOIN {$t['ranking_snapshots']} p ON p.ranking_run_id=%d AND p.board_key=c.board_key AND p.fighter_id=c.fighter_id JOIN {$t['fighters']} f ON f.id=c.fighter_id WHERE c.ranking_run_id=%d AND c.board_key=%s AND p.rank_position>c.rank_position AND f.is_public=1 AND f.deleted_soft=0 AND f.in_ufc=0 AND ".$this->public_post_condition()." ORDER BY rank_change DESC,c.rank_position,f.id LIMIT %d",$previous,$current,$board,min(10,max(1,$limit))),ARRAY_A)?:[];
+        global $wpdb;
+        $current_rows=$this->public_ranked_snapshot($current,$board);
+        $previous_rows=$this->public_ranked_snapshot($previous,$board);
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT c.fighter_id,c.rank_position current_rank,p.rank_position previous_rank,(p.rank_position-c.rank_position) rank_change,c.display_name,c.wp_post_id FROM ($current_rows) c JOIN ($previous_rows) p ON p.fighter_id=c.fighter_id WHERE p.rank_position<>c.rank_position ORDER BY ABS(p.rank_position-c.rank_position) DESC,c.rank_position,c.fighter_id LIMIT %d",min(10,max(1,$limit))),ARRAY_A);
+        if($wpdb->last_error){throw new \RuntimeException('Cannot read ranking movement.');}
+        return $rows?:[];
     }
     public function new_entries(int $current,int $previous,string $board,array $options=[]): array {
-        global $wpdb;$t=$this->tables;
-        $from="FROM {$t['ranking_snapshots']} c LEFT JOIN {$t['ranking_snapshots']} p ON p.ranking_run_id=%d AND p.board_key=c.board_key AND p.fighter_id=c.fighter_id JOIN {$t['fighters']} f ON f.id=c.fighter_id WHERE c.ranking_run_id=%d AND c.board_key=%s AND p.id IS NULL AND f.is_public=1 AND f.deleted_soft=0 AND f.in_ufc=0 AND ".$this->public_post_condition();
-        $args=[$previous,$current,$board];$total=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) $from",$args));
+        global $wpdb;
+        $current_rows=$this->public_ranked_snapshot($current,$board);
+        $previous_rows=$this->public_ranked_snapshot($previous,$board);
+        $from="FROM ($current_rows) c LEFT JOIN ($previous_rows) p ON p.fighter_id=c.fighter_id WHERE p.fighter_id IS NULL";
+        $args=[];$total=(int)$wpdb->get_var("SELECT COUNT(*) $from");
         if(isset($options['include_new']) && !$options['include_new']){return ['total'=>$total,'rows'=>[]];}
         $pagination='';if(isset($options['new_page']) || isset($options['new_per_page'])){$pagination=' LIMIT %d OFFSET %d';$limit=min(100,max(1,(int)($options['new_per_page']??25)));$args[]=$limit;$args[]=(max(1,(int)($options['new_page']??1))-1)*$limit;}
-        $rows=$wpdb->get_results($wpdb->prepare("SELECT c.fighter_id,c.rank_position current_rank,f.display_name,f.wp_post_id $from ORDER BY c.rank_position,f.id $pagination",$args),ARRAY_A)?:[];
+        $sql="SELECT c.fighter_id,c.rank_position current_rank,c.display_name,c.wp_post_id $from ORDER BY c.rank_position,c.fighter_id $pagination";
+        $rows=$wpdb->get_results($args?$wpdb->prepare($sql,$args):$sql,ARRAY_A)?:[];
         return ['total'=>$total,'rows'=>$rows];
+    }
+    /** Match the public list's contiguous ranks, using the same current eligibility in both snapshots. */
+    private function public_ranked_snapshot(int $run,string $board): string {
+        global $wpdb;$t=$this->tables;
+        return $wpdb->prepare("SELECT r.fighter_id,CAST(ROW_NUMBER() OVER (ORDER BY r.rank_position,r.fighter_id) AS SIGNED) rank_position,f.display_name,f.wp_post_id FROM {$t['ranking_snapshots']} r JOIN {$t['fighters']} f ON f.id=r.fighter_id WHERE r.ranking_run_id=%d AND r.board_key=%s AND f.is_public=1 AND f.deleted_soft=0 AND f.in_ufc=0 AND ".$this->public_post_condition(),$run,$board);
     }
     /** Card data in one bounded query, without biography, history or source payloads. */
     public function cards(array $posts): array {
@@ -104,7 +116,6 @@ final class PublicReadRepository {
         return $wpdb->get_results($wpdb->prepare("SELECT f.id,f.wp_post_id,f.display_name,f.gender,f.weight_class,f.nationality,f.date_of_birth,f.birth_year,f.nickname,f.in_ufc,s.wins,s.losses,s.draws,s.nc,s.pro_fights_count,c.status coverage_status,r.rank_position FROM {$t['fighters']} f LEFT JOIN {$t['fighter_stats_current']} s ON s.fighter_id=f.id LEFT JOIN {$t['fighter_career_coverage']} c ON c.fighter_id=f.id LEFT JOIN {$t['ranking_snapshots']} r ON r.fighter_id=f.id AND r.ranking_run_id=%d AND r.board_key='overall' AND f.in_ufc=0 WHERE f.wp_post_id IN ($in) AND f.is_public=1 AND f.deleted_soft=0 AND ".$this->public_post_condition(),$run),ARRAY_A)?:[];
     }
 
-    public function run_contains_ufc_signings(int $run): bool {global $wpdb;$t=$this->tables;return (bool)$wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$t['ranking_snapshots']} r JOIN {$t['fighters']} f ON f.id=r.fighter_id WHERE r.ranking_run_id=%d AND f.in_ufc=1 LIMIT 1",$run));}
     public function rank_map(int $run,string $board='overall'): array {global $wpdb;$t=$this->tables;$ids=$wpdb->get_col($wpdb->prepare("SELECT r.fighter_id FROM {$t['ranking_snapshots']} r JOIN {$t['fighters']} f ON f.id=r.fighter_id WHERE r.ranking_run_id=%d AND r.board_key=%s AND f.in_ufc=0 AND f.is_public=1 AND f.deleted_soft=0 AND ".$this->public_post_condition()." ORDER BY r.rank_position,r.fighter_id",$run,$board))?:[];$out=[];foreach($ids as $index=>$id){$out[(int)$id]=$index+1;}return $out;}
 	private function rank_cutoff(int $run,string $board,int $limit): ?int {global $wpdb;$t=$this->tables;$offset=max(0,$limit-1);$value=$wpdb->get_var($wpdb->prepare("SELECT r.rank_position FROM {$t['ranking_snapshots']} r JOIN {$t['fighters']} f ON f.id=r.fighter_id WHERE r.ranking_run_id=%d AND r.board_key=%s AND f.in_ufc=0 AND f.is_public=1 AND f.deleted_soft=0 AND ".$this->public_post_condition()." ORDER BY r.rank_position,r.fighter_id LIMIT 1 OFFSET %d",$run,$board,$offset));if(null!==$value){return (int)$value;}$value=$wpdb->get_var($wpdb->prepare("SELECT MAX(r.rank_position) FROM {$t['ranking_snapshots']} r JOIN {$t['fighters']} f ON f.id=r.fighter_id WHERE r.ranking_run_id=%d AND r.board_key=%s AND f.in_ufc=0 AND f.is_public=1 AND f.deleted_soft=0 AND ".$this->public_post_condition(),$run,$board));return null===$value?null:(int)$value;}
 

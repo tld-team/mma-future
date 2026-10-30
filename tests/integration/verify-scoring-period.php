@@ -75,7 +75,7 @@ try {
     $ufc['current_roster']=['verified'=>true,'promotion'=>'ufc','evidence'=>'current_ufc_ranking_widget','widget_boundary_verified'=>true,'logo_alt'=>'UFC','heading'=>'UFC Ranking','ranking_url'=>'https://www.tapology.com/rankings/ufc/ultimate-fighting-championship-mens-lightweight-155-pounds'];
     $profiles->put($ufc,'tapology_fighter_profiles_v0_1');
     $ufcBatch=$calculator->score_batch($runs->list_fighters_with_stats([$a['fighter_id']]),'2026-10-14','2026-10-14 12:00:00');
-    check(!$ufcBatch['rows'] && $ufcBatch['summary']['ineligible_fighters']===1 && isset($ufcBatch['summary']['eligibility_reasons']['ineligible_ufc']),'fresh current UFC widget excludes the fighter even before canonical promotion flags catch up');
+    check(!empty($ufcBatch['assessments'][$a['fighter_id']]['source_current_roster']) && !isset($ufcBatch['summary']['eligibility_reasons']['ineligible_ufc']),'fresh current UFC widget remains review evidence until a signing is confirmed');
     check((int)$wpdb->get_var($wpdb->prepare("SELECT in_ufc FROM {$t['fighters']} WHERE id=%d",$a['fighter_id']))===0,'source eligibility evidence does not overwrite canonical promotion flags');
     $restore=$raw;$restore['scraped_at']='2026-10-14T11:00:00Z';$restore['period_evidence']['checked_through']='2026-10-14';$profiles->put($restore,'tapology_fighter_profiles_v0_1');
     $truncated=$restore;$truncated['scraped_at']='2026-10-14T11:01:00Z';$truncated['period_evidence']['load_complete']=false;$profiles->put($truncated,'tapology_fighter_profiles_v0_1');

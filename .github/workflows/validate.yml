@@ -40,6 +40,7 @@ jobs:
           php tests/unit/json-document.php
           php tests/unit/opponent-impact.php
           php tests/unit/scoring-finishes.php
+          php tests/unit/home-ranking-overview.php
           php tests/unit/ufc-matcher.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v15.php
   scraper:
@@ -135,6 +136,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-admin-contracts.php
           php -d memory_limit=256M tests/integration/verify-system-check.php
           php -d memory_limit=256M tests/integration/verify-rankings-admin.php
+          php -d memory_limit=256M tests/integration/verify-movers.php
           php -d memory_limit=256M tests/integration/verify-closeout.php
           php -d memory_limit=256M tests/integration/verify-review-audit.php
           php -d memory_limit=256M tests/integration/verify-retention.php

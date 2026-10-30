@@ -25,6 +25,20 @@
         const rows=['fighter','event','bout','profile',...['stored_career_profile','career_profile','career_bout'].filter(key=>counts?.[key])];
         return '<div class="mmaf-table-scroll"><table><thead><tr><th>'+t('Data')+'</th>'+['New','Updated','Unchanged','Review','Excluded'].map(x=>'<th>'+t(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(key=>'<tr><td>'+escape(t({fighter:'Fighters',event:'Events',bout:'Bouts',profile:'Stored profiles',stored_career_profile:'Approved career histories',career_profile:'Career profiles',career_bout:'Career history fights'}[key]))+'</td>'+['created','updated','unchanged','review','excluded'].map(cat=>'<td>'+Number(counts?.[key]?.[cat]||0).toLocaleString()+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
     }
+    function ufcPreviewHtml(job) {
+        const runs=job.source_runs||{}, snapshot=job.ufc_snapshot||{};
+        if(!runs.events&&!runs.profiles&&!runs.ufc&&!snapshot.warning)return '';
+        let html='<div class="mmaf-note"><strong>'+t('Import destination and source runs')+'</strong><p>'+t('Site')+': '+escape(job.site_url||'—')+' · '+t('Database')+': '+escape(job.database||'—')+'</p><p>'+t('Events')+': '+escape(runs.events||'—')+' · '+t('Profiles')+': '+escape(runs.profiles||'—')+' · UFC: '+escape(runs.ufc||'—')+'</p>';
+        if(snapshot.scraped_at)html+='<p>'+t('UFC snapshot fetched')+': '+escape(snapshot.scraped_at)+'</p>';
+        if(snapshot.warning)html+='<p><strong>'+t('UFC warning')+':</strong> '+escape(snapshot.warning)+'</p>';
+        html+='</div>';
+        const preview=job.ufc_preview;
+        if(!preview)return html;
+        html+='<div class="mmaf-note"><strong>'+t('UFC comparison preview')+'</strong><p>'+[['new','New candidates'],['updated','Updated candidates'],['conflicts','Identity conflicts'],['preserved_rejections','Preserved rejections'],['already_confirmed','Already confirmed'],['unmatched','Unmatched source entries']].map(([key,label])=>t(label)+': '+Number(preview[key]||0).toLocaleString()).join(' · ')+'</p><p>'+t('Every match needs a manual UFC decision. This import does not automatically exclude fighters.')+'</p>';
+        const sample=preview.sample_candidates||[];
+        if(sample.length)html+='<details><summary>'+t('Sample UFC candidates')+'</summary><ul>'+sample.map(row=>'<li>'+escape(row.source_name||row.source_key)+' → #'+escape(row.fighter_id)+' · '+escape(row.reason||'—')+(row.conflicts?.length?' · '+escape(row.conflicts.map(item=>item.type).join(', ')):'')+'</li>').join('')+'</ul></details>';
+        return html+'</div>';
+    }
     function readinessHtml(readiness) {
         if(!readiness)return '';
         const coverage=readiness.event_coverage||{};
@@ -69,6 +83,7 @@
         const heading=job.status==='discarded'?t('Package discarded'):t(phases[job.phase]||job.phase);
         let html='<div class="mmaf-card"><div class="mmaf-job-top"><div><h2>'+escape(heading)+'</h2><div class="mmaf-meta">'+escape(job.filename)+' · '+t('Import')+' #'+job.id+'</div></div><span class="mmaf-badge '+(needs?'error':done?'good':'warning')+'">'+escape(t(labels[job.status]||job.status))+'</span></div>';
         if(job.package.date_from)html+='<p>'+t('Event dates')+': '+escape(job.package.date_from)+' — '+escape(job.package.date_to)+'</p>';
+        html+=ufcPreviewHtml(job);
         if(job.notice)html+='<div class="mmaf-note">'+escape(job.notice)+'</div>';
         if(job.error)html+='<div class="mmaf-note '+(needs?'error':'warning')+'"><strong>'+escape(job.error.message)+'</strong>'+(job.retry_at?'<br>'+t('Automatic retry scheduled')+': '+escape(job.retry_at)+' UTC':'')+'</div>';
         if(job.status==='discarded')html+='<div class="mmaf-note">'+t('This package was discarded. Choose another ZIP above when you are ready.')+'</div>';

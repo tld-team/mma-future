@@ -99,7 +99,7 @@
       "label": "Show Top Movers",
       "name": "show_top_movers",
       "type": "true_false",
-      "instructions": "Prikaži najveće uspone između dve aktivirane liste.",
+      "instructions": "Prikaži najveće uspone i padove između dve uporedive aktivirane liste, među trenutno prikazanim borcima.",
       "required": 0,
       "conditional_logic": 0,
       "wrapper": {
@@ -115,7 +115,7 @@
       "label": "Top Movers Title",
       "name": "top_movers_title",
       "type": "text",
-      "instructions": "Naslov pregleda najvećih uspona.",
+      "instructions": "Naslov pregleda najvećih promena rangova.",
       "required": 0,
       "conditional_logic": 0,
       "wrapper": {
