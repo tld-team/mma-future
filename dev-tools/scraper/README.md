@@ -417,6 +417,15 @@ Build and enforce the dashboard pre-import gate:
 
 ## Production Daily Run
 
+For conservative headed macOS batches with validated results checkpoint reuse,
+see [the results checkpoint workflow](../../docs/RESULTS_CHECKPOINT_WORKFLOW.md).
+`run --results-only` accepts repeated `--resume-results-from PATH` arguments;
+`--max-event-fetches N` caps live event-page attempts even when pages contain no
+usable bouts. Restored complete events do not consume the new-event limit.
+The local operator launcher uses 10-second event intervals and 20-second listing
+pauses, disables individual bout pages, and defers verified empty cards for 24
+hours. Missing card details remain unknown rather than being inferred.
+
 Event daily:
 
 ```powershell

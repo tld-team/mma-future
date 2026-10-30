@@ -63,6 +63,14 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-pages", type=int, default=None, help="Maximum list pages to traverse")
     run.add_argument("--max-events", type=int, default=None, help="Maximum events to open")
     run.add_argument("--limit-events", type=int, default=None, help="Alias for --max-events")
+    run.add_argument("--max-event-fetches", type=positive_int, default=None,
+                     help="Cap live event page attempts, including pages without usable bouts.")
+    run.add_argument("--resume-results-from", type=Path, action="append", default=[],
+                     help="Reuse verified complete results from a local checkpoint; may be repeated.")
+    run.add_argument("--no-scrape-matchup-pages", dest="scrape_matchup_pages", action="store_false", default=True,
+                     help="Use event-card results without opening individual bout detail pages.")
+    run.add_argument("--empty-results-cooldown-hours", type=non_negative_int, default=0,
+                     help="Defer recently verified empty result cards from checkpoints for this many hours.")
     run.add_argument(
         "--mode",
         choices=["daily", "backfill"],
@@ -849,6 +857,9 @@ def _dispatch(args) -> int:
         return 0
 
     if args.command == "run":
+        if args.resume_results_from and (not args.results_only or args.fresh_results or args.force_full_scan or args.force_recheck_event):
+            print("error: results resume requires --results-only and cannot be combined with forced/fresh scraping", file=sys.stderr)
+            return 2
         if args.cumulative_results and args.fresh_results:
             print(
                 "error: --cumulative-results cannot be combined with --fresh-results",
@@ -924,6 +935,10 @@ def _dispatch(args) -> int:
                 slow_mo=args.slow_mo,
                 max_pages=args.max_pages,
                 max_events=args.limit_events if args.limit_events is not None else args.max_events,
+                max_event_fetches=args.max_event_fetches,
+                resume_results_checkpoints=tuple(args.resume_results_from),
+                scrape_matchup_pages=args.scrape_matchup_pages,
+                empty_results_cooldown_hours=args.empty_results_cooldown_hours,
                 promotion_scope=args.promotion_scope,
                 sport=args.sport,
                 from_date=args.from_date,

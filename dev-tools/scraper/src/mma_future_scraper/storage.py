@@ -9,6 +9,7 @@ from typing import Any
 
 from .config import DATA_DIR, LATEST_DIR, RUNS_DIR, STATE_DIR
 from .contract import populate_results_contract_fields
+from .event_coverage import document as coverage_document, validate as validate_coverage
 from .models import RESULTS_SCHEMA_VERSION
 from .utils import source_event_id_from_url, stable_hash, utc_now
 from .validation import validate_results_document, validate_state_bundle
@@ -212,6 +213,7 @@ class DataStore:
             started_at=started_at,
             finished_at=finished_at,
             recheck_days=int(options.get("recheck_days") or 14),
+            resumed_observed_at=summary.get("results_resumed_observed_at"),
         )
         _apply_failed_listing_events_to_state(
             bundle=working_bundle,
@@ -252,6 +254,12 @@ class DataStore:
         if result_errors or state_errors:
             raise ValueError(f"validation_failed: results={result_errors}; state={state_errors}")
 
+        observed_coverage = _read_json(run_dir / "event_coverage.json", {})
+        output_coverage = coverage_document(
+            output_results_doc.get("events", []), observed_coverage.get("events", []), run_id,
+        )
+        validate_coverage(output_coverage, output_results_doc.get("events", []))
+
         _commit_success_state(
             working_bundle,
             run_id=run_id,
@@ -261,6 +269,7 @@ class DataStore:
         )
 
         atomic_write_json(run_dir / "results.json", output_results_doc)
+        atomic_write_json(run_dir / "event_coverage.json", output_coverage)
         atomic_write_json(run_dir / "changes.json", changes)
         if upcoming_doc is not None:
             atomic_write_json(run_dir / "upcoming.json", upcoming_doc)
@@ -391,6 +400,7 @@ def _apply_results_to_state(
     started_at: str,
     finished_at: str,
     recheck_days: int,
+    resumed_observed_at: dict[str, str] | None = None,
 ) -> dict[str, int]:
     scraper_state = bundle["scraper_state"]
     events_index = bundle["events_index"]
@@ -427,6 +437,8 @@ def _apply_results_to_state(
         if not source_event_id:
             continue
         event["source_event_id"] = source_event_id
+        event_observed_at = (resumed_observed_at or {}).get(source_event_id) or finished_at
+        event_started_at = event_observed_at if source_event_id in (resumed_observed_at or {}) else started_at
         existing_event = events_index.get(source_event_id)
         if existing_event:
             internal_event_id = existing_event["internal_event_id"]
@@ -477,8 +489,8 @@ def _apply_results_to_state(
                 event=event,
                 existing=existing_bout,
                 fingerprint=bout_fingerprint,
-                started_at=started_at,
-                finished_at=finished_at,
+                started_at=event_started_at,
+                finished_at=event_observed_at,
             )
 
         event_fingerprint = normalized_fingerprint(event)
@@ -492,7 +504,7 @@ def _apply_results_to_state(
             changes["unchanged_events"].append(internal_event_id)
             counts["events_unchanged"] += 1
 
-        recheck = _event_recheck_status(event, recheck_days=recheck_days, finished_at=finished_at)
+        recheck = _event_recheck_status(event, recheck_days=recheck_days, finished_at=event_observed_at)
         if recheck["needs_recheck"]:
             counts["events_marked_incomplete"] += 1
             changes["incomplete_events"].append(internal_event_id)
@@ -501,7 +513,7 @@ def _apply_results_to_state(
                 existing=incomplete_events.get(source_event_id),
                 reason=recheck["reason"],
                 priority=recheck["priority"],
-                finished_at=finished_at,
+                finished_at=event_observed_at,
             )
         else:
             incomplete_events.pop(source_event_id, None)
@@ -513,8 +525,8 @@ def _apply_results_to_state(
             known_bout_ids=known_bout_ids,
             known_completed_bout_ids=known_completed_bout_ids,
             recheck=recheck,
-            started_at=started_at,
-            finished_at=finished_at,
+            started_at=event_started_at,
+            finished_at=event_observed_at,
         )
 
     for key in [
@@ -1058,7 +1070,8 @@ def _build_output_results_doc(
     missing_cached = int(summary.get("missing_cached_event_payloads") or 0)
     return output_doc, {
         "events_output_total": len(output_doc.get("events", [])),
-        "events_scraped_this_run": scraped_events_count,
+        "events_scraped_this_run": max(0, scraped_events_count - int(summary.get("results_events_resumed") or 0)),
+        "events_from_checkpoint": int(summary.get("results_events_resumed") or 0),
         "events_from_payload_cache": cached_inserted,
         "missing_cached_event_payloads": missing_cached,
     }
@@ -1119,6 +1132,12 @@ def _cacheable_event_payload(event: Any) -> bool:
 
 def _manifest_counts(summary: dict[str, Any], counts: dict[str, int], changes: dict[str, Any]) -> dict[str, Any]:
     return {
+        "event_fetch_attempts": int(summary.get("event_fetch_attempts") or 0),
+        "results_events_resumed": int(summary.get("results_events_resumed") or 0),
+        "results_events_deferred": int(summary.get("results_events_deferred") or 0),
+        "results_events_skipped_from_checkpoint": int(summary.get("results_events_skipped_from_checkpoint") or 0),
+        "results_exclusions_skipped_from_checkpoint": int(summary.get("results_exclusions_skipped_from_checkpoint") or 0),
+        "results_empty_events_skipped": int(summary.get("results_empty_events_skipped") or 0),
         "events_seen": int(summary.get("events_seen") or counts["events_seen"]),
         "events_scraped": counts["events_scraped"],
         "events_scraped_this_run": counts["events_scraped"],
@@ -1252,6 +1271,7 @@ def _refresh_output_document_counts(
     run["events_seen"] = len(events) + skipped_events_no_usable + skipped_ufc
     run["events_written"] = len(events)
     run["events_scraped_this_run"] = output_counts["events_scraped_this_run"]
+    run["events_from_checkpoint"] = output_counts.get("events_from_checkpoint", 0)
     run["events_from_payload_cache"] = output_counts["events_from_payload_cache"]
     run["missing_cached_event_payloads"] = output_counts["missing_cached_event_payloads"]
     run["bouts_written"] = len(bouts)

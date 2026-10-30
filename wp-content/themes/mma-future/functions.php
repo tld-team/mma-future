@@ -200,7 +200,7 @@ add_action( 'wp_enqueue_scripts', 'mma_future_scripts' );
  * Enqueue admin scripts
  */
 function mma_future_admin_scripts($hook) {
-	if ( 'post.php' === $hook ) {
+	if ( in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
 		wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css' );
 		wp_enqueue_style( 'mma-main', get_template_directory_uri() . '/assets/dist/css/output.css', array(), mmaf_asset_version('assets/dist/css/output.css') );
 		wp_enqueue_script( 'mma-main', get_template_directory_uri() . '/assets/dist/js/main.js', array(), mmaf_asset_version('assets/dist/js/main.js'), true );

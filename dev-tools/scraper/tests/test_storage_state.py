@@ -148,6 +148,11 @@ def test_cumulative_results_include_cached_known_event_and_new_event(tmp_path):
     assert manifest["counts"]["events_scraped_this_run"] == 1
     assert manifest["counts"]["events_from_payload_cache"] == 1
     assert json_at(tmp_path / "latest" / "results.json") == second_results
+    from mma_future_scraper.event_coverage import validate as validate_coverage
+    coverage = json_at(tmp_path / "latest" / "event_coverage.json")
+    assert {event["source_event_id"] for event in coverage["events"]} == {"tapology_event_1", "tapology_event_2"}
+    validate_coverage(coverage, second_results["events"])
+    assert coverage == json_at(tmp_path / "runs" / "20260512T194100Z" / "event_coverage.json")
 
 
 def test_cumulative_results_include_cached_events_outside_current_scope(tmp_path):

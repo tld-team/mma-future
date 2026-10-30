@@ -48,6 +48,9 @@ class ScraperConfig:
     skip_known_complete: bool = False
     scrape_matchup_pages: bool = True
     resume_upcoming_checkpoint: Path | None = None
+    resume_results_checkpoints: tuple[Path, ...] = ()
+    max_event_fetches: int | None = None
+    empty_results_cooldown_hours: int = 0
     cumulative_results: bool = False
     fresh_results: bool = False
     enrich_fighter_profiles: bool | None = None
