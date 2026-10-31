@@ -142,6 +142,10 @@ final class HybridAssessment {
 		}
 
 		$last_professional_fight_date = $period_record['last_fight_date'] ?? null;
+		$source_last_professional_fight_date = $source_inputs['latest_confirmed_professional_fight_date'] ?? null;
+		if ( PeriodAssessment::valid_date( $source_last_professional_fight_date ) && ( ! $last_professional_fight_date || $source_last_professional_fight_date > $last_professional_fight_date ) ) {
+			$last_professional_fight_date = $source_last_professional_fight_date;
+		}
 		$boundary_date = $source_inputs['boundary_row']['fight_date'] ?? null;
 		if ( PeriodAssessment::valid_date( $boundary_date ) && ( ! $last_professional_fight_date || $boundary_date > $last_professional_fight_date ) ) {
 			$last_professional_fight_date = $boundary_date;
