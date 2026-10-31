@@ -35,6 +35,18 @@ def test_explicit_section_evidence_and_legacy_readiness():
     assert r['profiles']['careers_needing_enrichment']==2 and r['profiles']['legacy_profiles']==2
     assert r['source_enrichment'][0]['reasons']['missing_classification_evidence']
 
+def test_hybrid_readiness_blocks_recent_prefight_and_win_method_gaps_only():
+    d=document();win=d['profiles'][0]['fight_history'][0]
+    win['opponent_record_raw']=None
+    report=build_readiness(d)
+    assert report['source_enrichment'][0]['reasons']['missing_recent_prefight_record']==1
+    win['opponent_record_raw']='0-0-0';win['method_category']='unknown'
+    report=build_readiness(d)
+    assert report['source_enrichment'][0]['reasons']['missing_recent_win_method']==1
+    loss=d['profiles'][1]['fight_history'][0];loss['method_category']='unknown'
+    report=build_readiness(d)
+    assert not report['source_enrichment'][1]['reasons'].get('missing_recent_win_method')
+
 def test_boundary_or_global_heading_cannot_manufacture_evidence():
     s=json.loads(SNAPSHOTS.read_text())[0];s['rows'][0].pop('row_boundary_verified')
     p=parse_profile_snapshot(s,s['url'])
@@ -141,10 +153,12 @@ def test_offline_recovery_preserves_observation_and_reduces_evidence_queue(tmp_p
     snapshots=tmp_path/'snapshots';snapshots.mkdir()
     for i,s in enumerate(json.loads(SNAPSHOTS.read_text())):(snapshots/str(i)).with_suffix('.json').write_text(json.dumps(s))
     report=prepare_recovery(source,snapshots,tmp_path/'recovery')
-    assert report['reparsed_candidates']==2 and report['remaining_enrichment']==0
+    assert report['reparsed_candidates']==2 and report['remaining_enrichment']==2
     assert source.read_bytes()==before
     parsed=json.loads((tmp_path/'recovery/reparsed_profiles.json').read_text())
     assert all(p['scraped_at']=='2026-10-10T10:00:00Z' and p['recovery_provenance']['snapshot_sha256'] for p in parsed['profiles'])
+    queue=json.loads((tmp_path/'recovery/source_enrichment_queue.json').read_text())
+    assert all(item['reasons']=={'missing_recent_prefight_record':1,'source_refresh_required':1} for item in queue['items'])
 
 def test_source_queue_does_not_auto_fetch_human_conflicts(tmp_path):
     from mma_future_scraper.fighter_profile_queue import collect_fighter_profile_urls_from_queue

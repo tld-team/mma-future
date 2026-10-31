@@ -30,7 +30,8 @@ function mmaf_record_label(array $context): string {
 function mmaf_render_scoring_assessment(array $context): void {
     $a=$context['scoring_assessment']??null;if(!$a){return;}
     echo '<p class="text-sm text-muted">'.esc_html($context['dates']['score_label']??'MMA Future bodovi od 9. maja 2026.').' · '.esc_html(ucfirst($a['status'])).' · '.esc_html($a['sample_size']).' scoring bouts · checked '.esc_html(!empty($a['verified_at'])?gmdate('Y-m-d H:i:s',strtotime($a['verified_at'])).' UTC':'unknown').'</p>';
-    if($a['status']==='provisional'){echo '<p class="text-sm text-muted">Known-fight points: '.esc_html(mmaf_display_number($a['total_score'],2)).' · No main ranking position. '.esc_html(implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']))).'</p>';}
+    if(!empty($a['no_recent_fights'])){echo '<p class="text-sm text-muted">Bez mečeva od 9. maja 2026.</p>';}
+    if($a['status']==='provisional'){echo '<p class="text-sm text-muted">Privremeni zbir: '.esc_html(mmaf_display_number($a['known_points']??null,2)).' · Konačan score i glavno mesto nisu dodeljeni. '.esc_html(implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']))).'</p>';}
 }
 /** An empty imported record must not imply that the fighter has never competed. */
 function mmaf_fighter_has_fight_data( array $context ): bool {
@@ -93,7 +94,8 @@ function mmaf_filter_select( $name, $label, $choices, $value ) {
 }
 function mmaf_score_details( $ranking ) {
 	if ( empty( $ranking['breakdown'] ) ) { return; }
-	echo '<details class="mmaf-score-details"><summary>Score details</summary><p>' . esc_html(($ranking['formula_version']??'')==='v1.6'?'MMA Future bodovi od 9. maja 2026.':'MMA Future Score') . ': ' . esc_html( mmaf_display_number( $ranking['score'], 2 ) ) . ' · Formula ' . esc_html( $ranking['formula_version'] ) . '</p>';
+	$score_label=($ranking['formula_version']??'')==='v1.7'?'Karijerna osnovica + noviji kvalitet':((($ranking['formula_version']??'')==='v1.6')?'MMA Future bodovi od 9. maja 2026.':'MMA Future Score');
+	echo '<details class="mmaf-score-details"><summary>Score details</summary><p>' . esc_html($score_label) . ': ' . esc_html( mmaf_display_number( $ranking['score'], 2 ) ) . ' · Formula ' . esc_html( $ranking['formula_version'] ) . '</p>';
 	$walk = static function( $data ) use ( &$walk ) {
 		echo '<dl>'; foreach ( $data as $label => $value ) {
 			if ( in_array( $label, array( 'fighter_id', 'bout_id', 'event_id', 'raw_score', 'total_score' ), true ) ) { continue; }

@@ -38,7 +38,9 @@ final class RankingRunRepository {
 			array(
 				'formula_version'          => $formula_version,
 				'formula_config_snapshot'  => wp_json_encode( $formula_config_snapshot ),
-				'data_scope_version' => $formula_version===\MMAF\DataEngine\Services\Formula\FormulaV16::VERSION?\MMAF\DataEngine\Services\Formula\FormulaV16::SCOPE:(string) get_option('mmaf_history_data_scope','legacy_partial_v1'),
+				'data_scope_version' => $formula_version===\MMAF\DataEngine\Services\Formula\FormulaV17::VERSION
+					? \MMAF\DataEngine\Services\Formula\FormulaV17::SCOPE
+					: ($formula_version===\MMAF\DataEngine\Services\Formula\FormulaV16::VERSION?\MMAF\DataEngine\Services\Formula\FormulaV16::SCOPE:(string) get_option('mmaf_history_data_scope','legacy_partial_v1')),
 				'data_snapshot_json' => wp_json_encode( array_merge($this->data_snapshot(),['scoring_scope'=>$formula_config_snapshot['scoring_scope']??null,'reference_date'=>$reference_date,'inputs_frozen_at'=>$calculated_at]) ),
 				'reference_date'           => $reference_date,
 				'calculated_at'            => $calculated_at,

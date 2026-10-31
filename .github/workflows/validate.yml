@@ -42,7 +42,9 @@ jobs:
           php tests/unit/scoring-finishes.php
           php tests/unit/home-ranking-overview.php
           php tests/unit/ufc-matcher.php
+          php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v14.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v15.php
+          php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v17.php
   scraper:
     runs-on: ubuntu-latest
     steps:
@@ -127,6 +129,7 @@ jobs:
         run: |
           php -d memory_limit=256M tests/integration/verify-career.php
           php -d memory_limit=256M tests/integration/verify-scoring-period.php
+          php -d memory_limit=256M tests/integration/verify-scoring-hybrid.php
           php -d memory_limit=256M tests/integration/verify-bulk.php
           php -d memory_limit=256M tests/integration/verify-pipeline.php
           php -d memory_limit=256M tests/integration/verify-import-career-evidence.php

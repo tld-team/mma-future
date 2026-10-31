@@ -53,7 +53,7 @@ $ranking = new ReflectionMethod($service, 'ranking');
 $ranking->setAccessible(true);
 $row = ['board_key' => 'overall', 'rank_position' => 1, 'total_score' => '9.500', 'raw_score' => '9.500', 'sample_size' => 4, 'ranking_run_id' => 123,
     'breakdown_json' => json_encode($breakdown), 'quality_flags_json' => '[]', 'warnings_json' => '[]', 'finish_wins' => 99];
-foreach (['v1.5', 'v1.6'] as $version) {
+foreach (['v1.5', 'v1.6', 'v1.7'] as $version) {
     $dto = $ranking->invoke($service, $row, ['formula_version' => $version]);
     unset($dto['breakdown']);
     finishes_check($dto['scoring_finishes'] === $summary && $dto['score'] === 9.5 && $dto['active_ranking_run_id'] === 123, "$version exposes frozen finish counts independently of newer statistics and optional full details");

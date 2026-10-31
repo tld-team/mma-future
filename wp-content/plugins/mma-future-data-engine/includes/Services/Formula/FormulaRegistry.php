@@ -7,15 +7,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class FormulaRegistry {
 	public static function current_version(): string {
-		return FormulaV16::VERSION;
+		return FormulaV17::VERSION;
 	}
 
 	public static function current_config(): array {
-		return FormulaV16::config();
+		return FormulaV17::config();
 	}
 
 	public static function config_for_version( string $formula_version ): array {
 		switch ( $formula_version ) {
+			case FormulaV17::VERSION:
+				return FormulaV17::config();
 			case FormulaV16::VERSION:
 				return FormulaV16::config();
 			case FormulaV13::VERSION:
@@ -35,6 +37,7 @@ final class FormulaRegistry {
 			FormulaV14::VERSION,
 			FormulaV15::VERSION,
 			FormulaV16::VERSION,
+			FormulaV17::VERSION,
 		);
 	}
 
@@ -43,6 +46,6 @@ final class FormulaRegistry {
 	}
 
 	public static function uses_direct_scores( string $formula_version ): bool {
-		return in_array($formula_version,[FormulaV15::VERSION,FormulaV16::VERSION],true);
+		return in_array($formula_version,[FormulaV15::VERSION,FormulaV16::VERSION,FormulaV17::VERSION],true);
 	}
 }

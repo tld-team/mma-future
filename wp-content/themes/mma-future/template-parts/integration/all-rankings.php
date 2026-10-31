@@ -11,7 +11,7 @@
 </div>
 <!-- Controls toolbar -->
 <form class="mt-6 space-y-3 mb-5 rk-filters" method="get">
-<?php if(($data['formula_version']??'')==='v1.6'){mmaf_filter_select($prefix.'_view','Ranking view',['main'=>'Main ranking','provisional'=>'Provisional — no main position'],$options['view']??'main');} ?>
+<?php if(in_array(($data['formula_version']??''),['v1.6','v1.7'],true)){mmaf_filter_select($prefix.'_view','Ranking view',['main'=>'Main ranking','provisional'=>'Provisional — no main position'],$options['view']??'main');} ?>
 <!-- Row 1: Gender + Top 15 | Search -->
 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
 <!-- Left group -->
@@ -44,7 +44,7 @@
 <!-- Weight class select (mobile) -->
 <?php mmaf_filter_select( $prefix . '_board', 'Ranking board', $choices, $options['board'] ); mmaf_filter_select( $prefix . '_order', 'Order', array( 'asc' => 'Ascending', 'desc' => 'Descending' ), $options['order'] ?? 'asc' ); ?>
 <?php if ( ! empty( $options['top15'] ) ) : ?><input type="hidden" name="<?php echo esc_attr( $prefix . '_top15' ); ?>" value="1" data-top15-value><?php else : ?><input type="hidden" name="<?php echo esc_attr( $prefix . '_top15' ); ?>" value="0" data-top15-value><?php endif; ?><button class="mmaf-button rk-apply" type="submit">Apply filters</button></form>
-<?php if ( in_array( $data['formula_version'] ?? '', array( 'v1.5', 'v1.6' ), true ) ) : ?><p class="rk-score-guide"><strong>Each scored loss: −1.5 points, already in Score.</strong> Opponent quality shows extra adjustments only.</p><?php endif; ?>
+<?php if ( in_array( $data['formula_version'] ?? '', array( 'v1.5', 'v1.6', 'v1.7' ), true ) ) : ?><p class="rk-score-guide"><strong>Each scored loss: −1.5 points, already in Score.</strong> <?php echo esc_html(($data['formula_version']??'')==='v1.7'?'Finish and opponent adjustments apply only from 9 May 2026.':'Opponent quality shows extra adjustments only.'); ?></p><?php endif; ?>
 <p aria-live="polite" class="mmaf-browser-status"></p>
 <div class="rk-results-area">
 <div class="mmaf-browser-results"><?php mmaf_render_rankings_table( $data, $options['include_breakdown'], $prefix ); mmaf_pagination( $data, $prefix ); ?></div>

@@ -150,8 +150,9 @@ final class Processor {
         $career=ProfileStore::career_profile($raw,$id);
         $result=(new CareerHistory())->process_chunk($career,$job,$actor,$operation,$progress['checkpoint']??[]);
         if(!empty($result['done'])){
-            $records=(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters([$id]);
-            $result['scoring_assessment']=(new \MMAF\DataEngine\Services\Scoring\PeriodAssessment())->evaluate($id,(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->history_for_fighters([$id]),$records[$id]??null,current_time('Y-m-d'),gmdate('Y-m-d H:i:s'));
+			$calculator=new RankingCalculatorService();
+			$fighters=(new \MMAF\DataEngine\Repositories\RankingRunRepository())->list_fighters_with_stats([$id]);
+            $result['scoring_assessment']=$calculator->score_batch($fighters,current_time('Y-m-d'),gmdate('Y-m-d H:i:s'))['assessments'][$id]??null;
             unset($result['scoring_assessment']['_source_inputs']);
         }
         if ($job) {
@@ -173,8 +174,9 @@ final class Processor {
             $saved=(new ProfileStore())->for_fighter($id);
             if (!$saved) { throw new \RuntimeException('Stored career verification has no source snapshot.'); }
             $result['coverage']=$career->refresh_coverage(ProfileStore::career_profile($saved['profile'],$id),$job,0);
-            $record=(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters([$id])[$id]??null;
-            $result['scoring_assessment']=(new \MMAF\DataEngine\Services\Scoring\PeriodAssessment())->evaluate($id,(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->history_for_fighters([$id]),$record,current_time('Y-m-d'),gmdate('Y-m-d H:i:s'));
+			$calculator=new RankingCalculatorService();
+			$fighters=(new \MMAF\DataEngine\Repositories\RankingRunRepository())->list_fighters_with_stats([$id]);
+            $result['scoring_assessment']=$calculator->score_batch($fighters,current_time('Y-m-d'),gmdate('Y-m-d H:i:s'))['assessments'][$id]??null;
             unset($result['scoring_assessment']['_source_inputs']);
             $repo->putItem($job,'actual_stored_career_profile',(string)$id,$result['source_fighter_id'],(($result['scoring_assessment']['status']??'')==='main' || $result['coverage']['status']==='complete')?'unchanged':'review',$result);
             if (($result['scoring_assessment']['status']??'')!=='main' && $result['coverage']['status']!=='complete') { Repository::check($wpdb->update($queue,['status'=>'review'],['fighter_id'=>$id])); }

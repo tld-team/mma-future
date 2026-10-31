@@ -98,6 +98,14 @@ def needs_refresh(profile: dict, *, now: datetime | None = None, known_results: 
             and (evidence.get("boundary_crossed") is True or evidence.get("history_exhausted") is True)):
         return True
     rows = profile.get("fight_history", [])
+    for row in rows:
+        day = row.get("fight_date")
+        if not day or day < PERIOD_START or row.get("record_eligible") is False or row.get("result") not in ("win", "loss"):
+            continue
+        if not row.get("opponent_record_raw"):
+            return True
+        if row.get("result") == "win" and row.get("method_category") in (None, "", "unknown"):
+            return True
     for known in known_results or []:
         if not known.get("fight_date") or known["fight_date"] < PERIOD_START:
             continue

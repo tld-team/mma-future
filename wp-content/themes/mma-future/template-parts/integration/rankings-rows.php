@@ -15,12 +15,13 @@
 <th scope="col" class="px-4 py-3.5 text-left">Division</th>
 <th scope="col" class="px-4 py-3.5 text-right">
 <a class="rk-sort-btn ml-auto" data-rk-sort="score" href="<?php echo esc_url( mmaf_presentation_query( array( $prefix . '_sort' => 'score', $prefix . '_order' => ( 'score' === ( $data['sort'] ?? 'rank' ) && 'asc' === ( $data['order'] ?? 'asc' ) ) ? 'desc' : 'asc', $prefix . '_page' => 1 ) ) ); ?>" role="button">
-                  Score
+                  <?php echo esc_html(($data['view']??'main')==='provisional'?'Privremeni zbir':'Score'); ?>
                   <svg class="rk-sort-icon w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
 </a>
 </th>
-<th scope="col" class="rk-finishes-heading px-4 py-3.5 text-right"><span class="rk-impact-heading-label">Finishes <?php mmaf_view( 'finishes-help', array( 'help_id' => $prefix . '_finishes_help' ) ); ?></span><span class="rk-impact-heading-note">+1 point each</span></th>
-<th scope="col" class="rk-impact-heading px-4 py-3.5 text-right"><span class="rk-impact-heading-label">Opponent quality <?php mmaf_view( 'opponent-impact-help', array( 'help_id' => $prefix . '_impact_help' ) ); ?></span><span class="rk-impact-heading-note">Extra points · included in Score</span></th>
+<?php $period_suffix=in_array(($data['formula_version']??''),['v1.6','v1.7'],true)?' from 9 May 2026':''; ?>
+<th scope="col" class="rk-finishes-heading px-4 py-3.5 text-right"><span class="rk-impact-heading-label">Finishes<?php echo esc_html($period_suffix); ?> <?php mmaf_view( 'finishes-help', array( 'help_id' => $prefix . '_finishes_help' ) ); ?></span><span class="rk-impact-heading-note">+1 point each</span></th>
+<th scope="col" class="rk-impact-heading px-4 py-3.5 text-right"><span class="rk-impact-heading-label">Opponent quality<?php echo esc_html($period_suffix); ?> <?php mmaf_view( 'opponent-impact-help', array( 'help_id' => $prefix . '_impact_help' ) ); ?></span><span class="rk-impact-heading-note">Extra points · included in Score</span></th>
 <th scope="col" class="px-4 py-3.5 text-left">Record</th>
 <th scope="col" class="px-4 py-3.5 text-left">Streak</th>
 <th scope="col" class="px-4 py-3.5 text-left">Last Fight</th>

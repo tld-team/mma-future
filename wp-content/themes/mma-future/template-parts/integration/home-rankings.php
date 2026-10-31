@@ -5,7 +5,11 @@ if ( ! is_array( $rankings_link ) || empty( $rankings_link['url'] ) || empty( $r
 }
 $rankings_link_class = 'group inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white ring-1 ring-black/10 shadow-sm text-slate-700 font-semibold text-sm transition-all duration-200 hover:bg-slate-50 hover:ring-black/15 hover:shadow-md hover:text-[#0B3AA4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]/35 focus-visible:ring-offset-2 visited:text-slate-700 no-underline';
 $top_movers = array_map( static fn( $m ) => $m + array( 'direction' => $m['rank_change'] > 0 ? 'up' : 'down', 'change' => $m['rank_change'], 'name' => $m['display_name'], 'url' => $m['permalink'] ), $movers['items'] ?? array() );
-$top_five = array_map( static fn( $r ) => array( 'rank' => $r['rank'], 'name' => $r['display_name'], 'url' => $r['permalink'], 'record' => mmaf_record( mmaf_display_record($r) ), 'weight_class' => ucwords( str_replace( '_', ' ', $r['weight_class'] ) ), 'country' => $r['nationality'] ?: '—', 'finish_rate' => mmaf_display_percent( ($r['scoring_assessment']['period_stats']['finish_rate']??$r['stats']['finish_rate']) ), 'last_bout' => mmaf_display_date( $r['stats']['last_fight_date'] ), 'streak' => $r['stats']['streak'], 'score' => mmaf_display_number( $r['score'], 2 ), 'image_data' => $r['image'] ), $data['items'] ); ?>
+$top_five = array_map( static function( $r ) {
+    $period_stats=$r['scoring_assessment']['period_record']??$r['scoring_assessment']['period_stats']??null;
+    $finish_rate=is_array($period_stats) && array_key_exists('finish_rate',$period_stats)?$period_stats['finish_rate']:($r['stats']['finish_rate']??null);
+    return array( 'rank' => $r['rank'], 'name' => $r['display_name'], 'url' => $r['permalink'], 'record' => mmaf_record( mmaf_display_record($r) ), 'weight_class' => ucwords( str_replace( '_', ' ', $r['weight_class'] ) ), 'country' => $r['nationality'] ?: '—', 'finish_rate' => mmaf_display_percent($finish_rate), 'last_bout' => mmaf_display_date( $r['stats']['last_fight_date'] ), 'streak' => $r['stats']['streak'], 'score' => mmaf_display_number( $r['score'], 2 ), 'image_data' => $r['image'] );
+}, $data['items'] ); ?>
 <section id="<?php echo esc_attr( $prefix ); ?>" class="py-16 bg-white">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
