@@ -153,10 +153,12 @@ def test_offline_recovery_preserves_observation_and_reduces_evidence_queue(tmp_p
     snapshots=tmp_path/'snapshots';snapshots.mkdir()
     for i,s in enumerate(json.loads(SNAPSHOTS.read_text())):(snapshots/str(i)).with_suffix('.json').write_text(json.dumps(s))
     report=prepare_recovery(source,snapshots,tmp_path/'recovery')
-    assert report['reparsed_candidates']==2 and report['remaining_enrichment']==0
+    assert report['reparsed_candidates']==2 and report['remaining_enrichment']==2
     assert source.read_bytes()==before
     parsed=json.loads((tmp_path/'recovery/reparsed_profiles.json').read_text())
     assert all(p['scraped_at']=='2026-10-10T10:00:00Z' and p['recovery_provenance']['snapshot_sha256'] for p in parsed['profiles'])
+    queue=json.loads((tmp_path/'recovery/source_enrichment_queue.json').read_text())
+    assert all(item['reasons']=={'missing_recent_prefight_record':1,'source_refresh_required':1} for item in queue['items'])
 
 def test_source_queue_does_not_auto_fetch_human_conflicts(tmp_path):
     from mma_future_scraper.fighter_profile_queue import collect_fighter_profile_urls_from_queue

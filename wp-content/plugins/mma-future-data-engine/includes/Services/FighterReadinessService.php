@@ -410,7 +410,11 @@ final class FighterReadinessService {
 				if ($identity_reasons) { return $this->blocked($identity_reasons); }
 				$prepared=$item;
 				$prepared['fighter']=array_merge($fighter,['status'=>'verified','is_public'=>1]);
-				$prepared['formula_blocker_codes']=array_values(array_diff($item['formula_blocker_codes'],['not_public','not_verified','not_rankable_flag','rankability_status_not_rankable','ineligible_status_provisional']));
+				// A stored source profile is prepared into canonical bouts by this
+				// operation. Missing canonical period rows therefore remain visible in
+				// the assessment, but cannot prevent the preparation that resolves
+				// them. Final publication/ranking validation still requires the rows.
+				$prepared['formula_blocker_codes']=array_values(array_diff($item['formula_blocker_codes'],['not_public','not_verified','not_rankable_flag','rankability_status_not_rankable','ineligible_status_provisional','missing_bout_in_period']));
 				$reasons=$this->rankable_blockers($prepared);
 				if ($reasons) { return $this->blocked($reasons); }
 				if ($fighter['status']==='verified' && (int)$fighter['is_public']===1 && (int)$fighter['is_rankable']===1 && $fighter['rankability_status']==='rankable') { return $this->skipped(['already_rankable']); }
