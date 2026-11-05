@@ -19,6 +19,7 @@ require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV14.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV15.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV16.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV17.php';
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV18.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaRegistry.php';
 require_once dirname( __DIR__ ) . '/includes/Services/TrackingService.php';
 require_once dirname( __DIR__ ) . '/includes/Services/EligibilityService.php';

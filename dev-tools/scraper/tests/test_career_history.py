@@ -1,7 +1,20 @@
-from mma_future_scraper.career_history import compile_history
+import json
+import zipfile
+
+from mma_future_scraper.career_history import compile_history, export_bundle
 from mma_future_scraper.fighter_profiles import parse_profile_snapshot
 
 URL = 'https://www.tapology.com/fightcenter/fighters/100-test-fighter'
+
+
+def test_career_bundle_declares_evidence_contract_v3(tmp_path):
+    destination = tmp_path / 'career.zip'
+    export_bundle({'schema_version': 'mmaf_career_history_v1', 'profiles': []}, destination)
+    with zipfile.ZipFile(destination) as archive:
+        manifest = json.loads(archive.read('package_manifest.json'))
+    assert manifest['format_version'] == 1
+    assert manifest['contract_version'] == 3
+    assert manifest['mode'] == 'career_history'
 
 def snapshot(rows):
     return {'url': URL, 'title': 'Test Fighter | Tapology', 'headings': ['Test Fighter'],

@@ -98,6 +98,8 @@ def test_matchup_page_prefight_records_do_not_use_postfight_records():
     assert details["fighter_b_prefight_record"]["raw"] == "7-2-0"
     assert details["fighter_a_prefight_record"]["wins"] == 13
     assert details["fighter_b_prefight_record"]["losses"] == 2
+    assert details["fighter_a_record_evidence"]["status"] == "known"
+    assert details["fighter_b_record_evidence"]["evidence"] == "labelled_record_at_fight"
     assert details["result"]["time"] == "1:34"
     assert details["result"]["time_semantics"] == "round_clock"
 

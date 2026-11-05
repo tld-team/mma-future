@@ -25,7 +25,7 @@
 <span style="color:#94a3b8"><?php echo esc_html( ucwords( str_replace( '_', ' ', $r['weight_class'] ) ) ); ?></span>
 </div>
 <div class="mt-2 text-xs">Last fight: <?php echo esc_html( mmaf_display_date( $r['last_fight_date'] ) ); ?></div>
-<?php $period_suffix=in_array(($r['formula_version']??''),['v1.6','v1.7'],true)?' from 9 May 2026':''; ?>
+<?php $period_suffix=($r['formula_version']??'')==='v1.8'?' across the professional career':(in_array(($r['formula_version']??''),['v1.6','v1.7'],true)?' from 9 May 2026':''); ?>
 <div class="rk-impact-mobile rk-finish-mobile"><div class="rk-impact-mobile-label">Finishes<?php echo esc_html($period_suffix); ?> <?php mmaf_view( 'finishes-help', array( 'help_id' => $prefix . '_finishes_mobile_' . $r['fighter_id'] ) ); ?><span class="rk-impact-heading-note">+1 point each</span></div><?php mmaf_view( 'scoring-finishes', compact( 'r' ) ); ?></div>
 <div class="rk-impact-mobile"><div class="rk-impact-mobile-label">Opponent quality<?php echo esc_html($period_suffix); ?> <?php mmaf_view( 'opponent-impact-help', array( 'help_id' => $prefix . '_impact_mobile_' . $r['fighter_id'] ) ); ?><span class="rk-impact-heading-note">Extra points · in Score</span></div><?php mmaf_view( 'opponent-impact', compact( 'r' ) ); ?></div>
 <details class="mt-3">

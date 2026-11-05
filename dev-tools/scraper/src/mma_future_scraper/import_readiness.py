@@ -8,8 +8,8 @@ import hashlib, json, re, struct, math
 from .fighter_profile_queue import normalize_tapology_fighter_url
 from .utils import source_fighter_id_from_url, source_bout_id_from_url, source_event_id_from_url, canonical_url
 
-CONTRACT_VERSION = 1
-POLICY_VERSION = 'import_hybrid_evidence_v2'
+CONTRACT_VERSION = 2
+POLICY_VERSION = 'import_career_evidence_v3'
 CLASSIFICATION_EVIDENCE = {'profile_dom_classification', 'profile_section_classification', 'bout_dom_classification'}
 RESULTS = {'win':'wins','loss':'losses','draw':'draws','no_contest':'no_contests'}
 VOLATILE = {'scraped_at','profile_scraped_at','fetched_at','diagnostics','profile_cache_hit','profile_cache_source','profile_cache_scraped_at','first_seen_at','last_seen_at','last_scraped_at','run_id'}
@@ -134,46 +134,30 @@ def build_readiness(document, *, verification_now=None):
         if any(not isinstance(expected.get(k),int) or isinstance(expected.get(k),bool) or expected[k]<0 for k in RESULTS.values()):
             issues['aggregate_record_missing']+=1
         elif any(expected[k]!=records[k] for k in RESULTS.values()): issues['record_mismatch']+=1
-        period_issues=Counter();outside_issues=Counter();detail_warnings=Counter()
-        from .scoring_evidence import PERIOD_START, needs_refresh, career_record_verified
-        for row in p.get('fight_history',[]):
-            why=row_issues(row,p)
-            if why==['excluded']:continue
-            day=row.get('fight_date')
-            target=outside_issues if day and day<PERIOD_START else period_issues
-            target.update(why)
-            if day and day>=PERIOD_START and row.get('record_eligible') is not False and not why and row.get('result') in ('win','loss'):
-                if row.get('result')=='win' and row.get('method_category') in (None,'','unknown'):
-                    period_issues['missing_recent_win_method']+=1
-                    detail_warnings['missing_recent_win_method']+=1
-                if not row.get('opponent_record_raw'):
-                    period_issues['missing_recent_prefight_record']+=1
-                    detail_warnings['missing_recent_prefight_record']+=1
-        evidence=p.get('period_evidence') or {}
-        proof=evidence.get('scope_verified') is True and evidence.get('first_page_verified') is True and evidence.get('load_complete') is True and evidence.get('chronological_descending') is True and (evidence.get('boundary_crossed') is True or evidence.get('history_exhausted') is True)
-        if not proof:period_issues['period_coverage_unconfirmed']+=1
-        if not career_record_verified(p):period_issues['career_record_scope_unconfirmed']+=1
-        fresh=not needs_refresh(p,now=verification_now or datetime.now(timezone.utc))
-        if not fresh:period_issues['source_refresh_required']+=1
-        period_conflicts=[r.get('source_bout_id') for r in p.get('fight_history',[]) if r.get('fight_date') and r['fight_date']>=PERIOD_START and r.get('source_bout_id') in profile_conflicts.get(key,[])]
-        if period_conflicts:period_issues['source_conflict']+=len(period_conflicts)
-        totals['period_needing_enrichment' if period_issues else 'period_ready_candidates']+=1
-        totals['history_outside_period_gaps']+=bool(outside_issues or issues['record_mismatch'] or issues['history_not_exhausted'])
+        detail_warnings=Counter()
+        from .scoring_evidence import needs_refresh, career_record_verified
+        for row in p.get('fight_history', []):
+            if row_issues(row,p) or row.get('record_eligible') is False: continue
+            if row.get('method_category') in (None,'','unknown'):
+                detail_warnings['neutral_unknown_method']+=1
+            proof=(row.get('record_evidence') or {}).get('opponent') or {}
+            if proof.get('status') != 'known': detail_warnings['neutral_unknown_prefight_record']+=1
+            if any(e.get('status')=='conflict' for e in (row.get('record_evidence') or {}).values()): issues['prefight_record_conflict']+=1
+        if not career_record_verified(p): issues['career_record_scope_unconfirmed']+=1
+        if not (p.get('career_history_evidence') or {}).get('complete'): issues['career_coverage_unconfirmed']+=1
+        if needs_refresh(p,now=verification_now or datetime.now(timezone.utc)): issues['source_refresh_required']+=1
+        totals['neutral_unknown_records']+=detail_warnings['neutral_unknown_prefight_record']
+        totals['neutral_unknown_methods']+=detail_warnings['neutral_unknown_method']
         if issues:
             totals['careers_needing_enrichment']+=1
-            action='review_conflict' if period_issues['source_conflict'] else ('refresh_source_evidence' if period_issues else 'history_outside_period')
-            actions[action]+=1;reasons.update(issues.keys())
-            queue.append({'source_fighter_id':key,'source_url':p['source_url'],'content_hash':content_hash(p),'reasons':dict(issues),'period_reasons':dict(period_issues),'outside_period_reasons':dict(outside_issues),'formula_warnings':dict(detail_warnings),'conflicting_bouts':profile_conflicts.get(key,[]),'action':action})
-        elif period_issues:
-            action='review_conflict' if period_issues['source_conflict'] else 'refresh_source_evidence'
-            actions[action]+=1
-            queue.append({'source_fighter_id':key,'source_url':p['source_url'],'content_hash':content_hash(p),'reasons':dict(period_issues),'period_reasons':dict(period_issues),'formula_warnings':dict(detail_warnings),'conflicting_bouts':period_conflicts,'action':action})
-            totals['career_ready_candidates']+=1
+            action='review_conflict' if issues['source_conflict'] or issues['prefight_record_conflict'] else 'refresh_career_evidence'
+            actions[action]+=1; reasons.update(issues.keys())
+            queue.append({'source_fighter_id':key,'source_url':p['source_url'],'content_hash':content_hash(p),'reasons':dict(issues),'career_reasons':dict(issues),'formula_warnings':dict(detail_warnings),'conflicting_bouts':profile_conflicts.get(key,[]),'action':action})
         else: totals['career_ready_candidates']+=1
         attempt=p.get('last_attempt') or {}
         if not attempt:totals['last_attempt_unknown']+=1
         if attempt.get('status') and attempt['status']!='success': totals['last_attempt_failed']+=1
-    return {'schema_version':'mmaf_import_readiness_v1','contract_version':CONTRACT_VERSION,'policy_version':POLICY_VERSION,'profile_content_hash':content_hash(document.get('profiles',[])), 'profiles_total':len(profiles),'profiles':dict(totals),'history_rows':dict(row_counts),'parser_versions':dict(parsers),'enrichment_reasons':dict(reasons),'enrichment_actions':dict(actions),'shared_bout_conflicts':{bout:sorted(owners) for bout,owners in conflicts.items()},'last_batch':document.get('merge_stats',{}),'source_enrichment':queue,'note':'Candidate evidence is checked offline; canonical coverage is verified against the destination database during import.'}
+    return {'schema_version':'mmaf_import_readiness_v2','contract_version':CONTRACT_VERSION,'policy_version':POLICY_VERSION,'profile_content_hash':content_hash(document.get('profiles',[])), 'profiles_total':len(profiles),'profiles':dict(totals),'history_rows':dict(row_counts),'parser_versions':dict(parsers),'enrichment_reasons':dict(reasons),'enrichment_actions':dict(actions),'shared_bout_conflicts':{bout:sorted(owners) for bout,owners in conflicts.items()},'last_batch':document.get('merge_stats',{}),'source_enrichment':queue,'note':'Candidate evidence is checked offline; canonical coverage is verified against the destination database during import.'}
 
 
 def format_readiness(report):
@@ -182,8 +166,6 @@ def format_readiness(report):
             f"Profiles: {report['profiles_total']}\n\n"
             f"Safe profile candidates: {p.get('facts_ready',0)}\n\n"
             f"Career candidates with complete source evidence: {p.get('career_ready_candidates',0)}\n\n"
-            f"Period candidates with current source evidence from 9 May 2026: {p.get('period_ready_candidates',0)}\n\n"
-            f"Period candidates needing refresh/review: {p.get('period_needing_enrichment',0)}; older history gaps (separate): {p.get('history_outside_period_gaps',0)}\n\n"
             f"Careers needing source evidence or conflict review: {p.get('careers_needing_enrichment',0)}\n\n"
             f"Legacy profiles: {p.get('legacy_profiles',0)}; recorded failed latest attempts: {p.get('last_attempt_failed',0)}; latest attempt not recorded: {p.get('last_attempt_unknown',0)}\n\n"
             f"Last merged batch: {json.dumps(report.get('last_batch',{}),ensure_ascii=False)}\n\n"

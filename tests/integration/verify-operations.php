@@ -34,7 +34,7 @@ try{
     foreach(['countable_bouts','skipped_bouts','malformed_bouts','participants_processed','warnings_count','warnings'] as $key){if($key==='warnings'){ksort($baseline[$key]);ksort($result['summary'][$key]);}assert_operation($baseline[$key]===$result['summary'][$key],'statistics diagnostic parity: '.$key);}
     $legacy=(new RankingCalculatorService())->calculate_draft(1,current_time('Y-m-d'));
     $rank=drive_calculation(Calculation::create('ranking',0,1,'operation-ranking-parity'));
-    assert_operation(rank_values($t['ranking_snapshots'],$legacy['ranking_run_id'])===rank_values($t['ranking_snapshots'],$rank['summary']['ranking_run_id']),'direct and resumed v1.7 calculation preserve identical ranks, scores, tie breaks and breakdowns');
+    assert_operation(rank_values($t['ranking_snapshots'],$legacy['ranking_run_id'])===rank_values($t['ranking_snapshots'],$rank['summary']['ranking_run_id']),'direct and resumed current v1.8 calculation preserve identical ranks, scores, tie breaks and breakdowns');
     assert_operation((new RankingRunRepository())->get_active_ranking_run_id()===$active && hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['ranking_current']} ORDER BY id",ARRAY_A)))===$liveHash,'operations and new drafts leave the active ranking unchanged');
     $before=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}");drive_calculation($rank['id']);assert_operation((int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$before,'resuming a completed calculation is a no-op');
     $sources=new \MMAF\DataEngine\Repositories\FighterSourceRepository();$store=new \MMAF\DataEngine\Services\DataPipeline\ProfileStore();
@@ -45,18 +45,19 @@ try{
     $observed=gmdate('Y-m-d\TH:i:s\Z',time()-60);$checked=substr($observed,0,10);
     $profile=['source_fighter_id'=>'tapology_fighter_949811001','source_url'=>'https://www.tapology.com/fightcenter/fighters/949811001-operations','display_name'=>'Prepared before publication','status'=>'success','scraped_at'=>$observed,'record_summary'=>['wins'=>2,'losses'=>0,'draws'=>0,'no_contests'=>0,'pro_record_raw'=>'2-0-0'],'career_record_evidence'=>['scope'=>'professional_mma','verified'=>true,'label'=>'Pro MMA Record','record_raw'=>'2-0-0','evidence'=>'explicit_mma_record_label','context'=>null,'record_context_verified'=>false],'period_evidence'=>['start_date'=>'2026-05-09','checked_through'=>$checked,'scope_verified'=>true,'first_page_verified'=>true,'load_complete'=>true,'chronological_descending'=>true,'boundary_crossed'=>false,'history_exhausted'=>true,'parser_version'=>'scoring_period_v1'],'history_scope'=>'professional_mma','history_scope_verified'=>true,'history_exhausted'=>true,'fight_history'=>[$fight]];
     $store->put($profile,'tapology_fighter_profiles_v0_1');
-    $approved=Jobs::create('approve_and_prepare',['ids'=>[$target]],1,'approval-before-publication');Jobs::work();$approved=Jobs::get((int)$approved['id']);Jobs::control((int)$approved['id'],'start',1,$approved['manifest_hash']);Jobs::work();
+    $approved=Jobs::create('prepare_publish_profile',['ids'=>[$target]],1,'approval-before-publication');Jobs::work();$approved=Jobs::get((int)$approved['id']);Jobs::control((int)$approved['id'],'start',1,$approved['manifest_hash']);Jobs::work();
     assert_operation(!(int)$f->find($target)['is_public'] && !(int)$f->find($target)['is_rankable'],'career preparation leaves an unpublished candidate private until statistics and validation finish');
     for($n=0;$n<1000;++$n){Jobs::work();$approved=Jobs::get((int)$approved['id']);if($approved['status']==='completed'){break;}if($approved['status']==='failed'){throw new RuntimeException($approved['error_message']);}}
-    assert_operation($approved['status']==='completed' && (int)$f->find($target)['is_public']===1 && (int)$f->find($target)['is_rankable']===1,'approved stored JSON is prepared and validated before publication');
+    assert_operation($approved['status']==='completed' && (int)$f->find($target)['is_public']===1 && (int)$f->find($target)['is_rankable']===0,'partial stored JSON is prepared and published without granting ranking eligibility');
     assert_operation(get_post_status((int)$f->find($target)['wp_post_id'])==='publish','publication synchronizes the canonical WordPress profile');
     $coverage=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighter_career_coverage']} WHERE fighter_id=%d",$target),ARRAY_A);
     assert_operation($coverage['status']==='partial','documented partial history can be published without becoming complete');
     assert_operation(!(int)$f->find($opponent)['is_public'],'linked opponents remain private');
     assert_operation(!empty($approved['summary']['ranking_run_id']),'one inactive ranking draft completes the frozen preparation scope');
     $countBefore=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}");
-    $repeat=Jobs::create('approve_and_prepare',['ids'=>[$target]],1,'repeat-same-approval');Jobs::work();$repeat=Jobs::get((int)$repeat['id']);Jobs::control((int)$repeat['id'],'start',1,$repeat['manifest_hash']);Jobs::work();$repeat=Jobs::get((int)$repeat['id']);
-    assert_operation($repeat['status']==='completed' && (Jobs::items((int)$repeat['id'])['counts']['noop']??0)===1 && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$countBefore,'repeated unchanged approval does not reimport or create an extra draft');
+    $repeat=Jobs::create('prepare_publish_profile',['ids'=>[$target]],1,'repeat-same-approval');Jobs::work();$repeat=Jobs::get((int)$repeat['id']);Jobs::control((int)$repeat['id'],'start',1,$repeat['manifest_hash']);$repeat=fixture_drive_job((int)$repeat['id']);
+    $repeatCounts=Jobs::items((int)$repeat['id'])['counts'];
+    assert_operation($repeat['status']==='completed' && (($repeatCounts['noop']??0)+($repeatCounts['prepared']??0))===1 && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$countBefore,'repeated unchanged publication does not duplicate canonical data or create an extra draft');
     $forbidden=false;\MMAF\DataEngine\Services\Operations\Jobs::$current=(int)$repeat['id'];
     try{(new \MMAF\DataEngine\Services\FighterReadinessService())->process_bulk_action('approve_and_prepare',[$opponent],1,true);}catch(RuntimeException $e){$forbidden=true;}finally{\MMAF\DataEngine\Services\Operations\Jobs::$current=0;}
     assert_operation($forbidden,'publication authority is tied to the confirmed prepared item');

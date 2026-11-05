@@ -19,6 +19,11 @@ function tables_hash($t){global $wpdb; $out=[];foreach(['fighters','events','bou
 $baseline=tables_hash($t);
 WriteGuard::$worker=true;Transaction::begin();
 try{
+ $event_import=new \MMAF\DataEngine\Services\Import\ScraperJsonImportService();
+ $summary_property=new ReflectionProperty($event_import,'summary');$summary_property->setValue($event_import,['warnings_count'=>0]);
+ $bout_row=new ReflectionMethod($event_import,'bout_row');$unknown_warnings=[];
+ $unknown_method=$bout_row->invokeArgs($event_import,[['result_type'=>'win_loss','result'=>['method_category'=>'unknown'],'flags'=>['is_scoring_candidate'=>true]],1,&$unknown_warnings]);
+ check((int)$unknown_method['is_scoring_candidate']===1 && in_array('method_category_unknown',$unknown_warnings,true),'unknown win/loss method remains a neutral scoring input');
  $identity_sources=new \MMAF\DataEngine\Repositories\FighterSourceRepository();
  $bare=fixture_fighter(901234562,'Synthetic numeric-only profile',['is_public'=>1]);
  $bare['source_url']='https://www.tapology.com/fightcenter/fighters/901234562';
@@ -57,6 +62,9 @@ try{
  $a['rows']=[row(901234570,$b,'win')];$r=$service->process($a,0,1,true);check($r['items'][0]['category']==='conflict','unverified changed final result is rejected');
  $a['rows']=[row(901234573,$b,'win',['record_eligible'=>false,'record_eligibility_evidence'=>'source_profile_record_ineligible_mma'])];$r=$service->process($a,0,1,true);$flagged=(int)bout(901234573)['bout_id'];$status=$wpdb->get_row("SELECT status,is_scoring_candidate FROM {$t['bouts']} WHERE id=$flagged",ARRAY_A);check($status['status']==='excluded_record_ineligible'&&(int)$status['is_scoring_candidate']===0,'record-ineligible history is retained without becoming a ranking input');
  $a['rows']=[row(901234573,$b)];$service->process($a,0,1,true);check($wpdb->get_var("SELECT status FROM {$t['bouts']} WHERE id=$flagged")==='excluded_record_ineligible','unflagged duplicate perspective does not remove an exclusion');
+ $a['rows']=[row(901234583,$b)];$service->process($a,0,1,true);$newly_flagged=(int)bout(901234583)['bout_id'];
+ $a['rows']=[row(901234583,$b,'win',['record_eligible'=>false,'record_eligibility_evidence'=>'source_profile_record_ineligible_mma'])];$service->process($a,0,1,true);
+ check($wpdb->get_var("SELECT status FROM {$t['bouts']} WHERE id=$newly_flagged")==='excluded_record_ineligible','later confirmed record exclusion updates an existing completed bout');
  $legacy_url='https://www.tapology.com/fightcenter/fighters/isolated-legacy-opponent';$legacy=['source_url'=>$legacy_url,'source_fighter_id'=>'tapology_fighter_url_'.substr(hash('sha256',$legacy_url),0,24),'display_name'=>'Isolated legacy opponent'];
  $a['rows']=[row(901234580,$legacy)];$service->process($a,0,1,true);$legacy_once=tables_hash($t);$service->process($a,0,1,true);check(tables_hash($t)===$legacy_once,'exact legacy source URL identity is repeatable without name matching');
  $a['rows']=[row(901234574,$b,'win',['is_amateur'=>true]),row(901234575,$b,'win',['discipline'=>'boxing']),row(901234576,$b,'win',['is_cancelled'=>true]),row(901234577,$b,'win',['is_exhibition'=>true])];$r=$service->process($a,0,1,true);check(array_unique(array_column($r['items'],'category'))===['excluded'],'amateur, cancelled, non-MMA and exhibition results are excluded');

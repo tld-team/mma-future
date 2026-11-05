@@ -30,6 +30,7 @@ function mmaf_record_label(array $context): string {
 function mmaf_render_scoring_assessment(array $context): void {
     $a=$context['scoring_assessment']??null;if(!$a){return;}
     echo '<p class="text-sm text-muted">'.esc_html($context['dates']['score_label']??'MMA Future bodovi od 9. maja 2026.').' · '.esc_html(ucfirst($a['status'])).' · '.esc_html($a['sample_size']).' scoring bouts · checked '.esc_html(!empty($a['verified_at'])?gmdate('Y-m-d H:i:s',strtotime($a['verified_at'])).' UTC':'unknown').'</p>';
+    if(($a['methodology']??'')==='professional_mma_career_v1'){$d=$a['detail_coverage']??[];echo '<p class="text-sm text-muted">Osnovni poeni, poznate završnice i kvalitet protivnika za celu profesionalnu MMA karijeru. Nepoznat pre-fight rekord ili metod daje 0 dodatnih poena; poznati 0–0 je poznat rekord. Aktuelni profilni rekord može se razlikovati od zamrznutih ulaza. Poznati/nepoznati rekordi: '.esc_html(($d['known_records']??0).'/'.($d['unknown_records']??0)).'; metode: '.esc_html(($d['known_methods']??0).'/'.($d['unknown_methods']??0)).'.</p>';}
     if(!empty($a['no_recent_fights'])){echo '<p class="text-sm text-muted">Bez mečeva od 9. maja 2026.</p>';}
     if($a['status']==='provisional'){echo '<p class="text-sm text-muted">Privremeni zbir: '.esc_html(mmaf_display_number($a['known_points']??null,2)).' · Konačan score i glavno mesto nisu dodeljeni. '.esc_html(implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']))).'</p>';}
 }
@@ -94,7 +95,7 @@ function mmaf_filter_select( $name, $label, $choices, $value ) {
 }
 function mmaf_score_details( $ranking ) {
 	if ( empty( $ranking['breakdown'] ) ) { return; }
-	$score_label=($ranking['formula_version']??'')==='v1.7'?'Karijerna osnovica + noviji kvalitet':((($ranking['formula_version']??'')==='v1.6')?'MMA Future bodovi od 9. maja 2026.':'MMA Future Score');
+	$score_label=($ranking['formula_version']??'')==='v1.8'?'Cela profesionalna MMA karijera':(($ranking['formula_version']??'')==='v1.7'?'Karijerna osnovica + noviji kvalitet':((($ranking['formula_version']??'')==='v1.6')?'MMA Future bodovi od 9. maja 2026.':'MMA Future Score'));
 	echo '<details class="mmaf-score-details"><summary>Score details</summary><p>' . esc_html($score_label) . ': ' . esc_html( mmaf_display_number( $ranking['score'], 2 ) ) . ' · Formula ' . esc_html( $ranking['formula_version'] ) . '</p>';
 	$walk = static function( $data ) use ( &$walk ) {
 		echo '<dl>'; foreach ( $data as $label => $value ) {
@@ -106,7 +107,7 @@ function mmaf_score_details( $ranking ) {
 	}; $walk( $ranking['breakdown'] ); echo '</details>';
 }
 function mmaf_render_rankings_table( $data, $breakdown = false, $prefix = 'mmaf' ) {
- $data['items'] = array_map( static fn( $row ) => $row + ($row['scoring_assessment']['period_stats']??[]) + ( $row['stats'] ?? array() ) + ['streak'=>null,'last_fight_date'=>null,'finish_rate'=>null], $data['items'] );
+ $data['items'] = array_map( static fn( $row ) => $row + ($row['scoring_assessment']['career_stats']??$row['scoring_assessment']['period_record']??$row['scoring_assessment']['period_stats']??[]) + ( $row['stats'] ?? array() ) + ['streak'=>null,'last_fight_date'=>null,'finish_rate'=>null], $data['items'] );
  mmaf_view( 'rankings-rows', compact( 'data', 'breakdown', 'prefix' ) );
 }
 

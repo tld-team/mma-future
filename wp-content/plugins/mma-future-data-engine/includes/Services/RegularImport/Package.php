@@ -40,7 +40,7 @@ final class Package {
         if (array_diff($required,array_keys($seen))) { throw new ImportException('Required scraper files are missing: '.implode(', ',array_diff($required,array_keys($seen)))); }
         if (isset($seen['package_manifest.json'])) {
             if (($transport['format']??'')!=='mmaf-import-bundle' || ($transport['format_version']??0)!==1) { throw new ImportException('Unsupported import package version.'); }
-            if(isset($transport['contract_version']) && !in_array($transport['contract_version'],[1,2],true)){throw new ImportException('Unsupported import evidence contract.','contract');}
+            if(isset($transport['contract_version']) && !in_array($transport['contract_version'],[1,2,3],true)){throw new ImportException('Unsupported import evidence contract.','contract');}
             if(!in_array($transport['mode']??'full',['full','delta','career_history','ufc_roster'],true)){throw new ImportException('Unsupported import package mode.','contract');}
             $listed=array_keys($transport['files']??[]);$actual=array_values(array_diff(array_keys($seen),['package_manifest.json']));sort($listed);sort($actual);
             if($listed!==$actual){throw new ImportException('Package file list disagrees with its manifest.','checksum');}
@@ -59,7 +59,7 @@ final class Package {
             $meta['mode']='ufc_roster';$meta['headers']['ufc']=array_diff_key($document,['fighters'=>true]);$meta['counts']['ufc']=count($document['fighters']);$meta['date_from']=null;$meta['date_to']=null;return $meta;
         }
         $coverage=null;
-        if(($transport['contract_version']??1)===2 && !isset($seen['career_history.json'])){
+        if(($transport['contract_version']??1)>=2 && !isset($seen['career_history.json'])){
             $coverage=EventCoverage::read($source.'/event_coverage.json');
             $meta['event_coverage']=array_intersect_key($coverage,array_flip(['counts','complete']));
         }elseif(isset($seen['event_coverage.json'])){throw new ImportException('Event evidence requires contract v2.','contract');}
@@ -86,7 +86,7 @@ final class Package {
             return $meta;
         }
         if(isset($seen['priority_targets.json'])){
-            if(($transport['contract_version']??1)!==2 || $seen['priority_targets.json']['bytes']>2097152){throw new ImportException('Priority evidence requires contract v2 and a bounded manifest.','priority');}
+            if(($transport['contract_version']??1)<2 || $seen['priority_targets.json']['bytes']>2097152){throw new ImportException('Priority evidence requires contract v2 and a bounded manifest.','priority');}
             $meta['priority_targets']=Storage::read($source.'/priority_targets.json');
             \MMAF\DataEngine\Services\Priorities\Registry::validateManifest($meta['priority_targets']);
         }
@@ -146,7 +146,7 @@ final class Package {
         if(isset($seen['readiness_report.json'])){
             if($seen['readiness_report.json']['bytes']>1048576){throw new ImportException('Readiness summary exceeds its supported size.','contract');}
             $readiness=Storage::read($source.'/readiness_report.json');
-            if(($readiness['schema_version']??'')!=='mmaf_import_readiness_v1' || ($readiness['contract_version']??0)!==1 || ($readiness['profiles_total']??-1)!==$meta['counts']['profiles']){throw new ImportException('Readiness report does not match this package.','contract');}
+            if(!in_array([$readiness['schema_version']??'', $readiness['contract_version']??0],[['mmaf_import_readiness_v1',1],['mmaf_import_readiness_v2',2]],true) || ($readiness['profiles_total']??-1)!==$meta['counts']['profiles']){throw new ImportException('Readiness report does not match this package.','contract');}
             $meta['readiness']=$readiness;
         }
         if(isset($meta['priority_targets'])){

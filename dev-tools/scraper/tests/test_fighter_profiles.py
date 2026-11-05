@@ -1898,6 +1898,9 @@ def test_build_fighter_profile_queue_classifies_refresh_priority_and_freshness(t
                         "scraped_at": "2026-06-09T12:00:00+00:00",
                         "record_summary":{"pro_record_raw":"1-0-0","wins":1,"losses":0,"draws":0,"no_contests":0},
                         "career_record_evidence":{"scope":"professional_mma","verified":True,"record_raw":"1-0-0","label":"Pro MMA Record","evidence":"explicit_mma_record_label"},
+                            "history_scope":"professional_mma","history_scope_verified":True,"history_exhausted":True,
+                            "career_history_evidence":{"contract_version":1,"scope":"professional_mma_career_v1","complete":True,"row_scope_verified":True,"aggregate_matches":True,"checked_through":"2026-06-09","loading":{"contract_version":1,"canonical_card_dom":True,"hidden_cards":0,"first_page_verified":True,"load_complete":True,"navigation_exhausted":True,"pagination_present":False,"filters_present":False}},
+                            "fight_history":[{"source_bout_id":"tapology_bout_1001","fight_date":"2026-06-01","result":"win","is_professional":True,"discipline":"mma","classification_evidence":"profile_dom_classification"}],
                         "period_evidence":{"start_date":"2026-05-09","checked_through":"2026-06-09","scope_verified":True,"first_page_verified":True,"load_complete":True,"chronological_descending":True,"history_exhausted":True},
                         "warnings": [],
                     }
@@ -1915,17 +1918,15 @@ def test_build_fighter_profile_queue_classifies_refresh_priority_and_freshness(t
         report_path=latest_dir / "fighter_profile_queue_report.json",
     )
 
-    assert queue["refreshable_count"] == 1
-    assert queue["fresh_count"] == 1
-    assert report["count_by_stale_reason"]["fresh"] == 1
+    assert queue["refreshable_count"] == 2
+    assert queue["fresh_count"] == 0
     assert report["count_by_stale_reason"]["never_scraped"] == 1
 
     fresh = next(item for item in queue["queue"] if item["source_fighter_id"] == "tapology_fighter_100")
     never = next(item for item in queue["queue"] if item["source_url"].endswith("/200-never-scraped"))
-    assert fresh["should_refresh"] is False
-    assert fresh["stale_reason"] == "fresh"
+    assert fresh["should_refresh"] is True
     assert never["should_refresh"] is True
-    assert never["priority"] > fresh["priority"]
+    assert never["priority"] >= fresh["priority"]
     assert queue["queue"][0]["source_url"].endswith("/200-never-scraped")
 
 

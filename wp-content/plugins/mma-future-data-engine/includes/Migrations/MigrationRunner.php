@@ -29,6 +29,11 @@ final class MigrationRunner {
 		}
 
 		self::run_safe_alters();
+        $assessments=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
+        $period=$wpdb->get_row("SHOW COLUMNS FROM `$assessments` WHERE Field='period_start'",ARRAY_A);
+        if(!$period){throw new \RuntimeException('Assessment scope column is missing.');}
+        if($period['Null']!=='YES'){self::query("ALTER TABLE `$assessments` MODIFY period_start date NULL");}
+
 		self::repair_import_item_kinds();
 		foreach ($statements as $statement) {
 			preg_match('/CREATE TABLE\s+(\w+)/i', $statement, $match);

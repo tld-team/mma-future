@@ -5,10 +5,20 @@ the staging preflight, a dry-run, **Start import**, a private backup, committed
 changes, career verification, statistics and a final report. Ranking activation
 remains a separate administrator action.
 
-Plugin 2.8.0 requires the explicit database migration to schema 1.12.0. Deploy
-through the existing verified release runner. Legacy contract v1 remains readable;
-new exports use evidence contract v2. See [event evidence and priorities](scraper-priorities.md)
-for the additive registry, source identity gates and persistent event coverage.
+The current plugin requires the explicit database migration to schema 1.17.0.
+Deploy through the existing verified release runner. Legacy evidence contracts
+v1/v2 remain readable without inventing newer proof; new exports use evidence
+contract v3 and readiness contract v2. See
+[event evidence and priorities](scraper-priorities.md) for the additive registry,
+source identity gates and persistent event coverage.
+
+Whole-career profile evidence uses parser `profile_dom_v4`. A complete claim
+requires explicit professional-MMA scope for every accepted row, structured
+W/L/D/NC aggregate agreement, and affirmative proof that filters, hidden cards,
+pagination and load-more state are exhausted. Absence of a navigation button by
+itself is not completeness evidence. Missing opponent-record or method details
+are neutral coverage warnings; missing bouts, stale evidence and conflicts remain
+targeted refresh work.
 
 ## Prepare one package after all runs
 

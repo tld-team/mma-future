@@ -82,7 +82,7 @@ final class Registry {
             $bindings[]=['target_id'=>(int)$r['id'],'source_fighter_id'=>$key,'source_url'=>$r['source_url'],'token'=>self::token($r)];
 			$mode=$modes[(int)$r['fighter_id']]??\MMAF\DataEngine\Services\TrackingService::NORMAL;
 			if($mode===\MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY || ($mode===\MMAF\DataEngine\Services\TrackingService::PAUSED && !$tracking->recheck_due((int)$r['fighter_id']))){++$skipped[$mode];continue;}
-            $items[$key]=['source_fighter_id'=>$key,'source_url'=>$r['source_url'],'display_name'=>$r['client_name'],'fighter_id'=>$r['fighter_id']?(int)$r['fighter_id']:null,'action'=>'refresh_source_evidence','fetch_scope'=>($record['status']??'')==='accepted' && ($record['record']['pro_fights_count']??999)<=30?'career_and_period':'career_record','force_refresh'=>true];
+            $items[$key]=['source_fighter_id'=>$key,'source_url'=>$r['source_url'],'display_name'=>$r['client_name'],'fighter_id'=>$r['fighter_id']?(int)$r['fighter_id']:null,'action'=>'refresh_source_evidence','fetch_scope'=>($record['status']??'')==='accepted' && ($record['record']['pro_fights_count']??999)<=30?'professional_mma_career':'career_record','force_refresh'=>true];
         }
         return ['schema_version'=>'mmaf_source_enrichment_v1','contract_version'=>1,'generated_at'=>gmdate('c'),'items'=>array_values($items),'tracking_skipped_count'=>array_sum($skipped),'tracking_skipped_by_mode'=>$skipped,'priority_targets'=>['schema_version'=>'mmaf_priority_targets_v1','site_url'=>home_url('/'),'exported_at'=>gmdate('c'),'items'=>$bindings]];
     }

@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from mma_future_scraper.fighter_profiles import parse_profile_snapshot
-from mma_future_scraper.scoring_evidence import needs_refresh
+from mma_future_scraper.scoring_evidence import needs_period_refresh as needs_refresh
 
 FIXTURE=Path(__file__).resolve().parents[3]/'tests/fixtures/scoring-period'
 

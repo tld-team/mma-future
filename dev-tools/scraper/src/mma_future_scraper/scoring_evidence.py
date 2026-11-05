@@ -74,7 +74,7 @@ def period_evidence(snapshot: dict, profile: dict) -> dict:
             "parser_version": "scoring_period_v1"}
 
 
-def needs_refresh(profile: dict, *, now: datetime | None = None, known_results: list[dict] | None = None) -> bool:
+def needs_period_refresh(profile: dict, *, now: datetime | None = None, known_results: list[dict] | None = None) -> bool:
     """A failed attempt never replaces the successful observation used for this check."""
     now = now or datetime.now(timezone.utc)
     if profile.get('status')!='success':
@@ -111,5 +111,34 @@ def needs_refresh(profile: dict, *, now: datetime | None = None, known_results: 
             continue
         matches = [row for row in rows if known.get("source_bout_id") and row.get("source_bout_id") == known["source_bout_id"]]
         if len(matches) != 1 or any(matches[0].get(key) != known.get(key) for key in ("fight_date", "result") if known.get(key) is not None):
+            return True
+    return False
+
+
+def needs_refresh(profile: dict, *, now: datetime | None = None, known_results: list[dict] | None = None) -> bool:
+    """Current v1.8 queue policy: missing neutral details do not trigger fetches."""
+    now = now or datetime.now(timezone.utc)
+    if profile.get('status') != 'success' or not career_record_verified(profile):
+        return True
+    try:
+        checked = datetime.fromisoformat(str(profile.get('scraped_at') or profile.get('profile_scraped_at')).replace('Z', '+00:00'))
+        if checked.tzinfo is None: checked = checked.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return True
+    if not now - timedelta(days=MAX_VERIFICATION_AGE_DAYS) <= checked <= now:
+        return True
+    evidence = profile.get('career_history_evidence') or {}
+    if evidence.get('contract_version') != 1 or evidence.get('scope') != 'professional_mma_career_v1' or evidence.get('complete') is not True or evidence.get('checked_through') != checked.astimezone(timezone.utc).date().isoformat():
+        return True
+    # Revalidate supplied rows; a saved 'complete' boolean is never sufficient.
+    from .career_evidence import career_history_evidence
+    if not career_history_evidence({'history_loading_evidence': evidence.get('loading'), 'scraped_at': checked.isoformat()}, profile)['complete']:
+        return True
+    rows = profile.get('fight_history', [])
+    if any(row.get('source_conflict_reason') or any(proof.get('status') == 'conflict' for proof in (row.get('record_evidence') or {}).values()) for row in rows):
+        return True
+    for known in known_results or []:
+        matches = [row for row in rows if known.get('source_bout_id') and row.get('source_bout_id') == known['source_bout_id']]
+        if len(matches) != 1 or any(matches[0].get(key) != known.get(key) for key in ('fight_date', 'result') if known.get(key) is not None):
             return True
     return False

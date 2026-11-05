@@ -1,4 +1,54 @@
-# Career records and Formula v1.7
+# Whole-career ranking and Formula v1.8
+
+Formula v1.8 uses scope `professional_mma_career_v1`. Every unique, accepted
+professional MMA bout through the run reference date is evaluated once. The
+9 May 2026 boundary belongs only to the preserved v1.6/v1.7 engines.
+
+```text
+score = 0.5 × wins − 1.5 × losses
+      + known KO/TKO or submission wins
+      + win-opponent quality
+      + loss-opponent quality
+      + one age adjustment
+```
+
+The confirmed W/L/D/NC aggregate is a completeness and eligibility control; it
+is never added on top of the canonical bouts and never manufactures missing
+bouts. Draws and no contests add zero points but remain part of the component
+comparison and total professional-fight count. `sample_size` is career W+L.
+
+Opponent quality is calculated only from trusted W−L values explicitly shown
+as the opponent's pre-fight record. A confirmed 0–0 is known evidence. An unknown
+or untrusted record contributes zero quality points and is reported in coverage.
+An unknown method contributes zero finish points and is also reported, without
+blocking a final score. Conflicting trusted records or methods, unknown results,
+unresolved identities, missing bouts and aggregate mismatches remain blockers.
+
+A `main` assessment requires versioned whole-career evidence, complete loading,
+row-level professional MMA scope, reciprocal canonical participants/results,
+component-equal aggregate totals and the existing eligibility rules. An
+incomplete assessment is `provisional`: `score`, `raw_score` and `total_score`
+are null, while `known_points` may display a clearly provisional neutral sum.
+The frozen assessment contract v2 stores accepted career bouts, aggregate,
+career statistics, evidence, fallback reasons, coverage, breakdown and input
+hash. Activation independently replays those frozen inputs.
+
+New packages use evidence contract v3, readiness contract v2, parser
+`profile_dom_v4`, preparation fingerprint `career_full_tracking_v4` and policy
+`import_career_evidence_v3`. Schema 1.17.0 adds nullable participant record
+evidence and permits a null assessment `period_start`; old assessments and old
+formula engines remain reproducible. A first v1.8 activation establishes a new
+Movers baseline, so comparisons resume only after a second compatible v1.8
+activation.
+
+Public surfaces use the frozen career breakdown and the label:
+
+> Osnovni poeni, poznate završnice i kvalitet protivnika za celu profesionalnu MMA karijeru.
+
+The current profile record remains separate from the run's score inputs. Ranking
+activation is always a distinct manual operation after pilot review.
+
+## Preserved Formula v1.7 behavior
 
 Formula v1.7 uses a hybrid professional-MMA score. The accepted full-career W/L aggregate supplies base points, while finish and opponent-quality adjustments apply only to accepted results from **9 May 2026 through the ranking reference date, inclusive**. Import and first-seen dates never decide the scoring period. Formula v1.5 and v1.6 runs keep their frozen behavior and remain readable/activatable.
 

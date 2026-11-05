@@ -14,11 +14,30 @@
     "history_scope": "professional_mma",
     "history_scope_verified": true,
     "history_exhausted": true,
+    "history_loading_evidence": {
+      "contract_version": 1,
+      "canonical_card_dom": true,
+      "cards_count": 1,
+      "hidden_cards": 0,
+      "controls": [],
+      "first_page_verified": true,
+      "load_complete": true,
+      "navigation_exhausted": true,
+      "pagination_present": false,
+      "filters_present": false
+    },
     "rows": [
       {
         "raw_text": "W DEC Synthetic B 0-0-0 Synthetic Event October 05, 2026",
         "history_scope": "professional_mma",
         "row_boundary_verified": true,
+        "data_sport": "mma",
+        "data_division": "pro",
+        "data_status": "win",
+        "record_labels": [
+          { "label": "Fighter Record Before Fight", "value": "0-0" },
+          { "label": "Opponent Record Before Fight", "value": "0-0" }
+        ],
         "links": [
           {
             "href": "https://www.tapology.com/fightcenter/fighters/94981102-fixture-b",
@@ -53,11 +72,30 @@
     "history_scope": "professional_mma",
     "history_scope_verified": true,
     "history_exhausted": true,
+    "history_loading_evidence": {
+      "contract_version": 1,
+      "canonical_card_dom": true,
+      "cards_count": 1,
+      "hidden_cards": 0,
+      "controls": [],
+      "first_page_verified": true,
+      "load_complete": true,
+      "navigation_exhausted": true,
+      "pagination_present": false,
+      "filters_present": false
+    },
     "rows": [
       {
         "raw_text": "L DEC Synthetic A 0-0-0 Synthetic Event October 05, 2026",
         "history_scope": "professional_mma",
         "row_boundary_verified": true,
+        "data_sport": "mma",
+        "data_division": "pro",
+        "data_status": "loss",
+        "record_labels": [
+          { "label": "Fighter Record Before Fight", "value": "0-0" },
+          { "label": "Opponent Record Before Fight", "value": "0-0" }
+        ],
         "links": [
           {
             "href": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",

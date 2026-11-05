@@ -36,7 +36,7 @@ final class Schema {
                 status varchar(24) NOT NULL,
                 total_score decimal(10,3) NULL,
                 sample_size int unsigned NOT NULL DEFAULT 0,
-                period_start date NOT NULL,
+                period_start date NULL,
                 period_end date NOT NULL,
                 verified_at datetime NULL,
                 assessment_json longtext NOT NULL,

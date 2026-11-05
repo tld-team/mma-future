@@ -42,7 +42,8 @@
     "draws": 0,
     "no_contests": 0,
     "amateur_record_raw": null,
-    "finish_breakdown": null
+    "finish_breakdown": null,
+    "method_statistics": null
   },
   "fight_history": [
     {
@@ -74,6 +75,34 @@
       "classification_proof": {
         "section": "professional_mma",
         "row_boundary_verified": true
+      },
+      "record_evidence": {
+        "fighter": {
+          "status": "unknown",
+          "reason": "prefight_semantics_unproven",
+          "source": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
+          "parser_version": "profile_dom_v4",
+          "evidence": null,
+          "raw": null,
+          "record": null,
+          "candidates": [
+            "0-0-0"
+          ],
+          "observed_at": "2026-10-10T10:00:00Z"
+        },
+        "opponent": {
+          "status": "unknown",
+          "reason": "prefight_semantics_unproven",
+          "source": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
+          "parser_version": "profile_dom_v4",
+          "evidence": null,
+          "raw": null,
+          "record": null,
+          "candidates": [
+            "0-0-0"
+          ],
+          "observed_at": "2026-10-10T10:00:00Z"
+        }
       }
     },
     {
@@ -105,6 +134,34 @@
       "classification_proof": {
         "section": "professional_mma",
         "row_boundary_verified": true
+      },
+      "record_evidence": {
+        "fighter": {
+          "status": "unknown",
+          "reason": "prefight_semantics_unproven",
+          "source": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
+          "parser_version": "profile_dom_v4",
+          "evidence": null,
+          "raw": null,
+          "record": null,
+          "candidates": [
+            "0-0-0"
+          ],
+          "observed_at": "2026-10-10T10:00:00Z"
+        },
+        "opponent": {
+          "status": "unknown",
+          "reason": "prefight_semantics_unproven",
+          "source": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
+          "parser_version": "profile_dom_v4",
+          "evidence": null,
+          "raw": null,
+          "record": null,
+          "candidates": [
+            "0-0-0"
+          ],
+          "observed_at": "2026-10-10T10:00:00Z"
+        }
       }
     },
     {
@@ -136,10 +193,38 @@
       "classification_proof": {
         "section": "professional_mma",
         "row_boundary_verified": true
+      },
+      "record_evidence": {
+        "fighter": {
+          "status": "unknown",
+          "reason": "prefight_semantics_unproven",
+          "source": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
+          "parser_version": "profile_dom_v4",
+          "evidence": null,
+          "raw": null,
+          "record": null,
+          "candidates": [
+            "0-0-0"
+          ],
+          "observed_at": "2026-10-10T10:00:00Z"
+        },
+        "opponent": {
+          "status": "unknown",
+          "reason": "prefight_semantics_unproven",
+          "source": "https://www.tapology.com/fightcenter/fighters/94981101-fixture-a",
+          "parser_version": "profile_dom_v4",
+          "evidence": null,
+          "raw": null,
+          "record": null,
+          "candidates": [
+            "0-0-0"
+          ],
+          "observed_at": "2026-10-10T10:00:00Z"
+        }
       }
     }
   ],
-  "parser_version": "profile_dom_v3",
+  "parser_version": "profile_dom_v4",
   "history_scope": "professional_mma",
   "history_scope_verified": true,
   "history_exhausted": false,
@@ -175,6 +260,20 @@
     "boundary_crossed": true,
     "history_exhausted": false,
     "parser_version": "scoring_period_v1"
+  },
+  "career_history_evidence": {
+    "contract_version": 1,
+    "scope": "professional_mma_career_v1",
+    "complete": false,
+    "loading": {},
+    "component_counts": {
+      "wins": 2,
+      "losses": 1
+    },
+    "aggregate_matches": false,
+    "row_scope_verified": true,
+    "checked_through": "2026-10-10",
+    "parser_version": "profile_dom_v4"
   },
   "current_roster": null,
   "scraped_at": "2026-10-10T10:00:00Z"

@@ -42,6 +42,24 @@ function fixture_profile(array $fighter, array $rows, array $record, array $valu
 		}
 		$profile['record_summary']['pro_record_raw'] = $raw;
 		$profile['career_record_evidence'] = ['scope'=>'professional_mma','verified'=>true,'label'=>'Pro MMA Record','record_raw'=>$raw,'evidence'=>'explicit_mma_record_label','context'=>null,'record_context_verified'=>false];
+		$source_counts = array( 'wins'=>0, 'losses'=>0, 'draws'=>0, 'no_contests'=>0 );
+		$row_scope_verified = true;
+		foreach ( $rows as $row ) {
+			$key = array( 'win'=>'wins', 'loss'=>'losses', 'draw'=>'draws', 'no_contest'=>'no_contests' )[ $row['result'] ?? '' ] ?? null;
+			if ( $key ) { ++$source_counts[ $key ]; }
+			$row_scope_verified = $row_scope_verified && ! empty( $row['is_professional'] ) && ( $row['discipline'] ?? '' ) === 'mma' && in_array( $row['classification_evidence'] ?? '', array( 'profile_dom_classification', 'bout_dom_classification' ), true );
+		}
+		$aggregate_matches = $source_counts === array_map( 'intval', array_intersect_key( $record, $source_counts ) );
+		$profile['parser_version'] = 'profile_dom_v4';
+		$profile['career_history_evidence'] = [
+			'contract_version'=>1, 'scope'=>'professional_mma_career_v1', 'complete'=>$aggregate_matches && $row_scope_verified,
+			'row_scope_verified'=>$row_scope_verified, 'aggregate_matches'=>$aggregate_matches, 'checked_through'=>$checked,
+			'loading'=>[
+				'contract_version'=>1, 'canonical_card_dom'=>true, 'first_page_verified'=>true,
+				'load_complete'=>true, 'navigation_exhausted'=>true, 'hidden_cards'=>0,
+				'pagination_present'=>false, 'filters_present'=>false,
+			],
+		];
 	}
 	return array_merge($profile,$values);
 }

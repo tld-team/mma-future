@@ -41,6 +41,7 @@ require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV14.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV15.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV16.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV17.php';
+require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaV18.php';
 require_once dirname( __DIR__ ) . '/includes/Services/Formula/FormulaRegistry.php';
 require_once dirname( __DIR__ ) . '/includes/Services/TrackingService.php';
 require_once dirname( __DIR__ ) . '/includes/Services/EligibilityService.php';
@@ -98,7 +99,7 @@ $assertThrows = static function ( string $name, callable $callback ) use ( &$fai
 	}
 };
 
-$assert( 'registry_current_version', \MMAF\DataEngine\Services\Formula\FormulaV17::VERSION, FormulaRegistry::current_version() );
+$assert( 'registry_current_version', \MMAF\DataEngine\Services\Formula\FormulaV18::VERSION, FormulaRegistry::current_version() );
 $assertTrue( 'registry_direct_scores', FormulaRegistry::uses_direct_scores( FormulaV15::VERSION ) );
 $assertTrue( 'registry_legacy_normalized_v14', FormulaRegistry::uses_normalized_scores( 'v1.4' ) );
 

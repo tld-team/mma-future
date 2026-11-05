@@ -14,7 +14,7 @@ require_once $base . 'Migrations/Schema.php';
 require_once $base . 'Repositories/RankingCurrentRepository.php';
 require_once $base . 'Repositories/RankingRunRepository.php';
 require_once $base . 'Services/AuditLogService.php';
-foreach ( array( 'FormulaV13', 'FormulaV14', 'FormulaV15', 'FormulaV16', 'FormulaV17', 'FormulaRegistry' ) as $class ) {
+foreach ( array( 'FormulaV13', 'FormulaV14', 'FormulaV15', 'FormulaV16', 'FormulaV17', 'FormulaV18', 'FormulaRegistry' ) as $class ) {
 	require_once $base . 'Services/Formula/' . $class . '.php';
 }
 require_once $base . 'Services/TrackingService.php';
@@ -39,7 +39,7 @@ $assert = static function( string $name, $expected, $actual, float $epsilon = 0.
 };
 
 $formula = new FormulaV17();
-$assert( 'current_version', 'v1.7', FormulaRegistry::current_version() );
+$assert( 'current_version', 'v1.8', FormulaRegistry::current_version() );
 $assert( 'scope', 'professional_mma_hybrid_20260509_v1', FormulaV17::SCOPE );
 $assert( 'period_start', '2026-05-09', FormulaV17::PERIOD_START );
 $assert( 'frozen_win_weight', 0.5, FormulaV17::config()['base_record']['win'] );
