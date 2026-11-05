@@ -91,6 +91,7 @@ final class BoutService {
 		'prefight_draws',
 		'prefight_nc',
 		'prefight_record_raw',
+        'opponent_prefight_wins','opponent_prefight_losses','opponent_prefight_draws','opponent_prefight_nc','opponent_prefight_record_raw','opponent_prefight_diff','record_evidence_json',
 		'is_winner',
 	);
 
@@ -367,6 +368,7 @@ final class BoutService {
 		}
 
 		return array(
+			'record_evidence_json' => PrefightRecordMerge::evidence(PrefightRecordMerge::manual($own),PrefightRecordMerge::manual($opponent)),
 			'prefight_wins'                 => $own['wins'],
 			'prefight_losses'               => $own['losses'],
 			'prefight_draws'                => $own['draws'],

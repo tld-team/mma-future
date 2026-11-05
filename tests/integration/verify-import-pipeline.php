@@ -55,7 +55,8 @@ try{
     check(!empty($current['meta']['performance']['stored_career']['units']),'phase performance is recorded durably');
     $draft=Processor::status()['calculation']['draft']['ranking_run_id']??0;
     $assessmentTable=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
-    check($draft && (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $assessmentTable WHERE ranking_run_id=%d AND fighter_id IN (%d,%d) AND status='main'",$draft,$a['fighter_id'],$b['fighter_id']))===2,'real parser → ZIP → import → frozen period assessment → inactive v1.6 ranking draft covers both perspectives');
+    $draftVersion=$draft?$wpdb->get_var($wpdb->prepare("SELECT formula_version FROM {$t['ranking_runs']} WHERE id=%d",$draft)):null;
+    check($draft && $draftVersion==='v1.8' && (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $assessmentTable WHERE ranking_run_id=%d AND fighter_id IN (%d,%d) AND status='main'",$draft,$a['fighter_id'],$b['fighter_id']))===2,'real parser → ZIP → import → frozen whole-career assessment → inactive v1.8 ranking draft covers both perspectives');
     if(getenv('MMAF_PIPELINE_METRICS')){file_put_contents(getenv('MMAF_PIPELINE_METRICS'),wp_json_encode(['worker'=>$units,'phases'=>$current['meta']['performance'],'source_readiness'=>$current['meta']['package']['readiness'],'environment'=>'isolated local synthetic database; two profiles; backup covered separately'],JSON_PRETTY_PRINT));}
     $receipt=Storage::read($dir.'/receipt.json');
     check(\MMAF\DataEngine\Services\RegularImport\Receipt::validate($receipt)['job_id']===$job,'committed destination receipt is accepted as a delta base');
@@ -80,7 +81,8 @@ try{
     check(in_array($d['status'],['completed','completed_with_review'],true) && !empty($d['meta']['stats']['reused']) && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$runsBefore,'empty same-date delta reuses verified stats and creates no additional ranking draft');
     $profile=(new ProfileStore())->for_fighter($a['fighter_id']);$raw=$profile['profile'];
     $invalid=$raw;$invalid['history_scope_verified']='false';$invalid['history_exhausted']='false';$adapted=ProfileStore::career_profile($invalid,$a['fighter_id']);
-    check(!$adapted['history_scope_verified'] && !$adapted['history_exhausted'] && !$adapted['rows'][0]['is_professional'],'string false cannot masquerade as verified scope or complete history');
+    check(!$adapted['history_scope_verified'] && !$adapted['history_exhausted'],'string false cannot masquerade as verified scope or complete history');
+    check($adapted['rows'][0]['is_professional'] && ($adapted['rows'][0]['classification_evidence']??'')==='profile_dom_classification','independent row-level DOM classification survives an invalid profile-wide scope claim');
     $raw['last_attempt']=['at'=>gmdate('c',strtotime($profile['source_fetched_at'].' UTC')+1),'status'=>'failed_parse','error_reason'=>'Synthetic timeout'];
     (new ProfileStore())->put($raw,'tapology_fighter_profiles_v0_1');$saved=(new ProfileStore())->for_fighter($a['fighter_id']);
     check($saved['content_hash']===$profile['content_hash'] && $saved['last_attempt_status']==='failed_parse' && $saved['profile']['status']==='success','a newer failed attempt is visible without changing the retained success content hash');

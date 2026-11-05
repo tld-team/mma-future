@@ -379,7 +379,7 @@ final class ScraperJsonImportService {
 						$updated = $this->update_bout_from_source( $bout_id, $bout, $event_id, $fighter_a_id, $fighter_b_id, $warnings, $user_id );
 						$this->touch_bout_source( (int) $source['id'], $bout, $event_id, $run_id );
 						$this->summary[ $updated ? 'bouts_updated' : 'bouts_no_change' ]++;
-						$this->log_item( $run_id, 'bout', $source_bout_id, $identity_hash, $content_hash, $bout_id, $updated ? 'updated' : 'no_change', $updated ? 'update' : 'no_change', $warnings );
+						$this->log_item( $run_id, 'bout', $source_bout_id, $identity_hash, $content_hash, $bout_id, array_intersect(['prefight_record_conflict_review','method_conflict_review'],$warnings)?'needs_review':($updated ? 'updated' : 'no_change'), $updated ? 'update' : 'no_change', $warnings );
 						continue;
 					}
 
@@ -457,7 +457,7 @@ final class ScraperJsonImportService {
 			}
 
 			foreach ( $this->participants->list_by_bout( $bout_id ) as $participant ) {
-				foreach ( array( 'fighter_id', 'participant_role', 'source_fighter_id', 'source_name', 'result_for_fighter', 'opponent_fighter_id', 'prefight_wins', 'prefight_losses', 'prefight_draws', 'prefight_nc', 'prefight_record_raw', 'is_winner' ) as $field ) {
+				foreach ( array( 'fighter_id', 'participant_role', 'source_fighter_id', 'source_name', 'result_for_fighter', 'opponent_fighter_id', 'prefight_wins', 'prefight_losses', 'prefight_draws', 'prefight_nc', 'prefight_record_raw', 'opponent_prefight_wins', 'opponent_prefight_losses', 'opponent_prefight_draws', 'opponent_prefight_nc', 'opponent_prefight_record_raw', 'opponent_prefight_diff', 'record_evidence_json', 'is_winner' ) as $field ) {
 					$this->provenance->upsert_source( 'bout_participant', (int) $participant['id'], $field, $participant[ $field ] ?? null, self::SOURCE, (string) ( $bout['source_bout_id'] ?? '' ), $user_id );
 					$this->summary['provenance_rows_written']++;
 				}
@@ -504,6 +504,7 @@ final class ScraperJsonImportService {
 	}
 
 	private function update_bout_from_source( int $bout_id, array $bout, int $event_id, int $fighter_a_id, int $fighter_b_id, array &$warnings, int $user_id ): bool {
+        return \MMAF\DataEngine\Services\RegularImport\Transaction::run(function() use($bout_id,$bout,$event_id,$fighter_a_id,$fighter_b_id,&$warnings,$user_id){
 		$before = $this->bouts->find( $bout_id );
 		if ( ! $before ) {
 			throw new \RuntimeException( 'Bout not found for update.' );
@@ -512,6 +513,8 @@ final class ScraperJsonImportService {
 		$incoming = $this->bout_row( $bout, $event_id, $warnings );
 		$updates  = $this->safe_updates( 'bout', $bout_id, $before, $incoming, $warnings );
 		$changed  = false;
+        $locked_result=false;foreach($this->participants->list_by_bout($bout_id) as $participant){foreach(['result_for_fighter','is_winner'] as $field){$locked_result=$locked_result || $this->provenance->is_protected('bout_participant',(int)$participant['id'],$field);}}
+        if($locked_result){unset($updates['result_type'],$updates['is_scoring_candidate'],$updates['status']);}
 
 		if ( ! empty( $updates ) ) {
 			$this->bouts->update( $bout_id, $updates );
@@ -522,14 +525,24 @@ final class ScraperJsonImportService {
 			$changed = true;
 		}
 
-		if ( $this->provenance->has_source( 'bout', $bout_id, 'result_type', self::SOURCE ) && null === $this->provenance->protected_reason( 'bout', $bout_id, 'result_type' ) ) {
-			$this->participants->replace_exactly_two( $bout_id, $this->participant_rows( $bout, $fighter_a_id, $fighter_b_id ) );
-			$this->summary['participants_created_updated'] += 2;
-			$changed = true;
-		} else {
-			$warnings[] = 'manual_participant_rows_preserved';
-			$this->summary['warnings_count']++;
-		}
+        $current=$this->participants->list_by_bout($bout_id);
+        $incoming_participants=$this->participant_rows($bout,$fighter_a_id,$fighter_b_id);
+        $merge=\MMAF\DataEngine\Services\PrefightRecordMerge::merge($current,$incoming_participants);
+        $merged=\MMAF\DataEngine\Services\PrefightRecordMerge::method_conflict($merge['rows'],$before['method_category'],$incoming['method_category']??null);
+        $method_conflict=$merged!=$merge['rows'];
+        // Result protection does not prevent independent record enrichment.
+        $can_result=$this->provenance->has_source('bout',$bout_id,'result_type',self::SOURCE) && !$this->provenance->is_protected('bout',$bout_id,'result_type');
+        foreach($current as $p){foreach(['result_for_fighter','is_winner'] as $field){if($this->provenance->is_protected('bout_participant',(int)$p['id'],$field)){$can_result=false;}}}
+        if($can_result){foreach($merged as &$p){foreach($incoming_participants as $new){if((int)$p['fighter_id']===(int)$new['fighter_id']){$p['result_for_fighter']=$new['result_for_fighter'];$p['is_winner']=$new['is_winner'];}}}unset($p);}
+        if($merged!=$current){
+            foreach($merged as &$p){unset($p['id'],$p['created_at'],$p['updated_at']);}unset($p);
+            $this->participants->replace_exactly_two($bout_id,$merged);
+            \MMAF\DataEngine\Services\PrefightRecordMerge::provenance($bout_id,(string)($bout['source_bout_id']??''),$user_id);
+            $changed=true;$this->summary['participants_created_updated']+=2;
+        }
+        if($merge['conflicts']){$warnings[]='prefight_record_conflict_review';}
+        if($method_conflict){$warnings[]='method_conflict_review';}
+        if($merge['conflicts']||$method_conflict){$warnings=array_values(array_unique($warnings));$this->summary['needs_review_count']++;}
 
 		if ( $changed ) {
 			$after = $this->bouts->find( $bout_id );
@@ -540,6 +553,7 @@ final class ScraperJsonImportService {
 		}
 
 		return $changed;
+        });
 	}
 
 	private function safe_updates( string $entity_type, int $entity_id, array $current, array $incoming, array &$warnings ): array {
@@ -548,6 +562,7 @@ final class ScraperJsonImportService {
 		foreach ( $incoming as $field => $value ) {
             if (null !== $this->provenance->protected_reason($entity_type,$entity_id,$field)) { $warnings[]='manual_field_preserved:'.$entity_type.'.'.$field; continue; }
 			$current_value = $current[ $field ] ?? null;
+            if($entity_type==='bout' && $field==='method_category' && $current_value && $current_value!=='unknown' && $value!==$current_value){$warnings[]=$value==='unknown'?'known_method_preserved':'method_conflict_review';continue;}
 			if ( $this->same_value( $current_value, $value ) ) {
 				continue;
 			}
@@ -605,7 +620,7 @@ final class ScraperJsonImportService {
 			$status = 'pending_result_review';
 		}
 
-		$is_scoring = ! empty( $flags['is_scoring_candidate'] ) && 'win_loss' === $result_type && in_array( $status, array( 'valid', 'completed' ), true ) && ! in_array( $method, array( 'unknown', 'draw', 'no_contest' ), true ) ? 1 : 0;
+		$is_scoring = ! empty( $flags['is_scoring_candidate'] ) && 'win_loss' === $result_type && in_array( $status, array( 'valid', 'completed' ), true ) ? 1 : 0;
 
 		if ( 'unknown' === $method ) {
 			$warnings[] = 'method_category_unknown';
@@ -635,7 +650,9 @@ final class ScraperJsonImportService {
 		$a_ref       = (array) ( $bout['fighter_a'] ?? array() );
 		$b_ref       = (array) ( $bout['fighter_b'] ?? array() );
 		$a_record    = (array) ( $a_ref['prefight_record'] ?? array() );
+        $a_record['evidence']=$a_ref['record_evidence']??[];
 		$b_record    = (array) ( $b_ref['prefight_record'] ?? array() );
+        $b_record['evidence']=$b_ref['record_evidence']??[];
 
 		return array(
 			array_merge( $this->participant_base( $a_ref, 'fighter_a', $fighter_a_id, $fighter_b_id, $result_type, $winner ), $this->record_columns( $a_record, $b_record ) ),
@@ -675,6 +692,7 @@ final class ScraperJsonImportService {
 		$opponent_losses = $this->nullable_int( $opponent['losses'] ?? null );
 
 		return array(
+			'record_evidence_json' => \MMAF\DataEngine\Services\PrefightRecordMerge::evidence($own['evidence']??[],$opponent['evidence']??[]),
 			'prefight_wins'                => $this->nullable_int( $own['wins'] ?? null ),
 			'prefight_losses'              => $this->nullable_int( $own['losses'] ?? null ),
 			'prefight_draws'               => $this->nullable_int( $own['draws'] ?? null ),

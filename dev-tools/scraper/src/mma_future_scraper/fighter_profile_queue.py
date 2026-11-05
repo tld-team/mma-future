@@ -553,7 +553,7 @@ class _QueueBuilder:
         entry["should_refresh"] = entry["is_stale"]
         from .scoring_evidence import needs_refresh
         if not entry["is_stale"] and needs_refresh(existing,now=_utc_now(),known_results=entry.get("known_results")):
-            entry.update(is_stale=True,should_refresh=True,stale_reason="career_or_period_evidence_refresh_required",refresh_ttl_days=7)
+            entry.update(is_stale=True,should_refresh=True,stale_reason="career_history_evidence_refresh_required",refresh_ttl_days=7)
             entry["priority"]=max(int(entry.get("priority") or 0),90)
         if not entry["is_stale"]:
             entry["priority"] = 0

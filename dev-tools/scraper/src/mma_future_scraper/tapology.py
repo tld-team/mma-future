@@ -29,7 +29,7 @@ from .fighter_profiles import (
     failed_profile,
     normalize_profile_for_event_output,
     parse_profile_snapshot,
-    snapshot_profile_page,
+    snapshot_complete_profile_page,
 )
 from .fighter_profile_queue import load_tracking_decisions, tracking_allows_profile, tracking_decision_for
 from .logging_utils import log
@@ -919,10 +919,10 @@ class TapologyScraper:
         entry = self._persistent_profile_cache_entry(profile_url)
         if not entry:
             return None
-        from .scoring_evidence import needs_refresh
+        from .scoring_evidence import needs_period_refresh
         source_profile = deepcopy(entry.get("profile") or {})
         source_profile["scraped_at"] = entry.get("cache_scraped_at")
-        if needs_refresh(source_profile, known_results=known_results):
+        if needs_period_refresh(source_profile, known_results=known_results):
             self._cache_counts["profile_cache_hits"] -= 1
             self._cache_counts["profile_cache_expired"] += 1
             return None
@@ -3813,8 +3813,8 @@ class TapologyScraper:
     ) -> dict[str, Any]:
         cache_key = self._profile_cache_key(profile_url)
         if cache_key and cache_key in self._fighter_profile_cache:
-            from .scoring_evidence import needs_refresh
-            if not known_results or not needs_refresh(self._fighter_profile_cache[cache_key], known_results=known_results):
+            from .scoring_evidence import needs_period_refresh
+            if not known_results or not needs_period_refresh(self._fighter_profile_cache[cache_key], known_results=known_results):
                 return self._fighter_profile_cache[cache_key]
         if not profile_url:
             profile = failed_profile("", "navigation_failed", "profile_fetch_failed:missing_url")
@@ -3986,7 +3986,7 @@ class TapologyScraper:
                 if self.config.debug:
                     save_debug_artifacts(page, run_dir, f"{diagnostic_name}_http_{status}_attempt_{attempt}")
                 return failed_profile(profile_url, "http_error", reason, page, diagnostics=diagnostic), status in {408, 429, 500, 502, 503, 504}
-            snapshot = snapshot_profile_page(page)
+            snapshot = snapshot_complete_profile_page(page, self.config.page_timeout_ms)
             body_text = normalize_space(snapshot.get("body_text"))
             diagnostic.update(
                 {
@@ -4239,6 +4239,9 @@ class TapologyScraper:
         if explicit_records:records=[explicit_records.get('a'),explicit_records.get('b')]
         record_a = parse_prefight_record(records[0] if len(records) > 0 else None)
         record_b = parse_prefight_record(records[1] if len(records) > 1 else None)
+        def record_proof(record, side):
+            known = bool(explicit_records.get(side) and record.get('wins') is not None and record.get('losses') is not None)
+            return {'status': 'known' if known else 'unknown', 'reason': None if known else 'prefight_semantics_unproven', 'record': {k: record.get(k) for k in ('wins','losses','draws','nc')} if known else None, 'raw': record.get('raw'), 'source': source_url, 'observed_at': event.get('scraped_at') or event.get('fetched_at'), 'parser_version': row.get('source_row_version'), 'evidence': 'labelled_record_at_fight' if known else None}
         method_raw = row.get('method_raw') or self._extract_method_raw(raw_text)
         method = normalize_method(method_raw)
         warnings = method.pop("warnings", [])
@@ -4291,6 +4294,7 @@ class TapologyScraper:
                 "source_fighter_id": fighter_a_source_id,
                 "source_fighter_numeric_id": None,
                 "prefight_record": record_a,
+                "record_evidence": record_proof(record_a, "a"),
             },
             "fighter_b": {
                 "name": normalize_space(fighter_b.get("name")),
@@ -4298,6 +4302,7 @@ class TapologyScraper:
                 "source_fighter_id": fighter_b_source_id,
                 "source_fighter_numeric_id": None,
                 "prefight_record": record_b,
+                "record_evidence": record_proof(record_b, "b"),
             },
                 "result": {
                     **method,
@@ -4330,12 +4335,13 @@ class TapologyScraper:
             self._dismiss_overlays(page, summary, max_rounds=3, context="matchup_page")
             self._raise_if_blocked(page, None, f"matchup_{url_hash(bout_url)}")
             body = normalize_space(page.locator("body").inner_text(timeout=5000))
-            details = self._parse_matchup_page_details(body)
+            debug_payload_time = utc_now()
+            details = self._parse_matchup_page_details(body, bout_url, debug_payload_time)
             debug_payload = {
                 "source_url": bout_url,
                 "title": normalize_space(page.title()),
                 "raw_text_excerpt": body[:3000],
-                "scraped_at": utc_now(),
+                "scraped_at": debug_payload_time,
             }
             debug_payload.update({"parsed": details})
             self._debug_append("bouts", debug_payload)
@@ -4350,8 +4356,16 @@ class TapologyScraper:
         finally:
             page.close()
 
-    def _parse_matchup_page_details(self, text: str) -> dict[str, Any]:
+    def _parse_matchup_page_details(self, text: str, source_url: str | None = None, observed_at: str | None = None) -> dict[str, Any]:
         prefight_records = self._extract_prefight_records_from_matchup(text)
+        parsed_records = [parse_prefight_record(value) for value in prefight_records]
+        def proof(index):
+            record = parsed_records[index] if index < len(parsed_records) else None
+            known = bool(record and record.get('wins') is not None and record.get('losses') is not None)
+            return {'status': 'known' if known else 'unknown', 'reason': None if known else 'prefight_semantics_unproven',
+                    'record': {key: record.get(key) for key in ('wins','losses','draws','nc')} if known else None,
+                    'raw': record.get('raw') if record else None, 'source': source_url, 'observed_at': observed_at,
+                    'parser_version': 'tapology_matchup_v1', 'evidence': 'labelled_record_at_fight' if known else None}
         title_info = self._extract_matchup_title_info(text)
         result_segment = self._extract_matchup_result_segment(text) or text
         method_raw = self._extract_matchup_method_raw(result_segment)
@@ -4361,8 +4375,10 @@ class TapologyScraper:
         result_time = parse_time(result_segment)
         return self._prune_none(
             {
-                "fighter_a_prefight_record": parse_prefight_record(prefight_records[0]) if len(prefight_records) > 0 else None,
-                "fighter_b_prefight_record": parse_prefight_record(prefight_records[1]) if len(prefight_records) > 1 else None,
+                "fighter_a_prefight_record": parsed_records[0] if len(parsed_records) > 0 else None,
+                "fighter_b_prefight_record": parsed_records[1] if len(parsed_records) > 1 else None,
+                "fighter_a_record_evidence": proof(0),
+                "fighter_b_record_evidence": proof(1),
                 "result": {
                     **method,
                     "round": result_round,
@@ -4380,8 +4396,10 @@ class TapologyScraper:
     def _apply_matchup_details(self, bout: dict[str, Any], details: dict[str, Any]) -> None:
         if details.get("fighter_a_prefight_record"):
             bout["fighter_a"]["prefight_record"] = details["fighter_a_prefight_record"]
+            bout["fighter_a"]["record_evidence"] = details.get("fighter_a_record_evidence", {"status":"unknown","reason":"matchup_side_semantics_unproven"})
         if details.get("fighter_b_prefight_record"):
             bout["fighter_b"]["prefight_record"] = details["fighter_b_prefight_record"]
+            bout["fighter_b"]["record_evidence"] = details.get("fighter_b_record_evidence", {"status":"unknown","reason":"matchup_side_semantics_unproven"})
         result_details = details.get("result") or {}
         for key in ["method_category", "method_detail", "round", "time", "time_semantics"]:
             if key in result_details and result_details[key] not in (None,'','unknown'):

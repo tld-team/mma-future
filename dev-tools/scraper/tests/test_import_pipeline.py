@@ -1,4 +1,5 @@
 import json,hashlib,zipfile
+from datetime import datetime,timezone
 from copy import deepcopy
 from pathlib import Path
 import pytest
@@ -15,6 +16,9 @@ def document():
         profile=parse_profile_snapshot(snapshot,snapshot['url']);profile['scraped_at']=snapshot['scraped_at'];profiles.append(profile)
     return {'schema_version':'tapology_fighter_profiles_v0_1','source':'tapology','run_id':'profiles_1','profiles_total':2,'profiles_success':2,'profiles_failed':0,'profiles':profiles}
 
+def readiness(value):
+    return build_readiness(value, verification_now=datetime(2026,10,10,10,tzinfo=timezone.utc))
+
 def cycle(tmp_path):
     latest=tmp_path/'data/latest';_write_complete_latest(latest,latest.parent/'state')
     (latest/'fighter_profiles.json').write_text(json.dumps(document()))
@@ -22,21 +26,33 @@ def cycle(tmp_path):
     c.adopt('events-1',latest);c.adopt('profiles-1',latest)
     return c
 
-def test_explicit_section_evidence_and_legacy_readiness():
-    d=document();r=build_readiness(d)
+def test_explicit_dom_evidence_and_legacy_readiness():
+    d=document();r=readiness(d)
     assert r['profiles']['career_ready_candidates']==2
     row=d['profiles'][0]['fight_history'][0]
-    assert row['classification_evidence']=='profile_section_classification' and row['source_sport']=='mma'
+    assert row['classification_evidence']=='profile_dom_classification' and row['source_sport']=='mma'
     legacy=deepcopy(d)
     for p in legacy['profiles']:
         p.pop('history_scope_verified');p.pop('history_exhausted');p.pop('parser_version')
         for row in p['fight_history']:row.pop('classification_evidence')
-    r=build_readiness(legacy)
+    r=readiness(legacy)
     assert r['profiles']['careers_needing_enrichment']==2 and r['profiles']['legacy_profiles']==2
     assert r['source_enrichment'][0]['reasons']['missing_classification_evidence']
 
+def test_career_readiness_treats_missing_quality_and_method_as_neutral_warnings():
+    d=document();win=d['profiles'][0]['fight_history'][0]
+    win['opponent_record_raw']=None;win['record_evidence']['opponent']={'status':'unknown','reason':'prefight_semantics_unproven'}
+    report=readiness(d)
+    assert not report['source_enrichment'] and report['profiles']['neutral_unknown_records']==1
+    win['opponent_record_raw']='0-0-0';win['method_category']='unknown'
+    report=readiness(d)
+    assert not report['source_enrichment'] and report['profiles']['neutral_unknown_methods']==1
+    loss=d['profiles'][1]['fight_history'][0];loss['method_category']='unknown'
+    report=readiness(d)
+    assert not report['source_enrichment'] and report['profiles']['neutral_unknown_methods']==2
+
 def test_boundary_or_global_heading_cannot_manufacture_evidence():
-    s=json.loads(SNAPSHOTS.read_text())[0];s['rows'][0].pop('row_boundary_verified')
+    s=json.loads(SNAPSHOTS.read_text())[0];s['rows'][0].pop('row_boundary_verified');s['rows'][0].pop('data_sport');s['rows'][0].pop('data_division')
     p=parse_profile_snapshot(s,s['url'])
     assert not p['fight_history'][0]['is_professional']
     assert not p['fight_history'][0].get('classification_evidence')
@@ -47,7 +63,7 @@ def test_last_failed_attempt_retains_previous_success_separately():
     p=merged['profiles'][0]
     assert p['status']=='success' and p['scraped_at']=='2026-10-10T10:00:00Z'
     assert p['last_attempt']['status']=='failed_parse'
-    assert build_readiness(merged)['profiles']['last_attempt_failed']==1
+    assert readiness(merged)['profiles']['last_attempt_failed']==1
 
 def test_identity_conflicts_are_blocked_offline():
     p=document()['profiles'][0];p['source_fighter_id']='tapology_fighter_1'
@@ -61,8 +77,8 @@ def test_finalization_publishes_once_and_binds_reports_to_current_input(tmp_path
     assert c.finalize(out)==result
     with zipfile.ZipFile(result['output']) as z:
         manifest=json.loads(z.read('latest/package_manifest.json'))
-        assert manifest['contract_version']==2
-        assert json.loads(z.read('latest/readiness_report.json'))['profiles']['career_ready_candidates']==2
+        assert manifest['contract_version']==3
+        assert json.loads(z.read('latest/readiness_report.json'))['profiles']['careers_needing_enrichment']==2
         for name,item in manifest['files'].items():assert hashlib.sha256(z.read('latest/'+name)).hexdigest()==item['sha256']
     marker=json.loads((out/'fixture/cycle-manifest.json').read_text())
     assert marker['input_files']['fighter_profiles.json']==hashlib.sha256((c.latest/'fighter_profiles.json').read_bytes()).hexdigest()
@@ -95,14 +111,14 @@ def test_shared_contract_digests_and_url_variants():
         assert source_fighter_id_from_url(case['url'])==case['source_fighter_id']
 
 def test_forged_section_proof_and_conflicting_opponent_perspectives():
-    d=document();d['profiles'][0]['fight_history'][0]['classification_proof']['row_boundary_verified']=False
-    assert build_readiness(d)['source_enrichment'][0]['reasons']['invalid_section_evidence']
+    d=document();row=d['profiles'][0]['fight_history'][0];row['classification_evidence']='profile_section_classification';row['classification_proof']={'section':'professional_mma','row_boundary_verified':False}
+    assert readiness(d)['source_enrichment'][0]['reasons']['invalid_section_evidence']
     d=document();d['profiles'][1]['fight_history'][0]['result']='win'
-    report=build_readiness(d)
+    report=readiness(d)
     assert report['enrichment_actions']['review_conflict']==2
     assert all(p['conflicting_bouts']==['tapology_bout_94981301'] for p in report['source_enrichment'])
     d=document();d['profiles'][0]['history_scope_verified']='false';d['profiles'][0]['history_exhausted']='false'
-    assert build_readiness(d)['profiles']['career_ready_candidates']==1
+    assert readiness(d)['profiles']['career_ready_candidates']==1
 
 def test_publication_reports_and_sealed_state_cannot_change(tmp_path):
     c=cycle(tmp_path);out=tmp_path/'ready';c.finalize(out)
@@ -145,6 +161,8 @@ def test_offline_recovery_preserves_observation_and_reduces_evidence_queue(tmp_p
     assert source.read_bytes()==before
     parsed=json.loads((tmp_path/'recovery/reparsed_profiles.json').read_text())
     assert all(p['scraped_at']=='2026-10-10T10:00:00Z' and p['recovery_provenance']['snapshot_sha256'] for p in parsed['profiles'])
+    queue=json.loads((tmp_path/'recovery/source_enrichment_queue.json').read_text())
+    assert queue['items']==[]
 
 def test_source_queue_does_not_auto_fetch_human_conflicts(tmp_path):
     from mma_future_scraper.fighter_profile_queue import collect_fighter_profile_urls_from_queue

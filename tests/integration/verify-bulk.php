@@ -29,6 +29,11 @@ try {
         $wpdb->insert($tables['fighter_stats_current'],['fighter_id'=>$id,'wins'=>3,'losses'=>0,'draws'=>0,'nc'=>0,'pro_fights_count'=>3,'last_fight_date'=>'2026-10-05','calculated_at'=>gmdate('Y-m-d H:i:s')]);
         $wpdb->update($tables['fighters'],['created_at'=>'2026-10-0'.$n.' 00:00:00','updated_at'=>'2026-10-0'.(5-$n).' 00:00:00'],['id'=>$id]);
     }
+    $storedPreview=$store->for_fighter($ids[0]);
+    $sourcePreviewStats=\MMAF\DataEngine\Services\Scoring\CareerAssessment::source_stats($storedPreview['profile']['fight_history'],current_time('Y-m-d'));
+    bulk_check(\MMAF\DataEngine\Services\Scoring\CareerAssessment::source_proof($storedPreview['profile'],$storedPreview['source_fetched_at']) && $sourcePreviewStats['last_fight_date']==='2026-10-05','complete stored v4 evidence provides source-only preparation control totals');
+    $readinessPreview=$service->evaluate_fighter_ids([$ids[0]])[0];
+    bulk_check($readinessPreview['source_preparation_ready'] && empty($readinessPreview['formula_blocker_codes']),'source-only control totals allow preparation without pretending canonical bouts already exist');
     $listed=$fighters->list('Bulk approval fixture',100,0,['status'=>'provisional','public_state'=>'not_public','readiness_issue'=>'provisional_tapology','sort'=>'newest']);
     bulk_check(array_map('intval',array_column($listed,'id'))===[$ids[2],$ids[1],$ids[0]],'new candidate view excludes hidden fighters and orders by import creation rather than later updates');
     $selected=array_merge($ids,[$ids[0],999999999]);

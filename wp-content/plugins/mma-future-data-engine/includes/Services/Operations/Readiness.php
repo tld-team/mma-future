@@ -8,8 +8,8 @@ use MMAF\DataEngine\Services\RegularImport\Repository;
 
 /** Admin GETs only read projections. Decisions re-evaluate live input under the write lock. */
 final class Readiness {
-    public const RULES='preparation-v3';
-    public const FINGERPRINT_VERSION=3;
+    public const RULES='preparation-v4';
+    public const FINGERPRINT_VERSION=4;
     public static function rules(): string { return self::RULES.'|'.\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_version(); }
     public static function fingerprint(int $id,bool $include_stats=true): string {
         global $wpdb; $t=Canonical::table_names(); $p=Pipeline::tables();
@@ -18,7 +18,7 @@ final class Readiness {
         $profiles=$wpdb->get_results($wpdb->prepare("SELECT DISTINCT p.id,p.content_hash,p.source_fetched_at FROM {$p['profiles']} p JOIN {$t['fighter_sources']} fs ON fs.source_type=p.source_type AND (fs.source_fighter_id=p.source_fighter_id OR fs.source_url=p.source_url) WHERE fs.fighter_id=%d ORDER BY p.id",$id),ARRAY_A);
         $stats=$include_stats?$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighter_stats_current']} WHERE fighter_id=%d",$id),ARRAY_A):null;
         $career=(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters([$id])[$id]??null;
-        return hash('sha256',wp_json_encode([$fighter,$sources,$profiles,$stats,$career,self::bindings($id),self::rules(),self::FINGERPRINT_VERSION]));
+        return hash('sha256',wp_json_encode([$fighter,$sources,$profiles,$stats,$career,\MMAF\DataEngine\Services\DataPipeline\PreparationFingerprint::for_fighter($id,null),self::bindings($id),self::rules(),self::FINGERPRINT_VERSION]));
     }
     public static function invalidate(int $id=0): void {
         global $wpdb; $table=Schema::tables()['readiness'];
@@ -31,7 +31,7 @@ final class Readiness {
         unset($fighter['updated_at'],$fighter['created_at']);
         $sources=$wpdb->get_results($wpdb->prepare("SELECT source_type,source_fighter_id,source_url,identity_hash,is_primary FROM {$t['fighter_sources']} WHERE fighter_id=%d ORDER BY id",$id),ARRAY_A);
         $profiles=$wpdb->get_results($wpdb->prepare("SELECT DISTINCT p.content_hash FROM {$p['profiles']} p JOIN {$t['fighter_sources']} fs ON fs.source_type=p.source_type AND (fs.source_fighter_id=p.source_fighter_id OR fs.source_url=p.source_url) WHERE fs.fighter_id=%d ORDER BY p.content_hash",$id),ARRAY_A);
-        return hash('sha256',wp_json_encode([$fighter,$sources,$profiles,self::bindings($id),self::rules()]));
+        return hash('sha256',wp_json_encode([$fighter,$sources,$profiles,\MMAF\DataEngine\Services\DataPipeline\PreparationFingerprint::for_fighter($id,null),self::bindings($id),self::rules()]));
     }
     private static function bindings(int $id): array {
         global $wpdb;$table=Canonical::table_names()['fighter_sources'];

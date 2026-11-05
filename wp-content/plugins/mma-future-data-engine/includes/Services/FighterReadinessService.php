@@ -410,7 +410,11 @@ final class FighterReadinessService {
 				if ($identity_reasons) { return $this->blocked($identity_reasons); }
 				$prepared=$item;
 				$prepared['fighter']=array_merge($fighter,['status'=>'verified','is_public'=>1]);
-				$prepared['formula_blocker_codes']=array_values(array_diff($item['formula_blocker_codes'],['not_public','not_verified','not_rankable_flag','rankability_status_not_rankable','ineligible_status_provisional']));
+				// A stored source profile is prepared into canonical bouts by this
+				// operation. Missing canonical period rows therefore remain visible in
+				// the assessment, but cannot prevent the preparation that resolves
+				// them. Final publication/ranking validation still requires the rows.
+				$prepared['formula_blocker_codes']=array_values(array_diff($item['formula_blocker_codes'],['not_public','not_verified','not_rankable_flag','rankability_status_not_rankable','ineligible_status_provisional','missing_bout_in_period', 'missing_bout_in_career']));
 				$reasons=$this->rankable_blockers($prepared);
 				if ($reasons) { return $this->blocked($reasons); }
 				if ($fighter['status']==='verified' && (int)$fighter['is_public']===1 && (int)$fighter['is_rankable']===1 && $fighter['rankability_status']==='rankable') { return $this->skipped(['already_rankable']); }
@@ -556,18 +560,40 @@ final class FighterReadinessService {
 
 	private function evaluate_rows( array $rows, ?string $reference_date = null ): array {
 		$reference_date = $reference_date ? $reference_date : current_time( 'Y-m-d' );
+		$calculated_at = gmdate( 'Y-m-d H:i:s' );
 		$items = array();
+		$preview_rows = array_map(
+			static function( array $row ): array {
+				$row['status'] = 'verified';
+				$row['is_rankable'] = 1;
+				$row['rankability_status'] = 'rankable';
+				return $row;
+			},
+			$rows
+		);
+		$hybrid_assessments = $preview_rows
+			? ( ( new RankingCalculatorService() )->score_batch( $preview_rows, $reference_date, $calculated_at )['assessments'] ?? array() )
+			: array();
 
 		foreach ( $rows as $row ) {
-			$stats = $this->stats_from_row( $row );
 			$fighter = $this->fighter_from_row( $row );
+			$hybrid = $hybrid_assessments[ (int) $fighter['id'] ] ?? null;
+			$source_preview = $this->source_preparation_preview( (int) $fighter['id'], $reference_date, $calculated_at );
+			$source_preparation_ready = $source_preview && 0 === (int) ( $hybrid['career_stats']['pro_fights_count'] ?? 0 );
+			$career = is_array( $hybrid['career_record_used'] ?? null ) ? $hybrid['career_record_used'] : ( $source_preparation_ready ? $source_preview['record'] : null );
+			$stats = $this->stats_from_row( $row );
+			$eligibility_stats = $source_preparation_ready ? $source_preview['stats'] : ( $hybrid['career_stats'] ?? $hybrid['period_record'] ?? $stats );
+			if ( is_array( $eligibility_stats ) && ! empty( $hybrid['last_professional_fight_date'] ) ) {
+				$eligibility_stats['last_fight_date'] = $hybrid['last_professional_fight_date'];
+			}
 			$simulated = $fighter;
 			$simulated['status'] = 'verified';
 			$simulated['is_rankable'] = 1;
 			$simulated['rankability_status'] = 'rankable';
 
-			$current_evaluation = $this->eligibility->evaluate( $fighter, $stats, $reference_date );
-			$formula_evaluation = $this->eligibility->evaluate( $simulated, $stats, $reference_date );
+			$current_evaluation = $this->eligibility->evaluate( $fighter, $eligibility_stats, $reference_date, $career, true );
+			$formula_evaluation = $source_preparation_ready ? $this->eligibility->evaluate( $simulated, $eligibility_stats, $reference_date, $career, true ) : ( $hybrid['eligibility'] ?? $this->eligibility->evaluate( $simulated, $eligibility_stats, $reference_date, $career, true ) );
+			$career_count = is_array( $career ) ? (int) ( $career['pro_fights_count'] ?? array_sum( array_intersect_key( $career, array_flip( array( 'wins', 'losses', 'draws', 'nc' ) ) ) ) ) : 0;
 
 			$item = array(
 				'fighter'                    => $fighter,
@@ -577,14 +603,20 @@ final class FighterReadinessService {
 				'has_tapology_source'        => ! empty( $row['tapology_source_row_id'] ) && ! empty( $row['tapology_source_url'] ),
 				'has_birth'                  => ! empty( $fighter['date_of_birth'] ) || ! empty( $fighter['birth_year'] ),
 				'has_weight_class'           => ! empty( $fighter['weight_class'] ) && 'unknown' !== (string) $fighter['weight_class'],
-				'has_stats'                  => is_array( $stats ),
-				'has_last_fight'             => is_array( $stats ) && ! empty( $stats['last_fight_date'] ),
-				'has_countable_bout_history' => is_array( $stats ) && (int) ( $stats['pro_fights_count'] ?? 0 ) > 0,
+				'hybrid_assessment'           => $hybrid,
+				'source_preparation_ready'     => (bool) $source_preparation_ready,
+				'has_stats'                  => is_array( $stats ) || is_array( $career ),
+				'has_last_fight'             => is_array( $eligibility_stats ) && ! empty( $eligibility_stats['last_fight_date'] ),
+				'has_countable_bout_history' => $career_count > 0 || ( is_array( $stats ) && (int) ( $stats['pro_fights_count'] ?? 0 ) > 0 ),
 			);
 
 			$item['data_blocker_codes'] = $this->data_blockers( $item );
 			$item['state_blocker_codes'] = $this->state_blockers( $item );
-			$item['formula_blocker_codes'] = $this->formula_blockers( $formula_evaluation );
+			$assessment_reasons = (array) ( $hybrid['reasons'] ?? array() );
+			if ( $source_preparation_ready ) {
+				$assessment_reasons = array_values( array_diff( $assessment_reasons, array( 'career_coverage_unconfirmed', 'career_record_mismatch', 'insufficient_sample_size', 'missing_bout_in_career', 'career_scoring_mismatch', 'insufficient_data_missing_last_fight_date' ) ) );
+			}
+			$item['formula_blocker_codes'] = array_values( array_unique( array_merge( $this->formula_blockers( $formula_evaluation ), $assessment_reasons ) ) );
 			$item['rankable_blocker_codes'] = $this->rankable_blockers( $item );
 			$item['public_blocker_codes'] = $this->public_blockers( $item );
 			$item['blocker_codes'] = array_values( array_unique( array_merge( $item['data_blocker_codes'], $item['state_blocker_codes'], $item['formula_blocker_codes'] ) ) );
@@ -599,6 +631,39 @@ final class FighterReadinessService {
 		}
 
 		return $items;
+	}
+
+	/**
+	 * A complete fresh source profile may enter preparation before its canonical
+	 * bouts exist. These totals only preview eligibility; ranking still replays
+	 * canonical bouts after preparation.
+	 */
+	private function source_preparation_preview( int $fighter_id, string $reference_date, string $calculated_at ): ?array {
+		$saved = ( new \MMAF\DataEngine\Services\DataPipeline\ProfileStore() )->for_fighter( $fighter_id );
+		$profile = $saved['profile'] ?? null;
+		$verified = $saved['source_fetched_at'] ?? null;
+		if ( ! is_array( $profile ) || ( $profile['status'] ?? '' ) !== 'success' || ! \MMAF\DataEngine\Services\Scoring\CareerAssessment::fresh( $verified, $calculated_at ) || ! \MMAF\DataEngine\Services\Scoring\CareerAssessment::source_proof( $profile, $verified ) ) {
+			return null;
+		}
+		$record_summary = $profile['record_summary'] ?? array();
+		$record = array(
+			'wins' => $record_summary['wins'] ?? null,
+			'losses' => $record_summary['losses'] ?? null,
+			'draws' => $record_summary['draws'] ?? null,
+			'nc' => $record_summary['no_contests'] ?? null,
+		);
+		if ( in_array( null, $record, true ) ) {
+			return null;
+		}
+		$record = array_map( 'intval', $record );
+		$record['pro_fights_count'] = array_sum( $record );
+		$stats = \MMAF\DataEngine\Services\Scoring\CareerAssessment::source_stats( (array) ( $profile['fight_history'] ?? array() ), $reference_date );
+		foreach ( array( 'wins', 'losses', 'draws', 'nc' ) as $key ) {
+			if ( $record[ $key ] !== $stats[ $key ] ) {
+				return null;
+			}
+		}
+		return array( 'record' => $record, 'stats' => $stats );
 	}
 
 	private function data_blockers( array $item ): array {

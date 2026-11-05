@@ -147,7 +147,7 @@ def export_import_bundle(
         profiles_report = json.loads((snapshot/'fighter_profiles_report.json').read_text())
         manifest = {
             'format': 'mmaf-import-bundle', 'format_version': 1, 'exported_at': utc_now(),
-            'contract_version': 2,
+            'contract_version': 3,
             'source_runs': {'events': daily.get('run_id'), 'profiles': profiles_report.get('run_id')},
             'counts': {'events': daily.get('events_total'), 'bouts': daily.get('bouts_total'),
                        'profiles': profiles_report.get('profiles_total')},

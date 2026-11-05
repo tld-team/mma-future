@@ -56,7 +56,7 @@ final class PeriodAssessment {
         }
         if($wpdb->last_error){throw new \RuntimeException('Cannot compare period identities.');}
         $by_id=[];foreach($history as $row){$by_id[(int)$row['bout_id']]=$row;}
-        $previous=null;$boundary=false;$boundary_row=null;
+        $previous=null;$boundary=false;$boundary_row=null;$source_last_professional_fight_date=null;
         foreach($profile['fight_history']??[] as $row){
             if(($row['is_upcoming']??false)===true || ($row['is_cancelled']??false)===true || ($row['is_exhibition']??false)===true || ($row['is_amateur']??false)===true || (!empty($row['discipline']) && $row['discipline']!=='mma')){continue;}
             $date=$row['fight_date']??null;
@@ -74,6 +74,7 @@ final class PeriodAssessment {
                 if(($row['record_eligibility_evidence']??'')!=='source_profile_record_ineligible_mma'){$reasons[]='period_record_exclusion_unconfirmed';}
                 continue;
             }
+            $source_last_professional_fight_date=max($source_last_professional_fight_date??'',$date);
             $possible=$sources[$row['source_bout_id']??'']??[];
             if(!$possible && empty($row['source_bout_id'])){
                 foreach($by_id as $bid=>$canonical){if(($canonical['event_date']??null)===$date && in_array($row['opponent_source_id']??'', $opponents[$bid]??[],true)){$possible[]=$bid;}}
@@ -95,7 +96,7 @@ final class PeriodAssessment {
         }
         $stats=self::stats($history,$end);$sample=$stats['wins']+$stats['losses'];
         if($sample<1){$reasons[]='insufficient_sample_size';}elseif($sample<3){$warnings[]='small_scoring_sample';}
-        return ['_source_inputs'=>['source_url'=>$saved['source_url']??null,'observed_at'=>$verified,'content_hash'=>$saved['content_hash']??null,'career_record_evidence'=>$profile['career_record_evidence']??null,'period_evidence'=>$e,'current_roster'=>$profile['current_roster']??null,'period_source_rows'=>$source_rows,'boundary_row'=>$boundary_row],'source_current_roster'=>self::current_roster_verified($profile['current_roster']??null) && self::fresh($verified,$calculated_at)?$profile['current_roster']:null,'status'=>$reasons?'provisional':'main','period'=>['start'=>FormulaV16::PERIOD_START,'end'=>$end,'inclusive'=>true],'sample_size'=>$sample,'period_stats'=>$stats,'coverage'=>$proof && !array_intersect($reasons,['period_coverage_unconfirmed','unknown_fight_date','history_order_unverified','period_boundary_unverified','period_professional_scope_missing','period_result_conflict','period_identity_conflict','missing_bout_in_period','period_record_exclusion_unconfirmed','known_result_not_covered_refresh_required'])?'confirmed':'unconfirmed','verified_at'=>$verified,'checked_through'=>$e['checked_through']??null,'career_verified_at'=>$career['verified_at']??null,'reasons'=>array_values(array_unique($reasons)),'warnings'=>$warnings,'history_outside_period_rows'=>$outside,'total_score'=>null,'rank_position'=>null,'input_profile_hash'=>$saved['content_hash']??null];
+        return ['_source_inputs'=>['source_url'=>$saved['source_url']??null,'observed_at'=>$verified,'content_hash'=>$saved['content_hash']??null,'career_record_evidence'=>$profile['career_record_evidence']??null,'period_evidence'=>$e,'current_roster'=>$profile['current_roster']??null,'period_source_rows'=>$source_rows,'boundary_row'=>$boundary_row,'latest_confirmed_professional_fight_date'=>$source_last_professional_fight_date],'source_current_roster'=>self::current_roster_verified($profile['current_roster']??null) && self::fresh($verified,$calculated_at)?$profile['current_roster']:null,'status'=>$reasons?'provisional':'main','period'=>['start'=>FormulaV16::PERIOD_START,'end'=>$end,'inclusive'=>true],'sample_size'=>$sample,'period_stats'=>$stats,'coverage'=>$proof && !array_intersect($reasons,['period_coverage_unconfirmed','unknown_fight_date','history_order_unverified','period_boundary_unverified','period_professional_scope_missing','period_result_conflict','period_identity_conflict','missing_bout_in_period','period_record_exclusion_unconfirmed','known_result_not_covered_refresh_required'])?'confirmed':'unconfirmed','verified_at'=>$verified,'checked_through'=>$e['checked_through']??null,'career_verified_at'=>$career['verified_at']??null,'reasons'=>array_values(array_unique($reasons)),'warnings'=>$warnings,'history_outside_period_rows'=>$outside,'total_score'=>null,'rank_position'=>null,'input_profile_hash'=>$saved['content_hash']??null];
     }
     public function save(int $run,int $id,array $assessment,array $inputs,string $created_at): void {
         if(!$run){return;}

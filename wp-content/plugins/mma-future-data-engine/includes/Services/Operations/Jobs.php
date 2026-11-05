@@ -188,9 +188,12 @@ final class Jobs {
                         $fighter=(new FighterRepository())->find($fid);$metadata=Processor::metadata([$fid]);$decision=Readiness::decision($fighter??[],$metadata[$fid]??[]);
                         if(in_array($decision['state'],['review','failed'],true)){self::item($id,$fid,['status'=>'review','reason_code'=>$decision['reason']]);return;}
                         $prior=$wpdb->get_var($wpdb->prepare("SELECT JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.approval_input_hash')) FROM {$t['items']} WHERE fighter_id=%d AND operation_id<>%d AND status IN ('completed','noop') ORDER BY operation_id DESC LIMIT 1",$fid,$id));
-                        if($job['action']==='approve_and_prepare' && $prior && $fighter['is_public'] && $fighter['is_rankable'] && $fighter['status']==='verified' && hash_equals($prior,Readiness::approval_hash($fid))){
+                        $alreadyApproved=$job['action']==='approve_and_prepare' && $fighter['is_public'] && $fighter['is_rankable'] && $fighter['status']==='verified';
+                        $alreadyPublished=$job['action']==='prepare_publish_profile' && $fighter['is_public'] && $fighter['status']==='verified';
+                        if($prior && ($alreadyApproved || $alreadyPublished) && hash_equals($prior,Readiness::approval_hash($fid))){
                             $evaluation=(new FighterReadinessService())->evaluate_fighters_for_table([$fighter]);
-                            if(empty($evaluation[$fid]['approval_blocker_codes'])){self::item($id,$fid,['status'=>'noop','result'=>['approval_input_hash'=>$prior,'reason'=>'Already prepared and approved; unchanged source and canonical facts.']]);return;}
+                            $blockers=$alreadyApproved?($evaluation[$fid]['approval_blocker_codes']??[]):($evaluation[$fid]['public_blocker_codes']??[]);
+                            if(empty($blockers)){self::item($id,$fid,['status'=>'noop','result'=>['approval_input_hash'=>$prior,'reason'=>'Already prepared; unchanged source and canonical facts.']]);return;}
                         }
                         // An unchanged prepared candidate that is still ineligible needs review,
                         // rather than another career import, statistics generation and draft.

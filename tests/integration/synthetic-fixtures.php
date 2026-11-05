@@ -23,15 +23,45 @@ function fixture_fight(int $source, array $opponent, string $result='win', array
         'event_name'=>'Synthetic fixture event','fight_date'=>'2026-10-05',
         'opponent_source_id'=>$opponent['source_fighter_id'],'opponent_url'=>$opponent['source_url'],'opponent_name'=>$opponent['display_name'],
         'discipline'=>'mma','source_sport'=>'mma','source_division'=>'pro','classification_evidence'=>'profile_dom_classification',
-        'is_professional'=>true,'result'=>$result,'method_category'=>'decision',
+        'is_professional'=>true,'result'=>$result,'method_category'=>'decision','opponent_record_raw'=>'0-0-0',
     ],$values);
 }
 function fixture_profile(array $fighter, array $rows, array $record, array $values=[]): array {
-    return array_merge([
+	$observed = gmdate( 'Y-m-d\TH:i:s\Z', time() - 60 );
+	$checked = substr( $observed, 0, 10 );
+	$profile = [
         'source_fighter_id'=>$fighter['source_fighter_id'],'source_url'=>$fighter['source_url'],'display_name'=>$fighter['display_name'],
-        'status'=>'success','scraped_at'=>'2026-10-10T10:00:00Z','record_summary'=>$record,
+        'status'=>'success','scraped_at'=>$observed,'record_summary'=>$record,
         'history_scope'=>'professional_mma','history_scope_verified'=>true,'history_exhausted'=>true,'fight_history'=>$rows,
-    ],$values);
+		'period_evidence'=>['start_date'=>'2026-05-09','checked_through'=>$checked,'scope_verified'=>true,'first_page_verified'=>true,'load_complete'=>true,'chronological_descending'=>true,'boundary_crossed'=>false,'history_exhausted'=>true,'parser_version'=>'scoring_period_v1'],
+	];
+	if ( array_key_exists( 'wins', $record ) && array_key_exists( 'losses', $record ) && array_key_exists( 'draws', $record ) && array_key_exists( 'no_contests', $record ) ) {
+		$raw = implode( '-', array_map( 'intval', array( $record['wins'], $record['losses'], $record['draws'] ) ) );
+		if ( (int) $record['no_contests'] > 0 ) {
+			$raw .= ', ' . (int) $record['no_contests'] . ' NC';
+		}
+		$profile['record_summary']['pro_record_raw'] = $raw;
+		$profile['career_record_evidence'] = ['scope'=>'professional_mma','verified'=>true,'label'=>'Pro MMA Record','record_raw'=>$raw,'evidence'=>'explicit_mma_record_label','context'=>null,'record_context_verified'=>false];
+		$source_counts = array( 'wins'=>0, 'losses'=>0, 'draws'=>0, 'no_contests'=>0 );
+		$row_scope_verified = true;
+		foreach ( $rows as $row ) {
+			$key = array( 'win'=>'wins', 'loss'=>'losses', 'draw'=>'draws', 'no_contest'=>'no_contests' )[ $row['result'] ?? '' ] ?? null;
+			if ( $key ) { ++$source_counts[ $key ]; }
+			$row_scope_verified = $row_scope_verified && ! empty( $row['is_professional'] ) && ( $row['discipline'] ?? '' ) === 'mma' && in_array( $row['classification_evidence'] ?? '', array( 'profile_dom_classification', 'bout_dom_classification' ), true );
+		}
+		$aggregate_matches = $source_counts === array_map( 'intval', array_intersect_key( $record, $source_counts ) );
+		$profile['parser_version'] = 'profile_dom_v4';
+		$profile['career_history_evidence'] = [
+			'contract_version'=>1, 'scope'=>'professional_mma_career_v1', 'complete'=>$aggregate_matches && $row_scope_verified,
+			'row_scope_verified'=>$row_scope_verified, 'aggregate_matches'=>$aggregate_matches, 'checked_through'=>$checked,
+			'loading'=>[
+				'contract_version'=>1, 'canonical_card_dom'=>true, 'first_page_verified'=>true,
+				'load_complete'=>true, 'navigation_exhausted'=>true, 'hidden_cards'=>0,
+				'pagination_present'=>false, 'filters_present'=>false,
+			],
+		];
+	}
+	return array_merge($profile,$values);
 }
 function fixture_drive_job(int $id, string $target='completed'): array {
     for($n=0;$n<2000;++$n){
@@ -55,6 +85,7 @@ function fixture_canonical_baseline(): array {
     $b=fixture_fighter(949899902,'Synthetic parity B',$flags);
     $rows=[];foreach(['win','loss','draw','no_contest'] as $n=>$result){$rows[]=fixture_fight(949899910+$n,$b,$result);}
     $profile=fixture_profile($a,$rows,['wins'=>1,'losses'=>1,'draws'=>1,'no_contests'=>1]);
+    (new \MMAF\DataEngine\Services\DataPipeline\ProfileStore())->put($profile,'tapology_fighter_profiles_v0_1');
     (new \MMAF\DataEngine\Services\RegularImport\CareerHistory())->process(
         \MMAF\DataEngine\Services\DataPipeline\ProfileStore::career_profile($profile,$a['fighter_id']),0,1,true
     );

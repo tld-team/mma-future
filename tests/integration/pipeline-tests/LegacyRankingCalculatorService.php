@@ -4,7 +4,6 @@ namespace MMAF\DataEngine\Services;
 use MMAF\DataEngine\Migrations\Schema;
 use MMAF\DataEngine\Repositories\RankingCurrentRepository;
 use MMAF\DataEngine\Repositories\RankingRunRepository;
-use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 use MMAF\DataEngine\Services\Formula\FormulaV15;
 use MMAF\DataEngine\Support\DateTime;
 
@@ -57,7 +56,7 @@ final class LegacyRankingCalculatorService {
 	public function __construct() {
 		$this->runs       = new RankingRunRepository();
 		$this->rankings   = new RankingCurrentRepository();
-		$this->eligibility = new EligibilityService();
+		$this->eligibility = new EligibilityService( FormulaV15::VERSION );
 		$this->formula    = new FormulaV15();
 		$this->audit_log  = new AuditLogService();
 	}
@@ -65,10 +64,10 @@ final class LegacyRankingCalculatorService {
 	public function calculate_draft( int $actor_user_id = 0, ?string $reference_date = null ): array {
 		$reference_date = $reference_date ? $reference_date : current_time( 'Y-m-d' );
 		$calculated_at  = DateTime::mysql_now();
-		$config         = FormulaRegistry::current_config();
+		$config         = FormulaV15::config();
 		$previous       = $this->runs->get_last_calculation_summary();
 		$run_id         = $this->runs->create(
-			FormulaRegistry::current_version(),
+			FormulaV15::VERSION,
 			$config,
 			$reference_date,
 			$calculated_at,
@@ -107,7 +106,7 @@ final class LegacyRankingCalculatorService {
 			$summary = array(
 				'ranking_run_id'      => $run_id,
 				'calculated_at'       => $calculated_at,
-				'formula_version'     => FormulaRegistry::current_version(),
+				'formula_version'     => FormulaV15::VERSION,
 				'reference_date'      => $reference_date,
 				'status'              => 'failed',
 				'eligible_fighters'   => 0,
@@ -141,7 +140,7 @@ final class LegacyRankingCalculatorService {
 		$ineligible_count    = 0;
 		$calculated_count    = 0;
 		$excluded_insufficient_sample = 0;
-		$min_scoring_bouts   = (int) ( FormulaRegistry::current_config()['eligibility']['min_scoring_bouts'] ?? 1 );
+		$min_scoring_bouts   = (int) ( FormulaV15::config()['eligibility']['min_scoring_bouts'] ?? 1 );
 		$total_missing_prefight = 0;
 		$total_warnings      = 0;
 		$structural_warnings = array();
@@ -216,7 +215,7 @@ final class LegacyRankingCalculatorService {
 		$summary = array(
 			'ranking_run_id'      => $run_id,
 			'calculated_at'       => $calculated_at,
-			'formula_version'     => FormulaRegistry::current_version(),
+			'formula_version'     => FormulaV15::VERSION,
 			'reference_date'      => $reference_date,
 			'status'              => 'draft',
 			'is_active'           => 0,
@@ -444,9 +443,9 @@ final class LegacyRankingCalculatorService {
 			'quality_flags'                    => $quality_flags,
 			'source_types_linked_to_fighter'   => $source_types,
 			'generated_by'                     => 'ranking_engine',
-			'formula_version'                  => FormulaRegistry::current_version(),
+			'formula_version'                  => FormulaV15::VERSION,
 			'generated_at'                     => $calculated_at,
-			'tie_breaker_order'                => (array) ( FormulaRegistry::current_config()['tie_breakers'] ?? array() ),
+			'tie_breaker_order'                => (array) ( FormulaV15::config()['tie_breakers'] ?? array() ),
 		);
 
 		return array(
@@ -458,7 +457,7 @@ final class LegacyRankingCalculatorService {
 	}
 
 	private function quality_flags( int $sample_size, int $prefight_missing, int $method_missing, array $eligibility ): array {
-		$config = FormulaRegistry::current_config();
+		$config = FormulaV15::config();
 		$flags  = array();
 
 		if ( $sample_size < (int) $config['eligibility']['min_scoring_bouts'] ) {
@@ -585,7 +584,7 @@ final class LegacyRankingCalculatorService {
 			'age'             => null === ( $eligibility['age'] ?? null ) ? null : (int) $eligibility['age'],
 			'last_fight_date' => is_array( $stats ) ? ( $stats['last_fight_date'] ?? null ) : null,
 			'fighter_id'      => (int) ( $fighter['id'] ?? 0 ),
-			'order'           => (array) ( FormulaRegistry::current_config()['tie_breakers'] ?? array() ),
+			'order'           => (array) ( FormulaV15::config()['tie_breakers'] ?? array() ),
 		);
 	}
 

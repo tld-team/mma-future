@@ -7,7 +7,7 @@ use MMAF\DataEngine\Migrations\Schema;
 set_exception_handler(function($e){fwrite(STDERR,$e->getMessage().PHP_EOL);exit(1);});
 function check($ok,$why){if(!$ok){throw new RuntimeException($why);}echo "PASS: $why\n";}
 $t=Schema::table_names();$runs=new RankingRunRepository();$original=$runs->get_active_ranking_run_id();$service=new PublicReadService();
-$config=\MMAF\DataEngine\Services\Formula\FormulaV15::config();$ids=[];
+$config=\MMAF\DataEngine\Services\Formula\FormulaV17::config();$ids=[];
 function event($id){global $runs; $runs->set_active_ranking_run_id($id);$audit=(new AuditLogService())->write('ranking_activated','ranking_run',$id,null,['status'=>'activated','ranking_run_id'=>$id,'boards'=>['overall']],'Isolated fixture',1);\MMAF\DataEngine\Services\Operations\Activations::record($id,['overall'],gmdate('Y-m-d H:i:s'),1,$audit);}
 function snapshots($run,$positions){global $wpdb,$t,$ids;foreach($positions as $index=>$rank){$r=['ranking_run_id'=>$run,'board_key'=>'overall','fighter_id'=>$ids[$index],'rank_position'=>$rank,'total_score'=>20-$rank,'raw_score'=>20-$rank,'sample_size'=>2,'created_at'=>gmdate('Y-m-d H:i:s')];if(false===$wpdb->insert($t['ranking_snapshots'],$r)){throw new RuntimeException($wpdb->last_error);}}}
 WriteGuard::$worker=true;Transaction::begin();
@@ -16,8 +16,8 @@ try{
      $post=wp_insert_post(['post_type'=>'mmaf_fighter','post_status'=>'publish','post_title'=>'Synthetic mover '.$i]);
      $ids[]=(new \MMAF\DataEngine\Repositories\FighterRepository())->insert(['wp_post_id'=>$post,'display_name'=>'Synthetic mover '.$i,'normalized_name'=>'synthetic mover '.$i,'is_public'=>1,'created_at'=>gmdate('Y-m-d H:i:s')]);
  }
- $a=$runs->create('v1.5',$config,'2026-10-08','2026-10-08 10:00:00','completed','fixture A');
- $b=$runs->create('v1.5',$config,'2026-10-08','2026-10-08 11:00:00','completed','fixture B');
+ $a=$runs->create('v1.7',$config,'2026-10-08','2026-10-08 10:00:00','completed','fixture A');
+ $b=$runs->create('v1.7',$config,'2026-10-08','2026-10-08 11:00:00','completed','fixture B');
  $scope=$runs->find($a)['data_scope_version'];snapshots($a,[5,4,3,2,1]);snapshots($b,[1,2,3,4,5,6]);event($a);event($b);$m=$service->movers();
  check($m['status']==='available'&&array_column($m['items'],'rank_change')===[4,-4,2],'largest absolute changes include rises and falls, with deterministic ties');
  check(array_column($m['items'],'direction')===['up','down','up'],'movement direction follows the signed position difference');
@@ -25,8 +25,8 @@ try{
  event($b);$m=$service->movers();check($m['previous_ranking_run_id']===$a,'repeat activation is not a new comparison point');
  event($a);$m=$service->movers();check($m['previous_ranking_run_id']===$b&&$m['active_ranking_run_id']===$a,'rollback compares activation order instead of run ID order');
  event($b);$runs->update($b,['data_scope_version'=>'different_scope']);check($service->movers()['status']==='unavailable','incompatible career scope disables comparison');
- $runs->update($b,['data_scope_version'=>$scope,'formula_version'=>'v1.4']);check($service->movers()['status']==='unavailable','different formula disables comparison');
- $runs->update($b,['formula_version'=>'v1.5','formula_config_snapshot'=>'{"fixture_changed_rule":true}']);check($service->movers()['status']==='unavailable','changed formula rules disable comparison');
+ $runs->update($b,['data_scope_version'=>$scope,'formula_version'=>'v1.6']);check($service->movers()['status']==='unavailable','different formula disables comparison');
+ $runs->update($b,['formula_version'=>'v1.7','formula_config_snapshot'=>'{"fixture_changed_rule":true}']);check($service->movers()['status']==='unavailable','changed formula rules disable comparison');
  $runs->update($b,['formula_config_snapshot'=>wp_json_encode($config)]);
  $wpdb->query($wpdb->prepare("DELETE FROM {$t['ranking_snapshots']} WHERE ranking_run_id IN (%d,%d)",$a,$b));snapshots($a,[3,4,1,2,5]);snapshots($b,[1,2,3,4,5,6]);$m=$service->movers();
  check(array_column(array_slice($m['items'],0,2),'fighter_id')===[(int)$ids[0],(int)$ids[1]],'equal movement resolves by better current rank');

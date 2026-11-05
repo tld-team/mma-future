@@ -13,7 +13,9 @@ final class OpponentImpact {
         $sample = isset($breakdown['sample_size']) ? (int)$breakdown['sample_size'] : null;
         $missing = null;
         $items = $breakdown['per_fight_items'] ?? null;
-        if ($sample > 0 && is_array($items) && count($items) === $sample) {
+        if ($sample === 0 && is_array($items) && count($items) === 0) {
+            $missing = 0;
+        } elseif ($sample > 0 && is_array($items) && count($items) === $sample) {
             $missing = 0;
             foreach ($items as $item) {
                 if (!is_numeric($item['opponent_prefight_diff'] ?? null)) { ++$missing; }

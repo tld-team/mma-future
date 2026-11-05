@@ -7,7 +7,7 @@ final class FinishSummary {
         $items = $breakdown['per_fight_items'] ?? null;
         $sample = $breakdown['sample_size'] ?? null;
         $points = $breakdown['finishes_points'] ?? null;
-        if (!is_array($items) || !is_numeric($sample) || (int)$sample < 1 || count($items) !== (int)$sample
+        if (!is_array($items) || !is_numeric($sample) || (int)$sample < 0 || count($items) !== (int)$sample
             || !is_numeric($points) || !is_finite((float)$points)) { return null; }
 
         $ko = 0; $submissions = 0; $unknown = 0;
@@ -22,7 +22,7 @@ final class FinishSummary {
                 default: ++$unknown;
             }
         }
-        // v1.5/v1.6 award one point per finish. Do not show contradictory inputs.
+        // Direct formulas award one point per recent scored finish. Do not show contradictory inputs.
         if (abs((float)$points - ($ko + $submissions)) > 0.000001) { return null; }
         return [
             'count' => $ko + $submissions,

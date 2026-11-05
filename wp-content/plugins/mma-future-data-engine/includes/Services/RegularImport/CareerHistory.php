@@ -11,6 +11,7 @@ use MMAF\DataEngine\Repositories\BoutSourceRepository;
 use MMAF\DataEngine\Repositories\BoutParticipantRepository;
 use MMAF\DataEngine\Services\FieldProvenanceService;
 use MMAF\DataEngine\Services\AuditLogService;
+use MMAF\DataEngine\Services\PrefightRecordMerge;
 use MMAF\DataEngine\Support\TapologyFighterUrl;
 use MMAF\DataEngine\Support\Sanitizer;
 
@@ -116,7 +117,7 @@ final class CareerHistory {
 	private function save_coverage( array $profile, array $coverage, int $job, int $actor, int $source_rows, int $conflicts, int $unresolved, array $accepted_ids ): void {
 		$id = (int) $profile['fighter_id'];
 			global $wpdb; $table = CanonicalSchema::table_names()['fighter_career_coverage'];
-			Repository::check( $wpdb->replace( $table, array( 'fighter_id' => $id, 'source_type' => 'tapology', 'source_url' => esc_url_raw( $profile['source_url'] ?? '' ), 'source_fetched_at' => $this->mysql_date( $profile['scraped_at'] ?? null ), 'expected_record_json' => wp_json_encode( $profile['expected_record'] ?? null ), 'accepted_bouts_count' => $coverage['accepted_bouts_count'], 'status' => $coverage['status'], 'reason' => $coverage['reason'], 'evidence_json' => wp_json_encode( array( 'record' => $coverage['record'], 'source_scope' => $profile['history_scope'] ?? 'unknown', 'source_scope_verified' => !empty($profile['history_scope_verified']), 'source_status' => $profile['source_status'] ?? 'unavailable', 'source_history_exhausted' => $profile['history_exhausted'] ?? false, 'source_rows' => $source_rows, 'conflicts' => $conflicts, 'unresolved' => $unresolved, 'accepted_bout_ids' => $accepted_ids ) ), 'import_job_id' => $job, 'verified_at' => gmdate( 'Y-m-d H:i:s' ) ) ) );
+			Repository::check( $wpdb->replace( $table, array( 'fighter_id' => $id, 'source_type' => 'tapology', 'source_url' => esc_url_raw( $profile['source_url'] ?? '' ), 'source_fetched_at' => $this->mysql_date( $profile['scraped_at'] ?? null ), 'expected_record_json' => wp_json_encode( $profile['expected_record'] ?? null ), 'accepted_bouts_count' => $coverage['accepted_bouts_count'], 'status' => $coverage['status'], 'reason' => $coverage['reason'], 'evidence_json' => wp_json_encode( array( 'record' => $coverage['record'], 'source_scope' => $profile['history_scope'] ?? 'unknown', 'source_scope_verified' => !empty($profile['history_scope_verified']), 'source_status' => $profile['source_status'] ?? 'unavailable', 'source_history_exhausted' => $profile['history_exhausted'] ?? false, 'career_history_evidence' => $profile['career_history_evidence'] ?? null, 'parser_version' => $profile['parser_version'] ?? null, 'source_rows' => $source_rows, 'conflicts' => $conflicts, 'unresolved' => $unresolved, 'accepted_bout_ids' => $accepted_ids ) ), 'import_job_id' => $job, 'verified_at' => gmdate( 'Y-m-d H:i:s' ) ) ) );
 			( new AuditLogService() )->write( 'career_history_verified', 'fighter', $id, null, $coverage, 'Career history import job ' . $job, $actor );
 	}
 	public function refresh_coverage( array $profile, int $job, int $actor ): array {
@@ -133,7 +134,7 @@ final class CareerHistory {
 	/** A shared bout correction must invalidate an old completeness claim for either participant. */
 	public function refresh_record_coverage(array $row,int $actor): void {
 		$evidence=json_decode($row['evidence_json'],true) ?: [];
-		$profile=['fighter_id'=>(int)$row['fighter_id'],'source_url'=>$row['source_url'],'scraped_at'=>$row['source_fetched_at'],'expected_record'=>json_decode($row['expected_record_json'],true),'history_scope'=>$evidence['source_scope']??'unknown','history_scope_verified'=>$evidence['source_scope_verified']??($row['status']==='complete'),'history_exhausted'=>$evidence['source_history_exhausted']??false,'source_status'=>$evidence['source_status']??($row['status']==='unavailable'?'unavailable':'success')];
+		$profile=['fighter_id'=>(int)$row['fighter_id'],'source_url'=>$row['source_url'],'scraped_at'=>$row['source_fetched_at'],'expected_record'=>json_decode($row['expected_record_json'],true),'history_scope'=>$evidence['source_scope']??'unknown','history_scope_verified'=>$evidence['source_scope_verified']??($row['status']==='complete'),'history_exhausted'=>$evidence['source_history_exhausted']??false,'source_status'=>$evidence['source_status']??($row['status']==='unavailable'?'unavailable':'success'),'career_history_evidence'=>$evidence['career_history_evidence']??null,'parser_version'=>$evidence['parser_version']??null];
 		$profile['source_error_reason']=$row['reason'];
 		$coverage=$this->coverage($profile,(int)($evidence['conflicts']??0),(int)($evidence['unresolved']??0),true);
 		if ($coverage['accepted_bouts_count']===(int)$row['accepted_bouts_count'] && $coverage['record']===($evidence['record']??null)) { return; }
@@ -180,7 +181,8 @@ final class CareerHistory {
 		$event = $event_source && $event_source['event_id'] ? ( new EventRepository() )->find( (int) $event_source['event_id'] ) : null;
 		if ( $event && ( ! empty( $event['deleted_soft'] ) || ( $event['event_date'] && $date !== $event['event_date'] ) ) ) { throw new \InvalidArgumentException( 'Event identity/date conflicts with canonical data.' ); }
 		$professional = ! empty( $row['is_professional'] ) && 'mma' === ( $row['discipline'] ?? '' );
-		$professional = $professional || ( 'professional_mma' === ( $profile['history_scope'] ?? '' ) && ! empty( $profile['history_scope_verified'] ) );
+		$professional = $professional && in_array($row['classification_evidence']??'', ['profile_dom_classification','profile_section_classification','bout_dom_classification'],true);
+        $professional = $professional || ( empty($profile['career_history_evidence']) && 'professional_mma' === ( $profile['history_scope'] ?? '' ) && ! empty( $profile['history_scope_verified'] ) );
 		if ( ! $professional && ! ( $existing && in_array( $existing['status'], array( 'valid', 'completed' ), true ) ) ) { return array( 'category' => 'review', 'reason' => 'Professional MMA scope needs source evidence.' ); }
 		if ( $source_id ) {
 			if ( ! preg_match( '/^tapology_bout_([0-9]+)$/D', $source_id, $bout_number ) ) { throw new \InvalidArgumentException( 'Invalid source bout ID.' ); }
@@ -216,12 +218,18 @@ final class CareerHistory {
 			if ( $ids !== $expected || ! $event || (int) $existing['event_id'] !== (int) $event['id'] || ! empty( $existing['deleted_soft'] ) ) { throw new \InvalidArgumentException( 'Bout identity conflicts with its canonical participants/event.' ); }
 			if ( ! in_array( $existing['status'], array( 'valid', 'completed', 'excluded_overturned', 'excluded_record_ineligible' ), true ) ) { return array( 'category' => 'review', 'reason' => 'Canonical bout status requires review before historical inclusion.' ); }
 			$own = current( array_filter( $participants, static fn( $p ) => (int) $p['fighter_id'] === $id ) );
-			if ( ! $method_changes && $own['result_for_fighter'] === $result && ( $existing['status'] === $target_status || ( 'completed' === $existing['status'] && 'valid' === $target_status ) ) ) { return array( 'category' => 'unchanged', 'bout_id' => (int) $existing['id'] ); }
+            $record_merge=$this->merge_records($participants,$row,$id);
+            $method_rows=PrefightRecordMerge::method_conflict($record_merge['rows'],$existing['method_category'],$row['method_category']??null);
+            $method_conflict=$method_rows!=$record_merge['rows'];
+            if($method_conflict){$record_merge['rows']=$method_rows;$record_merge['changed']=true;}
+            $status_changed=$existing['status']!==$target_status && !($existing['status']==='completed' && $target_status==='valid');
+            $result_changed=$own['result_for_fighter']!==$result || $status_changed;
+			if ( ! $method_changes && !$record_merge['changed'] && !$record_merge['conflicts'] && $source && $own['result_for_fighter'] === $result && ( $existing['status'] === $target_status || ( 'completed' === $existing['status'] && 'valid' === $target_status ) ) ) { return array( 'category' => 'unchanged', 'bout_id' => (int) $existing['id'] ); }
 			if ( $own['result_for_fighter'] !== $result && empty( $row['final_result_verified'] ) ) { throw new \InvalidArgumentException( 'Changed final result requires verified bout/event evidence.' ); }
 			$provenance = new FieldProvenanceService();
-			foreach ( array( 'result_type', 'status', 'is_scoring_candidate' ) as $field ) { if ( $provenance->is_protected( 'bout', (int) $existing['id'], $field ) ) { throw new \InvalidArgumentException( 'Final result is protected by a manual decision.' ); } }
-			foreach ( $participants as $p ) { if ( $provenance->is_protected( 'bout_participant', (int) $p['id'], 'result_for_fighter' ) ) { throw new \InvalidArgumentException( 'Participant result is protected by a manual decision.' ); } }
-			if ( ! $apply ) { return array( 'category' => 'updated', 'bout_id' => (int) $existing['id'] ); }
+			if($result_changed){foreach ( array( 'result_type', 'status', 'is_scoring_candidate' ) as $field ) { if ( $provenance->is_protected( 'bout', (int) $existing['id'], $field ) ) { throw new \InvalidArgumentException( 'Final result is protected by a manual decision.' ); } }
+			foreach ( $participants as $p ) { if ( $provenance->is_protected( 'bout_participant', (int) $p['id'], 'result_for_fighter' ) ) { throw new \InvalidArgumentException( 'Participant result is protected by a manual decision.' ); } }}
+			if ( ! $apply ) { return array( 'category' => ($record_merge['conflicts']||$method_conflict)?'conflict':'updated', 'reason'=>$record_merge['conflicts']?'Conflicting pre-fight record evidence.':($method_conflict?'Conflicting confirmed method evidence.':null),'bout_id' => (int) $existing['id'] ); }
 		} elseif ( ! $apply ) { return array( 'category' => 'created', 'source_bout_id' => $source_id ); }
 		if ( ! $apply ) { return array( 'category' => 'unchanged' ); }
 		if ( ! $opponent ) {
@@ -243,17 +251,21 @@ final class CareerHistory {
 		$method = $row['method_category'] ?? 'unknown'; if ( ! in_array( $method, \MMAF\DataEngine\Services\BoutService::METHOD_CATEGORIES, true ) ) { $method = 'unknown'; }
 		$payload = array( 'event_id' => (int) $event['id'], 'status' => $target_status, 'result_type' => $result_type, 'is_scoring_candidate' => 'valid' === $target_status && 'win_loss' === $result_type ? 1 : 0 );
 		$payload += $method_changes;
+        if($existing && !$result_changed){$payload['status']=$existing['status'];$payload['result_type']=$existing['result_type'];$payload['is_scoring_candidate']=$existing['is_scoring_candidate'];}
 		if ( ! $existing ) { $payload += array( 'weight_class' => Sanitizer::weight_class( $row['weight_class'] ?? 'unknown' ), 'method_category' => $method, 'method_detail' => Sanitizer::text_or_null( $row['method'] ?? '' ), 'round_number' => isset( $row['round'] ) && (int) $row['round'] > 0 && (int) $row['round'] <= 99 ? (int) $row['round'] : null, 'time_in_round' => preg_match( '/^\d{1,2}:\d{2}$/D', $row['time'] ?? '' ) ? $row['time'] : null ); }
 		$bouts = new BoutRepository(); $bout_id = $existing ? (int) $existing['id'] : $bouts->insert( $payload );
 		if ( $existing ) { Repository::check( $bouts->update( $bout_id, $payload ) ); } if ( ! $bout_id ) { throw new \RuntimeException( 'Could not save historical bout.' ); }
 		$own_record = self::record( $row['prefight_record_raw'] ?? null ); $opp_record = self::record( $row['opponent_record_raw'] ?? null );
 		$opposite = array( 'win' => 'loss', 'loss' => 'win', 'draw' => 'draw', 'no_contest' => 'no_contest' )[$result];
 		if ( $existing ) {
+			$participants=$record_merge['rows'];
 			foreach ( $participants as &$p ) { unset( $p['id'], $p['created_at'], $p['updated_at'] ); $p['result_for_fighter'] = (int) $p['fighter_id'] === $id ? $result : $opposite; $p['is_winner'] = 'win' === $p['result_for_fighter'] ? 1 : 0; } unset( $p );
 		} else {
 			$participants = array( $this->participant( $id, (int) $opponent['id'], 'fighter_a', $profile['source_fighter_id'], $profile['display_name'] ?? '', $result, $own_record, $opp_record ), $this->participant( (int) $opponent['id'], $id, 'fighter_b', $opponent_key, $opponent['display_name'], $opposite, $opp_record, $own_record ) );
 		}
+        if(!$existing){$record_merge=$this->merge_records($participants,$row,$id);$participants=$record_merge['rows'];}
 		( new BoutParticipantRepository() )->replace_exactly_two( $bout_id, $participants );
+        PrefightRecordMerge::provenance($bout_id,(string)$source_id,$actor);
 		$source_id = $source_id ?: 'tapology_history_' . hash( 'sha256', $event_source_id . '|' . min( $id, (int) $opponent['id'] ) . '|' . max( $id, (int) $opponent['id'] ) );
 		if ( ! $existing || ! $source ) {
 			// Insert an additional source without overwriting an existing real bout ID.
@@ -263,7 +275,7 @@ final class CareerHistory {
 		}
 		foreach ( $payload as $field => $value ) { ( new FieldProvenanceService() )->upsert_source( 'bout', $bout_id, $field, $value, 'tapology_career_history', $source_id, $actor ); }
 		( new AuditLogService() )->write( 'career_bout_imported', 'bout', $bout_id, $existing, $payload, 'Confirmed career history result', $actor );
-		return array( 'category' => $existing ? 'updated' : 'created', 'bout_id' => $bout_id );
+		return array( 'category' => (!empty($record_merge['conflicts'])||!empty($method_conflict))?'conflict':($existing ? 'updated' : 'created'), 'reason'=>!empty($record_merge['conflicts'])?'Conflicting pre-fight record evidence.':(!empty($method_conflict)?'Conflicting confirmed method evidence.':null), 'bout_id' => $bout_id );
 	}
 	/** Correct a previous import only with an exact source bout and explicit source classification. */
 	private function exclude_existing( array $profile, array $row, int $actor, bool $apply ): array {
@@ -301,6 +313,18 @@ final class CareerHistory {
 		foreach ( array( 'wins', 'losses', 'draws', 'nc', 'record_raw' ) as $key ) { $p['prefight_' . $key] = $own[$key] ?? null; $p['opponent_prefight_' . $key] = $opp[$key] ?? null; }
 		$p['opponent_prefight_diff'] = $opp ? $opp['wins'] - $opp['losses'] : null; return $p;
 	}
+    private function merge_records(array $participants,array $row,int $owner): array {
+        $own=self::record($row['prefight_record_raw']??null);$opp=self::record($row['opponent_record_raw']??null);
+        $incoming=[];$proof=$row['record_evidence']??[];
+        foreach($participants as $p){
+            $is_owner=(int)$p['fighter_id']===$owner;$a=$is_owner?$own:$opp;$b=$is_owner?$opp:$own;
+            foreach(PrefightRecordMerge::FIELDS as $field){$p['prefight_'.$field]=$a[$field]??null;$p['opponent_prefight_'.$field]=$b[$field]??null;}
+            $p['opponent_prefight_diff']=$b?$b['wins']-$b['losses']:null;
+            $p['record_evidence_json']=PrefightRecordMerge::evidence($proof[$is_owner?'fighter':'opponent']??[],$proof[$is_owner?'opponent':'fighter']??[]);
+            $incoming[]=$p;
+        }
+        return PrefightRecordMerge::merge($participants,$incoming);
+    }
 	public static function record( ?string $raw ): ?array {
 		if ( ! $raw || ! preg_match( '/^\s*(\d+)\s*-\s*(\d+)(?:\s*-\s*(\d+))?(?:\s*\((\d+)\s*(?:NC|N\/C)\))?\s*$/iD', $raw, $m ) ) { return null; }
 		return array( 'wins' => (int) $m[1], 'losses' => (int) $m[2], 'draws' => isset( $m[3] ) ? (int) $m[3] : 0, 'nc' => isset( $m[4] ) ? (int) $m[4] : 0, 'record_raw' => trim( $raw ) );
@@ -312,7 +336,10 @@ final class CareerHistory {
 		$map = array( 'win' => 'wins', 'loss' => 'losses', 'draw' => 'draws', 'no_contest' => 'nc' ); foreach ( $rows as $row ) { if ( isset( $map[$row['result_for_fighter']] ) ) { $record[$map[$row['result_for_fighter']]] = (int) $row['total']; } }
 		$expected = $profile['expected_record'] ?? null; $match = is_array( $expected );
 		foreach ( $record as $key => $value ) { if ( ! isset( $expected[$key] ) || (int) $expected[$key] !== $value ) { $match = false; } }
-		$complete = $match && ! $conflicts && ! $unresolved && 'professional_mma' === ( $profile['history_scope'] ?? '' ) && ! empty( $profile['history_scope_verified'] ) && ! empty( $profile['history_exhausted'] ) && 'success' === ( $profile['source_status'] ?? '' );
+		$career_evidence = $profile['career_history_evidence'] ?? null;
+		$requires_versioned_evidence = is_array( $career_evidence ) || 'profile_dom_v4' === ( $profile['parser_version'] ?? '' );
+		$versioned_evidence_complete = ! $requires_versioned_evidence || ( is_array( $career_evidence ) && true === ( $career_evidence['complete'] ?? false ) );
+		$complete = $match && ! $conflicts && ! $unresolved && $versioned_evidence_complete && 'professional_mma' === ( $profile['history_scope'] ?? '' ) && ! empty( $profile['history_scope_verified'] ) && ! empty( $profile['history_exhausted'] ) && 'success' === ( $profile['source_status'] ?? '' );
 		$confirmed = array_filter( $profile['rows'] ?? array(), static fn( $r ) => ! empty( $r['is_professional'] ) && 'mma' === ( $r['discipline'] ?? '' ) && empty( $r['is_amateur'] ) && empty( $r['is_cancelled'] ) && empty( $r['is_upcoming'] ) && in_array( $r['result'] ?? '', array( 'win','loss','draw','no_contest' ), true ) );
 		$status = $conflicts ? 'conflict' : ( $complete ? 'complete' : ( $confirmed || array_sum( $record ) ? 'partial' : 'unavailable' ) );
 		$reason = $complete ? null : ( 'success' !== ( $profile['source_status'] ?? '' ) ? ( $profile['source_error_reason'] ?? 'The source profile was unavailable at verification.' ) : ( $conflicts ? $conflicts . ' unresolved identity/result conflict(s).' : ( $unresolved ? $unresolved . ' row(s) need professional MMA identity or result evidence.' : ( ! $match ? 'Recorded W/L/D/NC totals do not match a verified complete source record.' : 'Source career scope or exhaustion has not been confirmed.' ) ) ) );

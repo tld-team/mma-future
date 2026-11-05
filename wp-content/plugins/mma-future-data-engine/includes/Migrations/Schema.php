@@ -370,6 +370,7 @@ final class Schema {
 				prefight_draws INT NULL,
 				prefight_nc INT NULL,
 				prefight_record_raw VARCHAR(80) NULL,
+                record_evidence_json longtext NULL,
 				opponent_prefight_wins INT NULL,
 				opponent_prefight_losses INT NULL,
 				opponent_prefight_draws INT NULL,

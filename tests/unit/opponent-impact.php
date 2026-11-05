@@ -53,7 +53,7 @@ $ranking = new ReflectionMethod($service, 'ranking');
 $ranking->setAccessible(true);
 $row = ['board_key' => 'overall', 'rank_position' => 1, 'total_score' => '9.500', 'raw_score' => '9.500', 'sample_size' => 4, 'ranking_run_id' => 123,
     'breakdown_json' => json_encode($breakdown), 'quality_flags_json' => '[]', 'warnings_json' => '[]', 'source_summary_json' => '{}'];
-foreach (['v1.5', 'v1.6'] as $version) {
+foreach (['v1.5', 'v1.6', 'v1.7'] as $version) {
     $dto = $ranking->invoke($service, $row, ['formula_version' => $version]);
     unset($dto['breakdown']); // The rankings endpoint can omit the full breakdown.
     impact_check($dto['opponent_impact'] === $impact && $dto['score'] === 9.5 && $dto['active_ranking_run_id'] === 123, "$version exposes the same frozen contributions independently of full score details");

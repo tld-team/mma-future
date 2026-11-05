@@ -54,8 +54,10 @@ def compile_history(manifest: dict, snapshots: list[dict], bout_snapshots: list[
                 verified_facts=explicit_profile_facts(snapshot, parsed.get("profile_summary", {})),
                 career_record_evidence=parsed.get("career_record_evidence"),
                 period_evidence=parsed.get("period_evidence"),
+                career_history_evidence=parsed.get("career_history_evidence"),
                 parser_version=parsed.get("parser_version"),
                 record_raw=record.get("pro_record_raw"),
+                method_statistics=record.get("method_statistics"),
                 current_roster=parsed.get("current_roster"),
             )
             for row in profile["rows"]:
@@ -76,7 +78,7 @@ def compile_history(manifest: dict, snapshots: list[dict], bout_snapshots: list[
                     row["record_eligibility_evidence"] = "source_profile_record_ineligible_mma"
                 if re.search(r"\bexhibition mma\b", row_text, re.I):
                     row["is_exhibition"] = True
-                if not row.get("opponent_record_raw"):
+                if not row.get("opponent_record_raw") and not row.get("record_evidence"):
                     row.pop("prefight_record_raw", None)
                 if raw.get("data_status") == "no_contest":
                     row["final_result_verified"] = True
@@ -197,7 +199,7 @@ def excluded(row: dict) -> bool:
 
 def export_bundle(document: dict, destination: Path) -> None:
     payload=json.dumps(document,ensure_ascii=False,indent=2).encode()
-    transport={"format":"mmaf-import-bundle","format_version":1,"mode":"career_history","files":{"career_history.json":{"bytes":len(payload),"sha256":hashlib.sha256(payload).hexdigest()}}}
+    transport={"format":"mmaf-import-bundle","format_version":1,"contract_version":3,"mode":"career_history","files":{"career_history.json":{"bytes":len(payload),"sha256":hashlib.sha256(payload).hexdigest()}}}
     with zipfile.ZipFile(destination,"w",zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("career_history.json",payload)
         archive.writestr("package_manifest.json",json.dumps(transport,indent=2))

@@ -12,8 +12,9 @@ final class ProfileStore {
         $raw=['source_fighter_id'=>$profile['source_fighter_id'],'source_url'=>$profile['source_url'],'status'=>$profile['source_status']??'unavailable','scraped_at'=>$profile['scraped_at']??null,'fight_history'=>$profile['rows']??[],'history_scope'=>$profile['history_scope']??'unknown','history_scope_verified'=>$profile['history_scope_verified']??false,'history_exhausted'=>$profile['history_exhausted']??false,'verified_facts'=>$profile['verified_facts']??[],'record_summary'=>$profile['expected_record']??[]];
         $raw['record_summary']['no_contests']=$raw['record_summary']['nc']??null;
         unset($raw['record_summary']['nc']);
-        foreach(['career_record_evidence','period_evidence','parser_version','current_roster'] as $field){if(isset($profile[$field])){$raw[$field]=$profile[$field];}}
+        foreach(['career_record_evidence','career_history_evidence','period_evidence','parser_version','current_roster'] as $field){if(isset($profile[$field])){$raw[$field]=$profile[$field];}}
         if(isset($profile['record_raw'])){$raw['record_summary']['pro_record_raw']=$profile['record_raw'];}
+        if(isset($profile['method_statistics'])){$raw['record_summary']['method_statistics']=$profile['method_statistics'];}
         return $raw;
     }
     public static function date($value): ?string {
@@ -104,8 +105,8 @@ final class ProfileStore {
                 $row['is_professional']=false;
             }
             $row['is_professional']=($row['is_professional']??false)===true;
-            if (empty($row['opponent_record_raw'])) { unset($row['prefight_record_raw']); }
+            if (empty($row['opponent_record_raw']) && empty($row['record_evidence'])) { unset($row['prefight_record_raw']); }
         } unset($row);
-        return ['current_roster'=>$raw['current_roster']??null,'career_record_evidence'=>$raw['career_record_evidence']??null,'period_evidence'=>$raw['period_evidence']??null,'record_raw'=>$record['pro_record_raw']??null,'parser_version'=>$raw['parser_version']??null,'fighter_id'=>$id,'source_fighter_id'=>$raw['source_fighter_id'],'source_url'=>$raw['source_url'],'scraped_at'=>$raw['scraped_at']??$raw['profile_scraped_at']??null,'source_status'=>$raw['status']??'unavailable','source_error_reason'=>$raw['error_reason']??null,'expected_record'=>in_array(null,$expected,true)?null:$expected,'history_scope'=>$raw['history_scope']??'unknown','history_scope_verified'=>($raw['history_scope_verified']??false)===true,'history_exhausted'=>($raw['history_exhausted']??false)===true,'verified_facts'=>$raw['verified_facts']??[],'rows'=>$rows];
+        return ['career_history_evidence'=>$raw['career_history_evidence']??null,'current_roster'=>$raw['current_roster']??null,'career_record_evidence'=>$raw['career_record_evidence']??null,'period_evidence'=>$raw['period_evidence']??null,'record_raw'=>$record['pro_record_raw']??null,'method_statistics'=>$record['method_statistics']??null,'parser_version'=>$raw['parser_version']??null,'fighter_id'=>$id,'source_fighter_id'=>$raw['source_fighter_id'],'source_url'=>$raw['source_url'],'scraped_at'=>$raw['scraped_at']??$raw['profile_scraped_at']??null,'source_status'=>$raw['status']??'unavailable','source_error_reason'=>$raw['error_reason']??null,'expected_record'=>in_array(null,$expected,true)?null:$expected,'history_scope'=>$raw['history_scope']??'unknown','history_scope_verified'=>($raw['history_scope_verified']??false)===true,'history_exhausted'=>($raw['history_exhausted']??false)===true,'verified_facts'=>$raw['verified_facts']??[],'rows'=>$rows];
     }
 }

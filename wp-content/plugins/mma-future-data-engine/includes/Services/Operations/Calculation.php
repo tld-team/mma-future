@@ -10,7 +10,7 @@ use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 /** Bounded, crash-resumable full calculations. Live statistics are untouched until commit. */
 final class Calculation {
     public static function create(string $kind,int $parent=0,int $actor=0,string $key='',?string $reference_date=null): int {
-        if($kind==='ranking' && version_compare((string)get_option('mmaf_db_version','0'),'1.11.0','<')){throw new \RuntimeException('Migrate the additive schema before creating Formula v1.6 ranking drafts.');}
+        if($kind==='ranking' && version_compare((string)get_option('mmaf_db_version','0'),'1.11.0','<')){throw new \RuntimeException('Migrate the additive schema before creating evidence-backed ranking drafts.');}
         if(!in_array($kind,['stats','ranking'],true)){throw new \InvalidArgumentException('Unsupported calculation.');}
         $reference_date=$reference_date??current_time('Y-m-d');
         $date=\DateTimeImmutable::createFromFormat('!Y-m-d',$reference_date);
