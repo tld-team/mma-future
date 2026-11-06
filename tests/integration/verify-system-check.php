@@ -10,9 +10,9 @@ Transaction::begin();WriteGuard::$worker=true;wp_set_current_user(1);
 try{
     do_action('rest_api_init');$routes=rest_get_server()->get_routes();
     $probe=new ReflectionMethod(SystemCheckService::class,'public_write_routes');$service=new SystemCheckService();
-    diagnostic_check($probe->invoke($service,$routes)===[] && get_current_user_id()===1,'registered import and operations write permissions deny anonymous users and restore the administrator identity');
+    diagnostic_check($probe->invoke($service,$routes)===[] && get_current_user_id()===1,'registered private writes deny anonymous users while the explicit email-auth route remains allowlisted');
     $subscriber=wp_insert_user(['user_login'=>'diagnostic-'.wp_generate_uuid4(),'user_pass'=>'isolated-fixture-only','role'=>'subscriber']);
-    wp_set_current_user($subscriber);$checked=0;
+    wp_set_current_user($subscriber);$checked=0;$user_writes=0;
     foreach($routes as $route=>$handlers){
         if(!str_starts_with($route,'/mma-future/v1/')){continue;}
         foreach($handlers as $handler){
@@ -21,11 +21,16 @@ try{
                 if(!$enabled || in_array($method,['GET','HEAD','OPTIONS'],true)){continue;}
                 $request=new WP_REST_Request($method,$route);$request->set_header('X-WP-Nonce',wp_create_nonce('wp_rest'));
                 $result=call_user_func($handler['permission_callback'],$request);
+                $is_user_notification_write=str_starts_with($route,'/mma-future/v1/notifications/') && $route!=='/mma-future/v1/notifications/auth/email';
+                if($is_user_notification_write){
+                    diagnostic_check($result===true,'subscriber can manage only their own notification data via '.$method.' '.$route);++$user_writes;continue;
+                }
                 diagnostic_check($result===false || $result===null || is_wp_error($result),'subscriber with a valid nonce cannot write '.$method.' '.$route);++$checked;
             }
         }
     }
     diagnostic_check($checked>=7,'all current importer and operations mutation permissions are exercised without executing handlers');
+    diagnostic_check($user_writes>=5,'all current subscriber notification mutations are authorized without executing handlers');
     wp_set_current_user(1);$handler_calls=0;$handler=static function()use(&$handler_calls){++$handler_calls;throw new RuntimeException('A diagnostic must never execute a mutation.');};
     $faults=[
         '/mma-future/v1/fixture-public'=>[['methods'=>['POST'=>true],'permission_callback'=>'__return_true','callback'=>$handler]],

@@ -134,7 +134,7 @@ final class Renderer {
 				<?php if ( $event['time_note'] ) : ?><p class="mmaf-calendar__note"><?php echo esc_html( $event['time_note'] ); ?></p><?php endif; ?>
 				<?php if ( ! $bouts ) : ?><p class="mmaf-calendar__note">Fight card to be confirmed.</p><?php endif; ?>
 				<ol class="mmaf-calendar__bouts">
-					<?php foreach ( $event['bouts'] as $bout ) : ?><li><span><?php self::fighter( $bout['fighter_a'] ); ?></span><b>vs</b><span><?php self::fighter( $bout['fighter_b'] ); ?></span><?php if ( $bout['weight_class'] ) : ?><small><?php echo esc_html( $bout['weight_class'] ); ?></small><?php endif; ?></li><?php endforeach; ?>
+					<?php foreach ( $event['bouts'] as $bout ) : ?><li><span><?php self::fighter( $bout['fighter_a'] ); ?></span><b>vs</b><span><?php self::fighter( $bout['fighter_b'] ); ?></span><?php if ( $bout['weight_class'] ) : ?><small><?php echo esc_html( $bout['weight_class'] ); ?></small><?php endif; ?><?php if ( ! empty( $bout['reminder_available'] ) && \MMAF\DataEngine\Services\Notifications\Config::feature_enabled() ) : ?><button type="button" class="mmaf-calendar__reminder" data-mmaf-reminder="<?php echo esc_attr( (string) $bout['id'] ); ?>">Remind me</button><?php endif; ?></li><?php endforeach; ?>
 				</ol>
 				<?php if ( $event['source_url'] ) : ?><a class="mmaf-calendar__source" href="<?php echo esc_url( $event['source_url'] ); ?>" target="_blank" rel="noopener noreferrer">View on Tapology ↗</a><?php endif; ?>
 				</div>
@@ -167,6 +167,7 @@ final class Renderer {
 		} else {
 			echo esc_html( $fighter['name'] );
 		}
+		if ( ! empty( $fighter['id'] ) ) { echo \MMAF\DataEngine\Services\Notifications\Module::button( (int) $fighter['id'] ); }
 	}
 
 	private static function enqueue_assets(): void {

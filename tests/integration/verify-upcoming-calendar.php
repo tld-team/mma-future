@@ -8,6 +8,7 @@ use MMAF\DataEngine\Services\Upcoming\Editor;
 use MMAF\DataEngine\Services\Upcoming\Importer;
 use MMAF\DataEngine\Services\Upcoming\Repository;
 use MMAF\DataEngine\Services\Upcoming\Schema;
+use MMAF\DataEngine\Services\Notifications\Schema as NotificationSchema;
 
 if ( ! class_exists( ZipArchive::class ) ) {
 	throw new RuntimeException( 'ZipArchive is required.' );
@@ -118,6 +119,15 @@ try {
 		$actor
 	);
 	$created_event_ids[] = $manual_id;
+	$manual_event = ( new Repository() )->find_event( $manual_id );
+	$manual_bout_id = (int) $manual_event['bouts'][0]['id'];
+	$manual_stable_id = (string) $manual_event['bouts'][0]['stable_id'];
+	( new Editor() )->save_event(
+		array( 'event_id'=>$manual_id, 'title'=>'Manual Future Event', 'promotion'=>'Manual Promotion', 'event_date'=>$manual_date, 'source_time_text'=>'19:30', 'source_timezone'=>'Europe/Belgrade', 'venue'=>'Manual Hall', 'location'=>'Novi Sad, Serbia', 'status'=>'published', 'scope_confirmed'=>1, 'bouts'=>'Manual A | Manual B | Middleweight | | | '.$manual_stable_id ),
+		$actor
+	);
+	$manual_event = ( new Repository() )->find_event( $manual_id );
+	assert_calendar( $manual_bout_id === (int) $manual_event['bouts'][0]['id'], 'Editing a manual bout replaced its stable database identity.' );
 	$day = ( new CalendarService() )->day( $manual_date, 'Europe/Belgrade' );
 	assert_calendar( 'manual' === $day['state'] && 1 === count( $day['events'] ), 'Manual event outside coverage is not selectable.' );
 	assert_calendar( 'Schedule may be updated.' === $day['message'], 'Manual uncovered day lacks the supplementation note.' );
@@ -133,6 +143,9 @@ try {
 } finally {
 	if ( $created_event_ids ) {
 		$ids = implode( ',', array_map( 'intval', $created_event_ids ) );
+		$notification_tables = NotificationSchema::tables();
+		$bout_ids = $wpdb->get_col( "SELECT id FROM {$tables['bouts']} WHERE event_id IN ($ids)" ) ?: array();
+		if ( $bout_ids ) { $wpdb->query( "DELETE FROM {$notification_tables['changes']} WHERE bout_id IN (" . implode( ',', array_map( 'intval', $bout_ids ) ) . ")" ); }
 		$wpdb->query( "DELETE FROM {$tables['bouts']} WHERE event_id IN ($ids)" );
 		$wpdb->query( "DELETE FROM {$tables['audit']} WHERE entity_type='event' AND entity_id IN ($ids)" );
 		$wpdb->query( "DELETE FROM {$tables['events']} WHERE id IN ($ids)" );

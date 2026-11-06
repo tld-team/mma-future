@@ -2,7 +2,7 @@
 /** Explicit staging-to-local restore step. No copied server jobs are resumed automatically. */
 if(wp_get_environment_type()!=='local'){throw new RuntimeException('Local environment required.');}
 global $wpdb;$t=\MMAF\DataEngine\Migrations\Schema::table_names();$p=\MMAF\DataEngine\Services\DataPipeline\Schema::tables();$j=\MMAF\DataEngine\Services\RegularImport\Schema::tables()['jobs'];
-update_option('mmaf_local_copied_cron',get_option('cron',[]),false);update_option('cron',[]);update_option('mmaf_local_restored_at',gmdate('Y-m-d H:i:s'),false);
+update_option('mmaf_local_copied_cron',get_option('cron',[]),false);update_option('cron',[]);update_option('mmaf_notifications_paused',true,false);update_option('mmaf_local_restored_at',gmdate('Y-m-d H:i:s'),false);
 update_option('mmaf_retention_enabled',false,false);
 @unlink(MMAF_OPERATIONS_DIR.'/retention-accepted.json');
 $wpdb->query("UPDATE $j SET status='paused' WHERE status IN ('queued','running','awaiting_approval')");

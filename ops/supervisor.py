@@ -16,6 +16,7 @@ def run(config):
         from runner import version
         schema=worker.wp('option','get','mmaf_db_version')
         commands=[('mmaf','background','work','--seconds=35','--memory-mb=256')] if version(schema)>=version('1.10.0') else [('mmaf','import-job','work','--once')]
+        if version(schema)>=version('1.18.0'):commands.insert(0,('mmaf','notifications','work','--limit=25'))
         if version('1.8.0')<=version(schema)<version('1.10.0'):commands.append(('mmaf','operations','work'))
         if version(schema)<version('1.10.0'):commands.append(('mmaf','data-process','work','--limit=10'))
         while time.monotonic()<end and not paused():

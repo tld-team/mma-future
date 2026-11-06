@@ -1,0 +1,66 @@
+.mmaf-follow {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  padding: .55rem .9rem;
+  font: 600 .875rem/1.2 inherit;
+  cursor: pointer;
+}
+.mmaf-follow:hover, .mmaf-follow:focus-visible {
+  border-color: #0047a8;
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px rgba(0,71,168,.18);
+}
+.mmaf-follow.is-following { background: #0047a8; border-color: #0047a8; color: #fff; }
+.mmaf-follow:disabled { opacity: .65; cursor: wait; }
+.mmaf-calendar__reminder {
+  border: 1px solid #0047a8;
+  border-radius: 8px;
+  background: transparent;
+  color: #0047a8;
+  padding: .45rem .7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mmaf-notification-page { min-height: 60vh; padding: 3rem 1rem; background: #f1f5f9; }
+.mmaf-notification-card {
+  max-width: 680px;
+  margin: auto;
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: clamp(1.25rem,4vw,2.5rem);
+  box-shadow: 0 16px 40px rgba(15,23,42,.08);
+}
+.mmaf-notification-card h1 { font-size: 2rem; margin-top: 0; }
+.mmaf-notification-card section { border-top: 1px solid #e2e8f0; margin-top: 2rem; padding-top: 1.5rem; }
+.mmaf-notification-card label { display: block; font-weight: 600; margin: .8rem 0; }
+.mmaf-notification-card input[type=email], .mmaf-notification-card input[name=timezone] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: .4rem;
+  padding: .8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+.mmaf-notification-card button { border: 0; border-radius: 8px; background: #0047a8; color: #fff; padding: .75rem 1rem; font-weight: 700; cursor: pointer; }
+.mmaf-checkbox { display: flex !important; gap: .5rem; align-items: center; }
+.mmaf-account-list { list-style: none; padding: 0; }
+.mmaf-account-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e2e8f0; padding: .75rem 0; }
+.mmaf-separator { text-align: center; border-top: 1px solid #e2e8f0; margin: 1.5rem 0; }
+.mmaf-separator span { background: #fff; position: relative; top: -.7rem; padding: 0 .75rem; color: #64748b; }
+.mmaf-alert { padding: 1rem; border-radius: 8px; background: #dcfce7; }
+.mmaf-alert--error { background: #fee2e2; }
+.mmaf-muted { color: #64748b; }
+@media (prefers-color-scheme: dark) {
+  .mmaf-notification-page { background: #020617; }
+  .mmaf-notification-card, .mmaf-follow { background: #0f172a; color: #f8fafc; border-color: #334155; }
+  .mmaf-notification-card section, .mmaf-account-list li, .mmaf-separator { border-color: #334155; }
+  .mmaf-separator span { background: #0f172a; }
+}

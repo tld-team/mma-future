@@ -22,7 +22,7 @@ final class MigrationRunner {
 		}
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		global $wpdb;
-		$statements = array_merge(Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql(), \MMAF\DataEngine\Services\Operations\Schema::sql(), \MMAF\DataEngine\Services\Scoring\Schema::sql(), \MMAF\DataEngine\Services\Priorities\Schema::sql(), \MMAF\DataEngine\Services\Upcoming\Schema::sql());
+		$statements = array_merge(Schema::sql(), \MMAF\DataEngine\Services\RegularImport\Schema::sql(), \MMAF\DataEngine\Services\DataPipeline\Schema::sql(), \MMAF\DataEngine\Services\Operations\Schema::sql(), \MMAF\DataEngine\Services\Scoring\Schema::sql(), \MMAF\DataEngine\Services\Priorities\Schema::sql(), \MMAF\DataEngine\Services\Upcoming\Schema::sql(), \MMAF\DataEngine\Services\Notifications\Schema::sql());
 		foreach ( $statements as $statement ) {
 			dbDelta( $statement );
 			if ($wpdb->last_error) { throw new \RuntimeException('Schema migration failed: ' . $wpdb->last_error); }
@@ -43,13 +43,14 @@ final class MigrationRunner {
 			if ($wpdb->last_error || !$columns) { throw new \RuntimeException('Required schema table is unavailable: ' . $table); }
 			preg_match_all('/^\s*([a-z][a-z0-9_]*)\s+(?:bigint|int|tinyint|smallint|varchar|char|text|longtext|mediumtext|datetime|date|decimal|double|float|timestamp|enum)\b/im', $statement, $expected);
 			if (array_diff($expected[1], $columns)) { throw new \RuntimeException('Required schema columns are missing: ' . $table); }
-			if(in_array($table,\MMAF\DataEngine\Services\Operations\Schema::tables(),true) || in_array($table,\MMAF\DataEngine\Services\Scoring\Schema::tables(),true) || in_array($table,[Schema::table_names()['fighters'],Schema::table_names()['field_provenance']],true)){
+			if(in_array($table,\MMAF\DataEngine\Services\Operations\Schema::tables(),true) || in_array($table,\MMAF\DataEngine\Services\Scoring\Schema::tables(),true) || in_array($table,\MMAF\DataEngine\Services\Notifications\Schema::tables(),true) || in_array($table,[Schema::table_names()['fighters'],Schema::table_names()['field_provenance']],true)){
 				self::verify_operational_indexes($table,$statement);
 			}
 		}
 		self::migrate_legacy_ufc_flags();
 		self::migrate_tracking_modes();
 		update_option( 'mmaf_db_version', MMAF_DB_VERSION, false );
+		if ( false === get_option( 'mmaf_notifications_paused', false ) ) { add_option( 'mmaf_notifications_paused', true, '', false ); }
 		$ufc_tables=Schema::table_names();
 		if((int)$wpdb->get_var("SELECT COUNT(*) FROM {$ufc_tables['ufc_roster_observations']}")>0 && get_option('mmaf_ufc_roster_last_import')){(new \MMAF\DataEngine\Services\UfcSigningService())->enqueue_compare('schema_migration');}
 	}

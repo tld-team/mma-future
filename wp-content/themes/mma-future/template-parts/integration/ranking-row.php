@@ -12,6 +12,7 @@
 <a class="rk-fighter-name font-semibold leading-tight block" href="<?php echo esc_url( $r['permalink'] ); ?>" onmouseout="this.style.color='#0f172a'" onmouseover="this.style.color='#0047A8'" style="color:#0f172a;transition:color .15s;text-decoration:none"><?php echo esc_html( $r['display_name'] ); ?></a>
 <div class="text-xs mt-0.5 truncate" style="color:#94a3b8;font-style:italic"><?php echo esc_html( $r['nickname'] ? '“' . $r['nickname'] . '”' : '' ); ?></div>
 <div class="text-xs font-mono mt-0.5" style="color:#94a3b8;letter-spacing:.06em"><?php echo esc_html( $r['nationality'] ?: '—' ); ?></div>
+<?php if ( class_exists( '\MMAF\DataEngine\Services\Notifications\Module' ) ) { echo \MMAF\DataEngine\Services\Notifications\Module::button( (int) $r['fighter_id'] ); } ?>
 </div>
 </div>
 </td>

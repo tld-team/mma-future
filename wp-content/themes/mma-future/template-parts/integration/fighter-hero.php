@@ -26,6 +26,7 @@
 <div class="space-y-6 lg:space-y-5 xl:space-y-6 2xl:space-y-8 text-center lg:text-left">
 <!-- Fighter Name -->
 <h1 class="font-heading font-black text-3xl xs:text-4xl md:text-5xl lg:text-4xl xl:text-5xl 2xl:text-6xl text-white leading-tight tracking-tight" style="font-weight: 950;"><?php echo esc_html( $f['display_name'] ); ?></h1><?php if ( ! empty( $f['nickname'] ) ) : ?><p class="text-white/80 font-heading"><?php echo esc_html( $f['nickname'] ); ?></p><?php endif; ?>
+<?php if ( class_exists( '\MMAF\DataEngine\Services\Notifications\Module' ) ) { echo \MMAF\DataEngine\Services\Notifications\Module::button( (int) ( $f['id'] ?? 0 ) ); } ?>
 <?php if ( ! empty( $c['ufc_signing']['confirmed'] ) ) : ?><div class="rounded-xl border border-primary-400/40 bg-primary-500/20 px-5 py-4 text-left"><strong class="block text-white text-lg">Signed with the UFC</strong><span class="text-white/80">This fighter is no longer ranked by MMA Future.</span></div><?php endif; ?>
 <!-- Meta Information Row -->
 <div class="flex flex-wrap items-center gap-3 xs:gap-4 md:gap-6 lg:gap-4 xl:gap-6 justify-center lg:justify-start text-white/90">

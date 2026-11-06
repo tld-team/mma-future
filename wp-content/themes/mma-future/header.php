@@ -88,6 +88,7 @@
 
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>
+<?php $mmaf_notifications_ready = class_exists( '\MMAF\DataEngine\Services\Notifications\Config' ) && \MMAF\DataEngine\Services\Notifications\Config::feature_enabled(); ?>
 
 	<!-- Skip to Content Link (Accessibility) -->
 	<a class="skip-link screen-reader-text" href="#primary">
@@ -153,14 +154,14 @@
 						</svg>
 					</button>
 					<a
-						href="/wp-admin"
+						href="<?php echo esc_url( $mmaf_notifications_ready ? home_url( is_user_logged_in() ? '/account/' : '/login/' ) : admin_url() ); ?>"
 						class="header-login-btn hidden lg:inline-flex items-center gap-1.5 h-10 px-4 text-base font-heading font-semibold no-underline rounded-[12px] border border-[#E2E8F0] bg-white text-[#0F172A]"
 						style="text-decoration: none !important;"
 					>
 						<svg class="header-login-btn-icon h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 							<path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
 						</svg>
-						<?php esc_html_e('Log in', 'mma-future'); ?>
+						<?php echo esc_html( $mmaf_notifications_ready && is_user_logged_in() ? __( 'My account', 'mma-future' ) : __( 'Log in', 'mma-future' ) ); ?>
 					</a>
 
 					<div class="flex lg:hidden">
@@ -244,14 +245,14 @@
 			<!-- Mobile Menu Footer (Login Button) -->
 			<div class="px-6 py-6">
 					<a 
-						href="/wp-admin" 
+						href="<?php echo esc_url( $mmaf_notifications_ready ? home_url( is_user_logged_in() ? '/account/' : '/login/' ) : admin_url() ); ?>"
 						class="header-login-btn flex w-full items-center justify-center gap-2 h-12 px-5 rounded-xl text-base font-heading font-semibold no-underline ring-1 ring-black/10 shadow-sm visited:text-[--brand]"
 						style="text-decoration: none !important;"
 					>
 						<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
 							<path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
 						</svg>
-						<?php esc_html_e('Log in', 'mma-future'); ?>
+						<?php echo esc_html( $mmaf_notifications_ready && is_user_logged_in() ? __( 'My account', 'mma-future' ) : __( 'Log in', 'mma-future' ) ); ?>
 					</a>
 				</div>
 

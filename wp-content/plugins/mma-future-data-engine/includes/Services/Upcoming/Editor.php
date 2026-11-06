@@ -16,6 +16,28 @@ final class Editor {
 
 	public function save_event( array $input, int $actor ): int {
 		global $wpdb;
+		$before_id = absint( $input['event_id'] ?? 0 );
+		$before = $before_id ? $this->repository->find_event( $before_id ) : null;
+		$wpdb->query( 'START TRANSACTION' );
+		try {
+			$id = $this->write_event( $input, $actor );
+			$after = $this->repository->find_event( $id );
+			if ( $after ) {
+				( new \MMAF\DataEngine\Services\Notifications\EventChanges() )->record( $before, $after, 'manual', null );
+				( new \MMAF\DataEngine\Services\Notifications\Reminders() )->reschedule_for_event( $id );
+			}
+			$wpdb->query( 'COMMIT' );
+			$this->repository->bump_revision();
+			if ( ! wp_next_scheduled( 'mmaf_notifications_run' ) ) { wp_schedule_single_event( time() + 5, 'mmaf_notifications_run' ); }
+			return $id;
+		} catch ( \Throwable $error ) {
+			$wpdb->query( 'ROLLBACK' );
+			throw $error;
+		}
+	}
+
+	private function write_event( array $input, int $actor ): int {
+		global $wpdb;
 		$id = absint( $input['event_id'] ?? 0 );
 		$existing = $id ? $this->repository->find_event( $id ) : null;
 		if ( $id && ! $existing ) {
@@ -78,35 +100,47 @@ final class Editor {
 			}
 			$id = (int) $wpdb->insert_id;
 		}
-		if ( false === $wpdb->query( $wpdb->prepare( "DELETE FROM {$this->tables['bouts']} WHERE event_id=%d AND is_manual=1", $id ) ) ) {
-			throw new \RuntimeException( $wpdb->last_error ?: 'Program nije moguće izmeniti.' );
-		}
+		$existing_manual = array();
+		foreach ( (array) ( $existing['bouts'] ?? array() ) as $old_bout ) { if ( ! empty( $old_bout['is_manual'] ) ) { $existing_manual[ (string) $old_bout['stable_id'] ] = $old_bout; } }
+		$seen = array();
 		foreach ( $bouts as $index => $bout ) {
-			$wpdb->insert(
-				$this->tables['bouts'],
-				array(
-					'event_id' => $id, 'stable_id' => 'manual_' . wp_generate_uuid4(), 'bout_order' => $index + 1,
+			$stable_id = $this->existing_stable_id( $bout, $existing_manual );
+			if ( ! $stable_id ) { $stable_id = 'manual_' . wp_generate_uuid4(); }
+			$seen[ $stable_id ] = true;
+			$fighter_a_id = $this->selected_fighter_id( $input, $stable_id, 'a', (string) $bout['fighter_a_url'] );
+			$fighter_b_id = $this->selected_fighter_id( $input, $stable_id, 'b', (string) $bout['fighter_b_url'] );
+			$row = array(
+					'event_id' => $id, 'stable_id' => $stable_id, 'bout_order' => $index + 1,
 					'weight_class' => $bout['weight_class'], 'status' => 'scheduled', 'scope_status' => $scope ? 'confirmed' : 'review',
 					'scope_evidence' => $scope ? 'administrator_confirmation' : null,
 					'fighter_a_name' => $bout['fighter_a_name'], 'fighter_a_url' => $bout['fighter_a_url'],
+					'fighter_a_id' => $fighter_a_id,
 					'fighter_b_name' => $bout['fighter_b_name'], 'fighter_b_url' => $bout['fighter_b_url'],
-					'is_manual' => 1, 'hidden' => 0, 'created_at' => gmdate( 'Y-m-d H:i:s' ), 'updated_at' => gmdate( 'Y-m-d H:i:s' ),
-				)
-			);
+					'fighter_b_id' => $fighter_b_id,
+					'is_manual' => 1, 'hidden' => 0, 'updated_at' => gmdate( 'Y-m-d H:i:s' ),
+				);
+			if ( isset( $existing_manual[ $stable_id ] ) ) { $wpdb->update( $this->tables['bouts'], $row, array( 'id' => (int) $existing_manual[ $stable_id ]['id'] ) ); }
+			else { $row['created_at'] = gmdate( 'Y-m-d H:i:s' ); $wpdb->insert( $this->tables['bouts'], $row ); }
 			if ( $wpdb->last_error ) {
 				throw new \RuntimeException( $wpdb->last_error );
 			}
 		}
-		$this->repository->bump_revision();
+		foreach ( $existing_manual as $stable_id => $old_bout ) {
+			if ( ! isset( $seen[ $stable_id ] ) && false === $wpdb->update( $this->tables['bouts'], array( 'hidden'=>1, 'status'=>'hidden', 'updated_at'=>gmdate('Y-m-d H:i:s') ), array( 'id'=>(int)$old_bout['id'] ) ) ) { throw new \RuntimeException( $wpdb->last_error ?: 'Program nije moguće izmeniti.' ); }
+		}
 		return $id;
 	}
 
 	public function set_bout_hidden( int $bout_id, bool $hidden ): void {
 		global $wpdb;
-		if ( false === $wpdb->update( $this->tables['bouts'], array( 'hidden' => $hidden ? 1 : 0, 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ), array( 'id' => $bout_id ) ) ) {
+		$event_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT event_id FROM {$this->tables['bouts']} WHERE id=%d", $bout_id ) );
+		$fields=array( 'hidden' => $hidden ? 1 : 0, 'updated_at' => gmdate( 'Y-m-d H:i:s' ) );
+		if(!$hidden){$current=(string)$wpdb->get_var($wpdb->prepare("SELECT status FROM {$this->tables['bouts']} WHERE id=%d",$bout_id));if('hidden'===$current){$fields['status']='scheduled';}}
+		if ( false === $wpdb->update( $this->tables['bouts'], $fields, array( 'id' => $bout_id ) ) ) {
 			throw new \RuntimeException( $wpdb->last_error ?: 'Par nije moguće izmeniti.' );
 		}
 		$this->repository->bump_revision();
+		if ( $event_id ) { ( new \MMAF\DataEngine\Services\Notifications\Reminders() )->reschedule_for_event( $event_id ); }
 	}
 
 	private function parse_bouts( string $text ): array {
@@ -125,9 +159,43 @@ final class Editor {
 				'weight_class' => isset( $parts[2] ) ? sanitize_text_field( $parts[2] ) : null,
 				'fighter_a_url' => isset( $parts[3] ) ? esc_url_raw( $parts[3] ) : null,
 				'fighter_b_url' => isset( $parts[4] ) ? esc_url_raw( $parts[4] ) : null,
+				'stable_id' => isset( $parts[5] ) && str_starts_with( sanitize_text_field( $parts[5] ), 'manual_' ) ? sanitize_text_field( $parts[5] ) : null,
 			);
 		}
 		return $rows;
+	}
+
+	private function existing_stable_id( array $bout, array $existing ): ?string {
+		if ( ! empty( $bout['stable_id'] ) && isset( $existing[ $bout['stable_id'] ] ) ) { return $bout['stable_id']; }
+		foreach ( $existing as $stable_id => $old ) {
+			$same_urls = $bout['fighter_a_url'] && $bout['fighter_b_url'] && \MMAF\DataEngine\Support\TapologyFighterUrl::normalize( (string) $bout['fighter_a_url'] ) === \MMAF\DataEngine\Support\TapologyFighterUrl::normalize( (string) $old['fighter_a_url'] ) && \MMAF\DataEngine\Support\TapologyFighterUrl::normalize( (string) $bout['fighter_b_url'] ) === \MMAF\DataEngine\Support\TapologyFighterUrl::normalize( (string) $old['fighter_b_url'] );
+			$same_names = 0 === strcasecmp( $bout['fighter_a_name'], $old['fighter_a_name'] ) && 0 === strcasecmp( $bout['fighter_b_name'], $old['fighter_b_name'] );
+			if ( $same_urls || $same_names ) { return $stable_id; }
+		}
+		return null;
+	}
+
+	private function fighter_id_from_url( string $url ): ?int {
+		global $wpdb;
+		$identity = \MMAF\DataEngine\Support\TapologyFighterUrl::parse( $url );
+		if ( ! $identity ) { return null; }
+		$table = \MMAF\DataEngine\Migrations\Schema::table_names()['fighter_sources'];
+		$id = $wpdb->get_var( $wpdb->prepare( "SELECT fighter_id FROM $table WHERE source_type='tapology' AND fighter_id IS NOT NULL AND (source_fighter_id=%s OR identity_hash=%s OR source_url=%s) ORDER BY is_verified DESC,is_primary DESC,id LIMIT 1", $identity['source_fighter_id'] ?? '', $identity['source_url_hash'], $identity['source_url'] ) );
+		return $id ? (int) $id : null;
+	}
+
+	private function selected_fighter_id( array $input, string $stable_id, string $side, string $url ): ?int {
+		$selections = isset( $input['manual_fighter_ids'] ) && is_array( $input['manual_fighter_ids'] ) ? $input['manual_fighter_ids'] : array();
+		if ( isset( $selections[ $stable_id ] ) && is_array( $selections[ $stable_id ] ) && array_key_exists( $side, $selections[ $stable_id ] ) ) {
+			$fighter_id = absint( $selections[ $stable_id ][ $side ] );
+			if ( ! $fighter_id ) { return null; }
+			global $wpdb;
+			$table = \MMAF\DataEngine\Migrations\Schema::table_names()['fighters'];
+			$valid = $wpdb->get_var( $wpdb->prepare( "SELECT f.id FROM $table f INNER JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.id=%d AND f.deleted_soft=0 AND f.is_public=1 AND f.tracking_mode='normal' AND p.post_status='publish'", $fighter_id ) );
+			if ( ! $valid ) { throw new \RuntimeException( 'Izabrani kanonski borac nije dostupan kao javni profil.' ); }
+			return (int) $valid;
+		}
+		return $this->fighter_id_from_url( $url );
 	}
 
 	private function utc_datetime( string $date, ?string $time, ?string $timezone ): ?string {

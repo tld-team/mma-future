@@ -5,7 +5,7 @@ the staging preflight, a dry-run, **Start import**, a private backup, committed
 changes, career verification, statistics and a final report. Ranking activation
 remains a separate administrator action.
 
-The current plugin requires the explicit database migration to schema 1.17.0.
+The current plugin requires the explicit database migration to schema 1.18.0.
 Deploy through the existing verified release runner. Legacy evidence contracts
 v1/v2 remain readable without inventing newer proof; new exports use evidence
 contract v3 and readiness contract v2. See

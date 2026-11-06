@@ -158,6 +158,7 @@
       else {
         this.dayRoot.querySelector('[data-calendar-feedback]').textContent = '';
         this.renderFooter();
+        document.dispatchEvent(new CustomEvent('mmaf:content-updated'));
       }
       this.dayRoot.setAttribute('aria-busy', 'true');
       this.announce(append ? 'Loading more events.' : `Loading events for ${dateLabel(date)}.`);
@@ -185,6 +186,7 @@
         }
         this.dayLoading = false;
         this.renderFooter();
+        document.dispatchEvent(new CustomEvent('mmaf:content-updated'));
         if (append && this.count() > oldCount) this.dayRoot.querySelectorAll('summary')[oldCount]?.focus({preventScroll:true});
         else if (focusResults) this.focusFirst();
         this.announce(`${dateLabel(date)}: showing ${this.count()} of ${this.total} events.`);
@@ -264,7 +266,9 @@
     event(event) {
       const place = [event.venue, event.location].filter(Boolean).join(' · ') || 'Location TBC';
       const count = event.bouts.length;
-      const bouts = event.bouts.map(bout => `<li><span>${link(bout.fighter_a.profile_url || bout.fighter_a.source_url, bout.fighter_a.name, !bout.fighter_a.profile_url)}</span><b>vs</b><span>${link(bout.fighter_b.profile_url || bout.fighter_b.source_url, bout.fighter_b.name, !bout.fighter_b.profile_url)}</span>${bout.weight_class ? `<small>${esc(bout.weight_class)}</small>` : ''}</li>`).join('');
+      const notifications = !!window.mmafNotifications?.featureEnabled;
+      const follow = fighter => `${link(fighter.profile_url || fighter.source_url, fighter.name, !fighter.profile_url)}${notifications && fighter.id ? `<button type="button" class="mmaf-follow" data-mmaf-follow="${esc(fighter.id)}" aria-pressed="false"><span class="mmaf-follow__bell" aria-hidden="true">&#128276;</span><span data-mmaf-follow-label>Follow fighter</span></button>` : ''}`;
+      const bouts = event.bouts.map(bout => `<li><span>${follow(bout.fighter_a)}</span><b>vs</b><span>${follow(bout.fighter_b)}</span>${bout.weight_class ? `<small>${esc(bout.weight_class)}</small>` : ''}${notifications && bout.reminder_available ? `<button type="button" class="mmaf-calendar__reminder" data-mmaf-reminder="${esc(bout.id)}">Remind me</button>` : ''}</li>`).join('');
       const datetime = event.date + (/^\d{2}:\d{2}$/.test(event.time || '') ? `T${event.time}` : '');
       return `<details class="mmaf-calendar__event" name="${esc(this.root.id)}-events" data-calendar-event="${esc(event.id)}"><summary class="mmaf-calendar__summary"><span class="mmaf-calendar__event-head"><span><span class="mmaf-calendar__promotion">${esc(event.promotion || 'MMA event')}</span><span class="mmaf-calendar__event-title">${esc(event.title)}</span></span><time datetime="${esc(datetime)}">${esc(event.time || 'Time TBC')}</time></span><span class="mmaf-calendar__meta">${esc(event.location || event.venue || 'Location TBC')}</span><span class="mmaf-calendar__summary-bottom"><span>${count ? `${count} ${count === 1 ? 'bout' : 'bouts'}` : 'Fight card TBC'}</span><span class="mmaf-calendar__disclosure"><span class="mmaf-calendar__when-closed">View fight card</span><span class="mmaf-calendar__when-open">Hide fight card</span></span></span></summary><div class="mmaf-calendar__event-body"><p class="mmaf-calendar__meta">${esc(place)}</p>${event.time_note ? `<p class="mmaf-calendar__note">${esc(event.time_note)}</p>` : ''}${count ? '' : '<p class="mmaf-calendar__note">Fight card to be confirmed.</p>'}<ol class="mmaf-calendar__bouts">${bouts}</ol>${event.source_url ? `<a class="mmaf-calendar__source" href="${esc(event.source_url)}" target="_blank" rel="noopener noreferrer">View on Tapology ↗</a>` : ''}</div></details>`;
     }
