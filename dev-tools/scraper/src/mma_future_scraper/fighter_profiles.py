@@ -43,6 +43,19 @@ from .utils import (
 
 FIGHTER_PROFILES_SCHEMA_VERSION = "tapology_fighter_profiles_v0_1"
 
+
+def aggregate_only_for_scope(requested_scope: str | None, profile: dict[str, Any]) -> bool:
+    """Keep explicit whole-career requests complete; apply the legacy cap only by default."""
+    if requested_scope == "professional_mma_career":
+        return False
+    if requested_scope == "career_record":
+        return True
+    from .scoring_evidence import career_record_verified
+    record = profile.get("record_summary") or {}
+    return career_record_verified(profile) and sum(
+        int(record.get(key) or 0) for key in ("wins", "losses", "draws", "no_contests")
+    ) > 30
+
 PROFILE_SUMMARY_FIELDS = [
     "nickname",
     "date_of_birth_raw",
@@ -330,7 +343,8 @@ class FighterProfileEnricher:
             _write_queue_run_selection_report(resolved_queue_path, selected_for_enrichment=len(profile_urls))
             queue_document=json.loads(resolved_queue_path.read_text()) if resolved_queue_path.exists() else {}
             self._priority_targets=queue_document.get('priority_targets')
-            self._fetch_scopes={canonical_url(item.get('source_url')):item.get('fetch_scope') for item in queue_document.get('items',[]) if isinstance(item,dict)}
+            scope_items = queue_document.get('items', []) or queue_document.get('queue', [])
+            self._fetch_scopes={canonical_url(item.get('source_url')):item.get('fetch_scope') for item in scope_items if isinstance(item,dict)}
         else:
             source_path = source_results_path or LATEST_DIR / "results.json"
             profile_urls = collect_fighter_profile_urls(source_path, limit_fighters)
@@ -447,9 +461,8 @@ class FighterProfileEnricher:
                     else:
                         profile = parse_profile_snapshot(snapshot, source_url)
                         profile['scraped_at']=snapshot['scraped_at']
-                        from .scoring_evidence import career_record_verified
-                        record=profile.get('record_summary') or {}
-                        if getattr(self,'_fetch_scopes',{}).get(canonical_url(source_url))=='career_record' or (career_record_verified(profile) and sum(record.get(key,0) for key in ('wins','losses','draws','no_contests'))>30):
+                        requested_scope=getattr(self,'_fetch_scopes',{}).get(canonical_url(source_url))
+                        if aggregate_only_for_scope(requested_scope, profile):
                             profile['fight_history']=[]
                             profile['history_exhausted']=False
                             profile['career_history_evidence']['complete']=False
@@ -888,10 +901,10 @@ def snapshot_profile_page(page: Any) -> dict[str, Any]:
             value: clean(node.textContent)
           })).filter(item => /^(Fighter|Opponent) Record Before Fight$/i.test(item.label));
           const statsNode = document.querySelector('#fighterRecordStats');
-          const recordStats = statsNode ? { id: 'fighterRecordStats', text: clean(statsNode.textContent), lines: (statsNode.innerText || '').split(/\n+/).map(clean).filter(Boolean), professional_mma: /PRO(?:FESSIONAL)? MMA STATISTICS/i.test(clean(statsNode.textContent)), rows: Array.from(statsNode.querySelectorAll('tr')).map(row => Array.from(row.querySelectorAll('th,td')).map(cell => clean(cell.textContent))) } : null;
+          const recordStats = statsNode ? { id: 'fighterRecordStats', text: clean(statsNode.textContent), lines: (statsNode.innerText || '').split(/\\n+/).map(clean).filter(Boolean), professional_mma: /PRO(?:FESSIONAL)? MMA STATISTICS/i.test(clean(statsNode.textContent)), rows: Array.from(statsNode.querySelectorAll('tr')).map(row => Array.from(row.querySelectorAll('th,td')).map(cell => clean(cell.textContent))) } : null;
           const historyControls = Array.from(document.querySelectorAll('.pagination a,.pagination button,[class*="record"] select,[class*="record"] input,[class*="record"] button,[class*="record"] a')).map(el => ({text: clean(el.innerText), value: el.value || null, href: el.getAttribute('href'), disabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true', active: el.getAttribute('aria-pressed') === 'true' || el.checked === true}));
           const filterNodes = Array.from(document.querySelectorAll('[class*="record"] select,[class*="record"] input,[class*="record"] [aria-pressed="true"]'));
-          const allowedCareerFilter = value => /^(?:all(?: bouts| results)?|mma|pro(?:fessional)?(?: mma)?)(?:\\s*\\(\\d+\\))?$/i.test(clean(value));
+          const allowedCareerFilter = value => /^(?:all(?: bouts| results)?|mma|pro(?:fessional)?(?: mma)?)(?:\\s*\\(\\d+\\))?$/i.test(clean(value)) || /^cancelled bouts shown(?:\\.? hide cancelled bouts)?$/i.test(clean(value));
           const activeFilterValues = filterNodes.map(el => {
             if (el.tagName === 'SELECT') return clean(el.selectedOptions?.[0]?.text || el.value);
             if (el.getAttribute('aria-pressed') === 'true' || el.checked === true) {
@@ -1068,6 +1081,16 @@ def snapshot_complete_profile_page(page: Any, timeout_ms: int) -> dict[str, Any]
 
 
 def parse_profile_snapshot(snapshot: dict[str, Any], source_url: str) -> dict[str, Any]:
+    loading = deepcopy(snapshot.get("history_loading_evidence") or {})
+    active_filters = [normalize_space(value) for value in loading.get("active_filter_values", []) if normalize_space(value)]
+    allowed_filter = re.compile(
+        r"^(?:all(?: bouts| results)?|mma|pro(?:fessional)?(?: mma)?)(?:\s*\(\d+\))?$"
+        r"|^cancelled bouts shown(?:\.? hide cancelled bouts)?$",
+        re.I,
+    )
+    if loading.get("filters_active") is True and active_filters and all(allowed_filter.fullmatch(value) for value in active_filters):
+        loading["filters_active"] = False
+        snapshot = {**snapshot, "history_loading_evidence": loading}
     source_url = canonical_url(source_url) or source_url
     body_text = normalize_space(snapshot.get("body_text"))
     lines = [normalize_space(line) for line in snapshot.get("lines", []) if normalize_space(line)]
@@ -2134,6 +2157,7 @@ def _parse_body_fight_segment(segment: str) -> dict[str, Any] | None:
 def _parse_fight_history_row(row: dict[str, Any], raw_text: str, source_url: str, source_id: str | None) -> dict[str, Any]:
     links = row.get("links") or []
     event_link = next((link for link in links if "/fightcenter/events/" in (link.get("href") or "")), None)
+    promotion_link = next((link for link in links if "/fightcenter/promotions/" in (link.get("href") or "")), None)
     bout_link = next((link for link in links if "/fightcenter/bouts/" in (link.get("href") or "")), None)
     opponent_link = next(
         (
@@ -2172,15 +2196,22 @@ def _parse_fight_history_row(row: dict[str, Any], raw_text: str, source_url: str
         warnings.append("last_fight_parse_inconsistent")
     event_url = absolute_url(source_url, event_link.get("href")) if event_link and event_link_is_in_scope else None
     bout_url = absolute_url(source_url, bout_link.get("href")) if bout_link else None
+    promotion_label = normalize_space(promotion_link.get("text")) if promotion_link else None
+    profile_only_event_label = promotion_label if promotion_label and promotion_label.lower() in raw_text.lower() else None
     item = {
         "fight_date": parse_date_to_iso(_date_raw(raw_text)),
         "event_name": (
             event_link_text
             if event_link and event_link_is_in_scope
-            else (_event_name_from_cells(row.get("cells") or []) if not event_link else None)
+            else ((_event_name_from_cells(row.get("cells") or []) or profile_only_event_label) if not event_link else None)
         ),
         "event_url": event_url,
         "source_event_id": source_event_id_from_url(event_url),
+        "event_identity_evidence": (
+            "profile_dom_event_label_without_source_id"
+            if not event_url and profile_only_event_label and str(row.get("data_bout_id") or "").isdigit()
+            else None
+        ),
         "bout_url": bout_url,
         "source_bout_id": source_bout_id_from_url(bout_url) or (f"tapology_bout_{row['data_bout_id']}" if str(row.get("data_bout_id") or "").isdigit() else None),
         "source_identity_evidence": "profile_dom_bout_id" if row.get("data_bout_id") else None,
@@ -2293,18 +2324,21 @@ def _field_value(body_text: str, lines: list[str], labels: list[str]) -> str | N
 
 
 def _record_field_value(body_text: str, lines: list[str], labels: list[str]) -> str | None:
+    candidates: list[str] = []
     for index, line in enumerate(lines):
         for label in labels:
             if re.fullmatch(re.escape(label) + r"\s*:?", line, re.I) and index + 1 < len(lines):
-                following = re.fullmatch(RECORD_PATTERN, lines[index + 1], re.I)
+                following = re.search(RECORD_PATTERN, lines[index + 1], re.I)
                 if following:
-                    return normalize_space(following.group(0))
+                    candidates.append(normalize_space(following.group(0)))
             if label.lower() == "mma record" and re.search(r"\bamateur\s+mma\s+record\b", line, re.I):
                 continue
             if re.search(re.escape(label), line, re.I):
                 match = re.search(RECORD_PATTERN, line, re.I)
                 if match:
-                    return normalize_space(match.group(0))
+                    candidates.append(normalize_space(match.group(0)))
+    if candidates:
+        return max(candidates, key=lambda value: (bool(re.search(r"\bNC\b", value, re.I)), len(value)))
     for label in labels:
         # A generic MMA Record label must not match inside Amateur MMA Record.
         record_body = re.sub(r"\bamateur\s+mma\s+record\s*:[^|]*?(?=\b(?:Current|Height|Weight|Age|Pro)\b|$)", "", body_text, flags=re.I) if label.lower() == "mma record" else body_text

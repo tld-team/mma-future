@@ -74,15 +74,18 @@ final class Registry {
     public static function export(): array {
         global $wpdb;$rows=$wpdb->get_results('SELECT * FROM '.Schema::table()." WHERE is_active=1 AND identity_status='confirmed' ORDER BY id",ARRAY_A);
         $bindings=[];$items=[];$ids=array_values(array_unique(array_filter(array_map('intval',array_column($rows,'fighter_id')))));
-        $records=$ids?(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters($ids):[];
+		$source_ids=array_values(array_unique(array_filter(array_column($rows,'source_fighter_id'))));$profiles=[];
+		if($source_ids){$placeholders=implode(',',array_fill(0,count($source_ids),'%s'));$profile_table=\MMAF\DataEngine\Services\DataPipeline\Schema::tables()['profiles'];$query=$wpdb->prepare("SELECT source_fighter_id,payload_json FROM $profile_table WHERE source_type='tapology' AND source_fighter_id IN ($placeholders) AND payload_json IS NOT NULL",...$source_ids);foreach($wpdb->get_results($query,ARRAY_A) as $profile){$profiles[$profile['source_fighter_id']]=json_decode($profile['payload_json'],true)?:[];}}
 		$modes=[];if($ids){foreach($wpdb->get_results('SELECT id,tracking_mode FROM '.Canonical::table_names()['fighters'].' WHERE id IN ('.implode(',',$ids).')',ARRAY_A) as $fighter){$modes[(int)$fighter['id']]=$fighter['tracking_mode'];}}
-		$tracking=new \MMAF\DataEngine\Services\TrackingService();$skipped=['opponent_only'=>0,'paused'=>0];
+		$tracking=new \MMAF\DataEngine\Services\TrackingService();$skipped=['opponent_only'=>0,'paused'=>0,'complete_profile'=>0];
         foreach($rows as $r){
-            $key=$r['source_fighter_id'];$record=$records[(int)$r['fighter_id']]??null;
+            $key=$r['source_fighter_id'];
             $bindings[]=['target_id'=>(int)$r['id'],'source_fighter_id'=>$key,'source_url'=>$r['source_url'],'token'=>self::token($r)];
 			$mode=$modes[(int)$r['fighter_id']]??\MMAF\DataEngine\Services\TrackingService::NORMAL;
 			if($mode===\MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY || ($mode===\MMAF\DataEngine\Services\TrackingService::PAUSED && !$tracking->recheck_due((int)$r['fighter_id']))){++$skipped[$mode];continue;}
-            $items[$key]=['source_fighter_id'=>$key,'source_url'=>$r['source_url'],'display_name'=>$r['client_name'],'fighter_id'=>$r['fighter_id']?(int)$r['fighter_id']:null,'action'=>'refresh_source_evidence','fetch_scope'=>($record['status']??'')==='accepted' && ($record['record']['pro_fights_count']??999)<=30?'professional_mma_career':'career_record','force_refresh'=>true];
+			$profile=$profiles[$key]??[];$career=$profile['career_history_evidence']??[];
+			if(($profile['status']??'')==='success' && ($profile['history_scope']??'')==='professional_mma' && !empty($profile['history_scope_verified']) && !empty($profile['history_exhausted']) && ($career['complete']??false)===true){++$skipped['complete_profile'];continue;}
+            $items[$key]=['source_fighter_id'=>$key,'source_url'=>$r['source_url'],'display_name'=>$r['client_name'],'fighter_id'=>$r['fighter_id']?(int)$r['fighter_id']:null,'action'=>'refresh_source_evidence','fetch_scope'=>'professional_mma_career','force_refresh'=>true];
         }
         return ['schema_version'=>'mmaf_source_enrichment_v1','contract_version'=>1,'generated_at'=>gmdate('c'),'items'=>array_values($items),'tracking_skipped_count'=>array_sum($skipped),'tracking_skipped_by_mode'=>$skipped,'priority_targets'=>['schema_version'=>'mmaf_priority_targets_v1','site_url'=>home_url('/'),'exported_at'=>gmdate('c'),'items'=>$bindings]];
     }

@@ -70,6 +70,31 @@ def test_tampered_payload_and_wrong_scope_are_rejected(tmp_path):
         load_results_checkpoints([path], filters=FILTERS, now=NOW)
 
 
+@pytest.mark.parametrize("corrupt_cached_results", [False, True])
+def test_successful_cumulative_coverage_does_not_expand_checkpoint_scope(tmp_path, corrupt_cached_results):
+    path, events = checkpoint(tmp_path / "source", [snapshot()])
+    cached, proof = reparse_event_snapshot(snapshot("pfl_mena"))
+    committed = json.loads(path.read_text())
+    committed["events"].append(cached)
+    atomic_write_json(path.parent / "event_coverage.json", coverage_document(committed["events"], run_id=path.parent.name))
+    if corrupt_cached_results:
+        committed["events"].pop()
+    atomic_write_json(path.parent / "results.json", committed)
+    atomic_write_json(path.parent / "run_manifest.json", {
+        "run_id": path.parent.name, "source": "tapology", "status": "success",
+    })
+    originals = {p: p.read_bytes() for p in path.parent.rglob("*.json")}
+    if corrupt_cached_results:
+        with pytest.raises(ValueError, match="Accepted coverage has no source results"):
+            load_results_checkpoints([path], filters=FILTERS, now=NOW)
+    else:
+        recovered = load_results_checkpoints([path], filters=FILTERS, now=NOW)
+        assert recovered.events == events
+        assert not recovered.deferred
+        assert set(recovered.snapshots) == {events[0]["source_event_id"]}
+    assert all(p.read_bytes() == raw for p, raw in originals.items())
+
+
 def test_source_rows_must_still_confirm_the_saved_classification(tmp_path):
     path, _ = checkpoint(tmp_path / "source", [snapshot()])
     saved_path = next((path.parent / "event_snapshots").glob("*.json"))
@@ -262,6 +287,9 @@ def test_full_run_preserves_atomic_state_and_can_resume_again(monkeypatch, tmp_p
         manifest = json.loads((data / "latest/run_manifest.json").read_text())
         assert manifest["counts"]["events_from_checkpoint"] == 1
         assert manifest["counts"]["events_scraped_this_run"] == 1
+        assert manifest["status"] == "success" and manifest["coverage"] == {
+            "batch_status": "success", "listing_scope_complete": False, "stop_reason": "max_event_fetches",
+        }
         indexed = json.loads((data / "state/events_index.json").read_text())
         assert indexed[saved_events[0]["source_event_id"]]["last_scraped_at"] == OBSERVED
         assert len(json.loads((data / "latest/results.json").read_text())["events"]) == 2

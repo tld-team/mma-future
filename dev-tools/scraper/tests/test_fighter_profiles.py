@@ -1,4 +1,5 @@
 import json
+import pytest
 
 import mma_future_scraper.fighter_profile_queue as fighter_profile_queue
 from mma_future_scraper.config import ScraperConfig
@@ -12,6 +13,7 @@ from mma_future_scraper.fighter_profile_queue import (
     tracking_decision_for,
 )
 from mma_future_scraper.fighter_profiles import (
+    aggregate_only_for_scope,
     build_event_profile_enrichment_summary,
     collect_fighter_profile_urls,
     event_profile_summary,
@@ -20,8 +22,72 @@ from mma_future_scraper.fighter_profiles import (
     merge_fighter_profiles_documents,
     normalize_profile_for_event_output,
     parse_profile_snapshot,
+    snapshot_profile_page,
     scope_fight_row_text,
 )
+
+
+def test_explicit_whole_career_scope_is_not_truncated_over_thirty_fights():
+    profile = {
+        "record_summary": {"wins": 28, "losses": 4, "draws": 0, "no_contests": 0, "pro_record_raw": "28-4-0"},
+        "career_record_evidence": {
+            "verified": True,
+            "scope": "professional_mma",
+            "record_raw": "28-4-0",
+            "label": "Pro MMA Record",
+            "evidence": "explicit_mma_record_label",
+        },
+    }
+    assert aggregate_only_for_scope("professional_mma_career", profile) is False
+    assert aggregate_only_for_scope("career_record", profile) is True
+    assert aggregate_only_for_scope(None, profile) is True
+
+
+def test_profile_snapshot_javascript_keeps_newline_regex_escaped():
+    class Page:
+        script = None
+        def evaluate(self, script):
+            self.script = script
+            return {}
+    page = Page()
+    snapshot_profile_page(page)
+    assert ".split(/\n+" not in page.script
+    assert page.script.count(".split(/\\n+") >= 2
+    assert "cancelled bouts shown" in page.script
+
+
+def test_record_label_followed_by_explanatory_suffix_keeps_no_contest_count():
+    snapshot = {
+        "title": "Usman Nurmagomedov | MMA Fighter Page | Tapology",
+        "url": "https://www.tapology.com/fightcenter/fighters/194617-osman-nurmagomedov",
+        "body_text": "Usman Nurmagomedov Pro MMA Record: 22-0-0, 1 NC (Win-Loss-Draw)",
+        "headings": ["Usman Nurmagomedov"],
+        "lines": ["Usman Nurmagomedov", "PRO MMA RECORD", "22-0-0", "Pro MMA Record:", "22-0-0, 1 NC (Win-Loss-Draw)"],
+        "rows": [],
+    }
+    profile = parse_profile_snapshot(snapshot, snapshot["url"])
+    assert profile["record_summary"]["pro_record_raw"] == "22-0-0, 1 NC"
+    assert profile["record_summary"]["wins"] == 22
+    assert profile["record_summary"]["losses"] == 0
+    assert profile["record_summary"]["draws"] == 0
+    assert profile["record_summary"]["no_contests"] == 1
+
+
+def test_non_restrictive_cancelled_bout_toggle_does_not_block_complete_history():
+    snapshot = {
+        "title": "Complete Fighter | MMA Fighter Page | Tapology",
+        "url": "https://www.tapology.com/fightcenter/fighters/7-complete",
+        "body_text": "Complete Fighter Pro MMA Record: 1-0-0",
+        "headings": ["Complete Fighter"],
+        "lines": ["Complete Fighter", "Pro MMA Record: 1-0-0"],
+        "rows": [],
+        "history_loading_evidence": {
+            "filters_active": True,
+            "active_filter_values": ["Cancelled bouts shown. Hide cancelled bouts"],
+        },
+    }
+    profile = parse_profile_snapshot(snapshot, snapshot["url"])
+    assert profile["career_history_evidence"]["loading"]["filters_active"] is False
 from mma_future_scraper.tapology import TapologyScraper
 
 
@@ -125,6 +191,45 @@ def test_parse_profile_snapshot_extracts_explicit_summary_record_and_history():
     assert profile["fight_history"][0]["source_event_id"] == "tapology_event_999"
     assert profile["fight_history"][0]["bout_url"] == "https://www.tapology.com/fightcenter/bouts/888-example-bout"
     assert profile["fight_history"][0]["source_bout_id"] == "tapology_bout_888"
+
+
+def test_profile_dom_bout_preserves_event_label_when_event_link_is_absent():
+    snapshot = {
+        "url": "https://www.tapology.com/fightcenter/fighters/100-jane-doe",
+        "title": "Jane Doe | Tapology",
+        "headings": ["Jane Doe"],
+        "body_text": "Jane Doe Pro MMA Record: 1-0-0",
+        "lines": ["Jane Doe", "Pro MMA Record: 1-0-0"],
+        "history_exhausted": True,
+        "history_loading_evidence": {
+            "canonical_card_dom": True,
+            "first_page_verified": True,
+            "load_complete": True,
+            "navigation_exhausted": True,
+            "hidden_cards": 0,
+            "pagination_present": False,
+            "filters_present": False,
+        },
+        "rows": [{
+            "raw_text": "W SUB Ann Other 0-0 0-0 Win Example Promotion 2020 Jan 2",
+            "links": [
+                {"text": "Ann Other", "href": "/fightcenter/fighters/200-ann-other"},
+                {"text": "Example Promotion", "href": "/fightcenter/promotions/300-example"},
+            ],
+            "data_bout_id": "888",
+            "data_sport": "mma",
+            "data_division": "pro",
+            "data_status": "win",
+        }],
+    }
+    row = parse_profile_snapshot(snapshot, snapshot["url"])["fight_history"][0]
+    assert row["event_name"] == "Example Promotion"
+    assert row.get("source_event_id") is None
+    assert row.get("event_url") is None
+    assert row.get("bout_url") is None
+    assert row["source_bout_id"] == "tapology_bout_888"
+    assert row["source_identity_evidence"] == "profile_dom_bout_id"
+    assert row["event_identity_evidence"] == "profile_dom_event_label_without_source_id"
 
 
 def test_event_profile_output_lowen_tynanes_style_profile():
@@ -1780,7 +1885,8 @@ def test_build_fighter_profile_queue_merges_local_sources_and_marks_existing(tmp
     assert jane["stale_reason"] in {"fresh", "active_dataset_last_30_days", "inactive_dataset_over_30_days", "missing_last_scraped_at"}
 
 
-def test_build_fighter_profile_queue_strict_daily_filters_to_changed_events(tmp_path):
+@pytest.mark.parametrize("unchanged_profiles_exist", [False, True])
+def test_build_fighter_profile_queue_strict_daily_retains_missing_cumulative_profiles(tmp_path, unchanged_profiles_exist):
     latest_dir = tmp_path / "latest"
     latest_dir.mkdir()
     results_path = latest_dir / "results.json"
@@ -1833,10 +1939,16 @@ def test_build_fighter_profile_queue_strict_daily_filters_to_changed_events(tmp_
         encoding="utf-8",
     )
 
+    profiles_path = latest_dir / "profiles.json"
+    profiles_path.write_text(json.dumps({"profiles": [
+        {"source_fighter_id": f"tapology_fighter_{i}", "status": "success", "scraped_at": "2026-06-01T00:00:00Z"}
+        for i in ([201, 202] if unchanged_profiles_exist else [])
+    ]}))
     queue, report, _paths = build_fighter_profile_queue(
         latest_results_path=results_path,
+        latest_upcoming_path=latest_dir / "missing_upcoming.json",
         latest_changes_path=changes_path,
-        existing_profiles_path=latest_dir / "missing_profiles.json",
+        existing_profiles_path=profiles_path,
         derived_index_path=latest_dir / "missing_index.json",
         queue_mode="strict-daily",
         output_path=latest_dir / "fighter_profile_queue.json",
@@ -1845,12 +1957,16 @@ def test_build_fighter_profile_queue_strict_daily_filters_to_changed_events(tmp_
 
     assert queue["queue_mode"] == "strict-daily"
     assert report["queue_mode"] == "strict-daily"
-    assert queue["unique_profile_urls"] == 2
-    assert queue["mode_filtered_count"] == 2
-    assert {item["source_fighter_id"] for item in queue["queue"]} == {
+    assert queue["unique_profile_urls"] == (2 if unchanged_profiles_exist else 4)
+    assert queue["mode_filtered_count"] == (2 if unchanged_profiles_exist else 0)
+    expected = {
         "tapology_fighter_101",
         "tapology_fighter_102",
     }
+    if not unchanged_profiles_exist:
+        expected.update({"tapology_fighter_201", "tapology_fighter_202"})
+    assert {item["source_fighter_id"] for item in queue["queue"]} == expected
+    assert all(item["fetch_scope"] == "professional_mma_career" for item in queue["queue"])
 
 
 def test_build_fighter_profile_queue_classifies_refresh_priority_and_freshness(tmp_path, monkeypatch):

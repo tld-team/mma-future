@@ -110,6 +110,30 @@ def load_results_checkpoints(
         coverage = json.loads((path.parent / "event_coverage.json").read_text(encoding="utf-8"))
         if coverage.get("run_id") != run["run_id"]:
             raise ValueError(f"Checkpoint coverage run mismatch: {path}")
+        # A successful cumulative commit expands event_coverage.json with cached
+        # events, while checkpoint_results.json still contains only this run's
+        # work. Validate the full committed pair before selecting checkpoint
+        # evidence; cached cards without local snapshots are not resumable here.
+        committed_path = path.parent / "results.json"
+        if manifest.get("status") == "success" and committed_path.exists():
+            committed = json.loads(committed_path.read_text(encoding="utf-8"))
+            if (
+                committed.get("schema_version") != RESULTS_SCHEMA_VERSION
+                or committed.get("source") != "tapology"
+                or committed.get("filters") != filters
+                or committed.get("run", {}).get("run_id") != run["run_id"]
+            ):
+                raise ValueError(f"Committed results identity/scope mismatch: {path}")
+            validate_coverage(coverage, committed["events"])
+            checkpoint_ids = {event["source_event_id"] for event in document["events"]}
+            coverage = {
+                **coverage,
+                "events": [
+                    proof for proof in coverage["events"]
+                    if proof["source_event_id"] in checkpoint_ids
+                    or (path.parent / "event_snapshots" / f"{proof['source_event_id']}.json").is_file()
+                ],
+            }
         validate_coverage(coverage, document["events"])
         _validate_events(document)
         result.sources.append({"path": str(path), "run_id": run["run_id"], "sha256": hashlib.sha256(raw).hexdigest()})

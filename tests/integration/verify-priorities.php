@@ -25,9 +25,12 @@ try{
     $a=fixture_fighter(94981101,'Synthetic A');$b=fixture_fighter(94981102,'Synthetic B');
     rejects(fn()=>Registry::resolve($ids[0],$a['fighter_id'],$b['source_url'],1),'conflicting source ID cannot be attached to a selected canonical fighter');
     Registry::resolve($ids[0],$a['fighter_id'],$a['source_url'],1);
+    $complete_a=fixture_profile($a,[fixture_fight(94981110,$b)],['wins'=>1,'losses'=>0,'draws'=>0,'no_contests'=>0]);(new ProfileStore())->put($complete_a,'tapology_fighter_profiles_v0_1');
     $third='https://www.tapology.com/fightcenter/fighters/94981103-new-candidate';
     Registry::resolve($ids[2],0,$third,1);$queue=Registry::export();$bindings=Registry::validateManifest($queue['priority_targets']);
     check(count($bindings)===2 && Registry::get($ids[2])['fighter_id']===null,'confirmed priority can exist without any canonical fighter or event');
+    check(count($queue['items'])===1 && $queue['items'][0]['source_fighter_id']==='tapology_fighter_94981103' && $queue['tracking_skipped_by_mode']['complete_profile']===1,'complete stored priority profile is retained for import without being fetched again');
+    check(count(array_filter($queue['items'],fn($item)=>$item['fetch_scope']!=='professional_mma_career'))===0,'every confirmed priority requests the complete professional MMA career immediately');
     $changed=$queue['priority_targets'];$changed['items'][0]['source_fighter_id']='tapology_fighter_123';
     rejects(fn()=>Registry::validateManifest($changed),'tampered priority source identity is rejected');
     Registry::active($ids[2],false,1);rejects(fn()=>Registry::validateManifest($queue['priority_targets']),'disabled or changed target invalidates an exported queue');Registry::active($ids[2],true,1);
@@ -44,7 +47,7 @@ try{
     check((int)Registry::get($ids[2])['fighter_id']===$fid,'changed slug with the same numeric source identity preserves the canonical fighter');
     $store=new ProfileStore();$store->put($raw,'tapology_fighter_profiles_v0_1');$saved=$store->for_fighter($fid);$failed=$raw;$failed['status']='blocked';$failed['scraped_at']=gmdate('c',time()+1);$store->put($failed,'tapology_fighter_profiles_v0_1');$after=$store->for_fighter($fid);
     check($after['source_fetched_at']===$saved['source_fetched_at'] && $after['content_hash']===$saved['content_hash'] && $after['last_attempt_status']==='blocked','failed refresh keeps the successful value and actual observation time');
-    $report=Report::rows();check(count($report)===3 && count(array_filter($report,fn($r)=>!empty($r['next_action'])))===3,'every target, including unresolved namesakes, has a private outcome and next action');
+    $report=Report::rows();check(count($report)===3 && count(array_filter($report,fn($r)=>!empty($r['next_action'])&&!empty($r['recovery_status'])))===3,'every target, including unresolved namesakes, has a private recovery outcome and next action');
     wp_set_current_user(0);check(!\MMAF\DataEngine\Admin\PrioritiesPage::allowed() && !has_action('admin_post_nopriv_mmaf_priorities'),'anonymous users cannot read or mutate priorities');wp_set_current_user(1);
     // Exercise actual ZIP prepare/check/import with a target absent from all event results.
     $archive=getenv('MMAF_PIPELINE_FIXTURE');check($archive && is_file($archive),'Python cycle fixture is available');

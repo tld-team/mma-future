@@ -512,6 +512,17 @@ final class ScraperJsonImportService {
 
 		$incoming = $this->bout_row( $bout, $event_id, $warnings );
 		$updates  = $this->safe_updates( 'bout', $bout_id, $before, $incoming, $warnings );
+		$placeholder_event_id = 0;
+		if ( (int) $before['event_id'] !== $event_id ) {
+			$previous_event = $this->events->find( (int) $before['event_id'] );
+			if ( $previous_event && 'profile_history_placeholder' === ( $previous_event['status'] ?? '' ) && null === $this->provenance->protected_reason( 'bout', $bout_id, 'event_id' ) ) {
+				$updates['event_id'] = $event_id;
+				$placeholder_event_id = (int) $before['event_id'];
+				$warnings = array_values( array_diff( $warnings, array( 'manual_field_preserved:bout.event_id' ) ) );
+				$this->summary['warnings_count'] = max( 0, (int) $this->summary['warnings_count'] - 1 );
+				$warnings[] = 'profile_history_placeholder_reconciled';
+			}
+		}
 		$changed  = false;
         $locked_result=false;foreach($this->participants->list_by_bout($bout_id) as $participant){foreach(['result_for_fighter','is_winner'] as $field){$locked_result=$locked_result || $this->provenance->is_protected('bout_participant',(int)$participant['id'],$field);}}
         if($locked_result){unset($updates['result_type'],$updates['is_scoring_candidate'],$updates['status']);}
@@ -524,6 +535,7 @@ final class ScraperJsonImportService {
 			}
 			$changed = true;
 		}
+		if ( $placeholder_event_id ) { $this->retire_profile_history_placeholder( $placeholder_event_id, $user_id ); }
 
         $current=$this->participants->list_by_bout($bout_id);
         $incoming_participants=$this->participant_rows($bout,$fighter_a_id,$fighter_b_id);
@@ -554,6 +566,19 @@ final class ScraperJsonImportService {
 
 		return $changed;
         });
+	}
+
+	private function retire_profile_history_placeholder( int $event_id, int $user_id ): void {
+		global $wpdb;
+		$tables = \MMAF\DataEngine\Migrations\Schema::table_names();
+		$event = $this->events->find( $event_id );
+		if ( ! $event || 'profile_history_placeholder' !== ( $event['status'] ?? '' ) ) { return; }
+		$bouts = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$tables['bouts']} WHERE event_id=%d AND deleted_soft=0", $event_id ) );
+		$sources = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$tables['event_sources']} WHERE event_id=%d", $event_id ) );
+		if ( $bouts || $sources ) { return; }
+		$this->events->update( $event_id, array( 'status' => 'superseded_profile_history', 'deleted_soft' => 1 ) );
+		$this->audit_log->write( 'profile_history_placeholder_retired', 'event', $event_id, $event, $this->events->find( $event_id ), 'A later event import supplied the canonical event identity.', $user_id );
+		$this->summary['audit_rows_written']++;
 	}
 
 	private function safe_updates( string $entity_type, int $entity_id, array $current, array $incoming, array &$warnings ): array {
