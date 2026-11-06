@@ -28,10 +28,11 @@ final class NotificationsController extends \WP_REST_Controller {
 			array( 'methods'=>\WP_REST_Server::READABLE, 'callback'=>array($this,'settings'), 'permission_callback'=>array($this,'private_permission') ),
 			array( 'methods'=>\WP_REST_Server::EDITABLE, 'callback'=>array($this,'update_settings'), 'permission_callback'=>array($this,'private_permission') ),
 		) );
-		register_rest_route( $this->namespace, '/' . $this->rest_base . '/auth/email', array( 'methods'=>\WP_REST_Server::CREATABLE, 'callback'=>array($this,'request_login'), 'permission_callback'=>'__return_true' ) );
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/auth/email', array( 'methods'=>\WP_REST_Server::CREATABLE, 'callback'=>array($this,'request_login'), 'permission_callback'=>array($this,'public_auth_permission') ) );
 	}
 
 	public function private_permission(): bool { return is_user_logged_in() && Config::feature_enabled(); }
+	public function public_auth_permission(): bool { return ! is_user_logged_in() && Config::feature_enabled(); }
 	public function subscriptions(): \WP_REST_Response { return $this->response( ( new Subscriptions() )->listing( get_current_user_id() ) ); }
 	public function follow( \WP_REST_Request $r ) { try{return $this->response((new Subscriptions())->follow(get_current_user_id(),absint($r['fighter_id'])));}catch(\Throwable $e){return new \WP_Error('mmaf_follow_failed',$e->getMessage(),array('status'=>400));} }
 	public function unfollow( \WP_REST_Request $r ): \WP_REST_Response { return $this->response( (new Subscriptions())->unfollow(get_current_user_id(),absint($r['fighter_id'])) ); }

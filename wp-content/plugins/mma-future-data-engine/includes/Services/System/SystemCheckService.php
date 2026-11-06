@@ -2,6 +2,7 @@
 namespace MMAF\DataEngine\Services\System;
 
 use MMAF\DataEngine\Migrations\Schema;
+use MMAF\DataEngine\REST\NotificationsController;
 use MMAF\DataEngine\REST\RestServiceProvider;
 use MMAF\DataEngine\Services\Formula\FormulaV13;
 use MMAF\DataEngine\Services\Formula\FormulaV14;
@@ -807,6 +808,9 @@ final class SystemCheckService {
 						if ( ! $enabled || in_array( strtoupper( (string) $method ), array( 'GET', 'HEAD', 'OPTIONS' ), true ) ) {
 							continue;
 						}
+						if ( $this->is_intentional_public_write_route( (string) $route, (string) $method, $handler ) ) {
+							continue;
+						}
 						$permission = $handler['permission_callback'] ?? null;
 						try {
 							// Probe authorization only; never dispatch a mutation or execute its handler.
@@ -825,5 +829,21 @@ final class SystemCheckService {
 			wp_set_current_user( $user_id );
 		}
 		return array_values( array_unique( $write_routes ) );
+	}
+
+	private function is_intentional_public_write_route( string $route, string $method, array $handler ): bool {
+		if ( '/mma-future/v1/notifications/auth/email' !== $route || 'POST' !== strtoupper( $method ) ) {
+			return false;
+		}
+
+		$callback   = $handler['callback'] ?? null;
+		$permission = $handler['permission_callback'] ?? null;
+		return is_array( $callback )
+			&& is_array( $permission )
+			&& isset( $callback[0], $callback[1], $permission[0], $permission[1] )
+			&& $callback[0] instanceof NotificationsController
+			&& $permission[0] === $callback[0]
+			&& 'request_login' === $callback[1]
+			&& 'public_auth_permission' === $permission[1];
 	}
 }
