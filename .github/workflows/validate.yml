@@ -26,6 +26,9 @@ jobs:
           node --check wp-content/plugins/mma-future-data-engine/assets/regular-import.js
           node --check wp-content/plugins/mma-future-data-engine/assets/admin-fighters.js
           node --check wp-content/plugins/mma-future-data-engine/assets/operations.js
+          node --check wp-content/plugins/mma-future-data-engine/assets/notifications.js
+          node --check wp-content/plugins/mma-future-data-engine/assets/admin-calendar-linking.js
+          node --check wp-content/plugins/mma-future-data-engine/assets/event-calendar.js
           bash -n wp-content/plugins/mma-future-data-engine/bin/regular-import-runner.sh ops/supervisor.sh ops/monitor.sh ops/upload.sh
           python3 tests/unit/release-package.py
           python3 tests/unit/release-recovery.py
@@ -101,6 +104,7 @@ jobs:
           define('WP_ENVIRONMENT_TYPE','local');
           define('DISABLE_WP_CRON',true);
           define('MMAF_SERVER_SUPERVISOR',true);
+          define('MMAF_NOTIFICATIONS_ENABLED',true);
           define('MMAF_OPERATIONS_DIR',getenv('MMAF_CI_PRIVATE'));
           define('MMAF_WRITE_LOCK',MMAF_OPERATIONS_DIR.'/worker.lock');
           define('MMAF_IMPORT_STORAGE_DIR',MMAF_OPERATIONS_DIR.'/imports');
@@ -149,6 +153,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-ufc-signings.php
           php -d memory_limit=256M tests/integration/verify-tracking.php
           php -d memory_limit=256M tests/integration/verify-upcoming-calendar.php
+          php -d memory_limit=256M tests/integration/verify-notifications.php
       - name: Actual synthetic staging-to-local transfer
         env:
           MMAF_SYNC_WP_CORE: /tmp/mmaf-wp

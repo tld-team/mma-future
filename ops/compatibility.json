@@ -1,6 +1,6 @@
 {
   "schema_min": "1.7.0",
-  "schema_max": "1.17.0",
-  "schema_target": "1.17.0",
-  "write_schema_max": "1.17.0"
+  "schema_max": "1.18.0",
+  "schema_target": "1.18.0",
+  "write_schema_max": "1.18.0"
 }

@@ -166,6 +166,7 @@ final class Importer {
 			}
 			$wpdb->query( 'COMMIT' );
 			$this->repository->bump_revision();
+			if ( ! wp_next_scheduled( 'mmaf_notifications_run' ) ) { wp_schedule_single_event( time() + 5, 'mmaf_notifications_run' ); }
 			return array( 'idempotent' => false, 'import_id' => $import_id, 'summary' => $summary );
 		} catch ( \Throwable $error ) {
 			$wpdb->query( 'ROLLBACK' );
@@ -199,7 +200,7 @@ final class Importer {
 				'updated_at' => gmdate( 'Y-m-d H:i:s' ),
 			)
 		);
-		$before = $existing;
+		$before = $existing ? $this->repository->find_event( (int) $existing['id'] ) : null;
 		if ( $existing ) {
 			$this->checked_update( $this->tables['events'], $row, array( 'id' => (int) $existing['id'] ) );
 			$event_id = (int) $existing['id'];
@@ -226,15 +227,35 @@ final class Importer {
 		$scope = $count > 0 ? 1 : 0;
 		$final_status = $scope ? $status : ( in_array( $status, array( 'cancelled', 'postponed' ), true ) ? $status : 'draft' );
 		$this->checked_update( $this->tables['events'], array( 'scope_confirmed' => $scope, 'status' => $final_status ), array( 'id' => $event_id ) );
-		$this->audit( 'event', $event_id, $existing ? 'source_update' : 'source_create', $before, $this->repository->find_event( $event_id ), $import_id, $actor );
+		$after = $this->repository->find_event( $event_id );
+		$this->audit( 'event', $event_id, $existing ? 'source_update' : 'source_create', $before, $after, $import_id, $actor );
+		if ( $after ) {
+			( new \MMAF\DataEngine\Services\Notifications\EventChanges() )->record( $before, $after, 'import', $import_id );
+			( new \MMAF\DataEngine\Services\Notifications\Reminders() )->reschedule_for_event( $event_id );
+		}
 	}
 
 	private function apply_bout( array $source, int $event_id, int $import_id, array &$summary ): void {
 		global $wpdb;
 		$existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$this->tables['bouts']} WHERE stable_id=%s", $source['stable_id'] ), ARRAY_A );
-		$overrides = $this->decode( $existing['overrides_json'] ?? null );
 		$a = $source['fighter_a'];
 		$b = $source['fighter_b'];
+		$a_id = $this->fighter_id( $a['source_fighter_id'] ?? null );
+		$b_id = $this->fighter_id( $b['source_fighter_id'] ?? null );
+		$ambiguous = false;
+		if ( ! $existing ) {
+			$candidates = array();
+			if ( $a_id && $b_id ) {
+				$candidates = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$this->tables['bouts']} WHERE event_id=%d AND is_manual=0 AND ((fighter_a_id=%d AND fighter_b_id=%d) OR (fighter_a_id=%d AND fighter_b_id=%d))", $event_id, $a_id, $b_id, $b_id, $a_id ), ARRAY_A ) ?: array();
+			}
+			if ( ! $candidates && ( $a_id || $b_id ) ) {
+				$ids = array_values( array_filter( array( $a_id, $b_id ) ) ); $in = implode( ',', array_map( 'intval', $ids ) );
+				$candidates = $wpdb->get_results( "SELECT * FROM {$this->tables['bouts']} WHERE event_id=" . (int) $event_id . " AND is_manual=0 AND (fighter_a_id IN ($in) OR fighter_b_id IN ($in))", ARRAY_A ) ?: array(); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			}
+			if ( 1 === count( $candidates ) ) { $existing = $candidates[0]; }
+			elseif ( count( $candidates ) > 1 ) { $ambiguous = true; }
+		}
+		$overrides = $this->decode( $existing['overrides_json'] ?? null );
 		$source_values = array(
 			'bout_order' => (int) $source['order'], 'weight_class' => $source['weight_class'] ?? null, 'status' => $source['status'] ?? 'scheduled',
 			'scope_status' => $source['scope_status'], 'scope_evidence' => $source['scope_evidence'] ?? null,
@@ -244,12 +265,13 @@ final class Importer {
 		$row = array_merge(
 			$this->effective_values( $source_values, $overrides ),
 			array(
-				'event_id' => $event_id, 'stable_id' => sanitize_text_field( $source['stable_id'] ), 'source_bout_id' => $source['source_bout_id'] ?? null,
-				'source_url' => esc_url_raw( $source['source_url'] ?? '' ) ?: null, 'fighter_a_id' => $this->fighter_id( $a['source_fighter_id'] ?? null ),
-				'fighter_b_id' => $this->fighter_id( $b['source_fighter_id'] ?? null ), 'is_manual' => 0, 'hidden' => (int) ( $existing['hidden'] ?? 0 ),
+				'event_id' => $event_id, 'stable_id' => $existing ? (string) $existing['stable_id'] : sanitize_text_field( $source['stable_id'] ), 'source_bout_id' => $source['source_bout_id'] ?? null,
+				'source_url' => esc_url_raw( $source['source_url'] ?? '' ) ?: null, 'fighter_a_id' => $a_id,
+				'fighter_b_id' => $b_id, 'is_manual' => 0, 'hidden' => (int) ( $existing['hidden'] ?? 0 ),
 				'source_json' => wp_json_encode( $source ), 'last_import_id' => $import_id, 'source_observed_at' => gmdate( 'Y-m-d H:i:s' ), 'updated_at' => gmdate( 'Y-m-d H:i:s' ),
 			)
 		);
+		if ( $ambiguous ) { $row['scope_status'] = 'review'; $row['scope_evidence'] = 'ambiguous_source_identity'; }
 		if ( $existing ) {
 			$this->checked_update( $this->tables['bouts'], $row, array( 'id' => (int) $existing['id'] ) );
 			$summary['bouts_updated']++;
@@ -257,6 +279,9 @@ final class Importer {
 			$row['created_at'] = gmdate( 'Y-m-d H:i:s' );
 			$this->checked_insert( $this->tables['bouts'], $row );
 			$summary['bouts_created']++;
+		}
+		if ( $ambiguous ) {
+			$this->checked_insert( $this->tables['audit'], array( 'entity_type'=>'bout','entity_id'=>(int)( $existing['id'] ?? $wpdb->insert_id ),'action'=>'identity_review','before_json'=>null,'after_json'=>wp_json_encode($row),'import_id'=>$import_id,'actor_user_id'=>null,'created_at'=>gmdate('Y-m-d H:i:s') ) );
 		}
 	}
 

@@ -128,8 +128,9 @@ final class CalendarService {
 			$data['bouts'][] = array(
 				'id' => (int) $bout['id'], 'order' => (int) $bout['bout_order'], 'weight_class' => $bout['weight_class'] ?: null,
 				'status' => (string) $bout['status'],
-				'fighter_a' => array( 'name' => $bout['fighter_a_name'], 'profile_url' => $bout['fighter_a_profile_url'] ?: null, 'source_url' => self::tapology_url( $bout['fighter_a_url'] ?? null ) ),
-				'fighter_b' => array( 'name' => $bout['fighter_b_name'], 'profile_url' => $bout['fighter_b_profile_url'] ?: null, 'source_url' => self::tapology_url( $bout['fighter_b_url'] ?? null ) ),
+				'reminder_available' => $this->display_date( $event, $zone ) > ( new \DateTimeImmutable( 'today', $zone ) )->format( 'Y-m-d' ) && ! in_array( $event['status'], array( 'cancelled','postponed' ), true ),
+				'fighter_a' => array( 'id' => (int) ( $bout['fighter_a_id'] ?? 0 ), 'name' => $bout['fighter_a_name'], 'profile_url' => $bout['fighter_a_profile_url'] ?: null, 'source_url' => self::tapology_url( $bout['fighter_a_url'] ?? null ) ),
+				'fighter_b' => array( 'id' => (int) ( $bout['fighter_b_id'] ?? 0 ), 'name' => $bout['fighter_b_name'], 'profile_url' => $bout['fighter_b_profile_url'] ?: null, 'source_url' => self::tapology_url( $bout['fighter_b_url'] ?? null ) ),
 			);
 		}
 		return $data;

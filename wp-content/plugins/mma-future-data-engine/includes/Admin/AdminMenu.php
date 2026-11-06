@@ -65,6 +65,8 @@ final class AdminMenu {
 			array( BoutsPage::class, 'render' )
 		);
 
+		add_submenu_page( 'mmaf', 'Sports notifications', 'Notifications', Capabilities::MANAGE, 'mmaf-notifications', array( NotificationsPage::class, 'render' ) );
+
 		add_submenu_page(
 			'mmaf',
 			__( 'MMA Future Stats', 'mma-future-data-engine' ),

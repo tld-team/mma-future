@@ -16,6 +16,7 @@ final class CalendarPage {
 		add_action( 'admin_post_mmaf_calendar_confirm', array( self::class, 'handle_confirm' ) );
 		add_action( 'admin_post_mmaf_calendar_save', array( self::class, 'handle_save' ) );
 		add_action( 'admin_post_mmaf_calendar_toggle_bout', array( self::class, 'handle_toggle_bout' ) );
+		add_action( 'wp_ajax_mmaf_calendar_fighter_search', array( self::class, 'fighter_search' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'enqueue_assets' ) );
 	}
 
@@ -24,6 +25,31 @@ final class CalendarPage {
 			return;
 		}
 		wp_enqueue_style( 'mmaf-calendar-admin', plugins_url( 'assets/admin-calendar.css', MMAF_PLUGIN_FILE ), array(), MMAF_PLUGIN_VERSION );
+		wp_enqueue_script( 'mmaf-calendar-admin-linking', plugins_url( 'assets/admin-calendar-linking.js', MMAF_PLUGIN_FILE ), array(), MMAF_PLUGIN_VERSION, true );
+		wp_localize_script( 'mmaf-calendar-admin-linking', 'mmafCalendarLinking', array(
+			'endpoint' => admin_url( 'admin-ajax.php' ),
+			'nonce'    => wp_create_nonce( 'mmaf_calendar_fighter_search' ),
+		) );
+	}
+
+	public static function fighter_search(): void {
+		if ( ! current_user_can( Capabilities::MANAGE ) ) {
+			wp_send_json_error( array( 'message' => 'Forbidden' ), 403 );
+		}
+		check_ajax_referer( 'mmaf_calendar_fighter_search' );
+		$query = sanitize_text_field( wp_unslash( $_GET['q'] ?? '' ) );
+		if ( strlen( $query ) < 2 ) {
+			wp_send_json_success( array( 'items' => array() ) );
+		}
+		global $wpdb;
+		$tables = \MMAF\DataEngine\Migrations\Schema::table_names();
+		$like = '%' . $wpdb->esc_like( $query ) . '%';
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT f.id,f.display_name FROM {$tables['fighters']} f INNER JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.deleted_soft=0 AND f.is_public=1 AND f.tracking_mode='normal' AND p.post_status='publish' AND f.display_name LIKE %s ORDER BY CASE WHEN f.display_name LIKE %s THEN 0 ELSE 1 END,f.display_name LIMIT 20",
+			$like,
+			$query . '%'
+		), ARRAY_A ) ?: array();
+		wp_send_json_success( array( 'items' => array_map( static fn( array $row ): array => array( 'id' => (int) $row['id'], 'name' => $row['display_name'] ), $rows ) ) );
 	}
 
 	public static function render(): void {
@@ -133,7 +159,7 @@ final class CalendarPage {
 
 	private static function event_form( ?array $event ): void {
 		$manual_bouts = array_filter( $event['bouts'] ?? array(), static fn( array $bout ): bool => ! empty( $bout['is_manual'] ) );
-		$lines = array_map( static fn( array $bout ): string => implode( ' | ', array( $bout['fighter_a_name'], $bout['fighter_b_name'], $bout['weight_class'] ?? '', $bout['fighter_a_url'] ?? '', $bout['fighter_b_url'] ?? '' ) ), $manual_bouts );
+		$lines = array_map( static fn( array $bout ): string => implode( ' | ', array( $bout['fighter_a_name'], $bout['fighter_b_name'], $bout['weight_class'] ?? '', $bout['fighter_a_url'] ?? '', $bout['fighter_b_url'] ?? '', $bout['stable_id'] ?? '' ) ), $manual_bouts );
 		$source = $event ? json_decode( (string) $event['source_json'], true ) : array();
 		?><div class="mmaf-calendar-admin__section"><h2><?php echo $event ? 'Uredi događaj' : 'Novi događaj'; ?></h2>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -150,7 +176,8 @@ final class CalendarPage {
 			<tr><th><label for="mmaf-status">Status</label></th><td><select id="mmaf-status" name="status"><?php foreach ( array( 'draft' => 'Nacrt', 'published' => 'Objavljeno', 'postponed' => 'Odloženo', 'cancelled' => 'Otkazano' ) as $value => $label ) : ?><option value="<?php echo esc_attr( $value ); ?>" <?php selected( $event['status'] ?? 'draft', $value ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></td></tr>
 			<tr><th>Obuhvat</th><td><label><input type="checkbox" name="scope_confirmed" value="1" <?php checked( ! empty( $event['scope_confirmed'] ) ); ?>> Potvrđujem da događaj i ručno dodati parovi pripadaju profesionalnom MMA obuhvatu.</label></td></tr>
 			<tr><th>Vidljivost</th><td><label><input type="checkbox" name="hidden" value="1" <?php checked( ! empty( $event['hidden'] ) ); ?>> Sakrij događaj</label></td></tr>
-			<tr><th><label for="mmaf-bouts">Ručni parovi</label></th><td><textarea id="mmaf-bouts" name="bouts" rows="8" class="large-text code"><?php echo esc_textarea( implode( "\n", $lines ) ); ?></textarea><p class="description">Jedan red: Borac A | Borac B | kategorija | URL A | URL B. Izvorni parovi se čuvaju odvojeno.</p></td></tr>
+			<tr><th><label for="mmaf-bouts">Ručni parovi</label></th><td><textarea id="mmaf-bouts" name="bouts" rows="8" class="large-text code"><?php echo esc_textarea( implode( "\n", $lines ) ); ?></textarea><p class="description">Jedan red: Borac A | Borac B | kategorija | URL A | URL B | sačuvani ID. Poslednju vrednost postojećeg reda ne menjajte; ona čuva vezu sa podsetnicima. Tapology URL povezuje javni profil iz baze.</p></td></tr>
+			<?php if ( $manual_bouts ) : ?><tr><th>Kanonski borci</th><td><p class="description">Pretražite i izaberite javni profil. Sačuvani kanonski ID ima prednost nad URL povezivanjem. Novi ručni red prvo sačuvajte, pa ga zatim povežite.</p><?php foreach ( $manual_bouts as $bout ) : $stable_id = (string) $bout['stable_id']; ?><fieldset class="mmaf-calendar-fighter-links"><legend><strong><?php echo esc_html( $bout['fighter_a_name'] . ' vs ' . $bout['fighter_b_name'] ); ?></strong></legend><?php foreach ( array( 'a', 'b' ) as $side ) : $fighter_id = absint( $bout[ 'fighter_' . $side . '_id' ] ?? 0 ); $fighter_name = $fighter_id ? self::fighter_name( $fighter_id ) : ''; ?><div class="mmaf-calendar-fighter-link" data-mmaf-fighter-link><label><?php echo esc_html( 'Borac ' . strtoupper( $side ) ); ?><input type="search" class="regular-text" value="<?php echo esc_attr( $fighter_name ); ?>" placeholder="Pretraži javne borce" autocomplete="off" data-mmaf-fighter-search></label><input type="hidden" name="manual_fighter_ids[<?php echo esc_attr( $stable_id ); ?>][<?php echo esc_attr( $side ); ?>]" value="<?php echo esc_attr( (string) $fighter_id ); ?>" data-mmaf-fighter-id><button type="button" class="button button-small" data-mmaf-fighter-clear>Ukloni vezu</button><div class="mmaf-calendar-fighter-results" role="listbox" data-mmaf-fighter-results></div></div><?php endforeach; ?></fieldset><?php endforeach; ?></td></tr><?php endif; ?>
 			</tbody></table><?php submit_button( $event ? 'Sačuvaj izmene' : 'Dodaj događaj' ); ?>
 		</form>
 		<?php if ( $event && $event['bouts'] ) : ?><h3>Program</h3><table class="widefat striped"><thead><tr><th>#</th><th>Par</th><th>Poreklo</th><th>Status</th><th>Vidljivost</th></tr></thead><tbody><?php foreach ( $event['bouts'] as $bout ) : ?><tr><td><?php echo esc_html( $bout['bout_order'] ); ?></td><td><?php echo esc_html( $bout['fighter_a_name'] . ' vs ' . $bout['fighter_b_name'] ); ?></td><td><?php echo $bout['is_manual'] ? 'Ručno' : 'Tapology'; ?></td><td><?php echo esc_html( $bout['status'] ); ?></td><td><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="mmaf_calendar_toggle_bout"><input type="hidden" name="bout_id" value="<?php echo esc_attr( $bout['id'] ); ?>"><input type="hidden" name="hidden" value="<?php echo $bout['hidden'] ? '0' : '1'; ?>"><?php wp_nonce_field( 'mmaf_calendar_toggle_bout' ); ?><button class="button button-small"><?php echo $bout['hidden'] ? 'Prikaži' : 'Sakrij'; ?></button></form></td></tr><?php endforeach; ?></tbody></table><?php endif; ?>
@@ -172,6 +199,12 @@ final class CalendarPage {
 
 	private static function field( string $name, string $label, $value, bool $required, $source_value, ?array $event, string $type = 'text' ): void {
 		?><tr><th><label for="mmaf-<?php echo esc_attr( $name ); ?>"><?php echo esc_html( $label ); ?></label></th><td><input id="mmaf-<?php echo esc_attr( $name ); ?>" type="<?php echo esc_attr( $type ); ?>" name="<?php echo esc_attr( $name ); ?>" value="<?php echo esc_attr( (string) $value ); ?>" class="regular-text" <?php echo $required ? 'required' : ''; ?>><?php if ( $event && ! $event['is_manual'] ) : ?><p class="description">Izvor: <?php echo esc_html( null === $source_value || '' === $source_value ? 'prazno' : (string) $source_value ); ?> · <label><input type="checkbox" name="reset_source[<?php echo esc_attr( $name ); ?>]" value="1"> Vrati na izvor</label></p><?php endif; ?></td></tr><?php
+	}
+
+	private static function fighter_name( int $fighter_id ): string {
+		global $wpdb;
+		$table = \MMAF\DataEngine\Migrations\Schema::table_names()['fighters'];
+		return (string) $wpdb->get_var( $wpdb->prepare( "SELECT display_name FROM $table WHERE id=%d", $fighter_id ) );
 	}
 
 	private static function notice(): void {
