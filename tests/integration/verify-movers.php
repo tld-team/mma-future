@@ -14,7 +14,9 @@ WriteGuard::$worker=true;Transaction::begin();
 try{
  for($i=0;$i<6;$i++){
      $post=wp_insert_post(['post_type'=>'mmaf_fighter','post_status'=>'publish','post_title'=>'Synthetic mover '.$i]);
-     $ids[]=(new \MMAF\DataEngine\Repositories\FighterRepository())->insert(['wp_post_id'=>$post,'display_name'=>'Synthetic mover '.$i,'normalized_name'=>'synthetic mover '.$i,'is_public'=>1,'created_at'=>gmdate('Y-m-d H:i:s')]);
+     // These rows model verified ranking entries, not merely public profiles.
+     // Public-but-ineligible fighters must never affect movement calculations.
+     $ids[]=(new \MMAF\DataEngine\Repositories\FighterRepository())->insert(['wp_post_id'=>$post,'display_name'=>'Synthetic mover '.$i,'normalized_name'=>'synthetic mover '.$i,'is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable','created_at'=>gmdate('Y-m-d H:i:s')]);
  }
  $a=$runs->create('v1.7',$config,'2026-10-08','2026-10-08 10:00:00','completed','fixture A');
  $b=$runs->create('v1.7',$config,'2026-10-08','2026-10-08 11:00:00','completed','fixture B');
