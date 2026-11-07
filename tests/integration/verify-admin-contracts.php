@@ -20,7 +20,7 @@ try{
     admin_assert((int)$records[$a]['wins']===7 && !isset($records[$b]) && !array_key_exists('warnings_json',$records[$a]),'page record read preserves missing stats and omits detailed payloads');
     $savedGet=$_GET;$_GET=['s'=>'Admin identity fixture A'];
     try{$render=new ReflectionMethod(MMAF\DataEngine\Admin\FightersPage::class,'render_list');ob_start();$render->invoke(null);$html=ob_get_clean();}finally{$_GET=$savedGet;}
-    admin_assert(str_contains($html,'7-2-0-1') && str_contains($html,'Needs review'),'admin page shows current record and identity conflict before a readiness projection exists');
+    admin_assert(str_contains($html,'Career record not confirmed') && str_contains($html,'Recorded bouts: 10') && str_contains($html,'Needs review'),'admin page distinguishes an unconfirmed career aggregate from recorded local bouts and shows the identity conflict before a readiness projection exists');
     \MMAF\DataEngine\Services\Operations\Membership::record(987654321,$a,'synthetic_admin_contract');
     $_GET=['s'=>'Admin identity fixture A','import_job'=>'987654321','fighter_status'=>'provisional','per_page'=>25,'paged'=>9];
     try{ob_start();$render->invoke(null);$filteredHtml=ob_get_clean();}finally{$_GET=$savedGet;}
