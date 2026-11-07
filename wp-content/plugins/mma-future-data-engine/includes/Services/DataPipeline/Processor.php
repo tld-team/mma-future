@@ -81,8 +81,10 @@ final class Processor {
                 // Finish our frozen generation before starting profiles queued later.
                 $calculating=$active>0;
 				// Time-only eligibility changes use existing canonical evidence; no
-				// browser work or scraper request is required.
-				$time_rules=$calculating?null:(new \MMAF\DataEngine\Services\RankingDispositionService())->refresh_time_rules_step(get_current_user_id(),100);
+				// browser work or scraper request is required.  A frozen import
+				// preparation always wins, though: a disposition sweep must not spend
+				// the worker's only step before its already-queued draft can advance.
+				$time_rules=($calculating || !empty($state['pending']))?null:(new \MMAF\DataEngine\Services\RankingDispositionService())->refresh_time_rules_step(get_current_user_id(),100);
             }
             global $wpdb; $queue=Schema::tables()['queue']; $limit=min(50,max(1,$limit));
             $rows=!empty($calculating)?[]:$wpdb->get_results($wpdb->prepare("SELECT * FROM $queue WHERE status='pending' AND (retry_at IS NULL OR retry_at<=UTC_TIMESTAMP())".($job?' AND import_job_id=%d':' AND %d=0')." ORDER BY fighter_id LIMIT %d",$job,$limit),ARRAY_A);
