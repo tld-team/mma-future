@@ -33,7 +33,7 @@ ufc_expect(count($ambiguous)===2 && $ambiguous[0]['reason']==='name_and_date_of_
     $service->resolve_candidate((int)$candidate['id'],'confirm',1,'Integration test reviewed roster evidence',(string)$candidate['evidence_hash'],(string)$candidate['fighter_hash']);
     do_action('mmaf_public_data_changed','ufc_signing_test'); // Outer test transaction delays the normal after-commit callback.
     $stored=$wpdb->get_row($wpdb->prepare("SELECT in_ufc,tracking_mode,is_public,is_rankable FROM {$t['fighters']} WHERE id=%d",$fighter['id']),ARRAY_A);
-    ufc_expect((int)$stored['in_ufc']===1 && $stored['tracking_mode']==='opponent_only' && !(int)$stored['is_public'] && !(int)$stored['is_rankable'] && $service->signing((int)$fighter['id']),'confirmation records a signing and archives the fighter as opponent-only');
+    ufc_expect((int)$stored['in_ufc']===1 && $stored['tracking_mode']==='opponent_only' && (int)$stored['is_public']===1 && !(int)$stored['is_rankable'] && $service->signing((int)$fighter['id']),'confirmation records a signing, preserves the public profile and excludes it from ranking');
     $rankings=$public->rankings(['board'=>'overall','q'=>$fighter['display_name'],'per_page'=>100]);
     ufc_expect(!$rankings['items'],'confirmed signer is immediately absent from cached-snapshot rankings');
     $all=$public->rankings(['board'=>'overall','per_page'=>100]);$expected_top=min(15,(int)$all['total']);
@@ -43,9 +43,9 @@ ufc_expect(count($ambiguous)===2 && $ambiguous[0]['reason']==='name_and_date_of_
     $expected_page_two=$expected_top>10?range(11,$expected_top):[];
     ufc_expect($top_page_two['total']===$expected_top && array_column($top_page_two['items'],'rank')===$expected_page_two,'Top 15 pagination is applied after UFC exclusion');
     $profile=$public->fighter((int)$fighter['id']);
-    ufc_expect(is_wp_error($profile),'an archived UFC signer has no direct public profile');
+    ufc_expect(!is_wp_error($profile) && ($profile['fighter']['ranking_status']??'')==='outside_ranking' && !$profile['rankings'],'an excluded UFC signer retains a direct public profile without a live rank');
     $cards=$public->fighter_cards([(int)$fighter['wp_post_id']]);
-    ufc_expect(empty($cards),'archived fighter cards are removed from public listings');
+    ufc_expect(isset($cards[(int)$fighter['wp_post_id']]) && ($cards[(int)$fighter['wp_post_id']]['fighter']['ranking_status']??'')==='outside_ranking' && !$cards[(int)$fighter['wp_post_id']]['rankings'],'excluded fighter cards remain public without a ranking');
     $run_row=(new MMAF\DataEngine\Repositories\RankingRunRepository())->find($run);
     $validator=new ReflectionMethod(MMAF\DataEngine\Services\RankingActivationService::class,'validate_snapshots');$validator->setAccessible(true);$blocked=false;
     try{$validator->invoke(new MMAF\DataEngine\Services\RankingActivationService(),$run,(string)$run_row['formula_version']);}catch(RuntimeException $error){$blocked=str_contains($error->getMessage(),'confirmed UFC signing');}
@@ -54,7 +54,7 @@ ufc_expect(count($ambiguous)===2 && $ambiguous[0]['reason']==='name_and_date_of_
     $events=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['ufc_signing_events']} WHERE fighter_id=%d",$fighter['id']));
     $candidate_status=$wpdb->get_var($wpdb->prepare("SELECT status FROM {$t['ufc_signing_candidates']} WHERE id=%d",$candidate['id']));
     $corrected=$wpdb->get_row($wpdb->prepare("SELECT in_ufc,tracking_mode,tracking_reason,is_public,is_rankable FROM {$t['fighters']} WHERE id=%d",$fighter['id']),ARRAY_A);
-    ufc_expect(!$service->signing((int)$fighter['id']) && $events>=2 && $candidate_status==='rejected' && !(int)$corrected['in_ufc'] && $corrected['tracking_mode']==='opponent_only' && $corrected['tracking_reason']==='ufc_confirmation_corrected_pending_review' && !(int)$corrected['is_public'] && !(int)$corrected['is_rankable'],'correction preserves history and exclusion until an administrator separately restores tracking');
+    ufc_expect(!$service->signing((int)$fighter['id']) && $events>=2 && $candidate_status==='rejected' && !(int)$corrected['in_ufc'] && $corrected['tracking_mode']==='opponent_only' && $corrected['tracking_reason']==='ufc_confirmation_corrected_pending_review' && (int)$corrected['is_public']===1 && !(int)$corrected['is_rankable'],'correction preserves history, publication and exclusion until an administrator separately restores tracking');
     $other=['source_key'=>'integration/decision/'.wp_generate_uuid4(),'display_name'=>$fighter['display_name'],'source_url'=>'https://www.roster.watch/fighters/decision-test','date_of_birth'=>$fighter['date_of_birth'],'gender'=>$fighter['gender'],'weight_class'=>$fighter['weight_class'],'roster_status'=>'current','events'=>[['date'=>gmdate('Y-m-d'),'action'=>'added','text'=>'Fighter added','source_url'=>'https://www.roster.watch/log.html']]];
     $fallback=['source_key'=>'integration/fallback/'.wp_generate_uuid4(),'display_name'=>'Unmatched Former Decision Test','source_url'=>'https://www.roster.watch/former.html','date_of_birth'=>null,'gender'=>null,'weight_class'=>null,'roster_status'=>'former','events'=>[]];
     $make_doc=static function(array $source,array $former): array {$doc=['schema_version'=>'mmaf_ufc_roster_v2','source'=>'roster.watch','run_id'=>'integration-'.wp_generate_uuid4(),'scraped_at'=>gmdate('c'),'source_urls'=>['current'=>'https://www.roster.watch/','former'=>'https://www.roster.watch/former.html','log'=>'https://www.roster.watch/log.html'],'counts'=>['current'=>1,'former'=>1,'log_events'=>1,'fighters'=>2],'fighters'=>[$source,$former]];$doc['content_sha256']=hash('sha256',wp_json_encode($doc,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE));return $doc;};
