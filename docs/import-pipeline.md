@@ -50,6 +50,41 @@ scope. A twenty-profile run is a bounded example, not a claim that every profile
 was fetched. Declare additional `profiles-2`, `profiles-3`, etc. before starting
 a larger cohort. Use a source enrichment queue for a recovery cohort.
 
+Verified recovered event artifacts can produce an identity cohort without
+re-scraping the old cards:
+
+```sh
+python -m mma_future_scraper.cli build-recovery-profile-queue \
+  --results /absolute/path/to/recovered-events.json \
+  --output /absolute/path/to/recovery-profile-queue.json
+```
+
+The output is `mmaf_source_enrichment_v1`. Numeric identities are
+`review_canonical_coverage` candidates by default; discovery does not prove that
+the profile is missing. Legacy slug-only identities stay in the same report as
+`review_source_identity`; they are never silently discarded or name-merged.
+Only exact identities already confirmed by the private priority workflow (or an
+explicit pilot) become fetchable:
+
+```sh
+python -m mma_future_scraper.cli build-recovery-profile-queue \
+  --results /absolute/path/to/recovered-events.json \
+  --output /absolute/path/to/pilot-profile-queue.json \
+  --source-id tapology_fighter_194617 \
+  --confirmed-source-id tapology_fighter_194617
+```
+
+Confirmed items request the complete professional MMA career. The safe local
+preparation script can merge one or more such queues ahead of the regular
+strict-daily queue while preserving `priority_targets`.
+
+If a complete profile exposes a numeric DOM bout ID, opponent, date, final
+result and event/promotion label but no separate Tapology event link, the career
+import retains the bout without inventing a Tapology event ID. It uses a private
+`profile_history_placeholder` event container. A later normal event import with
+the same source bout ID reconciles it to the canonical event and retires an empty
+placeholder.
+
 The last successful planned task can publish automatically. To finalize manually:
 
 ```sh
@@ -101,6 +136,12 @@ Transport/results readiness, successful profile candidates and career evidence
 are separate. A legacy profile may supply useful facts while its career needs
 classification, exact links, scope or exhaustion evidence. Candidate readiness
 does not grant publication or certify destination coverage.
+
+A successful bounded event run is also not a claim that the listing scope is
+complete. `run_manifest.json.coverage` records `batch_status`,
+`listing_scope_complete` and the stop reason. Limits such as `max_event_fetches`,
+`max_events` and `max_pages` leave listing coverage incomplete while preserving
+the successfully captured event data.
 
 The report counts parser versions, missing evidence groups, failed recorded
 attempts, unrecorded historical attempts and the last merged batch. A failed new

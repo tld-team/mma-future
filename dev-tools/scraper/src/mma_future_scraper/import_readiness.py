@@ -79,8 +79,25 @@ def row_issues(row,profile=None):
         reasons.append('professional_mma_not_confirmed')
     for k,prefix in [('source_bout_id','tapology_bout_'),('source_event_id','tapology_event_')]:
         if row.get(k) and not re.fullmatch(prefix+r'[0-9]+',row[k]):reasons.append('invalid_'+k)
+    dom_bout_identity=(
+        row.get('source_identity_evidence')=='profile_dom_bout_id'
+        and bool(re.fullmatch(r'tapology_bout_[0-9]+',row.get('source_bout_id') or ''))
+    )
+    profile_only_event=(
+        dom_bout_identity
+        and row.get('event_identity_evidence')=='profile_dom_event_label_without_source_id'
+        and bool(row.get('event_name'))
+        and not row.get('source_event_id')
+        and not row.get('event_url')
+    )
     for k in ('source_bout_id','source_event_id','bout_url','event_url','opponent_url'):
-        if not row.get(k): reasons.append('missing_'+k)
+        if row.get(k):
+            continue
+        if k=='bout_url' and dom_bout_identity:
+            continue
+        if k in ('source_event_id','event_url') and profile_only_event:
+            continue
+        reasons.append('missing_'+k)
     if row.get('result') not in RESULTS or (row.get('is_overturned') and row.get('result')!='no_contest' and not row.get('final_result_verified')):
         reasons.append('unconfirmed_final_result')
     try:
@@ -99,9 +116,18 @@ def build_readiness(document, *, verification_now=None):
         for row in p.get('fight_history',[]):
             if row_issues(row,p):continue
             key=row['source_bout_id'];opponent=row.get('opponent_source_id')
-            signature=(tuple(sorted([owner,opponent])),row['source_event_id'],row['fight_date'])
+            signature={'participants':tuple(sorted([owner,opponent])),'event':row.get('source_event_id'),'date':row['fight_date']}
             previous=shared.get(key)
-            if previous and (previous['signature']!=signature or (previous['owner']==owner and previous['result']!=row['result']) or (previous['owner']!=owner and inverse[previous['result']]!=row['result'])):
+            identity_conflict = previous and (
+                previous['signature']['participants'] != signature['participants']
+                or previous['signature']['date'] != signature['date']
+                or (
+                    previous['signature']['event']
+                    and signature['event']
+                    and previous['signature']['event'] != signature['event']
+                )
+            )
+            if previous and (identity_conflict or (previous['owner']==owner and previous['result']!=row['result']) or (previous['owner']!=owner and inverse[previous['result']]!=row['result'])):
                 group=conflicts.setdefault(key,set());group.update([owner,previous['owner']])
             else:shared[key]={'signature':signature,'owner':owner,'result':row['result']}
     for bout,owners in conflicts.items():

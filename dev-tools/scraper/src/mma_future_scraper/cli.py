@@ -13,6 +13,7 @@ from .fighter_profile_queue import (
 )
 from .fighter_profile_report import write_profile_enrichment_report
 from .fighter_profiles import FighterProfileEnricher
+from .recovery_profile_queue import build_recovery_profile_queue
 from .fighters import build_fighter_index_from_latest, format_processor_summary
 from .logging_utils import log
 from .models import RESULTS_SCHEMA_VERSION
@@ -423,6 +424,20 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Private JSON exported by `wp mmaf fighter tracking-export`; current WordPress decisions filter profile requests.",
+    )
+    recovery_queue = subparsers.add_parser(
+        "build-recovery-profile-queue",
+        help="Extract numeric Tapology fighter identity candidates from verified recovered events",
+    )
+    recovery_queue.add_argument("--results", type=Path, required=True, help="Recovered results JSON")
+    recovery_queue.add_argument("--output", type=Path, required=True, help="mmaf_source_enrichment_v1 output")
+    recovery_queue.add_argument(
+        "--source-id", action="append", default=[],
+        help="Optional tapology_fighter_N filter; repeat for a pilot cohort",
+    )
+    recovery_queue.add_argument(
+        "--confirmed-source-id", action="append", default=[],
+        help="Exact numeric identity already confirmed for profile fetch; repeat as needed",
     )
 
     enrich = subparsers.add_parser(
@@ -854,6 +869,18 @@ def _dispatch(args) -> int:
                 indent=2,
             )
         )
+        return 0
+
+    if args.command == "build-recovery-profile-queue":
+        requested = set(args.source_id) or None
+        confirmed = set(args.confirmed_source_id)
+        all_declared = (requested or set()) | confirmed
+        if any(not value.startswith("tapology_fighter_") or not value.removeprefix("tapology_fighter_").isdigit() for value in all_declared):
+            raise ValueError("--source-id and --confirmed-source-id must use tapology_fighter_N")
+        if requested is not None and not confirmed.issubset(requested):
+            raise ValueError("Every --confirmed-source-id must also be selected with --source-id")
+        document = build_recovery_profile_queue(args.results, args.output, only_source_ids=requested, confirmed_source_ids=confirmed)
+        print(json.dumps({"candidate_count": document["candidate_count"], "fetchable_count": document["fetchable_count"], "coverage_review_count": document["coverage_review_count"], "identity_review_count": document["identity_review_count"], "output": str(args.output)}, ensure_ascii=False))
         return 0
 
     if args.command == "run":

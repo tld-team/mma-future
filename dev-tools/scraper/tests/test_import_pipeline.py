@@ -51,6 +51,26 @@ def test_career_readiness_treats_missing_quality_and_method_as_neutral_warnings(
     report=readiness(d)
     assert not report['source_enrichment'] and report['profiles']['neutral_unknown_methods']==2
 
+def test_profile_dom_bout_can_be_ready_without_fabricating_event_identity():
+    d=document();row=d['profiles'][0]['fight_history'][0]
+    row.update(
+        event_name='Profile-listed promotion',
+        event_identity_evidence='profile_dom_event_label_without_source_id',
+        source_identity_evidence='profile_dom_bout_id',
+        source_event_id=None,
+        event_url=None,
+        bout_url=None,
+    )
+    report=readiness(d)
+    assert report['profiles']['career_ready_candidates']==2
+    assert not report['source_enrichment']
+
+    row.pop('event_identity_evidence')
+    report=readiness(d)
+    assert report['profiles']['careers_needing_enrichment']==1
+    assert report['source_enrichment'][0]['reasons']['missing_source_event_id']
+    assert report['source_enrichment'][0]['reasons']['missing_event_url']
+
 def test_boundary_or_global_heading_cannot_manufacture_evidence():
     s=json.loads(SNAPSHOTS.read_text())[0];s['rows'][0].pop('row_boundary_verified');s['rows'][0].pop('data_sport');s['rows'][0].pop('data_division')
     p=parse_profile_snapshot(s,s['url'])

@@ -471,6 +471,8 @@ class _QueueBuilder:
             if not _entry_in_queue_mode(item, queue_mode=queue_mode, changed_event_ids=changed_event_ids):
                 mode_filtered_count += 1
                 continue
+            if item.get("stale_reason") == "never_scraped" and SOURCE_LATEST_RESULTS in item.get("seen_in", []):
+                item["fetch_scope"] = "professional_mma_career"
             entries.append(item)
         entries.sort(
             key=lambda item: (
@@ -566,6 +568,11 @@ def _entry_in_queue_mode(item: dict[str, Any], *, queue_mode: str, changed_event
     if queue_mode == "strict-daily":
         if item.get("should_refresh") is False:
             return False
+        # A previous event batch may already be cached while its participants
+        # have never had profiles fetched. Do not lose them when changes.json
+        # advances to a newer batch. Tracking exclusions are applied upstream.
+        if item.get("stale_reason") == "never_scraped" and SOURCE_LATEST_RESULTS in item.get("seen_in", []):
+            return True
         seen_ids = set(item.get("seen_event_internal_ids") or []) | set(item.get("seen_event_source_ids") or [])
         return bool(seen_ids & changed_event_ids)
     if queue_mode == "recovery":

@@ -248,6 +248,16 @@ class DataStore:
             options=options,
             counts=manifest_counts,
         )
+        stop_reason = manifest_counts.get("pagination_stop_reason")
+        incomplete_scope_reasons = {
+            "max_event_fetches", "max_events", "max_pages", "requested_stop",
+            "access_degraded", "load_more_timeout",
+        }
+        manifest["coverage"] = {
+            "batch_status": "success",
+            "listing_scope_complete": stop_reason not in incomplete_scope_reasons,
+            "stop_reason": stop_reason,
+        }
 
         result_errors = validate_results_document(output_results_doc)
         state_errors = validate_state_bundle(working_bundle)

@@ -35,7 +35,7 @@ final class PrioritiesPage {
                 if($op==='queue'){header('Content-Type: application/json; charset=utf-8');header('Content-Disposition: attachment; filename="priority-queue.json"');echo wp_json_encode(Registry::export(),JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}
                 else{
                     header('Content-Type: text/csv; charset=utf-8');header('Content-Disposition: attachment; filename="priority-status.csv"');$out=fopen('php://output','w');
-                    $fields=['id','client_name','source_fighter_id','source_url','fighter_id','identity_status','is_active','source_fetched_at','last_attempt_status','period_status','ranking_run_id','ranking_status','reasons','next_action'];fputcsv($out,$fields,',','"','');
+                    $fields=['id','client_name','source_fighter_id','source_url','fighter_id','identity_status','is_active','source_fetched_at','last_attempt_status','career_coverage','ranking_run_id','ranking_status','recovery_status','recovery_complete','reasons','next_action'];fputcsv($out,$fields,',','"','');
                     foreach(Report::rows() as $row){$values=[];foreach($fields as $f){$v=$row[$f]??'';if(is_array($v)){$v=implode('; ',$v);}$v=(string)$v;if(preg_match('/^[=+@\-]/',$v)){$v="'".$v;}$values[]=$v;}fputcsv($out,$values,',','"','');}fclose($out);
                 }exit;
             }else{throw new \InvalidArgumentException('Unknown priority operation.');}
@@ -65,7 +65,7 @@ final class PrioritiesPage {
                 foreach(Registry::candidates($row['client_name']) as $c){echo '<p>#'.(int)$c['id'].' '.esc_html(implode(' · ',array_filter([$c['display_name'],$c['date_of_birth'],$c['nationality'],$c['source_url']]))).'</p>';}
                 echo '</details>';
             }
-            echo '</td><td>Identity: '.esc_html($row['identity_status']).'<br>Last success: '.esc_html($row['source_fetched_at']?:'never').'<br>Last attempt: '.esc_html(($row['last_attempt_at']??'').' '.($row['last_attempt_status']??'not fetched')).'<br>Period: '.esc_html($row['period_status']).'<br>Draft #'.(int)$row['ranking_run_id'].': '.esc_html($row['ranking_status']).'<br>'.esc_html(implode('; ',$row['reasons'])).'<br><strong>Next: '.esc_html($row['next_action']).'</strong></td><td>';
+            echo '</td><td>Identity: '.esc_html($row['identity_status']).'<br>Recovery: <strong>'.esc_html($row['recovery_status']).'</strong><br>Last success: '.esc_html($row['source_fetched_at']?:'never').'<br>Last attempt: '.esc_html(($row['last_attempt_at']??'').' '.($row['last_attempt_status']??'not fetched')).'<br>Career coverage: '.esc_html($row['career_coverage']).'<br>Draft #'.(int)$row['ranking_run_id'].': '.esc_html($row['ranking_status']).'<br>'.esc_html(implode('; ',$row['reasons'])).'<br><strong>Next: '.esc_html($row['next_action']).'</strong></td><td>';
             self::form('toggle');echo '<input type="hidden" name="target_id" value="'.(int)$row['id'].'"><input type="hidden" name="active" value="'.($row['is_active']?'0':'1').'">';submit_button($row['is_active']?'Disable priority':'Enable priority','secondary small');echo '</form></td></tr>';
         }
         echo '</tbody></table><p>'.wp_kses_post((string)paginate_links(['base'=>add_query_arg('paged','%#%',self::url()),'format'=>'','current'=>$page,'total'=>max(1,(int)ceil($total/$limit))])).'</p></div>';

@@ -12,7 +12,21 @@ final class Report {
         if($wpdb->last_error){throw new \RuntimeException('Cannot read priority status.');}
         foreach($rows as &$row){
             $a=json_decode($row['assessment_json']??'null',true)?:[];unset($row['assessment_json']);
-            $row['ranking_run_id']=$run?:null;$row['period_status']=$a['coverage']??'unconfirmed';$row['ranking_status']=$row['assessment_status']??'not_assessed';$row['reasons']=$a['reasons']??[];
+            $row['ranking_run_id']=$run?:null;$row['career_coverage']=$a['coverage']??'unconfirmed';$row['period_status']=$row['career_coverage'];$row['ranking_status']=$row['assessment_status']??'not_assessed';$row['reasons']=$a['reasons']??[];
+            $conflict=(bool)array_filter($row['reasons'],static fn($reason)=>str_contains((string)$reason,'conflict'));
+            $failed_attempt=!empty($row['last_attempt_status']) && $row['last_attempt_status']!=='success' && (!$row['source_fetched_at'] || ($row['last_attempt_at']??'')>$row['source_fetched_at']);
+            if(!$row['is_active']){$outcome='inactive';}
+            elseif($row['identity_status']!=='confirmed'){$outcome='waiting_identity';}
+            elseif($conflict || !empty($row['deleted_soft'])){$outcome='conflict';}
+            elseif($failed_attempt){$outcome='error';}
+            elseif(!$row['source_fetched_at']){$outcome='waiting_fetch';}
+            elseif(!$row['fighter_id']){$outcome='fetched';}
+            elseif($row['ranking_status']==='ineligible' || str_starts_with((string)$row['rankability_status'],'ineligible_')){$outcome='ineligible';}
+            elseif(!$row['is_public'] || !$row['is_rankable'] || $row['rankability_status']!=='rankable'){$outcome='awaiting_approval';}
+            elseif($row['ranking_status']==='main' && $row['career_coverage']==='confirmed'){$outcome='ready';}
+            else{$outcome='imported';}
+            $row['recovery_status']=$outcome;
+            $row['recovery_complete']=in_array($outcome,['ready','ineligible'],true);
             $next='resolve_assessment_reasons';
             if(!$row['is_active']){$next='inactive';}
             elseif($row['identity_status']!=='confirmed'){$next='resolve_identity';}

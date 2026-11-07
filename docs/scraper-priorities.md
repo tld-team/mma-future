@@ -12,10 +12,15 @@ namesakes with different original hints stay separate. Name suggestions require
 review. Confirm numeric Tapology identity or an already mapped canonical fighter
 before exporting the queue. Targets can be disabled or resolved later.
 
-Exported queues use the existing `mmaf_source_enrichment_v1` fetch path, twenty
-profiles per run. Confirmed targets initially request career aggregates; eligible
-career candidates request the period on a subsequent queue export. The existing
-profile parser still requires explicit professional MMA scope and period proof.
+Exported queues use the existing `mmaf_source_enrichment_v1` fetch path in bounded
+runs. Every confirmed target immediately requests `professional_mma_career`; there
+is no aggregate-only first pass. An explicit whole-career request is retained even
+above 30 professional fights. Eligibility is evaluated after evidence import, not
+by truncating the source profile. The parser requires explicit professional MMA
+scope, W/L/D/NC agreement and exhausted history navigation.
+Recovered-event participants remain non-fetchable coverage-review candidates
+until their exact numeric identity and missing/incomplete profile state are
+confirmed. Candidate discovery alone never schedules a browser request.
 A successful profile of a confirmed new source may create an unpublished,
 non-rankable provisional fighter without inventing an event. Source identity is
 checked under the shared write lock immediately before creation. Publication uses
@@ -76,5 +81,5 @@ For a rollout, record every CSV target outcome, every known missing event outcom
 recent listing pagination and source failures. Fetch a failed target at most once
 more in the cycle; keep the named unresolved list. Do not recursively fetch all
 opponents' careers. After ordinary import and profile approval, rebuild statistics
-and calculate a new inactive v1.6 draft with the May 9, 2026 period. Review the full
+and calculate a new inactive v1.8 whole-career draft. Review the full
 priority status export. Do not activate an earlier pilot as the rollout result.

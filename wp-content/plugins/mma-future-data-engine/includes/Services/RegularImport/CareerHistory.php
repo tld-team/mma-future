@@ -175,17 +175,21 @@ final class CareerHistory {
 		if ( ! $opp_source && $url_sources ) { $opp_source = $url_sources[0]; }
 		$opponent = $opp_source && $opp_source['fighter_id'] ? ( new FighterRepository() )->find( (int) $opp_source['fighter_id'] ) : null;
 		if ( $opponent && ! empty( $opponent['deleted_soft'] ) ) { throw new \InvalidArgumentException( 'Opponent identity is soft-deleted.' ); }
+		$valid_source_bout = $source_id && preg_match( '/^tapology_bout_([0-9]+)$/D', $source_id, $bout_number );
+		$dom_bout_identity = $valid_source_bout && 'profile_dom_bout_id' === ( $row['source_identity_evidence'] ?? '' );
 		$event_source_id = $row['source_event_id'] ?? '';
-		if ( ! preg_match( '/^tapology_event_([0-9]+)$/D', $event_source_id, $event_number ) || ! preg_match( '~^https://(?:www\.)?tapology\.com/fightcenter/events/' . $event_number[1] . '(?:-|/|$)~', (string) ( $row['event_url'] ?? '' ) ) ) { return array( 'category' => 'review', 'reason' => $row['bout_detail_limitation'] ?? 'Event source identity is not confirmed.' ); }
-		$event_source = ( new EventSourceRepository() )->find_by_source( 'tapology', $event_source_id );
+		$profile_only_event = $dom_bout_identity && empty( $event_source_id ) && empty( $row['event_url'] ) && ! empty( $row['event_name'] ) && 'profile_dom_event_label_without_source_id' === ( $row['event_identity_evidence'] ?? '' );
+		if ( ! $profile_only_event && ( ! preg_match( '/^tapology_event_([0-9]+)$/D', $event_source_id, $event_number ) || ! preg_match( '~^https://(?:www\.)?tapology\.com/fightcenter/events/' . $event_number[1] . '(?:-|/|$)~', (string) ( $row['event_url'] ?? '' ) ) ) ) { return array( 'category' => 'review', 'reason' => $row['bout_detail_limitation'] ?? 'Event source identity is not confirmed.' ); }
+		$event_source = $profile_only_event ? null : ( new EventSourceRepository() )->find_by_source( 'tapology', $event_source_id );
 		$event = $event_source && $event_source['event_id'] ? ( new EventRepository() )->find( (int) $event_source['event_id'] ) : null;
+		if ( $profile_only_event && $existing ) { $event = ( new EventRepository() )->find( (int) $existing['event_id'] ); }
 		if ( $event && ( ! empty( $event['deleted_soft'] ) || ( $event['event_date'] && $date !== $event['event_date'] ) ) ) { throw new \InvalidArgumentException( 'Event identity/date conflicts with canonical data.' ); }
 		$professional = ! empty( $row['is_professional'] ) && 'mma' === ( $row['discipline'] ?? '' );
 		$professional = $professional && in_array($row['classification_evidence']??'', ['profile_dom_classification','profile_section_classification','bout_dom_classification'],true);
         $professional = $professional || ( empty($profile['career_history_evidence']) && 'professional_mma' === ( $profile['history_scope'] ?? '' ) && ! empty( $profile['history_scope_verified'] ) );
 		if ( ! $professional && ! ( $existing && in_array( $existing['status'], array( 'valid', 'completed' ), true ) ) ) { return array( 'category' => 'review', 'reason' => 'Professional MMA scope needs source evidence.' ); }
 		if ( $source_id ) {
-			if ( ! preg_match( '/^tapology_bout_([0-9]+)$/D', $source_id, $bout_number ) ) { throw new \InvalidArgumentException( 'Invalid source bout ID.' ); }
+			if ( ! $valid_source_bout ) { throw new \InvalidArgumentException( 'Invalid source bout ID.' ); }
 			if ( ! empty( $row['bout_url'] ) && ! preg_match( '~^https://(?:www\.)?tapology\.com/fightcenter/bouts/' . $bout_number[1] . '(?:-|/|$)~', (string) $row['bout_url'] ) ) { throw new \InvalidArgumentException( 'Bout source ID and URL conflict.' ); }
 			if ( empty( $row['bout_url'] ) && 'profile_dom_bout_id' !== ( $row['source_identity_evidence'] ?? '' ) ) { return array( 'category' => 'review', 'reason' => 'Source bout ID needs a matching link or explicit profile DOM evidence.' ); }
 		}
@@ -206,6 +210,18 @@ final class CareerHistory {
 		$record_ineligible = array_key_exists( 'record_eligible', $row ) && false === $row['record_eligible'];
 		if ( $record_ineligible && 'source_profile_record_ineligible_mma' !== ( $row['record_eligibility_evidence'] ?? '' ) ) { return array( 'category' => 'review', 'reason' => 'Record exclusion needs explicit source evidence.' ); }
 		$target_status = $record_ineligible || ( $existing && 'excluded_record_ineligible' === $existing['status'] ) ? 'excluded_record_ineligible' : 'valid';
+		$placeholder_event_id = 0;
+		if ( $existing && ! $profile_only_event ) {
+			$existing_event = ( new EventRepository() )->find( (int) $existing['event_id'] );
+			if ( $existing_event && 'profile_history_placeholder' === ( $existing_event['status'] ?? '' ) ) { $placeholder_event_id = (int) $existing_event['id']; }
+		}
+		if ( ! $event && $apply ) {
+			$name = Sanitizer::text_or_null( $row['event_name'] ?? '' ); if ( ! $name ) { throw new \InvalidArgumentException( 'A confirmed event name is required.' ); }
+			$event_id = ( new EventRepository() )->insert( array( 'event_name' => $name, 'normalized_event_name' => Sanitizer::normalize_name( $name ), 'event_date' => $date, 'status' => $profile_only_event ? 'profile_history_placeholder' : 'valid' ) );
+			if ( ! $event_id ) { throw new \RuntimeException( 'Could not save historical event.' ); }
+			if ( ! $profile_only_event ) { Repository::check( ( new EventSourceRepository() )->upsert_for_event( $event_id, array( 'source_type' => 'tapology', 'source_event_id' => $event_source_id, 'source_event_numeric_id' => $event_number[1], 'source_url' => esc_url_raw( $row['event_url'] ), 'identity_hash' => hash( 'sha256', 'tapology|' . $event_source_id ), 'raw_payload' => wp_json_encode( $row ), 'is_verified' => 1, 'is_primary' => 1 ) ) ); }
+			$event = ( new EventRepository() )->find( $event_id );
+		}
 		$method_changes = array();
 		if ( $existing && 'unknown' === $existing['method_category'] && in_array( $row['method_category'] ?? 'unknown', array( 'ko_tko', 'submission', 'decision', 'dq', 'draw', 'no_contest' ), true ) ) {
 			$provenance = new FieldProvenanceService();
@@ -215,7 +231,9 @@ final class CareerHistory {
 		if ( $existing ) {
 			$participants = ( new BoutParticipantRepository() )->list_by_bout( (int) $existing['id'] );
 			$ids = array_map( 'intval', array_column( $participants, 'fighter_id' ) ); $expected = array( $id, (int) ( $opponent['id'] ?? 0 ) ); sort( $ids ); sort( $expected );
-			if ( $ids !== $expected || ! $event || (int) $existing['event_id'] !== (int) $event['id'] || ! empty( $existing['deleted_soft'] ) ) { throw new \InvalidArgumentException( 'Bout identity conflicts with its canonical participants/event.' ); }
+			$event_matches = $event && (int) $existing['event_id'] === (int) $event['id'];
+			$placeholder_reconcile = $placeholder_event_id && ! $profile_only_event && ( $event || ! $apply );
+			if ( $ids !== $expected || ( ! $event_matches && ! $placeholder_reconcile ) || ! empty( $existing['deleted_soft'] ) ) { throw new \InvalidArgumentException( 'Bout identity conflicts with its canonical participants/event.' ); }
 			if ( ! in_array( $existing['status'], array( 'valid', 'completed', 'excluded_overturned', 'excluded_record_ineligible' ), true ) ) { return array( 'category' => 'review', 'reason' => 'Canonical bout status requires review before historical inclusion.' ); }
 			$own = current( array_filter( $participants, static fn( $p ) => (int) $p['fighter_id'] === $id ) );
             $record_merge=$this->merge_records($participants,$row,$id);
@@ -224,9 +242,10 @@ final class CareerHistory {
             if($method_conflict){$record_merge['rows']=$method_rows;$record_merge['changed']=true;}
             $status_changed=$existing['status']!==$target_status && !($existing['status']==='completed' && $target_status==='valid');
             $result_changed=$own['result_for_fighter']!==$result || $status_changed;
-			if ( ! $method_changes && !$record_merge['changed'] && !$record_merge['conflicts'] && $source && $own['result_for_fighter'] === $result && ( $existing['status'] === $target_status || ( 'completed' === $existing['status'] && 'valid' === $target_status ) ) ) { return array( 'category' => 'unchanged', 'bout_id' => (int) $existing['id'] ); }
+			if ( ! $placeholder_reconcile && ! $method_changes && !$record_merge['changed'] && !$record_merge['conflicts'] && $source && $own['result_for_fighter'] === $result && ( $existing['status'] === $target_status || ( 'completed' === $existing['status'] && 'valid' === $target_status ) ) ) { return array( 'category' => 'unchanged', 'bout_id' => (int) $existing['id'] ); }
 			if ( $own['result_for_fighter'] !== $result && empty( $row['final_result_verified'] ) ) { throw new \InvalidArgumentException( 'Changed final result requires verified bout/event evidence.' ); }
 			$provenance = new FieldProvenanceService();
+			if ( $placeholder_reconcile && $provenance->is_protected( 'bout', (int) $existing['id'], 'event_id' ) ) { throw new \InvalidArgumentException( 'Bout event identity is protected by a manual decision.' ); }
 			if($result_changed){foreach ( array( 'result_type', 'status', 'is_scoring_candidate' ) as $field ) { if ( $provenance->is_protected( 'bout', (int) $existing['id'], $field ) ) { throw new \InvalidArgumentException( 'Final result is protected by a manual decision.' ); } }
 			foreach ( $participants as $p ) { if ( $provenance->is_protected( 'bout_participant', (int) $p['id'], 'result_for_fighter' ) ) { throw new \InvalidArgumentException( 'Participant result is protected by a manual decision.' ); } }}
 			if ( ! $apply ) { return array( 'category' => ($record_merge['conflicts']||$method_conflict)?'conflict':'updated', 'reason'=>$record_merge['conflicts']?'Conflicting pre-fight record evidence.':($method_conflict?'Conflicting confirmed method evidence.':null),'bout_id' => (int) $existing['id'] ); }
@@ -240,13 +259,7 @@ final class CareerHistory {
 			$opponent = ( new FighterRepository() )->find( $opponent_id );
 			Review::upsert( (int) ( $profile['_job_id'] ?? 0 ), 'career_opponent', $opponent_key, array( 'fighter_id' => $opponent_id, 'source_url' => $opponent_identity['canonical_url'] ), $actor );
 		}
-		if ( ! $event ) {
-			$name = Sanitizer::text_or_null( $row['event_name'] ?? '' ); if ( ! $name ) { throw new \InvalidArgumentException( 'A confirmed event name is required.' ); }
-			$event_id = ( new EventRepository() )->insert( array( 'event_name' => $name, 'normalized_event_name' => Sanitizer::normalize_name( $name ), 'event_date' => $date, 'status' => 'valid' ) );
-			if ( ! $event_id ) { throw new \RuntimeException( 'Could not save historical event.' ); }
-			Repository::check( ( new EventSourceRepository() )->upsert_for_event( $event_id, array( 'source_type' => 'tapology', 'source_event_id' => $event_source_id, 'source_event_numeric_id' => $event_number[1], 'source_url' => esc_url_raw( $row['event_url'] ), 'identity_hash' => hash( 'sha256', 'tapology|' . $event_source_id ), 'raw_payload' => wp_json_encode( $row ), 'is_verified' => 1, 'is_primary' => 1 ) ) );
-			$event = ( new EventRepository() )->find( $event_id );
-		}
+		if ( ! $event ) { throw new \RuntimeException( 'Historical event was not resolved for apply.' ); }
 		$result_type = in_array( $result, array( 'win', 'loss' ), true ) ? 'win_loss' : ( 'draw' === $result ? 'draw' : 'no_contest' );
 		$method = $row['method_category'] ?? 'unknown'; if ( ! in_array( $method, \MMAF\DataEngine\Services\BoutService::METHOD_CATEGORIES, true ) ) { $method = 'unknown'; }
 		$payload = array( 'event_id' => (int) $event['id'], 'status' => $target_status, 'result_type' => $result_type, 'is_scoring_candidate' => 'valid' === $target_status && 'win_loss' === $result_type ? 1 : 0 );
@@ -265,6 +278,16 @@ final class CareerHistory {
 		}
         if(!$existing){$record_merge=$this->merge_records($participants,$row,$id);$participants=$record_merge['rows'];}
 		( new BoutParticipantRepository() )->replace_exactly_two( $bout_id, $participants );
+			if ( $placeholder_event_id && $source ) {
+				Repository::check( $wpdb->update( $t['bout_sources'], array(
+					'event_source_id' => ( new BoutSourceRepository() )->find_event_source_id( (int) $event['id'], 'tapology' ),
+					'source_url' => esc_url_raw( $row['bout_url'] ?? $source['source_url'] ?? '' ),
+					'content_hash' => hash( 'sha256', wp_json_encode( $row ) ),
+					'raw_payload' => wp_json_encode( $row ),
+					'updated_at' => gmdate( 'Y-m-d H:i:s' ),
+				), array( 'id' => (int) $source['id'] ) ) );
+			}
+			if ( $placeholder_event_id ) { $this->retire_profile_history_placeholder( $placeholder_event_id, $actor ); }
         PrefightRecordMerge::provenance($bout_id,(string)$source_id,$actor);
 		$source_id = $source_id ?: 'tapology_history_' . hash( 'sha256', $event_source_id . '|' . min( $id, (int) $opponent['id'] ) . '|' . max( $id, (int) $opponent['id'] ) );
 		if ( ! $existing || ! $source ) {
@@ -276,6 +299,16 @@ final class CareerHistory {
 		foreach ( $payload as $field => $value ) { ( new FieldProvenanceService() )->upsert_source( 'bout', $bout_id, $field, $value, 'tapology_career_history', $source_id, $actor ); }
 		( new AuditLogService() )->write( 'career_bout_imported', 'bout', $bout_id, $existing, $payload, 'Confirmed career history result', $actor );
 		return array( 'category' => (!empty($record_merge['conflicts'])||!empty($method_conflict))?'conflict':($existing ? 'updated' : 'created'), 'reason'=>!empty($record_merge['conflicts'])?'Conflicting pre-fight record evidence.':(!empty($method_conflict)?'Conflicting confirmed method evidence.':null), 'bout_id' => $bout_id );
+	}
+	private function retire_profile_history_placeholder( int $event_id, int $actor ): void {
+		global $wpdb; $tables = CanonicalSchema::table_names(); $events = new EventRepository();
+		$event = $events->find( $event_id );
+		if ( ! $event || 'profile_history_placeholder' !== ( $event['status'] ?? '' ) ) { return; }
+		$bouts = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$tables['bouts']} WHERE event_id=%d AND deleted_soft=0", $event_id ) );
+		$sources = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$tables['event_sources']} WHERE event_id=%d", $event_id ) );
+		if ( $bouts || $sources ) { return; }
+		$events->update( $event_id, array( 'status' => 'superseded_profile_history', 'deleted_soft' => 1 ) );
+		( new AuditLogService() )->write( 'profile_history_placeholder_retired', 'event', $event_id, $event, $events->find( $event_id ), 'A later career row supplied the canonical event identity.', $actor );
 	}
 	/** Correct a previous import only with an exact source bout and explicit source classification. */
 	private function exclude_existing( array $profile, array $row, int $actor, bool $apply ): array {
