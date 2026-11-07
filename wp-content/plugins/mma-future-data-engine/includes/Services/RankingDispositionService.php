@@ -222,9 +222,23 @@ final class RankingDispositionService {
 	private function latest_professional_fight_evidence( int $fighter_id ): array {
 		global $wpdb; $t = Schema::table_names();
 		$coverage = $wpdb->get_row( $wpdb->prepare( "SELECT status,source_fetched_at FROM {$t['fighter_career_coverage']} WHERE fighter_id=%d", $fighter_id ), ARRAY_A );
-		if ( ! $coverage || 'complete' !== (string) $coverage['status'] ) { return array( 'verified' => false, 'date' => null, 'source' => 'career_coverage' ); }
-		$date = $wpdb->get_var( $wpdb->prepare( "SELECT MAX(e.event_date) FROM {$t['bout_participants']} p JOIN {$t['bouts']} b ON b.id=p.bout_id JOIN {$t['events']} e ON e.id=b.event_id WHERE p.fighter_id=%d AND b.deleted_soft=0 AND e.deleted_soft=0 AND b.status IN ('valid','completed') AND p.result_for_fighter IN ('win','loss','draw','no_contest') AND e.event_date<=UTC_DATE()", $fighter_id ) );
-		return array( 'verified' => is_string( $date ) && '' !== $date, 'date' => is_string( $date ) && '' !== $date ? $date : null, 'source' => 'complete_canonical_career', 'verified_at' => $coverage['source_fetched_at'] ?? null );
+		if ( $coverage && 'complete' === (string) $coverage['status'] ) {
+			$date = $wpdb->get_var( $wpdb->prepare( "SELECT MAX(e.event_date) FROM {$t['bout_participants']} p JOIN {$t['bouts']} b ON b.id=p.bout_id JOIN {$t['events']} e ON e.id=b.event_id WHERE p.fighter_id=%d AND b.deleted_soft=0 AND e.deleted_soft=0 AND b.status IN ('valid','completed') AND p.result_for_fighter IN ('win','loss','draw','no_contest') AND e.event_date<=UTC_DATE()", $fighter_id ) );
+			if ( is_string( $date ) && '' !== $date ) { return array( 'verified' => true, 'date' => $date, 'source' => 'complete_canonical_career', 'verified_at' => $coverage['source_fetched_at'] ?? null ); }
+		}
+		// A fully verified Tapology profile is sufficient before its rows have
+		// entered the canonical career import. This prevents a valid newly saved
+		// profile from becoming an artificial review blocker solely due to queue order.
+		$stored = ( new ProfileStore() )->for_fighter( $fighter_id ); $profile = $stored['profile'] ?? null;
+		$evidence = is_array( $profile ) ? (array) ( $profile['career_history_evidence'] ?? array() ) : array();
+		if ( ! is_array( $profile ) || ( $profile['history_scope'] ?? '' ) !== 'professional_mma' || empty( $profile['history_scope_verified'] ) || empty( $profile['history_exhausted'] ) || empty( $evidence['complete'] ) ) { return array( 'verified' => false, 'date' => null, 'source' => 'career_coverage' ); }
+		$latest = null;
+		foreach ( (array) ( $profile['fight_history'] ?? array() ) as $fight ) {
+			if ( empty( $fight['is_professional'] ) || ! in_array( (string) ( $fight['result'] ?? '' ), array( 'win','loss','draw','no_contest' ), true ) ) { continue; }
+			$date = (string) ( $fight['fight_date'] ?? $fight['event_date'] ?? '' );
+			if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/D', $date ) && $date <= gmdate( 'Y-m-d' ) && ( null === $latest || $date > $latest ) ) { $latest = $date; }
+		}
+		return array( 'verified' => null !== $latest, 'date' => $latest, 'source' => 'complete_stored_profile', 'verified_at' => $stored['source_fetched_at'] ?? null );
 	}
 	private function identity_conflict( int $fighter_id ): bool {
 		global $wpdb; $table = Schema::table_names()['fighter_sources'];
