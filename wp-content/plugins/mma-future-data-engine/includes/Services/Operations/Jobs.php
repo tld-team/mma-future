@@ -159,7 +159,7 @@ final class Jobs {
             });
         }
         if(count($rows)===$limit){return;}
-        self::save($id,['phase'=>'preview_manifest','checkpoint'=>array_merge($job['checkpoint'],['manifest_cursor'=>0,'manifest_digest'=>hash('sha256','mmaf-operation-manifest-v1:'.$id)]),'summary'=>array_merge($job['summary'],['total'=>(int)$job['total'],'ready'=>0,'review'=>0,'excluded'=>0,'already_public'=>0,'already_rankable'=>0,'ranking_ready'=>0,'ranking_blocked'=>0,'reasons'=>[]])]);
+        self::save($id,['phase'=>'preview_manifest','checkpoint'=>array_merge($job['checkpoint'],['manifest_cursor'=>0,'manifest_digest'=>hash('sha256','mmaf-operation-manifest-v1:'.$id)]),'summary'=>array_merge($job['summary'],['total'=>(int)$job['total'],'ready'=>0,'review'=>0,'excluded_count'=>0,'already_public'=>0,'already_rankable'=>0,'ranking_ready'=>0,'ranking_blocked'=>0,'reasons'=>[]])]);
         self::preview_manifest(self::get($id),$limit);
     }
     /** Hash and summarize one page, with a durable digest for the next worker. */
@@ -169,7 +169,7 @@ final class Jobs {
             $batch=$wpdb->get_results($wpdb->prepare("SELECT fighter_id,input_hash,result_json FROM {$t['items']} WHERE operation_id=%d AND fighter_id>%d ORDER BY fighter_id LIMIT %d",$id,(int)$cp['manifest_cursor'],$limit),ARRAY_A);
             foreach($batch as $row){
                 $cp['manifest_cursor']=(int)$row['fighter_id'];$cp['manifest_digest']=hash('sha256',$cp['manifest_digest'].';'.$row['fighter_id'].':'.$row['input_hash']);
-                $value=json_decode($row['result_json'],true)?:[];$state=$value['preview']['state']??'review';$summary[$state]=($summary[$state]??0)+1;
+                $value=json_decode($row['result_json'],true)?:[];$state=$value['preview']['state']??'review';$summary[$state==='excluded'?'excluded_count':$state]=($summary[$state==='excluded'?'excluded_count':$state]??0)+1;
                 $summary['already_public']+=(int)($value['already_public']??0);$summary['already_rankable']+=(int)($value['already_rankable']??0);
                 $rankingState=empty($value['ranking_blockers'])?'ranking_ready':'ranking_blocked';$summary[$rankingState]=(int)($summary[$rankingState]??0)+1;
                 $reason=$value['preview']['reason']??null;if($reason){$summary['reasons'][$reason]=($summary['reasons'][$reason]??0)+1;}

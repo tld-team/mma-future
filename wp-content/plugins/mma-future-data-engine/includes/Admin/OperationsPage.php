@@ -46,7 +46,7 @@ final class OperationsPage {
         if($job['error_message']){echo '<div class="notice notice-error inline"><p>'.esc_html($job['error_message']).'</p></div>';}
         if(!empty($job['checkpoint']['preview_reference_date'])){echo '<p>Preview date: '.esc_html($job['checkpoint']['preview_reference_date']).'. Final eligibility is checked again before approval.</p>';}
         if($job['status']==='ready'){
-            echo '<div class="notice notice-info inline"><p>Saved-profile readiness: '.(int)($job['summary']['ready']??0).' ready for preparation; '.(int)($job['summary']['review']??0).' need review; '.(int)($job['summary']['failed']??0).' technical failures; '.(int)($job['summary']['already_public']??0).' already public; '.(int)($job['summary']['already_rankable']??0).' already rankable.</p>';
+            echo '<div class="notice notice-info inline"><p>Saved-profile readiness: '.(int)($job['summary']['ready']??0).' ready for preparation; '.(int)($job['summary']['review']??0).' need review; '.(int)($job['summary']['excluded_count']??0).' outside ranking; '.(int)($job['summary']['failed']??0).' technical failures; '.(int)($job['summary']['already_public']??0).' already public; '.(int)($job['summary']['already_rankable']??0).' already rankable.</p>';
             if(isset($job['summary']['ranking_ready'],$job['summary']['ranking_blocked'])){echo '<p>Current ranking checks: '.(int)$job['summary']['ranking_ready'].' pass; '.(int)$job['summary']['ranking_blocked'].' have blockers. Checks run again after preparation; this preview does not publish fighters.</p>';}
             echo '</div>';
             foreach($job['summary']['reasons']??[] as $reason=>$count){echo '<p>'.(int)$count.' · '.esc_html(Presentation::label($reason)).'</p>';}
