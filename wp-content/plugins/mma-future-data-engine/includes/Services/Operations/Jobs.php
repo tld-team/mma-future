@@ -159,7 +159,7 @@ final class Jobs {
             });
         }
         if(count($rows)===$limit){return;}
-        self::save($id,['phase'=>'preview_manifest','checkpoint'=>array_merge($job['checkpoint'],['manifest_cursor'=>0,'manifest_digest'=>hash('sha256','mmaf-operation-manifest-v1:'.$id)]),'summary'=>array_merge($job['summary'],['total'=>(int)$job['total'],'ready'=>0,'review'=>0,'already_public'=>0,'already_rankable'=>0,'ranking_ready'=>0,'ranking_blocked'=>0,'reasons'=>[]])]);
+        self::save($id,['phase'=>'preview_manifest','checkpoint'=>array_merge($job['checkpoint'],['manifest_cursor'=>0,'manifest_digest'=>hash('sha256','mmaf-operation-manifest-v1:'.$id)]),'summary'=>array_merge($job['summary'],['total'=>(int)$job['total'],'ready'=>0,'review'=>0,'excluded'=>0,'already_public'=>0,'already_rankable'=>0,'ranking_ready'=>0,'ranking_blocked'=>0,'reasons'=>[]])]);
         self::preview_manifest(self::get($id),$limit);
     }
     /** Hash and summarize one page, with a durable digest for the next worker. */
@@ -186,6 +186,10 @@ final class Jobs {
                     if(!hash_equals((string)$row['input_hash'],Readiness::fingerprint($fid))){self::item($id,$fid,['status'=>'review','reason_code'=>'changed_since_preview','result'=>['reason'=>'Canonical data, source or administrative decision changed after preview. Prepare a new manifest.']]);return;}
                     if(in_array($job['action'],self::PREPARE_ACTIONS,true)){
                         $fighter=(new FighterRepository())->find($fid);$metadata=Processor::metadata([$fid]);$decision=Readiness::decision($fighter??[],$metadata[$fid]??[]);
+                        if($decision['state']==='excluded'){
+                            self::item($id,$fid,['status'=>'excluded','reason_code'=>$decision['reason'],'result'=>['ranking_disposition'=>$decision['ranking_disposition']??null,'data_review_reason'=>$decision['data_review_reason']??null]]);
+                            return;
+                        }
                         if(in_array($decision['state'],['review','failed'],true)){self::item($id,$fid,['status'=>'review','reason_code'=>$decision['reason']]);return;}
                         $prior=$wpdb->get_var($wpdb->prepare("SELECT JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.approval_input_hash')) FROM {$t['items']} WHERE fighter_id=%d AND operation_id<>%d AND status IN ('completed','noop') ORDER BY operation_id DESC LIMIT 1",$fid,$id));
                         $alreadyApproved=$job['action']==='approve_and_prepare' && $fighter['is_public'] && $fighter['is_rankable'] && $fighter['status']==='verified';
@@ -208,6 +212,7 @@ final class Jobs {
                         $result=(new Processor())->prepare($fid,(int)$job['actor_user_id'],0,$id,$progress);
                         do_action('mmaf_profile_preparation_before_checkpoint',$fid,$result,$id);
                         if(empty($result['done'])){self::item($id,$fid,['status'=>'preparing','input_hash'=>Readiness::fingerprint($fid),'result'=>$result]);return;}
+                        if(!empty($result['excluded'])){self::item($id,$fid,['status'=>'excluded','reason_code'=>$result['reason']??'ranking_excluded','result'=>$result]);return;}
                         if(($result['coverage']['status']??'')==='conflict' || !empty($result['review'])){self::item($id,$fid,['status'=>'review','reason_code'=>'identity_or_facts_review','result'=>$result]);return;}
                         self::item($id,$fid,['status'=>'prepared','prepared_hash'=>Readiness::fingerprint($fid,false),'result'=>$result]);
                     }else{
@@ -230,6 +235,11 @@ final class Jobs {
                 // Recheck after history/statistics. A stored profile identity must still be unambiguous.
                 if(!hash_equals((string)$row['prepared_hash'],Readiness::fingerprint($fid,false))){self::item($id,$fid,['status'=>'review','reason_code'=>'changed_after_preparation']);return;}
                 if(!(new ProfileStore())->for_fighter($fid)){self::item($id,$fid,['status'=>'review','reason_code'=>'identity_changed']);return;}
+                $fighter=(new FighterRepository())->find($fid);$metadata=Processor::metadata([$fid]);$decision=Readiness::decision($fighter??[],$metadata[$fid]??[]);
+                if($decision['state']==='excluded'){
+                    self::item($id,$fid,['status'=>'excluded','reason_code'=>$decision['reason'],'result'=>['ranking_disposition'=>$decision['ranking_disposition']??null,'data_review_reason'=>$decision['data_review_reason']??null]]);
+                    return;
+                }
                 $result=(new FighterReadinessService())->process_bulk_action($job['action'],[$fid],(int)$job['actor_user_id'],true);
                 self::item($id,$fid,['status'=>$result['blocked_count']?'review':($result['updated_count']?'completed':'noop'),'reason_code'=>$result['blocked_count']?'ranking_ineligible':null,'result'=>['approval'=>$result,'preparation'=>json_decode($row['result_json'],true),'preparation_input_hash'=>Readiness::approval_hash($fid),'approval_input_hash'=>$result['blocked_count']?null:Readiness::approval_hash($fid)]]);
             });}

@@ -152,6 +152,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-ufc-import.php
           php -d memory_limit=256M tests/integration/verify-ufc-signings.php
           php -d memory_limit=256M tests/integration/verify-tracking.php
+          php -d memory_limit=256M tests/integration/verify-ranking-disposition.php
           php -d memory_limit=256M tests/integration/verify-upcoming-calendar.php
           php -d memory_limit=256M tests/integration/verify-notifications.php
       - name: Actual synthetic staging-to-local transfer

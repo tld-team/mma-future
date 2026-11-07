@@ -113,7 +113,14 @@ final class Engine {
         if($phase==='stored_career_verify'){
             $result=\MMAF\DataEngine\Services\DataPipeline\Processor::refresh_import_coverage($id,(int)($meta['career_verify_cursor']??0));
             $meta['career_verify_cursor']=$result['cursor'];
-            $this->repo->update($id,['meta'=>$meta,'phase'=>$result['done']?'stats':'stored_career_verify','status'=>'queued']);return;
+            $this->repo->update($id,['meta'=>$meta,'phase'=>$result['done']?'disposition':'stored_career_verify','status'=>'queued']);return;
+        }
+        if($phase==='disposition'){
+            $result=$this->dispositionStep($job);
+            $meta['ranking_disposition_cursor']=$result['cursor'];
+            $meta['ranking_dispositions']=$result['counts'];
+            $meta['ranking_disposition_profiles_published']=(int)($meta['ranking_disposition_profiles_published']??0)+(int)$result['published'];
+            $this->repo->update($id,['meta'=>$meta,'phase'=>$result['done']?'stats':'disposition','status'=>'queued']);return;
         }
         if(in_array($phase,['results','profiles','review','ufc'],true)){
             $batch=$this->repo->nextBatch($id,$phase,false);
@@ -158,7 +165,7 @@ final class Engine {
             $meta['audit']=(new PostImportAuditService())->run()['system_summary']??[];
             $receipt=Receipt::create($job);$meta['receipt']=Receipt::pointer($receipt);
             $meta['integrity']=$after;$meta['completed_at']=gmdate('c');$meta['actual']=$this->actualCounts($id);
-            $review=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND category='review' AND kind LIKE 'actual_%%'",$id));
+            $review=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND category='review' AND (kind LIKE 'actual_%%' OR kind='ranking_disposition')",$id));
             $review+=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND kind='review'",$id));
             $unverified=!isset($meta['package']['event_coverage']) || !$meta['package']['event_coverage']['complete'];
             $status=$review||$unverified?'completed_with_review':'completed';
@@ -168,6 +175,33 @@ final class Engine {
             Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'destination'=>['site_url'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null],'run_ids'=>['events'=>$meta['package']['headers']['run_manifest']['run_id']??null,'profiles'=>$meta['package']['headers']['profiles']['run_id']??null,'ufc'=>$meta['package']['headers']['ufc']['run_id']??null],'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'profile_changes'=>$this->profileChanges($id),'readiness'=>$meta['package']['readiness']??null,'event_coverage'=>$meta['package']['event_coverage']??['complete'=>false,'legacy'=>true],'ufc_roster'=>isset($meta['package']['headers']['ufc'])?['included'=>true,'run_id'=>$meta['package']['headers']['ufc']['run_id']??null,'scraped_at'=>$meta['package']['headers']['ufc']['scraped_at']??null]:['included'=>false,'warning'=>$meta['package']['ufc_warning']??null,'last_successful_import'=>$meta['package']['ufc_roster_last_import']??null],'priority_targets'=>$meta['package']['priority_targets']??null,'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit'],'receipt'=>$receipt]);return;
         }
         throw new ImportException('Unknown import phase: '.$phase,'state');
+    }
+    /**
+     * Classify every canonical fighter touched by this package before statistics
+     * or any ranking-review work. This deliberately includes results-only
+     * imports: an existing fighter may become ineligible without a new profile.
+     */
+    private function dispositionStep(array $job): array {
+        global $wpdb;
+        $id=(int)$job['id']; $cursor=(int)($job['meta']['ranking_disposition_cursor']??0);
+        $membership=\MMAF\DataEngine\Services\Operations\Schema::tables()['membership'];
+        $fighters=CanonicalSchema::table_names()['fighters'];
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT f.* FROM $fighters f JOIN $membership m ON m.fighter_id=f.id WHERE m.import_job_id=%d AND f.id>%d ORDER BY f.id LIMIT 100",$id,$cursor),ARRAY_A)?:[];
+        $service=new \MMAF\DataEngine\Services\RankingDispositionService();
+        $counts=(array)($job['meta']['ranking_dispositions']??[]); $published=0;
+        foreach($rows as $fighter){
+            $fighter_id=(int)$fighter['id']; $cursor=$fighter_id;
+            $observed=$service->observe_saved_profile($fighter_id,(int)$job['approved_by']);
+            $decision=$service->apply($fighter_id,(int)$job['approved_by'],null,false);
+            $outcome=(string)($decision['outcome']??\MMAF\DataEngine\Services\RankingDispositionService::UNRESOLVED);
+            $counts[$outcome]=(int)($counts[$outcome]??0)+1;
+            if($observed){$counts['profile_observed']=(int)($counts['profile_observed']??0)+1;}
+            if(!empty($decision['applied'])){$counts['applied']=(int)($counts['applied']??0)+1;}
+            if(!empty($decision['published'])){$published++;}
+            $category=in_array($outcome,[\MMAF\DataEngine\Services\RankingDispositionService::PERMANENT,\MMAF\DataEngine\Services\RankingDispositionService::TEMPORARY],true)?'excluded':($outcome===\MMAF\DataEngine\Services\RankingDispositionService::UNRESOLVED?'review':'unchanged');
+            $this->repo->putItem($id,'ranking_disposition',(string)$fighter_id,(string)$fighter_id,$category,$decision+['profile_observed'=>$observed,'applied'=>(bool)($decision['applied']??false),'published'=>(bool)($decision['published']??false)]);
+        }
+        return ['cursor'=>$cursor,'done'=>count($rows)<100,'counts'=>$counts,'published'=>$published];
     }
     private function restartCheck(array $job,string $revision): void {
         $meta=$job['meta'];$meta['check_revision']=$revision;$meta['notice']='Site data changed. Review the refreshed checks before starting.';
@@ -203,6 +237,7 @@ final class Engine {
                 }
             }
             $preview=(new FighterProfileEnrichmentPreviewService())->create_row_iterator($json,'Import package',['fighters'=>$fighters]);
+			$dispositions = new \MMAF\DataEngine\Services\RankingDispositionService();
             foreach($preview['iterator'] as $row){
                 $match=$row['match_type']??'';$matched=in_array($match,['exact_source_match','source_url_match','matched_planned_import'],true);
                 $changes=(new FighterProfileEnrichmentApplyService())->preview_safe_changes($row, $match==='matched_planned_import');
@@ -211,8 +246,14 @@ final class Engine {
                 $fighterId=(int)($row['matched_canonical_fighter_id']??0);
                 if($fighterId){
                     $fighter=(new \MMAF\DataEngine\Repositories\FighterRepository())->find($fighterId);
+					$raw=$data['profiles'][(int)$row['profile_index']]??null;
+					if($fighter && $raw && ($raw['status']??'')==='success'){
+						$decision=$dispositions->preview_profile($fighter,$raw);
+						$outcome=(string)($decision['outcome']??\MMAF\DataEngine\Services\RankingDispositionService::UNRESOLVED);
+						$category=in_array($outcome,[\MMAF\DataEngine\Services\RankingDispositionService::PERMANENT,\MMAF\DataEngine\Services\RankingDispositionService::TEMPORARY],true)?'excluded':($outcome===\MMAF\DataEngine\Services\RankingDispositionService::UNRESOLVED?'review':'unchanged');
+						$this->repo->putItem($id,'ranking_disposition_preview',(string)$fighterId,(string)$fighterId,$category,$decision+['source'=>'incoming_profile']);
+					}
                     if($fighter && ($fighter['is_public'] || ($fighter['is_rankable'] && $fighter['rankability_status']==='rankable'))){
-                        $raw=$data['profiles'][(int)$row['profile_index']]??null;
                         if($raw && ($raw['status']??'')==='success'){
                             $career=(new CareerHistory())->process(\MMAF\DataEngine\Services\DataPipeline\ProfileStore::career_profile($raw,$fighterId),$id,(int)$job['created_by'],false);
                             $this->repo->putItem($id,'stored_career_profile',(string)$fighterId,$key,$career['coverage']['status']==='complete'?'unchanged':'review',$career);

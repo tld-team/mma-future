@@ -8,8 +8,8 @@ use MMAF\DataEngine\Services\RegularImport\Repository;
 
 /** Admin GETs only read projections. Decisions re-evaluate live input under the write lock. */
 final class Readiness {
-    public const RULES='preparation-v4';
-    public const FINGERPRINT_VERSION=4;
+    public const RULES='preparation-v5';
+    public const FINGERPRINT_VERSION=5;
     public static function rules(): string { return self::RULES.'|'.\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_version(); }
     public static function fingerprint(int $id,bool $include_stats=true): string {
         global $wpdb; $t=Canonical::table_names(); $p=Pipeline::tables();
@@ -40,11 +40,24 @@ final class Readiness {
     }
     public static function decision(array $fighter,array $metadata): array {
         if (!$fighter || !empty($fighter['deleted_soft']) || in_array($fighter['status'],['hidden','merged','retired','deleted_soft'],true)) { return ['state'=>'review','reason'=>'excluded_identity']; }
-        if (!empty($metadata['identity_conflict']) || (int)($metadata['source_count']??0)>1) { return ['state'=>'review','reason'=>'identity_conflict']; }
+        $mode=\MMAF\DataEngine\Services\TrackingService::mode($fighter);
+        $alreadyExcluded=($fighter['tracking_source']??'')==='ranking_disposition' && in_array($mode,[\MMAF\DataEngine\Services\TrackingService::PAUSED,\MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY],true);
+        if (!empty($metadata['identity_conflict']) || (int)($metadata['source_count']??0)>1) {
+            return $alreadyExcluded
+                ? ['state'=>'excluded','reason'=>(string)($fighter['tracking_reason']?:'ranking_excluded'),'data_review_reason'=>'identity_conflict']
+                : ['state'=>'review','reason'=>'identity_conflict'];
+        }
+        $disposition=(new \MMAF\DataEngine\Services\RankingDispositionService())->classify($fighter);
+        if(in_array($disposition['outcome']??'',[\MMAF\DataEngine\Services\RankingDispositionService::PERMANENT,\MMAF\DataEngine\Services\RankingDispositionService::TEMPORARY],true)){
+            return ['state'=>'excluded','reason'=>(string)($disposition['reasons'][0]??'ranking_excluded'),'ranking_disposition'=>$disposition];
+        }
+        if(($disposition['outcome']??'')===\MMAF\DataEngine\Services\RankingDispositionService::UNRESOLVED){
+            return ['state'=>'review','reason'=>(string)($disposition['reasons'][0]??'ranking_evidence_unresolved'),'ranking_disposition'=>$disposition];
+        }
         if ((int)($metadata['successful_profile_count']??0)!==1) { return ['state'=>'review','reason'=>'stored_profile_missing']; }
         if (($metadata['preparation_status']??'')==='failed') { return ['state'=>'failed','reason'=>'technical_failure']; }
         if (($metadata['preparation_status']??'')==='pending') { return ['state'=>'preparing','reason'=>null]; }
-        return ['state'=>'ready','reason'=>null];
+        return ['state'=>'ready','reason'=>null,'ranking_disposition'=>$disposition];
     }
     public static function refresh(array $ids,float $seconds=3.0): int {
         global $wpdb; $table=Schema::tables()['readiness'];

@@ -145,6 +145,17 @@ final class FighterRepository {
         if (!empty($filters['preparation'])) { $where[]="EXISTS (SELECT 1 FROM {$operations['readiness']} r WHERE r.fighter_id=f.id AND r.preparation_state=%s)"; $args[]=(string)$filters['preparation']; }
         if (!empty($filters['reason'])) { $where[]="EXISTS (SELECT 1 FROM {$operations['readiness']} r WHERE r.fighter_id=f.id AND r.reason_code=%s)"; $args[]=(string)$filters['reason']; }
         if (!empty($filters['coverage'])) { $where[]="EXISTS (SELECT 1 FROM $coverage c WHERE c.fighter_id=f.id AND c.status=%s)"; $args[]=(string)$filters['coverage']; }
+        switch ((string)($filters['review_scope'] ?? '')) {
+            case 'candidates':
+                $where[]="EXISTS (SELECT 1 FROM {$operations['readiness']} r WHERE r.fighter_id=f.id AND r.preparation_state IN ('ready','preparing'))";
+                break;
+            case 'data_issues':
+                $where[]="EXISTS (SELECT 1 FROM {$operations['readiness']} r WHERE r.fighter_id=f.id AND r.preparation_state IN ('review','failed'))";
+                break;
+            case 'outside_ranking':
+                $where[]="(EXISTS (SELECT 1 FROM {$operations['readiness']} r WHERE r.fighter_id=f.id AND r.preparation_state='excluded') OR (f.tracking_source='ranking_disposition' AND f.tracking_mode IN ('paused','opponent_only')))";
+                break;
+        }
 
 		switch ( (string) ( $filters['readiness_issue'] ?? '' ) ) {
 			case 'missing_dob':

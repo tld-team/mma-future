@@ -12,6 +12,7 @@ use MMAF\DataEngine\Services\FighterReadinessService;
 use MMAF\DataEngine\Services\FighterService;
 use MMAF\DataEngine\Services\UfcSigningService;
 use MMAF\DataEngine\Services\TrackingService;
+use MMAF\DataEngine\Services\Scoring\CareerRecords;
 use MMAF\DataEngine\Support\Capabilities;
 use MMAF\DataEngine\Support\Sanitizer;
 
@@ -317,12 +318,13 @@ final class FightersPage {
         $ids = array_column($fighters, 'id');
         $projection = \MMAF\DataEngine\Services\Operations\Readiness::read($ids);
         $records = (new FighterStatsRepository())->records_for_fighters($ids);
+        $career_records = (new CareerRecords())->for_fighters($ids);
         $metadata = \MMAF\DataEngine\Services\DataPipeline\Processor::metadata($ids);
         $membership = \MMAF\DataEngine\Services\Operations\Membership::for_page($ids);
         $query_filters = array_merge(['s' => $search], self::filter_query_args($filters));
         $latest = \MMAF\DataEngine\Services\Operations\Membership::latest();
         $filter_options = self::filter_options();
-        $views = ['All fighters' => [], 'Paused' => ['tracking_mode' => 'paused'], 'Opponent only' => ['tracking_mode' => 'opponent_only'], 'Needs review' => ['preparation' => 'review'], 'Ready for preparation' => ['preparation' => 'ready'], 'Preparing' => ['preparation' => 'preparing'], 'Failed' => ['preparation' => 'failed'], 'Public' => ['public_state' => 'public'], 'Ranking approved' => ['rankable_state' => 'rankable']];
+        $views = ['All fighters' => [], 'Ranking candidates' => ['review_scope' => 'candidates'], 'Data issues / conflicts' => ['review_scope' => 'data_issues'], 'Outside ranking' => ['review_scope' => 'outside_ranking'], 'Paused' => ['tracking_mode' => 'paused'], 'Opponent only' => ['tracking_mode' => 'opponent_only'], 'Needs review' => ['preparation' => 'review'], 'Ready for preparation' => ['preparation' => 'ready'], 'Preparing' => ['preparation' => 'preparing'], 'Failed' => ['preparation' => 'failed'], 'Public' => ['public_state' => 'public'], 'Ranking approved' => ['rankable_state' => 'rankable']];
         if ($latest > 0) { $views = array_slice($views, 0, 1, true) + ['Latest import' => ['import_job' => (string) $latest]] + array_slice($views, 1, null, true); }
         ?>
         <p class="mmaf-page-intro">Pronađi borca, proveri pripremu i prepreke, pa otvori pregled operacije za izabrani skup. <a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-operations')); ?>">Operations and results</a></p>
@@ -376,18 +378,20 @@ final class FightersPage {
                         <tr><td colspan="6" class="mmaf-empty-state"><strong>No matching fighters</strong><p>Promeni filtere ili ukloni ograničenja pretrage.</p><a class="button" href="<?php echo esc_url(self::page_url(['per_page' => $per_page])); ?>">Clear filters</a></td></tr>
                     <?php endif; ?>
                     <?php foreach ($fighters as $fighter):
-                        $id = (int) $fighter['id']; $check = $projection[$id] ?? []; $meta = $metadata[$id] ?? []; $stats = $records[$id] ?? null;
-                        $state = ['pending' => 'Preparing', 'completed' => 'Prepared', 'review' => 'Needs review', 'failed' => 'Failed'][$meta['preparation_status'] ?? '']
-                            ?? ['ready' => 'Ready for preparation', 'preparing' => 'Preparing', 'review' => 'Needs review', 'failed' => 'Failed'][$check['preparation']['state'] ?? ''] ?? 'Not checked';
+                        $id = (int) $fighter['id']; $check = $projection[$id] ?? []; $meta = $metadata[$id] ?? []; $stats = $records[$id] ?? null; $career = $career_records[$id] ?? null;
+                        $state = ['pending' => 'Preparing', 'completed' => 'Prepared', 'review' => 'Needs review', 'failed' => 'Failed', 'excluded' => 'Outside ranking'][$meta['preparation_status'] ?? '']
+                            ?? ['ready' => 'Ready for preparation', 'preparing' => 'Preparing', 'review' => 'Needs review', 'failed' => 'Failed', 'excluded' => 'Outside ranking'][$check['preparation']['state'] ?? ''] ?? 'Not checked';
                         $reason = $check['preparation']['reason'] ?? '';
                         $live = \MMAF\DataEngine\Services\Operations\Readiness::decision($fighter, $meta);
-                        if (in_array($live['state'], ['review', 'failed', 'preparing'], true)) { $state = ['review' => 'Needs review', 'failed' => 'Failed', 'preparing' => 'Preparing'][$live['state']]; $reason = $live['reason'] ?? ''; }
-                        if (!empty($meta['identity_conflict'])) { $state = 'Needs review'; $reason = 'identity_conflict'; }
+                        if (in_array($live['state'], ['review', 'failed', 'preparing', 'excluded'], true)) { $state = ['review' => 'Needs review', 'failed' => 'Failed', 'preparing' => 'Preparing', 'excluded' => 'Outside ranking'][$live['state']]; $reason = $live['reason'] ?? ''; }
+                        if (!empty($meta['identity_conflict']) && $live['state'] !== 'excluded') { $state = 'Needs review'; $reason = 'identity_conflict'; }
                         $reason = $reason ? \MMAF\DataEngine\Services\Operations\Presentation::label($reason) : ($meta['coverage_reason'] ?? '');
                         $blockers = !empty($check['approval_blocker_codes']) ? ($check['approval_blocker_summary'] ?? '') : '';
                         $attention = $reason ?: ($blockers ? explode(', ', $blockers)[0] : '');
                         $import = $membership[$id] ?? 0;
                         $tone = in_array($state, ['Failed', 'Needs review'], true) ? 'warning' : (in_array($state, ['Prepared', 'Ready for preparation'], true) ? 'success' : 'neutral');
+                        $career_summary = ($career['status'] ?? '') === 'accepted' ? self::record_summary((array)($career['record'] ?? [])) : 'Career record not confirmed';
+                        $local_bouts = $stats ? (int)($stats['pro_fights_count'] ?? ((int)($stats['wins'] ?? 0) + (int)($stats['losses'] ?? 0) + (int)($stats['draws'] ?? 0) + (int)($stats['nc'] ?? 0))) : null;
                         $edit_url = self::page_url(['action' => 'edit', 'fighter_id' => $id]);
                     ?>
                         <tr>
@@ -396,7 +400,7 @@ final class FightersPage {
                                 <details class="mmaf-row-details"><summary>Details</summary><dl><dt>Approval</dt><dd><?php echo esc_html(self::option_label($fighter['status'])); ?></dd><dt>Tracking</dt><dd><?php echo esc_html(self::option_label($fighter['tracking_mode']??'normal').' · '.($fighter['tracking_reason']??'No exclusion reason')); ?></dd><dt>Ranking eligibility</dt><dd><?php echo esc_html(self::option_label($fighter['rankability_status'])); ?></dd><dt>DOB / year</dt><dd><?php echo esc_html(($fighter['date_of_birth'] ?? 'Unknown') . ' / ' . ($fighter['birth_year'] ?? 'Unknown')); ?></dd><dt>Last successful profile</dt><dd><?php echo esc_html($meta['source_fetched_at'] ?? 'Unknown'); ?></dd><dt>Last attempt</dt><dd><?php echo esc_html(($meta['last_attempt_at'] ?? 'Unknown') . ' · ' . ($meta['last_attempt_status'] ?? 'Unknown')); ?></dd><dt>Readiness checked</dt><dd><?php echo esc_html($check['checked_at'] ?? 'Waiting for background check'); ?></dd><dt>Fighter updated</dt><dd><?php echo esc_html($fighter['updated_at'] ?? 'Unknown'); ?></dd><dt>Import evidence</dt><dd><?php echo esc_html($import ? 'Import #' . $import : 'Legacy / unknown import'); ?></dd></dl><?php self::render_post_link(!empty($fighter['wp_post_id']) ? get_post((int) $fighter['wp_post_id']) : null); ?></details>
                             </td>
                             <td class="mmaf-status-cell"><strong class="mmaf-line"><?php echo esc_html(ucfirst(self::option_label($fighter['status']))); ?></strong><span class="mmaf-line">Tracking: <?php echo esc_html(self::option_label($fighter['tracking_mode']??'normal')); ?></span><span class="mmaf-line"><?php echo esc_html($fighter['is_public'] ? 'Public profile' : 'Private profile'); ?></span><span class="mmaf-line"><?php echo esc_html($fighter['is_rankable'] ? 'Ranking approved' : 'Ranking not approved'); ?></span><small class="mmaf-muted mmaf-line"><?php echo esc_html(empty($meta['active_board_count']) ? 'Outside active ranking' : 'Active ranking #' . $meta['active_ranking_run_id'] . ' · ' . $meta['active_board_count'] . ' boards'); ?></small></td>
-                            <td class="mmaf-record-cell"><?php echo esc_html(ucwords(str_replace('_', ' ', trim(($fighter['gender'] ?? '') . ' / ' . ($fighter['weight_class'] ?? ''), ' /'))) ?: 'Unknown'); ?><strong class="mmaf-line mmaf-record"><?php echo esc_html($stats ? self::record_summary($stats) : 'Not checked'); ?></strong></td>
+                            <td class="mmaf-record-cell"><?php echo esc_html(ucwords(str_replace('_', ' ', trim(($fighter['gender'] ?? '') . ' / ' . ($fighter['weight_class'] ?? ''), ' /'))) ?: 'Unknown'); ?><strong class="mmaf-line mmaf-record"><?php echo esc_html($career_summary); ?></strong><?php if ($local_bouts !== null): ?><small class="mmaf-muted mmaf-line">Recorded bouts: <?php echo esc_html((string)$local_bouts); ?></small><?php endif; ?></td>
                             <td class="mmaf-preparation-cell"><span class="mmaf-badge mmaf-badge-<?php echo esc_attr($tone); ?>"><?php echo esc_html($state); ?></span><span class="mmaf-line">Career: <?php echo esc_html(ucfirst($meta['coverage_status'] ?? 'Unknown')); ?></span><?php if (!empty($check['stale'])): ?><small class="mmaf-stale mmaf-line">Check needs refresh</small><?php elseif (!$check): ?><small class="mmaf-muted mmaf-line">Awaiting background check</small><?php endif; ?></td>
                             <td class="mmaf-attention-cell"><?php if ($attention): ?><span class="mmaf-line"><?php echo esc_html($attention); ?></span><?php endif; ?><?php if ($blockers): ?><details class="mmaf-row-details"><summary>Ranking checks</summary><p><?php echo esc_html($blockers); ?></p></details><?php endif; ?><?php if ($reason || $blockers): ?><a class="mmaf-line mmaf-next-action" href="<?php echo esc_url(admin_url('admin.php?page=mmaf-review&fighter_id=' . $id)); ?>">Review evidence</a><?php else: ?><span class="mmaf-muted">No recorded blockers</span><?php endif; ?></td>
                         </tr>
@@ -1200,6 +1204,8 @@ final class FightersPage {
 		}
 		$tracking_mode=isset($_GET['tracking_mode'])?sanitize_key(wp_unslash($_GET['tracking_mode'])):'';
 		if(!in_array($tracking_mode,TrackingService::MODES,true)){$tracking_mode='';}
+		$review_scope=isset($_GET['review_scope'])?sanitize_key(wp_unslash($_GET['review_scope'])):'';
+		if(!in_array($review_scope,['candidates','data_issues','outside_ranking'],true)){$review_scope='';}
 
 		$readiness_issue = isset( $_GET['readiness_issue'] ) ? sanitize_key( wp_unslash( $_GET['readiness_issue'] ) ) : '';
 		if ( ! in_array( $readiness_issue, array( 'missing_dob', 'missing_weight_class', 'provisional_tapology' ), true ) ) {
@@ -1211,6 +1217,7 @@ final class FightersPage {
             'preparation' => sanitize_key(wp_unslash($_GET['preparation']??'')),
             'reason' => sanitize_key(wp_unslash($_GET['reason']??'')),
             'coverage' => sanitize_key(wp_unslash($_GET['coverage']??'')),
+			'review_scope' => $review_scope,
             'gender' => sanitize_key(wp_unslash($_GET['gender']??'')),
             'weight_class' => sanitize_text_field(wp_unslash($_GET['weight_class']??'')),
 			'status'             => $status,
@@ -1227,7 +1234,7 @@ final class FightersPage {
 		$args = array();
 		foreach (
 			array(
-				'import_job'=>'import_job','preparation'=>'preparation','reason'=>'reason','coverage'=>'coverage','gender'=>'gender','weight_class'=>'weight_class',
+				'import_job'=>'import_job','preparation'=>'preparation','reason'=>'reason','coverage'=>'coverage','review_scope'=>'review_scope','gender'=>'gender','weight_class'=>'weight_class',
 				'status'             => 'fighter_status',
 				'rankability_status' => 'rankability_status',
 				'public_state'       => 'public_state',
@@ -1251,6 +1258,7 @@ final class FightersPage {
         $imports = ['legacy' => 'Legacy / unknown import'];
         foreach ($wpdb->get_col("SELECT DISTINCT import_job_id FROM $table ORDER BY import_job_id DESC LIMIT 100") as $id) { $imports[(string) $id] = 'Import #' . $id; }
         return [
+            'review_scope' => ['Review scope', ['candidates' => 'Ranking candidates', 'data_issues' => 'Data issues / conflicts', 'outside_ranking' => 'Outside ranking']],
             'preparation' => ['Preparation', ['ready' => 'Ready for preparation', 'preparing' => 'Preparing', 'review' => 'Needs review', 'failed' => 'Failed']],
             'import_job' => ['Import series', $imports],
             'gender' => ['Gender', ['male' => 'Men', 'female' => 'Women', 'unknown' => 'Unknown']],
@@ -1271,7 +1279,7 @@ final class FightersPage {
         // Query keys remain the established GET contract used by frozen operations.
         $values = self::filter_query_args($filters);
         foreach ($options as $name => [$label, $options]) {
-            if ($name === 'sort' || (in_array($name, ['preparation', 'import_job'], true) !== ($group === 'primary'))) { continue; }
+            if ($name === 'sort' || (in_array($name, ['preparation', 'import_job', 'review_scope'], true) !== ($group === 'primary'))) { continue; }
             self::filter_select($name, $label, (string) ($values[$name] ?? ''), $options);
         }
     }

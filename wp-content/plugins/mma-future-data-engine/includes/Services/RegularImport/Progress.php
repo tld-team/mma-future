@@ -15,6 +15,14 @@ final class Progress {
             $done=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$repo->tables['items']} WHERE job_id=%d AND kind='actual_stored_career_profile' AND id<=%d",$id,$cursor));
             return ['unit'=>'Verified careers','processed'=>$done,'total'=>$all];
         }
+        if($phase==='disposition'){
+            $cursor=(int)($job['meta']['ranking_disposition_cursor']??0);
+            $membership=\MMAF\DataEngine\Services\Operations\Schema::tables()['membership'];
+            $fighters=\MMAF\DataEngine\Migrations\Schema::table_names()['fighters'];
+            $total=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $fighters f JOIN $membership m ON m.fighter_id=f.id WHERE m.import_job_id=%d",$id));
+            $done=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $fighters f JOIN $membership m ON m.fighter_id=f.id WHERE m.import_job_id=%d AND f.id<=%d",$id,$cursor));
+            return ['unit'=>'Ranking disposition','processed'=>$done,'total'=>$total,'counts'=>(array)($job['meta']['ranking_dispositions']??[])];
+        }
         if($phase==='stats'){
             $o=\MMAF\DataEngine\Services\Operations\Schema::tables();
             $row=$wpdb->get_row($wpdb->prepare("SELECT phase,checkpoint_json FROM {$o['jobs']} WHERE request_key=%s",'import:'.$id.':stats'),ARRAY_A);

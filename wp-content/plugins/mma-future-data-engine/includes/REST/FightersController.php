@@ -133,6 +133,11 @@ final class FightersController extends AbstractRestController {
 	}
 
 	private function fighter_payload( array $fighter ): array {
+		$tracking = (string) ( $fighter['tracking_mode'] ?? 'normal' );
+		$ranking_state = 'candidate';
+		if ( 'opponent_only' === $tracking ) { $ranking_state = 'outside_ranking'; }
+		elseif ( 'paused' === $tracking ) { $ranking_state = 'temporarily_outside_ranking'; }
+		elseif ( ! $this->output_bool( $fighter['is_rankable'] ) || 'rankable' !== (string) ( $fighter['rankability_status'] ?? '' ) ) { $ranking_state = 'not_currently_ranked'; }
 		return array(
 			'id'                 => (int) $fighter['id'],
 			'display_name'       => (string) $fighter['display_name'],
@@ -148,6 +153,7 @@ final class FightersController extends AbstractRestController {
 			'is_public'          => $this->output_bool( $fighter['is_public'] ),
 			'is_rankable'        => $this->output_bool( $fighter['is_rankable'] ),
 			'in_ufc'             => $this->output_bool( $fighter['in_ufc'] ),
+			'ranking_status'     => array( 'state' => $ranking_state, 'is_currently_ranked' => 'rankable' === (string) ( $fighter['rankability_status'] ?? '' ) && 'normal' === $tracking && $this->output_bool( $fighter['is_rankable'] ) ),
 		);
 	}
 

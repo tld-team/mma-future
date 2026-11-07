@@ -109,6 +109,9 @@ final class RestReadRepository {
 
 		$offset = ( $page - 1 ) * $per_page;
 		$visibility_where = $include_non_public ? '' : ' AND f.is_public = 1';
+		// A historical active snapshot must never overrule today's disposition.
+		// Public visibility and ranking eligibility are intentionally independent.
+		$ranking_eligibility_where = " AND f.tracking_mode = 'normal' AND f.is_rankable = 1 AND f.rankability_status = 'rankable'";
 		$tapology_identity_where = $include_non_public ? '' : "
 					AND EXISTS (
 						SELECT 1
@@ -130,6 +133,7 @@ final class RestReadRepository {
 				WHERE r.board_key = %s
 					AND f.deleted_soft = 0
 					{$visibility_where}
+					{$ranking_eligibility_where}
 					{$tapology_identity_where}
 				", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$board
@@ -168,6 +172,7 @@ final class RestReadRepository {
 				WHERE r.board_key = %s
 					AND f.deleted_soft = 0
 					{$visibility_where}
+					{$ranking_eligibility_where}
 					{$tapology_identity_where}
 				ORDER BY r.rank_position ASC
 				LIMIT %d OFFSET %d
@@ -231,7 +236,12 @@ final class RestReadRepository {
 				SELECT r.board_key, r.rank_position, r.total_score, r.raw_score, r.normalized_score, r.confidence_score, r.sample_size, r.quality_flags_json, r.breakdown_json, r.ranking_run_id, rr.formula_version
 				FROM {$this->ranking_current_table} r
 				INNER JOIN {$this->ranking_runs_table} rr ON rr.id = r.ranking_run_id
+				INNER JOIN {$this->fighters_table} f ON f.id = r.fighter_id
 				WHERE r.fighter_id = %d
+					AND f.deleted_soft = 0
+					AND f.tracking_mode = 'normal'
+					AND f.is_rankable = 1
+					AND f.rankability_status = 'rankable'
 				ORDER BY r.board_key ASC, r.rank_position ASC
 				", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$fighter_id
@@ -358,7 +368,7 @@ final class RestReadRepository {
 		$activation_summary = $this->system_state_json( 'last_ranking_activation_summary' );
 		$active_ranking_run = $this->active_ranking_run();
 		$ranking_state = $this->ranking_state_summary();
-		$current_ranking_rows_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->ranking_current_table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$current_ranking_rows_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->ranking_current_table} r INNER JOIN {$this->fighters_table} f ON f.id=r.fighter_id WHERE f.deleted_soft=0 AND f.tracking_mode='normal' AND f.is_rankable=1 AND f.rankability_status='rankable'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rankings_available = null !== $active_ranking_run && $current_ranking_rows_count > 0;
 
 		return array(

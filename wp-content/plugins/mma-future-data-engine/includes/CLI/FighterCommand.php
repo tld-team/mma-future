@@ -47,9 +47,12 @@ final class FighterCommand {
 		if ( $apply && ! in_array( wp_get_environment_type(), array( 'local','development','staging' ), true ) ) {
 			\WP_CLI::error( 'Disposition backfill is limited to local/dev/staging.' );
 		}
-		$result = ( new \MMAF\DataEngine\Services\RankingDispositionService() )->backfill_step(
-			get_current_user_id(), (int) ( $assoc_args['limit'] ?? 100 ), $apply, isset( $assoc_args['reset'] )
-		);
+		$service = new \MMAF\DataEngine\Services\RankingDispositionService();
+		$limit = (int) ( $assoc_args['limit'] ?? 100 );
+		$result = $service->backfill_step( get_current_user_id(), $limit, $apply, isset( $assoc_args['reset'] ) );
+		if ( $apply && isset( $assoc_args['all'] ) ) {
+			while ( empty( $result['completed'] ) ) { $result = $service->backfill_step( get_current_user_id(), $limit, true, false ); }
+		}
 		\WP_CLI::line( wp_json_encode( $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
 		if ( $apply && ! empty( $result['completed'] ) ) { \WP_CLI::success( 'Ranking disposition backfill completed.' ); }
 	}

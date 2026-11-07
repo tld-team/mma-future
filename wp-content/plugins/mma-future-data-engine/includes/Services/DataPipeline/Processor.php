@@ -61,7 +61,7 @@ final class Processor {
 		if (!$paused_due && !$fighter['is_public'] && (!$fighter['is_rankable'] || $fighter['rankability_status']!=='rankable')) { return; }
         $profile=(new ProfileStore())->for_fighter($id); $hash=$profile['content_hash']??null;
         $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM $queue WHERE fighter_id=%d",$id),ARRAY_A);
-        if ($old && $hash && $old['processed_hash']===$hash && hash_equals((string)($old['processed_context_hash']??''),PreparationFingerprint::for_fighter($id,$hash)) && in_array($old['status'],['completed','review'],true)) { return; }
+        if ($old && $hash && $old['processed_hash']===$hash && hash_equals((string)($old['processed_context_hash']??''),PreparationFingerprint::for_fighter($id,$hash)) && in_array($old['status'],['completed','review','excluded'],true)) { return; }
         Repository::check($wpdb->query($wpdb->prepare("INSERT INTO $queue (fighter_id,status,requested_hash,import_job_id,actor_user_id,attempts,requested_at) VALUES (%d,'pending',NULLIF(%s,''),%d,%d,0,%s) ON DUPLICATE KEY UPDATE status='pending',requested_hash=VALUES(requested_hash),import_job_id=VALUES(import_job_id),actor_user_id=VALUES(actor_user_id),attempts=0,error_message=NULL,requested_at=VALUES(requested_at),finished_at=NULL,retry_at=NULL,summary_json=NULL",$id,$hash??'',$job,$actor,gmdate('Y-m-d H:i:s'))));
         self::schedule();
     }
@@ -96,7 +96,7 @@ final class Processor {
                     Transaction::run(function() use($wpdb,$queue,$row,$job) {
                         $result=$this->prepare((int)$row['fighter_id'],(int)$row['actor_user_id'],$job ?: (int)$row['import_job_id'],0,json_decode($row['summary_json']??'',true)?:[]);
                         $result['done']=$result['done']??true;
-                        $status=empty($result['done'])?'pending':((!empty($result['review']) || (($result['scoring_assessment']['status']??'')!=='main' && ($result['coverage']['status']??'complete')!=='complete'))?'review':'completed');
+                        $status=!empty($result['excluded'])?'excluded':(empty($result['done'])?'pending':((!empty($result['review']) || (($result['scoring_assessment']['status']??'')!=='main' && ($result['coverage']['status']??'complete')!=='complete'))?'review':'completed'));
                         do_action('mmaf_profile_preparation_before_checkpoint',(int)$row['fighter_id'],$result);
                         Repository::check($wpdb->update($queue,['status'=>$status,'processed_hash'=>empty($result['done'])?$row['processed_hash']:($result['hash']??null),'processed_context_hash'=>empty($result['done'])?($row['processed_context_hash']??null):PreparationFingerprint::for_fighter((int)$row['fighter_id'],$result['hash']??null),'summary_json'=>wp_json_encode($result),'error_message'=>null,'finished_at'=>empty($result['done'])?null:gmdate('Y-m-d H:i:s')],['fighter_id'=>$row['fighter_id']]));
                     });
@@ -140,7 +140,12 @@ final class Processor {
         WriteGuard::assertAllowed();
         global $wpdb; $t=Canonical::table_names();
         $fighter=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighters']} WHERE id=%d",$id),ARRAY_A);
-        if (!$fighter || $fighter['deleted_soft'] || \MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY===\MMAF\DataEngine\Services\TrackingService::mode($fighter)) { return ['review'=>true,'reason'=>'Fighter is outside active tracking.']; }
+        if (!$fighter || $fighter['deleted_soft']) { return ['review'=>true,'reason'=>'Fighter identity is unavailable.']; }
+        $disposition=(new \MMAF\DataEngine\Services\RankingDispositionService())->classify($fighter);
+        if(in_array($disposition['outcome']??'',[\MMAF\DataEngine\Services\RankingDispositionService::PERMANENT,\MMAF\DataEngine\Services\RankingDispositionService::TEMPORARY],true)){
+            return ['done'=>true,'excluded'=>true,'ranking_disposition'=>$disposition,'reason'=>'Fighter is outside ranking consideration.'];
+        }
+        if (\MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY===\MMAF\DataEngine\Services\TrackingService::mode($fighter)) { return ['review'=>true,'reason'=>'Fighter is outside active tracking.']; }
 		$paused_due=\MMAF\DataEngine\Services\TrackingService::PAUSED===\MMAF\DataEngine\Services\TrackingService::mode($fighter) && (new \MMAF\DataEngine\Services\TrackingService())->recheck_due($id);
 		if (\MMAF\DataEngine\Services\TrackingService::PAUSED===\MMAF\DataEngine\Services\TrackingService::mode($fighter) && !$paused_due) { return ['review'=>true,'reason'=>'Fighter is temporarily outside active tracking.']; }
 		if (!$paused_due && !$fighter['is_public'] && !$fighter['is_rankable'] && !\MMAF\DataEngine\Services\Operations\Authority::allows($operation,$id)) { return ['review'=>true,'reason'=>'Fighter is outside the approved scope.']; }
@@ -199,7 +204,9 @@ final class Processor {
     public static function metadata(array $ids): array {
         global $wpdb;$t=Canonical::table_names();$p=Schema::tables();$in=implode(',',array_map('intval',$ids));
         if (!$in) { return []; }
-        $rows=$wpdb->get_results("SELECT fs.fighter_id,COUNT(DISTINCT snap.id) AS source_count,COUNT(DISTINCT CASE WHEN snap.payload_json IS NOT NULL AND snap.content_hash IS NOT NULL THEN snap.id END) AS successful_profile_count,MAX(snap.last_attempt_at) AS last_attempt_at,MAX(snap.source_fetched_at) AS source_fetched_at,MAX(snap.last_attempt_status) AS last_attempt_status,MAX(q.status) AS preparation_status,MAX(q.error_message) AS error_message,MAX(c.status) AS coverage_status,MAX(c.reason) AS coverage_reason FROM {$t['fighter_sources']} fs LEFT JOIN {$p['profiles']} snap ON snap.source_type=fs.source_type AND (snap.source_fighter_id=fs.source_fighter_id OR snap.source_url=fs.source_url) LEFT JOIN {$p['queue']} q ON q.fighter_id=fs.fighter_id LEFT JOIN {$t['fighter_career_coverage']} c ON c.fighter_id=fs.fighter_id WHERE fs.fighter_id IN ($in) AND fs.source_type='tapology' GROUP BY fs.fighter_id",ARRAY_A);
+        // Snapshot rows are versions of one source identity. Counting them as
+        // separate sources made a normally refreshed profile look conflicted.
+        $rows=$wpdb->get_results("SELECT fs.fighter_id,COUNT(DISTINCT fs.id) AS source_count,COUNT(DISTINCT CASE WHEN snap.payload_json IS NOT NULL AND snap.content_hash IS NOT NULL THEN fs.id END) AS successful_profile_count,MAX(snap.last_attempt_at) AS last_attempt_at,MAX(snap.source_fetched_at) AS source_fetched_at,MAX(snap.last_attempt_status) AS last_attempt_status,MAX(q.status) AS preparation_status,MAX(q.error_message) AS error_message,MAX(c.status) AS coverage_status,MAX(c.reason) AS coverage_reason FROM {$t['fighter_sources']} fs LEFT JOIN {$p['profiles']} snap ON snap.source_type=fs.source_type AND (snap.source_fighter_id=fs.source_fighter_id OR snap.source_url=fs.source_url) LEFT JOIN {$p['queue']} q ON q.fighter_id=fs.fighter_id LEFT JOIN {$t['fighter_career_coverage']} c ON c.fighter_id=fs.fighter_id WHERE fs.fighter_id IN ($in) AND fs.source_type='tapology' GROUP BY fs.fighter_id",ARRAY_A);
         $out=[];foreach ($rows as $row) { $out[(int)$row['fighter_id']]=$row; }
         // Separate indexed identities from URL lookup; OR forced a full source scan.
         $shared=$wpdb->get_results("SELECT fighter_id,COUNT(DISTINCT other_fighter_id) bindings FROM (SELECT mine.fighter_id,other.fighter_id other_fighter_id FROM {$t['fighter_sources']} mine JOIN {$t['fighter_sources']} other ON other.source_type=mine.source_type AND other.source_fighter_id=mine.source_fighter_id AND other.fighter_id<>mine.fighter_id WHERE mine.fighter_id IN ($in) AND mine.source_fighter_id IS NOT NULL AND mine.source_fighter_id<>'' UNION ALL SELECT mine.fighter_id,other.fighter_id other_fighter_id FROM {$t['fighter_sources']} mine JOIN {$t['fighter_sources']} other ON other.source_type=mine.source_type AND other.source_url=mine.source_url AND other.fighter_id<>mine.fighter_id WHERE mine.fighter_id IN ($in) AND mine.source_url IS NOT NULL AND mine.source_url<>'') bindings GROUP BY fighter_id",ARRAY_A);

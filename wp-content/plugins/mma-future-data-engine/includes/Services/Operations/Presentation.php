@@ -6,7 +6,7 @@ final class Presentation {
     public static function label(string $value): string {
         return [
             'previewing'=>'Preparing preview','ready'=>'Ready for confirmation','running'=>'In progress','paused'=>'Paused',
-            'completed'=>'Completed','cancelled'=>'Cancelled','failed'=>'Technical failure','review'=>'Needs review','noop'=>'No change needed',
+            'completed'=>'Completed','cancelled'=>'Cancelled','failed'=>'Technical failure','review'=>'Needs review','excluded'=>'Outside ranking consideration','noop'=>'No change needed',
             'pending'=>'Waiting','preview_pending'=>'Waiting for preview','preparing'=>'Preparing saved profile','prepared'=>'Prepared; validation pending',
             'preview'=>'Checking selected fighters','preview_manifest'=>'Freezing preview and summary','prepare'=>'Preparing profiles and careers',
             'stats'=>'Updating statistics','validate'=>'Validating publication and ranking','ranking'=>'Preparing inactive ranking draft',
@@ -18,6 +18,10 @@ final class Presentation {
             'changed_since_preview'=>'Data changed after preview; create a new preview','changed_after_preparation'=>'Data changed after preparation; review before publication',
             'identity_changed'=>'Saved source identity changed','identity_or_facts_review'=>'Source identity or facts need individual review',
             'ranking_ineligible'=>'Prepared, but existing ranking rules are not satisfied','fighter_not_found'=>'Selected fighter no longer exists',
+            'confirmed_ufc_signing'=>'Confirmed UFC signing','age_over_34'=>'Age limit reached','confirmed_pro_fights_over_30'=>'More than 30 professional MMA bouts',
+            'loss_limit'=>'Loss limit exceeded for accepted record','inactive_24_months'=>'Inactive for at least 24 months',
+            'age_unresolved'=>'Date of birth is not sufficiently confirmed','last_professional_fight_unconfirmed'=>'Last professional fight is not sufficiently confirmed',
+            'professional_record_unconfirmed'=>'Professional record is not sufficiently confirmed','ranking_evidence_unresolved'=>'Ranking evidence needs review',
         ][$value]??ucfirst(str_replace('_',' ',$value));
     }
     public static function commands(array $job): array {
@@ -33,7 +37,7 @@ final class Presentation {
         return $out;
     }
     public static function progress(array $job,array $counts): array {
-        $done=array_sum(array_intersect_key($counts,array_flip(['completed','noop','review','failed'])));
+        $done=array_sum(array_intersect_key($counts,array_flip(['completed','noop','review','failed','excluded'])));
         $phase=$job['status']==='ready'?'Review frozen selection':($job['status']==='cancelled'?'No further steps will run':self::label($job['phase']));
         return ['phase'=>$phase,'processed'=>$done,'total'=>(int)$job['total'],'counts'=>$counts,
             'status_label'=>$job['status']==='completed' && (($counts['review']??0)+($counts['failed']??0)>0)?'Completed with issues':self::label($job['status']),
