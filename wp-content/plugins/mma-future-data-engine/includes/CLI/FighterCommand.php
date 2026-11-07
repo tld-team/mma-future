@@ -36,6 +36,23 @@ final class FighterCommand {
 	public function tracking_review( array $args, array $assoc_args ): void {
 		\WP_CLI::line(wp_json_encode((new \MMAF\DataEngine\Services\TrackingService())->review_rows((int)($assoc_args['limit']??500)),JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
 	}
+
+	/**
+	 * Inspect or continue the resumable existing-fighter ranking disposition pass.
+	 * Use --apply only after reviewing the preceding dry run; --reset deliberately
+	 * starts a completed pass again.
+	 */
+	public function ranking_disposition( array $args, array $assoc_args ): void {
+		$apply = isset( $assoc_args['apply'] );
+		if ( $apply && ! in_array( wp_get_environment_type(), array( 'local','development','staging' ), true ) ) {
+			\WP_CLI::error( 'Disposition backfill is limited to local/dev/staging.' );
+		}
+		$result = ( new \MMAF\DataEngine\Services\RankingDispositionService() )->backfill_step(
+			get_current_user_id(), (int) ( $assoc_args['limit'] ?? 100 ), $apply, isset( $assoc_args['reset'] )
+		);
+		\WP_CLI::line( wp_json_encode( $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
+		if ( $apply && ! empty( $result['completed'] ) ) { \WP_CLI::success( 'Ranking disposition backfill completed.' ); }
+	}
 	/**
 	 * Guarded placeholder for future audited fighter merges.
 	 */

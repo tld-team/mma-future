@@ -57,6 +57,7 @@ final class Processor {
         $fighter=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighters']} WHERE id=%d",$id),ARRAY_A);
         if (!$fighter || $fighter['deleted_soft'] || \MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY===\MMAF\DataEngine\Services\TrackingService::mode($fighter)) { return; }
 		$paused_due=\MMAF\DataEngine\Services\TrackingService::PAUSED===\MMAF\DataEngine\Services\TrackingService::mode($fighter) && (new \MMAF\DataEngine\Services\TrackingService())->recheck_due($id);
+		if (\MMAF\DataEngine\Services\TrackingService::PAUSED===\MMAF\DataEngine\Services\TrackingService::mode($fighter) && !$paused_due) { return; }
 		if (!$paused_due && !$fighter['is_public'] && (!$fighter['is_rankable'] || $fighter['rankability_status']!=='rankable')) { return; }
         $profile=(new ProfileStore())->for_fighter($id); $hash=$profile['content_hash']??null;
         $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM $queue WHERE fighter_id=%d",$id),ARRAY_A);
@@ -79,6 +80,9 @@ final class Processor {
                 if($active && !in_array($active,[(int)($state['stats_job']??0),(int)($state['ranking_job']??0)],true)){return ['worked'=>false,'blocked'=>'calculation_locked'];}
                 // Finish our frozen generation before starting profiles queued later.
                 $calculating=$active>0;
+				// Time-only eligibility changes use existing canonical evidence; no
+				// browser work or scraper request is required.
+				$time_rules=$calculating?null:(new \MMAF\DataEngine\Services\RankingDispositionService())->refresh_time_rules_step(get_current_user_id(),100);
             }
             global $wpdb; $queue=Schema::tables()['queue']; $limit=min(50,max(1,$limit));
             $rows=!empty($calculating)?[]:$wpdb->get_results($wpdb->prepare("SELECT * FROM $queue WHERE status='pending' AND (retry_at IS NULL OR retry_at<=UTC_TIMESTAMP())".($job?' AND import_job_id=%d':' AND %d=0')." ORDER BY fighter_id LIMIT %d",$job,$limit),ARRAY_A);
@@ -127,7 +131,7 @@ final class Processor {
                 unset($state['stats_job'],$state['ranking_job'],$state['frozen_generation'],$state['frozen_stats_needed'],$state['stats_done']);self::save($state);
                 do_action('mmaf_public_data_changed','preparation_completed');$calculated=true;
             }
-            return ['worked'=>$processed>0 || $calculated,'processed'=>$processed,'pending'=>0,'draft_run_id'=>$state['draft']['ranking_run_id']??null];
+			return ['worked'=>$processed>0 || $calculated || !empty($time_rules['changed']),'processed'=>$processed,'pending'=>0,'draft_run_id'=>$state['draft']['ranking_run_id']??null,'time_rules'=>$time_rules];
         });
     }
     public function prepare(int $id,int $actor,int $job,int $operation=0,array $progress=[]): array {
@@ -136,6 +140,7 @@ final class Processor {
         $fighter=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighters']} WHERE id=%d",$id),ARRAY_A);
         if (!$fighter || $fighter['deleted_soft'] || \MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY===\MMAF\DataEngine\Services\TrackingService::mode($fighter)) { return ['review'=>true,'reason'=>'Fighter is outside active tracking.']; }
 		$paused_due=\MMAF\DataEngine\Services\TrackingService::PAUSED===\MMAF\DataEngine\Services\TrackingService::mode($fighter) && (new \MMAF\DataEngine\Services\TrackingService())->recheck_due($id);
+		if (\MMAF\DataEngine\Services\TrackingService::PAUSED===\MMAF\DataEngine\Services\TrackingService::mode($fighter) && !$paused_due) { return ['review'=>true,'reason'=>'Fighter is temporarily outside active tracking.']; }
 		if (!$paused_due && !$fighter['is_public'] && !$fighter['is_rankable'] && !\MMAF\DataEngine\Services\Operations\Authority::allows($operation,$id)) { return ['review'=>true,'reason'=>'Fighter is outside the approved scope.']; }
         $saved=(new ProfileStore())->for_fighter($id);
         if (!$saved) { return ['review'=>true,'reason'=>'No unambiguous successful stored source profile is available. Existing canonical data is retained.']; }

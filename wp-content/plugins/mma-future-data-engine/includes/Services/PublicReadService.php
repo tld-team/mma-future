@@ -26,16 +26,17 @@ final class PublicReadService extends AbstractRestController {
 		if (!$profile['permalink']) { return $this->not_found(); }
 		$stats=$this->stats($this->read->fighter_stats($id));
 		$rankings=array(); $active=$this->read->active_ranking_run();$inUfc=1===(int)$f['in_ufc'];
+		$ranking_eligible = !$inUfc && 'normal' === TrackingService::mode( $f ) && 1 === (int) $f['is_rankable'] && 'rankable' === (string) $f['rankability_status'];
 		$rankMaps=[];
-		foreach($inUfc?[]:$this->read->fighter_current_rankings($id) as $r) {
+		foreach($ranking_eligible?$this->read->fighter_current_rankings($id):[] as $r) {
 			if (!$active || (int)$r['ranking_run_id']!==(int)$active['id']) { continue; }
 			$board=(string)$r['board_key'];
 			if(!isset($rankMaps[$board])){$rankMaps[$board]=$this->public->rank_map((int)$active['id'],$board);}
 			$r['rank_position']=$rankMaps[$board][$id]??$r['rank_position'];
 			$rankings[]=$this->ranking($r,$active);
 		}
-		$scoring=(new \MMAF\DataEngine\Services\Scoring\PublicAssessments())->for_fighters([$id],$active)[$id];
-		if($inUfc){$scoring['scoring_assessment']=null;}
+		$scoring=(new \MMAF\DataEngine\Services\Scoring\PublicAssessments())->for_fighters([$id],$active)[$id] ?? array();
+		if(!$ranking_eligible){$scoring['scoring_assessment']=null;}
 		$age=$this->age($f['date_of_birth'] ?? null,$f['birth_year'] ?? null);
 		$facts=array();
 		foreach(array('nickname','gender','date_of_birth','nationality','weight_class','height','last_weigh_in','birthplace','fighting_out_of','stance','team_name','coach_name') as $key) { $facts[$key]=$f[$key] ?? null; }
@@ -44,7 +45,8 @@ final class PublicReadService extends AbstractRestController {
 		foreach(array('biography','career_highlights','fighter_social_links','hero_image') as $key) { $editorial[$key]=function_exists('get_field') ? get_field($key,(int)$f['wp_post_id']) : get_post_meta((int)$f['wp_post_id'],$key,true); }
 		$history=$this->history($id,array('per_page'=>10),false);
 		$signing=$inUfc?(new UfcSigningService())->signing($id):null;
-		return array('fighter'=>array_merge($facts,array('id'=>$id,'display_name'=>$f['display_name'],'age'=>$age,'age_precision'=>!empty($f['date_of_birth'])?'exact':(null!==$age?'approximate':'unknown'),'status'=>$f['status'],'rankability_status'=>$f['rankability_status'],'is_public'=>true,'is_rankable'=>1===(int)$f['is_rankable'],'in_ufc'=>$inUfc)), 'profile'=>$profile,'stats'=>$stats,'recorded_stats'=>$stats,'rankings'=>$rankings,'ufc_signing'=>['confirmed'=>$inUfc,'signing_date'=>$signing['signing_date']??null,'evidence_url'=>$signing['evidence_url']??null,'confirmed_at'=>$this->utc($signing['created_at']??null)],'recent_fights'=>$history['items'],'career_coverage'=>$this->coverage($id),'career_record'=>$scoring['career_record'],'scoring_assessment'=>$scoring['scoring_assessment'],'editorial'=>$editorial,'dates'=>$this->dates($active));
+		$ranking_status = $ranking_eligible ? 'ranked_or_candidate' : ( TrackingService::OPPONENT_ONLY === TrackingService::mode( $f ) ? 'outside_ranking' : 'temporarily_outside_ranking' );
+		return array('fighter'=>array_merge($facts,array('id'=>$id,'display_name'=>$f['display_name'],'age'=>$age,'age_precision'=>!empty($f['date_of_birth'])?'exact':(null!==$age?'approximate':'unknown'),'status'=>$f['status'],'rankability_status'=>$f['rankability_status'],'ranking_status'=>$ranking_status,'is_public'=>true,'is_rankable'=>1===(int)$f['is_rankable'],'in_ufc'=>$inUfc)), 'profile'=>$profile,'stats'=>$stats,'recorded_stats'=>$stats,'rankings'=>$rankings,'ufc_signing'=>['confirmed'=>$inUfc,'signing_date'=>$signing['signing_date']??null,'evidence_url'=>$signing['evidence_url']??null,'confirmed_at'=>$this->utc($signing['created_at']??null)],'recent_fights'=>$history['items'],'career_coverage'=>$this->coverage($id),'career_record'=>$scoring['career_record'],'scoring_assessment'=>$scoring['scoring_assessment'],'editorial'=>$editorial,'dates'=>$this->dates($active));
 	}
 
 	public function history( int $id, array $options=array(), bool $check_visibility=true ) {
@@ -121,10 +123,10 @@ final class PublicReadService extends AbstractRestController {
     public function fighter_cards(array $posts): array {
         $rows=$this->public->cards($posts);$this->prime(array_column($rows,'wp_post_id'));$out=[];$active=$this->read->active_ranking_run();$scoring=(new \MMAF\DataEngine\Services\Scoring\PublicAssessments())->for_fighters(array_column($rows,'id'),$active);$dates=$this->dates($active);
         $rankMap=$active?$this->public->rank_map((int)$active['id'],'overall'):[];
-        foreach($rows as $r){$id=(int)$r['id'];$r['rank_position']=$rankMap[$id]??null;$fighter=$r;$fighter['id']=$id;$fighter['age']=$this->age($r['date_of_birth'],$r['birth_year']);$fighter['age_precision']=$r['date_of_birth']?'exact':($fighter['age']!==null?'approximate':'unknown');$stats=null;
+		foreach($rows as $r){$id=(int)$r['id'];$r['rank_position']=$rankMap[$id]??null;$ranking_eligible=empty($r['in_ufc']) && TrackingService::mode($r)===TrackingService::NORMAL && !empty($r['is_rankable']) && ($r['rankability_status']??'')==='rankable';$r['ranking_status']=$ranking_eligible?'ranked_or_candidate':(TrackingService::mode($r)===TrackingService::OPPONENT_ONLY?'outside_ranking':'temporarily_outside_ranking');$fighter=$r;$fighter['id']=$id;$fighter['age']=$this->age($r['date_of_birth'],$r['birth_year']);$fighter['age_precision']=$r['date_of_birth']?'exact':($fighter['age']!==null?'approximate':'unknown');$stats=null;
             if($r['wins']!==null){$stats=[];foreach(['wins','losses','draws','nc','pro_fights_count'] as $key){$stats[$key]=(int)$r[$key];}}
             $out[(int)$r['wp_post_id']]=['fighter'=>$fighter,'profile'=>$this->profile_data($r['wp_post_id']),'stats'=>$stats,'recorded_stats'=>$stats,'career_coverage'=>['status'=>$r['coverage_status']??'unavailable'],'rankings'=>$r['rank_position']!==null?[['board'=>'overall','rank'=>(int)$r['rank_position']]]:[]];
-            $scoreDto=$scoring[$id]??[];if(!empty($r['in_ufc'])){$scoreDto['scoring_assessment']=null;}
+			$scoreDto=$scoring[$id]??[];if(!$ranking_eligible){$scoreDto['scoring_assessment']=null;}
             $out[(int)$r['wp_post_id']]=array_merge($out[(int)$r['wp_post_id']],$scoreDto,['dates'=>$dates]);
         }return $out;
     }

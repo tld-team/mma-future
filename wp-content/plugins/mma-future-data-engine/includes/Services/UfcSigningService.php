@@ -248,7 +248,7 @@ final class UfcSigningService {
         $before=$this->signing($fighter_id);if($before){return;}
         if(false===$wpdb->insert($this->tables['ufc_signing_events'],['fighter_id'=>$fighter_id,'event_type'=>'confirmed','is_active'=>1,'signing_date'=>$date,'evidence_url'=>$url?:null,'evidence_note'=>$note,'source_type'=>$source,'source_ref'=>$ref,'actor_user_id'=>$actor,'created_at'=>gmdate('Y-m-d H:i:s')])){throw new \RuntimeException($wpdb->last_error);}
         $event=(int)$wpdb->insert_id;$now=gmdate('Y-m-d H:i:s');
-		$tracking=['in_ufc'=>1,'tracking_mode'=>TrackingService::OPPONENT_ONLY,'tracking_reason'=>'confirmed_ufc_signing','tracking_source'=>$source,'tracking_evidence_url'=>$url?:null,'tracking_changed_at'=>$now,'tracking_revision'=>(int)($fighter['tracking_revision']??0)+1,'tracking_return_candidate_at'=>null,'is_public'=>0,'is_rankable'=>0,'rankability_status'=>'ineligible_ufc','updated_at'=>$now];
+		$tracking=['in_ufc'=>1,'tracking_mode'=>TrackingService::OPPONENT_ONLY,'tracking_reason'=>'confirmed_ufc_signing','tracking_source'=>$source,'tracking_evidence_url'=>$url?:null,'tracking_changed_at'=>$now,'tracking_revision'=>(int)($fighter['tracking_revision']??0)+1,'tracking_return_candidate_at'=>null,'is_rankable'=>0,'rankability_status'=>'ineligible_ufc','updated_at'=>$now];
 		if(false===$wpdb->update($this->tables['fighters'],$tracking,['id'=>$fighter_id])){throw new \RuntimeException($wpdb->last_error);}
         if(false===$wpdb->query($wpdb->prepare("UPDATE {$this->tables['ufc_signing_candidates']} SET status='fighter_confirmed',updated_at=%s WHERE fighter_id=%d AND status IN ('pending','deferred')",$now,$fighter_id))){throw new \RuntimeException($wpdb->last_error);}
         (new AuditLogService())->write('ufc_signing_confirmed','fighter',$fighter_id,$before,['event_id'=>$event,'source_type'=>$source,'evidence_url'=>$url,'signing_date'=>$date],$note,$actor);
@@ -263,7 +263,7 @@ final class UfcSigningService {
             if(false===$wpdb->update($this->tables['ufc_signing_events'],['is_active'=>0],['id'=>(int)$active['id']])){throw new \RuntimeException($wpdb->last_error);}
             if(false===$wpdb->insert($this->tables['ufc_signing_events'],['fighter_id'=>$fighter_id,'event_type'=>'correction','is_active'=>0,'evidence_note'=>sanitize_textarea_field($reason),'source_type'=>'manual','supersedes_event_id'=>(int)$active['id'],'actor_user_id'=>$actor,'created_at'=>$now])){throw new \RuntimeException($wpdb->last_error);}
 			if(false===$wpdb->update($this->tables['ufc_signing_candidates'],['status'=>'rejected','resolved_by'=>$actor,'resolved_at'=>$now,'updated_at'=>$now],['fighter_id'=>$fighter_id,'status'=>'confirmed'])){throw new \RuntimeException($wpdb->last_error);}
-            $tracking=['in_ufc'=>0,'tracking_mode'=>TrackingService::OPPONENT_ONLY,'tracking_reason'=>'ufc_confirmation_corrected_pending_review','tracking_source'=>'admin','tracking_changed_at'=>$now,'tracking_revision'=>(int)($fighter['tracking_revision']??0)+1,'tracking_return_candidate_at'=>null,'is_public'=>0,'is_rankable'=>0,'rankability_status'=>'pending_review','updated_at'=>$now];
+			$tracking=['in_ufc'=>0,'tracking_mode'=>TrackingService::OPPONENT_ONLY,'tracking_reason'=>'ufc_confirmation_corrected_pending_review','tracking_source'=>'admin','tracking_changed_at'=>$now,'tracking_revision'=>(int)($fighter['tracking_revision']??0)+1,'tracking_return_candidate_at'=>null,'is_rankable'=>0,'rankability_status'=>'pending_review','updated_at'=>$now];
 			if(false===$wpdb->update($this->tables['fighters'],$tracking,['id'=>$fighter_id])){throw new \RuntimeException($wpdb->last_error);}
 			(new AuditLogService())->write('ufc_signing_corrected','fighter',$fighter_id,$active,$tracking,sanitize_textarea_field($reason),$actor);
 			$this->after_change($fighter_id,$actor);
@@ -271,26 +271,27 @@ final class UfcSigningService {
     }
 
     private function after_change(int $fighter_id,int $actor): void {
-        $queue=(array)get_option('mmaf_ufc_post_commit_repairs',[]);$queue[$fighter_id]=['actor'=>$actor,'cache'=>false,'post'=>false,'ranking'=>false,'queued_at'=>gmdate('c')];update_option('mmaf_ufc_post_commit_repairs',$queue,false);
+        $queue=(array)get_option('mmaf_ufc_post_commit_repairs',[]);$queue[$fighter_id]=['actor'=>$actor,'disposition'=>false,'cache'=>false,'post'=>false,'ranking'=>false,'queued_at'=>gmdate('c')];update_option('mmaf_ufc_post_commit_repairs',$queue,false);
         \MMAF\DataEngine\Services\RegularImport\Transaction::after_commit(fn()=>$this->repair_post_commit($fighter_id));
     }
     private function repair_post_commit(int $fighter_id): void {
         $queue=(array)get_option('mmaf_ufc_post_commit_repairs',[]);if(empty($queue[$fighter_id])){return;}$task=$queue[$fighter_id];
-        foreach(['cache','post','ranking'] as $part){if(!empty($task[$part])){continue;}
+        foreach(['disposition','cache','post','ranking'] as $part){if(!empty($task[$part])){continue;}
             try{
-                if($part==='cache'){do_action('mmaf_public_data_changed','ufc_signing_changed');}
+                if($part==='disposition'){(new RankingDispositionService())->apply($fighter_id,(int)$task['actor']);}
+                elseif($part==='cache'){do_action('mmaf_public_data_changed','ufc_signing_changed');}
                 elseif($part==='post'){$repository=new \MMAF\DataEngine\Repositories\FighterRepository();$fighter=$repository->find($fighter_id);if($fighter){(new FighterPostSyncService($repository))->sync($fighter_id,$fighter);}}
                 else{\MMAF\DataEngine\Services\DataPipeline\Processor::request_refresh((int)$task['actor'],true);}
                 $task[$part]=true;
             }catch(\Throwable $error){$task['last_error']=$error->getMessage();}
             $queue[$fighter_id]=$task;update_option('mmaf_ufc_post_commit_repairs',$queue,false);
         }
-        if($task['cache']&&$task['post']&&$task['ranking']){unset($queue[$fighter_id]);update_option('mmaf_ufc_post_commit_repairs',$queue,false);}
+        if(!empty($task['disposition'])&&$task['cache']&&$task['post']&&$task['ranking']){unset($queue[$fighter_id]);update_option('mmaf_ufc_post_commit_repairs',$queue,false);}
     }
     public function work_repairs(): array {
         $queue=(array)get_option('mmaf_ufc_post_commit_repairs',[]);if(!$queue){return ['worked'=>false];}
-        $fighter_id=(int)array_key_first($queue);$before=array_sum(array_map('intval',array_intersect_key($queue[$fighter_id],array_flip(['cache','post','ranking']))));$this->repair_post_commit($fighter_id);$remaining=(array)get_option('mmaf_ufc_post_commit_repairs',[]);
-        $after=isset($remaining[$fighter_id])?array_sum(array_map('intval',array_intersect_key($remaining[$fighter_id],array_flip(['cache','post','ranking'])))):3;
+        $fighter_id=(int)array_key_first($queue);$before=array_sum(array_map('intval',array_intersect_key($queue[$fighter_id],array_flip(['disposition','cache','post','ranking']))));$this->repair_post_commit($fighter_id);$remaining=(array)get_option('mmaf_ufc_post_commit_repairs',[]);
+        $after=isset($remaining[$fighter_id])?array_sum(array_map('intval',array_intersect_key($remaining[$fighter_id],array_flip(['disposition','cache','post','ranking'])))):4;
         return ['worked'=>$after>$before,'blocked'=>$after===$before?'post_commit_retry':null,'fighter_id'=>$fighter_id,'remaining'=>count($remaining)];
     }
     private function date($value): ?string {if(!$value){return null;}$value=substr((string)$value,0,10);$d=\DateTimeImmutable::createFromFormat('!Y-m-d',$value);return $d&&$d->format('Y-m-d')===$value?$value:null;}

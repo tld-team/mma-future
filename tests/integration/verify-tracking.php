@@ -28,22 +28,22 @@ try{
     $result=$service->set_mode([(int)$fixture['opponent_fighter_id']],TrackingService::OPPONENT_ONLY,'integration_archive','https://example.test/tracking-evidence','admin',1);
     tracking_expect($result['updated']===1,'opponent-only decision is applied once');
     $archived=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['fighters']} WHERE id=%d",$fixture['opponent_fighter_id']),ARRAY_A);
-    tracking_expect($archived['tracking_mode']==='opponent_only' && !(int)$archived['is_public'] && !(int)$archived['is_rankable'] && !(int)$archived['deleted_soft'],'archive retains identity and history while disabling publication and ranking');
+	tracking_expect($archived['tracking_mode']==='opponent_only' && (int)$archived['is_public'] && !(int)$archived['is_rankable'] && !(int)$archived['deleted_soft'],'tracking exclusion preserves an already public profile while disabling ranking');
     tracking_expect((int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['bout_participants']} WHERE fighter_id=%d OR opponent_fighter_id=%d",$fixture['opponent_fighter_id'],$fixture['opponent_fighter_id']))>0,'archive keeps canonical bout relationships');
     $identity_after=$wpdb->get_row($wpdb->prepare("SELECT f.id,f.display_name,s.source_fighter_id,s.source_url FROM {$t['fighters']} f LEFT JOIN {$t['fighter_sources']} s ON s.fighter_id=f.id AND s.source_type='tapology' WHERE f.id=%d ORDER BY s.is_primary DESC,s.id LIMIT 1",$fixture['opponent_fighter_id']),ARRAY_A);
     tracking_expect($identity_after==$identity_before,'archive preserves internal and Tapology identity');
     $score_after=$wpdb->get_var($wpdb->prepare("SELECT total_score FROM {$t['ranking_snapshots']} WHERE ranking_run_id=%d AND fighter_id=%d ORDER BY id LIMIT 1",$run,$fixture['fighter_id']));
     tracking_expect((string)$score_after===(string)$score_before,'archiving an opponent does not rewrite historical score snapshots');
     $history=(new PublicReadRepository())->fights((int)$fixture['fighter_id'],['per_page'=>100]);$fight=array_values(array_filter($history['rows'],fn($row)=>(int)$row['bout_id']===(int)$fixture['bout_id']))[0]??null;
-    tracking_expect($fight && $fight['opponent_display_name']===$fixture['opponent_name'] && empty($fight['opponent_wp_post_id']),'public history keeps the opponent name without a profile link');
+	tracking_expect($fight && $fight['opponent_display_name']===$fixture['opponent_name'] && (int)$fight['opponent_wp_post_id']===(int)$fixture['opponent_post'],'public history keeps a searchable outside-ranking opponent profile');
     $carried=iterator_to_array((new StatsRebuildService())->stats_rows([(int)$fixture['opponent_fighter_id']]));
-    tracking_expect(count($carried)===1 && $carried[0]['_tracking_stats_strategy']==='carried' && $carried[0]['calculated_at']===$fixture['calculated_at'],'opponent-only stats carry their original calculation date');
+	tracking_expect(count($carried)===1 && $carried[0]['_tracking_stats_strategy']==='calculated','opponent-only stats recalculate when their fight inputs are newer than the stored aggregate');
     $manifest=$service->export_manifest();$decision=array_values(array_filter($manifest['fighters'],fn($row)=>(int)$row['fighter_id']===(int)$fixture['opponent_fighter_id']))[0]??null;
     tracking_expect($manifest['schema_version']==='mmaf_tracking_decisions_v1' && $decision && $decision['tracking_mode']==='opponent_only','private scraper export contains the current canonical decision');
     $repeat=$service->set_mode([(int)$fixture['opponent_fighter_id']],TrackingService::OPPONENT_ONLY,'integration_archive','https://example.test/tracking-evidence','admin',1);
     tracking_expect($repeat['updated']===0 && $repeat['unchanged']===1,'repeating the same decision is idempotent');
     $restored=$service->set_mode([(int)$fixture['opponent_fighter_id']],TrackingService::NORMAL,'integration_return','','admin',1);
     $review=$wpdb->get_row($wpdb->prepare("SELECT tracking_mode,is_public,is_rankable,rankability_status FROM {$t['fighters']} WHERE id=%d",$fixture['opponent_fighter_id']),ARRAY_A);
-    tracking_expect($restored['updated']===1 && $review['tracking_mode']==='normal' && !(int)$review['is_public'] && !(int)$review['is_rankable'] && $review['rankability_status']==='pending_review','restoring tracking waits for the existing admin approval flow');
+	tracking_expect($restored['updated']===1 && $review['tracking_mode']==='normal' && (int)$review['is_public'] && !(int)$review['is_rankable'] && $review['rankability_status']==='pending_review','restoring tracking preserves publication but waits for the existing ranking approval flow');
 }finally{Transaction::rollback();}
 echo "Tracking integration checks completed.\n";

@@ -322,10 +322,14 @@ final class StatsRebuildService {
 		}
 	}
 
-	/** Reuse the last durable aggregate for permanent opponent-only identities. */
+	/**
+	 * Reuse a stored aggregate only while its fight inputs are unchanged. A
+	 * permanently excluded fighter is still public, so a newly imported result
+	 * must update their public statistics even though it never reopens ranking.
+	 */
 	private function carried_stats(array $ids): array {
 		global $wpdb;if(!$ids){return [];}$t=\MMAF\DataEngine\Migrations\Schema::table_names();$in=implode(',',$ids);
-		$rows=$wpdb->get_results("SELECT s.* FROM {$t['fighter_stats_current']} s JOIN {$t['fighters']} f ON f.id=s.fighter_id LEFT JOIN (SELECT p.fighter_id,MAX(p.bout_id) latest_bout_id,MAX(GREATEST(COALESCE(b.updated_at,b.created_at,'1000-01-01 00:00:00'),COALESCE(e.updated_at,e.created_at,'1000-01-01 00:00:00'))) relevant_updated_at FROM {$t['bout_participants']} p JOIN {$t['bouts']} b ON b.id=p.bout_id LEFT JOIN {$t['events']} e ON e.id=b.event_id WHERE p.fighter_id IN ($in) AND b.deleted_soft=0 AND b.status IN ('valid','completed') AND p.result_for_fighter IN ('win','loss','draw','no_contest') AND (e.event_date IS NULL OR e.event_date<=UTC_DATE()) GROUP BY p.fighter_id) latest ON latest.fighter_id=f.id WHERE s.fighter_id IN ($in) AND (f.tracking_mode='opponent_only' OR (f.tracking_mode='paused' AND COALESCE(latest.latest_bout_id,0)<=COALESCE(f.tracking_last_checked_bout_id,0) AND (latest.relevant_updated_at IS NULL OR latest.relevant_updated_at<=f.tracking_last_checked_at)))",ARRAY_A);
+		$rows=$wpdb->get_results("SELECT s.* FROM {$t['fighter_stats_current']} s JOIN {$t['fighters']} f ON f.id=s.fighter_id LEFT JOIN (SELECT p.fighter_id,MAX(p.bout_id) latest_bout_id,MAX(GREATEST(COALESCE(b.updated_at,b.created_at,'1000-01-01 00:00:00'),COALESCE(e.updated_at,e.created_at,'1000-01-01 00:00:00'))) relevant_updated_at FROM {$t['bout_participants']} p JOIN {$t['bouts']} b ON b.id=p.bout_id LEFT JOIN {$t['events']} e ON e.id=b.event_id WHERE p.fighter_id IN ($in) AND b.deleted_soft=0 AND b.status IN ('valid','completed') AND p.result_for_fighter IN ('win','loss','draw','no_contest') AND (e.event_date IS NULL OR e.event_date<=UTC_DATE()) GROUP BY p.fighter_id) latest ON latest.fighter_id=f.id WHERE s.fighter_id IN ($in) AND ((f.tracking_mode='opponent_only' AND (latest.relevant_updated_at IS NULL OR latest.relevant_updated_at<=COALESCE(s.calculated_at,s.updated_at,'1000-01-01 00:00:00'))) OR (f.tracking_mode='paused' AND COALESCE(latest.latest_bout_id,0)<=COALESCE(f.tracking_last_checked_bout_id,0) AND (latest.relevant_updated_at IS NULL OR latest.relevant_updated_at<=f.tracking_last_checked_at)))",ARRAY_A);
 		if($wpdb->last_error){throw new \RuntimeException($wpdb->last_error);}$out=[];
 		foreach($rows?:[] as $row){unset($row['id'],$row['created_at'],$row['updated_at']);$out[(int)$row['fighter_id']]=$row;}
 		return $out;

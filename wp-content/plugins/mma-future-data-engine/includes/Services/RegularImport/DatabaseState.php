@@ -66,7 +66,7 @@ final class DatabaseState {
     public static function protectedState(?int $maxId=null): array {
         global $wpdb;$t=CanonicalSchema::table_names();
         $maxId=$maxId??(int)$wpdb->get_var("SELECT MAX(id) FROM {$t['fighters']}");
-        $flags=self::rows($wpdb->prepare("SELECT f.id,f.is_public,f.is_rankable,f.status,f.rankability_status,f.deleted_soft,f.in_ufc,f.tracking_mode,f.tracking_reason,f.tracking_source,f.tracking_evidence_url,f.tracking_changed_at,f.tracking_revision,f.tracking_last_checked_at,f.tracking_last_checked_bout_id,f.tracking_return_candidate_at,p.post_status FROM {$t['fighters']} f LEFT JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.id<=%d ORDER BY f.id",$maxId),'f.id');
+		$flags=iterator_to_array(self::rows($wpdb->prepare("SELECT f.id,f.is_public,f.is_rankable,f.status,f.rankability_status,f.deleted_soft,f.in_ufc,f.tracking_mode,f.tracking_reason,f.tracking_source,f.tracking_evidence_url,f.tracking_changed_at,f.tracking_revision,f.tracking_last_checked_at,f.tracking_last_checked_bout_id,f.tracking_return_candidate_at,p.post_status FROM {$t['fighters']} f LEFT JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.id<=%d ORDER BY f.id",$maxId),'f.id'),false);
         $manual=(static function()use($wpdb,$t){
             $cursor=null;
             do{
@@ -90,8 +90,22 @@ final class DatabaseState {
         })();
         $career=\MMAF\DataEngine\Services\Scoring\Schema::tables()['career'];
         $protectedCareer=self::rows("SELECT * FROM $career WHERE protected=1 ORDER BY id");
-        return ['max_fighter_id'=>$maxId,'publication_hash'=>self::arrayHash($flags),'manual_hash'=>self::arrayHash($manual),'protected_career_hash'=>self::arrayHash($protectedCareer)];
+		$byId=[];foreach($flags as $flag){$byId[(int)$flag['id']]=$flag;}
+		return ['max_fighter_id'=>$maxId,'publication_hash'=>self::arrayHash($flags),'publication_rows'=>$byId,'manual_hash'=>self::arrayHash($manual),'protected_career_hash'=>self::arrayHash($protectedCareer)];
     }
+	/** Permit only the explicit, evidence-backed disposition transition in an approved import. */
+	public static function protectedStateMatches(array $baseline): bool {
+		$current=self::protectedState((int)($baseline['max_fighter_id']??0));
+		if(($current['manual_hash']??'')!==($baseline['manual_hash']??'') || ($current['protected_career_hash']??'')!==($baseline['protected_career_hash']??'')){return false;}
+		if(($current['publication_hash']??'')===($baseline['publication_hash']??'')){return true;}
+		if(empty($baseline['publication_rows']) || !is_array($baseline['publication_rows'])){return false;}
+		$allowed=['is_public'=>true,'is_rankable'=>true,'status'=>true,'rankability_status'=>true,'tracking_mode'=>true,'tracking_reason'=>true,'tracking_source'=>true,'tracking_evidence_url'=>true,'tracking_changed_at'=>true,'tracking_revision'=>true,'tracking_last_checked_at'=>true,'tracking_last_checked_bout_id'=>true,'tracking_return_candidate_at'=>true,'post_status'=>true];
+		foreach($baseline['publication_rows'] as $id=>$before){$after=$current['publication_rows'][(int)$id]??null;if(!$after){return false;}$changed=[];foreach($before as $field=>$value){if((string)($after[$field]??'')!==(string)$value){$changed[$field]=true;}}
+			if(!$changed){continue;}
+			if(array_diff_key($changed,$allowed) || ($after['tracking_source']??'')!=='ranking_disposition' || !in_array($after['tracking_mode']??'', ['paused','opponent_only'],true) || (int)($after['is_rankable']??1)!==0){return false;}
+		}
+		return true;
+	}
     /** Hash exactly the former JSON array, without retaining the complete result. */
     public static function arrayHash(iterable $rows): string {
         $hash=hash_init('sha256');hash_update($hash,'[');$first=true;

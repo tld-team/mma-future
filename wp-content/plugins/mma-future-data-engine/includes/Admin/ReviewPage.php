@@ -401,10 +401,10 @@ final class ReviewPage {
 	private static function render_tracking(): void {
 		$service=new TrackingService();$rows=$service->review_rows();$candidates=array_values(array_filter($rows,static fn($row)=>!empty($row['tracking_return_candidate_at'])));$suggestions=$service->suggestion_rows();
 		?>
-		<h2><?php esc_html_e('Archived fighters and return candidates','mma-future-data-engine'); ?></h2>
-		<p><?php echo esc_html(sprintf('%d archived or paused fighters; %d waiting for a return decision.',count($rows),count($candidates))); ?></p>
+		<h2><?php esc_html_e('Outside ranking and return candidates','mma-future-data-engine'); ?></h2>
+		<p><?php echo esc_html(sprintf('%d fighters are currently outside ranking; %d temporarily paused fighters await a return decision. Public availability is shown separately on each fighter profile.',count($rows),count($candidates))); ?></p>
 		<table class="widefat striped"><thead><tr><th>Fighter</th><th>Mode</th><th>Decision</th><th>Last check</th><th>Return review</th></tr></thead><tbody>
-		<?php if(!$rows): ?><tr><td colspan="5">No archived fighters.</td></tr><?php endif; ?>
+		<?php if(!$rows): ?><tr><td colspan="5">No fighters are currently outside ranking.</td></tr><?php endif; ?>
 		<?php foreach($rows as $row): ?><tr>
 			<td><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.(int)$row['id'])); ?>">#<?php echo (int)$row['id']; ?> <?php echo esc_html($row['display_name']); ?></a></td>
 			<td><?php echo esc_html($row['tracking_mode']); ?></td>
@@ -415,7 +415,7 @@ final class ReviewPage {
 				<form method="post" style="display:inline-block;margin:4px"><?php wp_nonce_field(self::NONCE_ACTION,self::NONCE_NAME); ?><input type="hidden" name="mmaf_review_action" value="tracking_keep_paused"><input type="hidden" name="fighter_id" value="<?php echo (int)$row['id']; ?>"><input type="text" required name="tracking_reason" placeholder="Reason to keep paused"><?php submit_button('Keep paused','secondary button-small','submit',false); ?></form>
 			<?php else: ?>—<?php endif; ?></td>
 		</tr><?php endforeach; ?></tbody></table>
-		<h2>Read-only proposals for currently normal fighters</h2><p><?php echo esc_html(sprintf('%d proposals. No decision is applied from this report; is_rankable=0 by itself is never a reason.',count($suggestions))); ?></p>
+		<h2>Read-only disposition proposals for normal fighters</h2><p><?php echo esc_html(sprintf('%d proposals. Confirmed exclusions are completed outcomes, not ranking-review work; is_rankable=0 by itself is never a reason.',count($suggestions))); ?></p>
 		<table class="widefat striped"><thead><tr><th>Fighter</th><th>Suggested mode</th><th>Reasons</th><th>Evidence / conflict</th></tr></thead><tbody><?php if(!$suggestions): ?><tr><td colspan="4">No current proposals.</td></tr><?php endif; ?><?php foreach($suggestions as $item): ?><tr><td><a href="<?php echo esc_url(admin_url('admin.php?page=mmaf-fighters&action=edit&fighter_id='.(int)$item['fighter_id'])); ?>">#<?php echo (int)$item['fighter_id']; ?> <?php echo esc_html($item['display_name']); ?></a></td><td><?php echo esc_html($item['suggested_mode']); ?></td><td><?php echo esc_html(implode(', ',$item['reasons'])); ?></td><td><?php echo esc_html(wp_json_encode($item['evidence'],JSON_UNESCAPED_SLASHES)); ?><?php if($item['conflict']): ?><br><strong>Multiple rules require review</strong><?php endif; ?></td></tr><?php endforeach; ?></tbody></table>
 		<?php
 	}

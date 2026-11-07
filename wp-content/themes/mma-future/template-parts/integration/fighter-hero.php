@@ -27,7 +27,7 @@
 <!-- Fighter Name -->
 <h1 class="font-heading font-black text-3xl xs:text-4xl md:text-5xl lg:text-4xl xl:text-5xl 2xl:text-6xl text-white leading-tight tracking-tight" style="font-weight: 950;"><?php echo esc_html( $f['display_name'] ); ?></h1><?php if ( ! empty( $f['nickname'] ) ) : ?><p class="text-white/80 font-heading"><?php echo esc_html( $f['nickname'] ); ?></p><?php endif; ?>
 <?php if ( class_exists( '\MMAF\DataEngine\Services\Notifications\Module' ) ) { echo \MMAF\DataEngine\Services\Notifications\Module::button( (int) ( $f['id'] ?? 0 ) ); } ?>
-<?php if ( ! empty( $c['ufc_signing']['confirmed'] ) ) : ?><div class="rounded-xl border border-primary-400/40 bg-primary-500/20 px-5 py-4 text-left"><strong class="block text-white text-lg">Signed with the UFC</strong><span class="text-white/80">This fighter is no longer ranked by MMA Future.</span></div><?php endif; ?>
+<?php if ( ! empty( $c['ufc_signing']['confirmed'] ) ) : ?><div class="rounded-xl border border-primary-400/40 bg-primary-500/20 px-5 py-4 text-left"><strong class="block text-white text-lg">Signed with the UFC</strong><span class="text-white/80">This fighter is no longer ranked by MMA Future.</span></div><?php elseif ( ($f['ranking_status'] ?? '') !== 'ranked_or_candidate' ) : ?><div class="rounded-xl border border-primary-400/40 bg-primary-500/20 px-5 py-4 text-left"><strong class="block text-white text-lg"><?php echo esc_html( ($f['ranking_status'] ?? '') === 'temporarily_outside_ranking' ? 'Temporarily outside rankings' : 'Outside MMA Future rankings' ); ?></strong><span class="text-white/80">This profile remains public, but has no active MMA Future rank or score.</span></div><?php endif; ?>
 <!-- Meta Information Row -->
 <div class="flex flex-wrap items-center gap-3 xs:gap-4 md:gap-6 lg:gap-4 xl:gap-6 justify-center lg:justify-start text-white/90">
 <!-- Nationality -->
@@ -58,7 +58,7 @@
 <!-- Category Tags -->
 <div class="flex flex-wrap gap-2 justify-center lg:justify-start">
 <span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-primary-500/20 border border-primary-400/30 text-primary-300 text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( $facts['Division'] ?? 'Unknown division' ); ?></span>
-<?php if ( empty( $c['ufc_signing']['confirmed'] ) ) : ?><span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-accent/20 border border-accent/30 text-white text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( $overall ? '#' . $overall['rank'] . ' Overall' : 'Unranked' ); ?></span><?php endif; ?>
+<?php if ( ($f['ranking_status'] ?? '') === 'ranked_or_candidate' ) : ?><span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-accent/20 border border-accent/30 text-white text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( $overall ? '#' . $overall['rank'] . ' Overall' : 'Unranked' ); ?></span><?php endif; ?>
 <?php if ( mmaf_fighter_has_fight_data( $c ) && ! empty( $stats['activity_status'] ) ) : ?><span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-white/10 border border-white/20 text-white/90 text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( ucwords( str_replace( '_', ' ', $stats['activity_status'] ) ) ); ?></span><?php endif; ?>
 </div>
 <!-- Stats Row -->
@@ -97,7 +97,7 @@
 </div>
 <div class="text-2xl xs:text-3xl md:text-4xl lg:text-2xl xl:text-3xl 2xl:text-5xl font-heading font-bold text-white tracking-tight leading-none mt-3"><?php echo esc_html( mmaf_display_number( mmaf_fighter_record_available( $c ) ? ( $stats['finish_wins'] ?? null ) : null ) ); ?></div>
 </div>
-<?php if ( empty( $c['ufc_signing']['confirmed'] ) ) : ?><!-- Opponent Strength Score - Highlighted -->
+<?php if ( ($f['ranking_status'] ?? '') === 'ranked_or_candidate' ) : ?><!-- Opponent Strength Score - Highlighted -->
 <div class="text-center lg:text-left">
 <div class="text-[0.65rem] xs:text-xs md:text-sm text-white/60 font-medium uppercase tracking-wide mb-2 xs:mb-3 flex items-center gap-1 xs:gap-1.5 justify-center lg:justify-start">MMA Future Score<!-- Tooltip -->
 <div class="group relative inline-flex">
@@ -118,7 +118,7 @@
 </div>
 <!-- Social Icons Row -->
 <div class="space-y-3 mt-8 sm:mt-10 lg:mt-12 xl:mt-14"><?php mmaf_social_links( (array) $c['editorial']['fighter_social_links'], 'inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/15', 'link' ); ?></div>
-<p class="text-white/70 text-sm"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? mmaf_record_label($c) : 'Professional record not available yet' ); ?></p><?php mmaf_render_dates( $c['dates'] ); if(empty($c['ufc_signing']['confirmed'])){mmaf_render_scoring_assessment($c);} ?></div>
+<p class="text-white/70 text-sm"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? mmaf_record_label($c) : 'Professional record not available yet' ); ?></p><?php mmaf_render_dates( $c['dates'] ); if(($f['ranking_status'] ?? '')==='ranked_or_candidate'){mmaf_render_scoring_assessment($c);} ?></div>
 <!-- Right Column: Methodology Bubble -->
 <aside class="mf-hero-bubble w-full lg:w-auto">
 <div class="mf-hero-bubble__card rounded-2xl p-5 lg:p-6 space-y-3 lg:space-y-4">

@@ -142,11 +142,14 @@ final class Engine {
         }
         if($phase==='audit'){
             $this->verifyFiles($job);$after=DatabaseState::integrity();
-            if(isset($meta['protected_baseline'])&&DatabaseState::protectedState((int)$meta['protected_baseline']['max_fighter_id'])!==$meta['protected_baseline']){throw new ImportException('Protected manual data or publication flags changed during import.','audit');}
+			if(isset($meta['protected_baseline'])&&!DatabaseState::protectedStateMatches($meta['protected_baseline'])){throw new ImportException('Protected manual data or publication flags changed outside the approved ranking-disposition policy.','audit');}
             $counts=$this->actualCounts($id);
             foreach(['event'=>'results','bout'=>'bouts','profile'=>'profiles'] as $kind=>$source){if(array_sum($counts[$kind]??[])!==(int)$meta['package']['counts'][$source]){throw new ImportException('Final coverage check failed for '.$kind.'.','audit');}}
-            $newPublic=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM ".CanonicalSchema::table_names()['fighters']." WHERE id>%d AND (is_public<>0 OR is_rankable<>0)",(int)($meta['protected_baseline']['max_fighter_id']??PHP_INT_MAX)));
-            if($newPublic){throw new ImportException('A new fighter has unexpected publication flags.','audit');}
+			// A profile can now be made public only by the approved disposition
+			// policy. Keep the old audit guard for every other publication change.
+			$fighters_table=CanonicalSchema::table_names()['fighters'];
+			$newPublic=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $fighters_table WHERE id>%d AND (is_rankable<>0 OR (is_public<>0 AND NOT (tracking_source='ranking_disposition' AND tracking_mode IN ('paused','opponent_only') AND is_rankable=0)))",(int)($meta['protected_baseline']['max_fighter_id']??PHP_INT_MAX)));
+			if($newPublic){throw new ImportException('A new fighter has unexpected publication flags.','audit');}
             foreach(['duplicate_fighter_sources','duplicate_event_sources','duplicate_bout_sources','malformed_bouts','orphan_participants','bouts_without_event'] as $key){
                 if($after[$key]>($meta['baseline'][$key]??0)){throw new ImportException('Final verification found an integrity regression: '.$key,'audit');}
             }
@@ -252,22 +255,29 @@ final class Engine {
                 if($category==='review'){++$summary['review'];Review::upsert($id,'profile_snapshot',$key,['source_fighter_id'=>$key,'reason'=>$saved['reason']??'No successful source snapshot is available.'],$actor);}
                 else{++$summary['stored'];}
                 if(!empty($saved['fighter_id'])&&!empty($saved['has_success'])&&$category!=='review'){
-					$fighter=(new \MMAF\DataEngine\Repositories\FighterRepository())->find((int)$saved['fighter_id']);$mode=$fighter?\MMAF\DataEngine\Services\TrackingService::mode($fighter):\MMAF\DataEngine\Services\TrackingService::NORMAL;
+					$fighter_id=(int)$saved['fighter_id'];
+					$latest=$store->for_fighter($fighter_id);
+					// Facts are useful on a public, non-ranking profile as well. Apply
+					// protected profile values before deciding whether ranking work stops.
+					if($latest){
+						$payload=['schema_version'=>'tapology_fighter_profiles_v0_1','source'=>'tapology','profiles'=>[$latest['profile']],'profiles_total'=>1];
+						$result=(new FighterProfileEnrichmentApplyService())->apply_all_safe_json_string(wp_json_encode($payload),'Regular import '.$id,$actor,true);
+						if(!empty($result['summary']['profiles_failed'])){throw new \RuntimeException('Stored profile field update failed.');}
+						if(!empty($result['summary']['fields_applied_total'])){
+							$category='updated';$summary['profile_changes']['facts_profiles']=($summary['profile_changes']['facts_profiles']??0)+1;
+							$summary['profile_changes']['facts_fields']=($summary['profile_changes']['facts_fields']??0)+(int)$result['summary']['fields_applied_total'];
+						}
+						(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->observe($fighter_id,$latest['profile'],$latest['content_hash'],$actor);
+						$disposition=(new \MMAF\DataEngine\Services\RankingDispositionService())->apply($fighter_id,$actor);
+						$outcome=$disposition['outcome']??'candidate';$summary['ranking_dispositions'][$outcome]=($summary['ranking_dispositions'][$outcome]??0)+1;
+						if(!empty($disposition['published'])){$summary['ranking_disposition_profiles_published']=($summary['ranking_disposition_profiles_published']??0)+1;}
+					}
+					$fighter=(new \MMAF\DataEngine\Repositories\FighterRepository())->find($fighter_id);$mode=$fighter?\MMAF\DataEngine\Services\TrackingService::mode($fighter):\MMAF\DataEngine\Services\TrackingService::NORMAL;
 					$pausedDue=$mode===\MMAF\DataEngine\Services\TrackingService::PAUSED && (new \MMAF\DataEngine\Services\TrackingService())->recheck_due((int)$saved['fighter_id']);
 					if($mode===\MMAF\DataEngine\Services\TrackingService::OPPONENT_ONLY || ($mode===\MMAF\DataEngine\Services\TrackingService::PAUSED && !$pausedDue)){
 						$summary['tracking_profiles_skipped']=($summary['tracking_profiles_skipped']??0)+1;$this->applied($id,'profile',$key,'unchanged',['fighter_id'=>(int)$saved['fighter_id'],'tracking_mode'=>$mode,'reason'=>'current_wordpress_tracking_decision']);continue;
 					}
-                    $latest=$store->for_fighter((int)$saved['fighter_id']);
-                    if($latest){
-                        $payload=['schema_version'=>'tapology_fighter_profiles_v0_1','source'=>'tapology','profiles'=>[$latest['profile']],'profiles_total'=>1];
-                        $result=(new FighterProfileEnrichmentApplyService())->apply_all_safe_json_string(wp_json_encode($payload),'Regular import '.$id,$actor,true);
-                        if(!empty($result['summary']['profiles_failed'])){throw new \RuntimeException('Stored profile field update failed.');}
-                        if(!empty($result['summary']['fields_applied_total'])){
-                            $category='updated';$summary['profile_changes']['facts_profiles']=($summary['profile_changes']['facts_profiles']??0)+1;
-                            $summary['profile_changes']['facts_fields']=($summary['profile_changes']['facts_fields']??0)+(int)$result['summary']['fields_applied_total'];
-                        }
-                        \MMAF\DataEngine\Services\DataPipeline\Processor::enqueue((int)$saved['fighter_id'],$actor,$id);
-                    }
+					if($latest){ \MMAF\DataEngine\Services\DataPipeline\Processor::enqueue((int)$saved['fighter_id'],$actor,$id); }
                 }
                 $this->applied($id,'profile',$key,$category,$saved);
             }

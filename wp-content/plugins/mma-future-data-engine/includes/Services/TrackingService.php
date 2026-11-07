@@ -47,7 +47,9 @@ final class TrackingService {
 						'tracking_return_candidate_at' => null, 'updated_at' => $now,
 					);
 					if ( self::NORMAL !== $mode ) {
-						$values['is_public'] = 0; $values['is_rankable'] = 0;
+						// Tracking determines ranking work, never whether a confirmed
+						// public profile remains searchable.
+						$values['is_rankable'] = 0;
 						$values['rankability_status'] = $this->rankability_status( $mode, $reason );
 						if ( self::PAUSED === $mode ) {
 							$values['tracking_last_checked_at']=$now;
@@ -55,7 +57,7 @@ final class TrackingService {
 						}
 					} else {
 						// Restoring tracking creates a review candidate; it never republishes or reranks by itself.
-						$values['is_public'] = 0; $values['is_rankable'] = 0; $values['rankability_status'] = 'pending_review';
+						$values['is_rankable'] = 0; $values['rankability_status'] = 'pending_review';
 					}
 					if ( self::mode( $before ) === $mode && (string) ( $before['tracking_reason'] ?? '' ) === $reason && (string) ( $before['tracking_evidence_url'] ?? '' ) === (string) $values['tracking_evidence_url'] && empty($before['tracking_return_candidate_at']) ) { $unchanged[] = $id; continue; }
 					Repository::check( $wpdb->update( $table, $values, array( 'id' => $id ) ) );
@@ -116,18 +118,11 @@ final class TrackingService {
 
 	/** Read-only proposal list. It never treats is_rankable=0 as an exclusion reason. */
 	public function suggestion_rows( int $limit = 1000 ): array {
-		global $wpdb; $t=Schema::table_names();$limit=min(5000,max(1,$limit));
-		$rows=$wpdb->get_results($wpdb->prepare("SELECT f.*,s.wins,s.losses,s.pro_fights_count,s.last_fight_date FROM {$t['fighters']} f LEFT JOIN {$t['fighter_stats_current']} s ON s.fighter_id=f.id WHERE f.deleted_soft=0 AND f.tracking_mode='normal' ORDER BY f.id LIMIT %d",$limit),ARRAY_A)?:[];
-		$ids=array_map('intval',array_column($rows,'id'));$career=$ids?(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->for_fighters($ids):[];
-		$config=\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_config()['eligibility'];$cutoff=(new \DateTimeImmutable(current_time('Y-m-d')))->modify('-'.((int)$config['inactivity_months']).' months')->format('Y-m-d');$out=[];
-		foreach($rows as $row){$id=(int)$row['id'];$permanent=[];$temporary=[];$evidence=[];
-			if((int)$row['in_ufc']===1){$permanent[]='confirmed_ufc_signing';}
-			if(!empty($row['date_of_birth'])){$age=(new \DateTimeImmutable($row['date_of_birth']))->diff(new \DateTimeImmutable(current_time('Y-m-d')))->y;if($age>(int)$config['max_age']){$permanent[]='age_over_34';$evidence['age']=$age;}}
-			$record=$career[$id]??null;if(($record['status']??'')==='accepted' && (int)($record['record']['pro_fights_count']??0)>(int)$config['max_pro_fights_count']){$permanent[]='confirmed_pro_fights_over_30';$evidence['career_record']=$record['record'];$evidence['career_source_url']=$record['source_url']??null;}
-			if(!$permanent && !empty($row['last_fight_date']) && $row['last_fight_date']<$cutoff){$temporary[]='inactive_24_months';}
-			$allowed=null;foreach($config['loss_limit_by_wins']??[] as $minimum_wins=>$maximum_losses){if((int)$row['wins']>=(int)$minimum_wins){$allowed=(int)$maximum_losses;break;}}
-			if(!$permanent && $allowed!==null && (int)$row['losses']>$allowed){$temporary[]='loss_limit';$evidence['recorded_record']=['wins'=>(int)$row['wins'],'losses'=>(int)$row['losses'],'allowed_losses'=>$allowed];}
-			$reasons=$permanent?:$temporary;if(!$reasons){continue;}$out[]=['fighter_id'=>$id,'display_name'=>$row['display_name'],'suggested_mode'=>$permanent?self::OPPONENT_ONLY:self::PAUSED,'reasons'=>$reasons,'evidence'=>$evidence,'conflict'=>count($reasons)>1];
+		global $wpdb; $t=Schema::table_names();$limit=max(1,$limit);
+		$rows=$wpdb->get_results($wpdb->prepare("SELECT f.* FROM {$t['fighters']} f WHERE f.deleted_soft=0 AND f.tracking_mode='normal' ORDER BY f.id LIMIT %d",$limit),ARRAY_A)?:[];
+		$service=new RankingDispositionService();$out=[];
+		foreach($rows as $row){$decision=$service->classify($row);if(!in_array($decision['outcome'],[RankingDispositionService::PERMANENT,RankingDispositionService::TEMPORARY],true)){continue;}
+			$out[]=['fighter_id'=>(int)$row['id'],'display_name'=>$row['display_name'],'suggested_mode'=>$decision['outcome']===RankingDispositionService::PERMANENT?self::OPPONENT_ONLY:self::PAUSED,'reasons'=>$decision['reasons'],'evidence'=>$decision['evidence'],'conflict'=>count($decision['reasons'])>1,'classification'=>$decision['outcome'],'would_publish'=>$service->can_publish_basic_profile($row,$decision)];
 		}
 		return $out;
 	}

@@ -38,5 +38,12 @@ try{
  $private=array_values(array_filter($private_history['items'],static fn($fight)=>(int)$fight['opponent']['fighter_id']===$opponent_id));
  expect($private && $private[0]['opponent']['display_name'] && !$private[0]['opponent']['permalink'],'private opponents retain a name without a profile link');
 }finally{Transaction::rollback();delete_transient(PublicCacheService::key('history',[$id,['per_page'=>10]]));}
+Transaction::begin();
+try{
+ $wpdb->update($t['fighters'],['tracking_mode'=>'opponent_only','tracking_source'=>'ranking_disposition','is_rankable'=>0,'rankability_status'=>'ineligible_age','is_public'=>1],['id'=>$id]);
+ PublicCacheService::flush();$outside=$service->fighter($id);$outside_list=$service->rankings(['board'=>'male','per_page'=>100]);
+ expect(!is_wp_error($outside) && $outside['fighter']['ranking_status']==='outside_ranking' && !$outside['rankings'] && $outside['scoring_assessment']===null,'public permanently excluded fighter has no live rank or score');
+ expect(!in_array($id,array_map('intval',array_column($outside_list['items'],'fighter_id')),true),'current disposition removes a stale snapshot row from public ranking lists');
+}finally{Transaction::rollback();PublicCacheService::flush();}
 PublicCacheService::flush();$old=PublicCacheService::key('proof');do_action('mmaf_public_data_changed','stats');$new=PublicCacheService::key('proof');expect($old!==$new,'successful data changes invalidate application cache keys');
 echo "Public contract checks completed.\n";
