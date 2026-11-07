@@ -101,7 +101,11 @@ final class RankingDispositionService {
 		$profile = ( new ProfileStore() )->for_fighter( $id );
 		if ( ! $profile || ( $profile['profile']['status'] ?? '' ) !== 'success' ) { return false; }
 		$record = $classification['career_record']['record'] ?? null;
-		return is_array( $record ) && (int) ( $record['pro_fights_count'] ?? 0 ) > 0;
+		// Publishing a basic profile does not require a complete career aggregate.
+		// Either an accepted positive Pro MMA aggregate or one verified held Pro MMA
+		// appearance is enough. Ranking still requires the stricter full evidence.
+		return ( is_array( $record ) && (int) ( $record['pro_fights_count'] ?? 0 ) > 0 )
+			|| $this->verified_professional_appearance( (array) $profile['profile'] );
 	}
 
 	/** Apply a fresh decision. Existing permanent decisions never return to normal here. */
@@ -216,7 +220,21 @@ final class RankingDispositionService {
 		$career = $record ? array_intersect_key( $record, array_flip( array( 'status','record','observation_id','observed_at','source_url','profile_hash','protected','reason' ) ) ) : null;
 		return array( 'outcome' => $outcome, 'reasons' => array_values( array_unique( $reasons ) ), 'reference_date' => $date, 'rule_version' => self::RULE_VERSION, 'formula_version' => $formula['formula_version'] ?? null, 'career_record' => $career, 'evidence' => $evidence );
 	}
-	private function source_count( int $fighter_id ): int { global $wpdb; $t = Schema::table_names()['fighter_sources']; return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $t WHERE fighter_id=%d AND source_type='tapology' AND is_verified=1", $fighter_id ) ); }
+	private function source_count( int $fighter_id ): int {
+		global $wpdb;
+		$t = Schema::table_names()['fighter_sources'];
+		// Import-created identities begin unverified until an editor touches them.
+		// A single canonical source ID is already sufficient here; duplicate/source
+		// conflicts are rejected separately by identity_conflict().
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $t WHERE fighter_id=%d AND source_type='tapology' AND source_fighter_id IS NOT NULL AND source_fighter_id<>''", $fighter_id ) );
+	}
+	private function verified_professional_appearance( array $profile ): bool {
+		if ( ( $profile['history_scope'] ?? '' ) !== 'professional_mma' || empty( $profile['history_scope_verified'] ) ) { return false; }
+		foreach ( (array) ( $profile['fight_history'] ?? array() ) as $fight ) {
+			if ( ! empty( $fight['is_professional'] ) && in_array( (string) ( $fight['result'] ?? '' ), array( 'win','loss','draw','no_contest' ), true ) ) { return true; }
+		}
+		return false;
+	}
 	private function exact_age( string $dob, string $date ): ?int { if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/D', $dob ) ) { return null; } try { return ( new \DateTimeImmutable( $dob ) )->diff( new \DateTimeImmutable( $date ) )->y; } catch ( \Throwable $e ) { return null; } }
 	private function inactive( string $last, string $date, int $months ): bool { try { return new \DateTimeImmutable( $date ) >= ( new \DateTimeImmutable( $last ) )->modify( '+' . $months . ' months' ); } catch ( \Throwable $e ) { return false; } }
 	private function latest_professional_fight_evidence( int $fighter_id ): array {

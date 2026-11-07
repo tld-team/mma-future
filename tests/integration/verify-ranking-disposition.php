@@ -71,6 +71,15 @@ try {
 	$ufc = fixture_fighter( 948880008, 'Disposition UFC', array( 'in_ufc' => 1, 'date_of_birth' => '1999-01-01' ) );
 	$ufc_decision = $service->classify( $repo->find( $ufc['fighter_id'] ), $reference );
 	disposition_expect( RankingDispositionService::PERMANENT === $ufc_decision['outcome'] && in_array( 'confirmed_ufc_signing', $ufc_decision['reasons'], true ), 'a confirmed UFC signing is permanently outside ranking' );
+	$basic = fixture_fighter( 948880009, 'Disposition Basic Public Profile', array( 'date_of_birth' => '1980-01-01' ) );
+	$basic_opponent = fixture_fighter( 948880010, 'Disposition Basic Profile Opponent' );
+	$basic_fight = fixture_fight( 948880011, $basic_opponent, 'win' );
+	$basic_profile = fixture_profile( $basic, array( $basic_fight ), array() );
+	( new ProfileStore() )->put( $basic_profile, 'tapology_fighter_profiles_v0_1' );
+	$basic_decision = $service->classify( $repo->find( $basic['fighter_id'] ), $reference );
+	disposition_expect( RankingDispositionService::PERMANENT === $basic_decision['outcome'] && $service->can_publish_basic_profile( $repo->find( $basic['fighter_id'] ), $basic_decision ), 'a verified professional appearance permits a basic public profile without an accepted aggregate' );
+	$service->apply( $basic['fighter_id'], 1, $reference, false );
+	disposition_expect( 1 === (int) $repo->find( $basic['fighter_id'] )['is_public'] && 0 === (int) $repo->find( $basic['fighter_id'] )['is_rankable'], 'basic publication never restores ranking permission' );
 } finally {
 	Transaction::rollback();
 	WriteGuard::$worker = false;
