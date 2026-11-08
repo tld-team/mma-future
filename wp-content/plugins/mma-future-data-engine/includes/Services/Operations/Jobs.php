@@ -190,12 +190,12 @@ final class Jobs {
                             self::item($id,$fid,['status'=>'excluded','reason_code'=>$decision['reason'],'result'=>['ranking_disposition'=>$decision['ranking_disposition']??null,'data_review_reason'=>$decision['data_review_reason']??null]]);
                             return;
                         }
-                        // A confirmed basic profile may be published without a complete
-                        // career. Its missing final-ranking evidence stays visible in the
-                        // data queue, but must not block an explicit profile-only action.
+                        // A confirmed basic profile may be published without final-ranking
+                        // evidence. These facts remain visible in the data queue, while
+                        // identity, source and technical blockers still stop publication.
                         $profileOnly=in_array($job['action'],['prepare_publish_profile','mark_public'],true)
                             && $decision['state']==='review'
-                            && ($decision['reason']??'')==='last_professional_fight_unconfirmed';
+                            && in_array(($decision['reason']??''),['age_unresolved','last_professional_fight_unconfirmed','professional_record_unconfirmed'],true);
                         if(!$profileOnly && in_array($decision['state'],['review','failed'],true)){self::item($id,$fid,['status'=>'review','reason_code'=>$decision['reason']]);return;}
                         $prior=$wpdb->get_var($wpdb->prepare("SELECT JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.approval_input_hash')) FROM {$t['items']} WHERE fighter_id=%d AND operation_id<>%d AND status IN ('completed','noop') ORDER BY operation_id DESC LIMIT 1",$fid,$id));
                         $alreadyApproved=$job['action']==='approve_and_prepare' && $fighter['is_public'] && $fighter['is_rankable'] && $fighter['status']==='verified';
