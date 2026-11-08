@@ -48,13 +48,19 @@ final class Readiness {
                 : ['state'=>'review','reason'=>'identity_conflict'];
         }
         $disposition=(new \MMAF\DataEngine\Services\RankingDispositionService())->classify($fighter);
-        if(in_array($disposition['outcome']??'',[\MMAF\DataEngine\Services\RankingDispositionService::PERMANENT,\MMAF\DataEngine\Services\RankingDispositionService::TEMPORARY],true)){
+        // A permanent fact such as confirmed UFC status or age does not depend on
+        // a currently saved profile. For every other result, retain the precise
+        // source-availability diagnosis before reporting ranking evidence.
+        if(($disposition['outcome']??'')===\MMAF\DataEngine\Services\RankingDispositionService::PERMANENT){
+            return ['state'=>'excluded','reason'=>(string)($disposition['reasons'][0]??'ranking_excluded'),'ranking_disposition'=>$disposition];
+        }
+        if ((int)($metadata['successful_profile_count']??0)!==1) { return ['state'=>'review','reason'=>'stored_profile_missing']; }
+        if(($disposition['outcome']??'')===\MMAF\DataEngine\Services\RankingDispositionService::TEMPORARY){
             return ['state'=>'excluded','reason'=>(string)($disposition['reasons'][0]??'ranking_excluded'),'ranking_disposition'=>$disposition];
         }
         if(($disposition['outcome']??'')===\MMAF\DataEngine\Services\RankingDispositionService::UNRESOLVED){
             return ['state'=>'review','reason'=>(string)($disposition['reasons'][0]??'ranking_evidence_unresolved'),'ranking_disposition'=>$disposition];
         }
-        if ((int)($metadata['successful_profile_count']??0)!==1) { return ['state'=>'review','reason'=>'stored_profile_missing']; }
         if (($metadata['preparation_status']??'')==='failed') { return ['state'=>'failed','reason'=>'technical_failure']; }
         if (($metadata['preparation_status']??'')==='pending') { return ['state'=>'preparing','reason'=>null]; }
         return ['state'=>'ready','reason'=>null,'ranking_disposition'=>$disposition];
