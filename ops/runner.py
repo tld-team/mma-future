@@ -52,7 +52,9 @@ class Runner:
         command=[self.c['php'],'-d','memory_limit=512M',self.c['wp_cli'],'--path='+str(self.wp_root),*args]
         r=subprocess.run(command,env=dict(self.env,**(extra_env or {})),pass_fds=self.passed_fds,capture_output=True,text=True,timeout=timeout)
         if r.returncode==75: raise Busy('WordPress is at a protected checkpoint')
-        if r.returncode: raise RuntimeError('WP command failed: '+args[0])
+        if r.returncode:
+            detail=re.sub(r'\s+',' ',r.stderr or '').strip()[:500]
+            raise RuntimeError('WP command failed: '+args[0]+(' ('+detail+')' if detail else ''))
         return r.stdout.strip()
     def helper(self,name):
         path=Path(__file__).resolve().parent/name

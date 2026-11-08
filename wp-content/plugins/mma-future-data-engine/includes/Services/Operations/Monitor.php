@@ -33,6 +33,11 @@ final class Monitor {
         if($seconds>=300){$alerts['heartbeat']=['severity'=>$seconds>=600?'critical':'warning','message'=>'Worker heartbeat is '.($heartbeat?$seconds.' seconds old':'missing').'.'];}
         if(isset($disk['disk_used_percent']) && $disk['disk_used_percent']>=80){$alerts['disk']=['severity'=>$disk['disk_used_percent']>=90?'critical':'warning','message'=>'Filesystem usage is '.$disk['disk_used_percent'].'%.'];}
         global $wpdb;$jobs=Schema::tables()['jobs'];$failed=(int)$wpdb->get_var("SELECT COUNT(*) FROM $jobs WHERE status='failed'");if($failed){$alerts['failed_operations']=['severity'=>'critical','message'=>$failed.' operation(s) require attention.'];}
+        $importJobs=\MMAF\DataEngine\Services\RegularImport\Schema::tables()['jobs'];
+        $attention=$wpdb->get_results("SELECT id,phase,updated_at FROM $importJobs WHERE status='needs_attention' ORDER BY id DESC LIMIT 25",ARRAY_A)?:[];
+        foreach($attention as $job){$alerts['import_attention_'.$job['id']]=['severity'=>'critical','message'=>'Import #'.(int)$job['id'].' needs attention in phase '.$job['phase'].'. Open Import History and download its diagnostic.'];}
+        $stalledImports=$wpdb->get_results("SELECT id,phase,heartbeat_at,updated_at FROM $importJobs WHERE status='running' AND COALESCE(heartbeat_at,updated_at)<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 10 MINUTE) ORDER BY id DESC LIMIT 25",ARRAY_A)?:[];
+        foreach($stalledImports as $job){$alerts['import_stalled_'.$job['id']]=['severity'=>'critical','message'=>'Import #'.(int)$job['id'].' has made no confirmed progress for ten minutes in phase '.$job['phase'].'.'];}
         $post=get_option('mmaf_after_commit_error');if($post){$alerts['invalidation']=['severity'=>'critical','message'=>'A post-commit cache invalidation needs retry.'];}
         $deployment=self::privateState('release-status.json');
         if(in_array($deployment['state']??'', ['failed','rolled_back'],true)){$alerts['release']=['severity'=>'critical','message'=>'Staging release #'.(int)($deployment['sequence']??0).' '.$deployment['state'].'. Inspect the Operations overview.'];}

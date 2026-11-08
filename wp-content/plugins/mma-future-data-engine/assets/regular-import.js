@@ -85,7 +85,7 @@
         if(job.package.date_from)html+='<p>'+t('Event dates')+': '+escape(job.package.date_from)+' — '+escape(job.package.date_to)+'</p>';
         html+=ufcPreviewHtml(job);
         if(job.notice)html+='<div class="mmaf-note">'+escape(job.notice)+'</div>';
-        if(job.error)html+='<div class="mmaf-note '+(needs?'error':'warning')+'"><strong>'+escape(job.error.message)+'</strong>'+(job.retry_at?'<br>'+t('Automatic retry scheduled')+': '+escape(job.retry_at)+' UTC':'')+'</div>';
+        if(job.error)html+='<div class="mmaf-note '+(needs?'error':'warning')+'"><strong>'+escape(job.error.message)+'</strong>'+(job.error.diagnostic?.next_step?'<br>'+escape(job.error.diagnostic.next_step):'')+(job.retry_at?'<br>'+t('Automatic retry scheduled')+': '+escape(job.retry_at)+' UTC':'')+'</div>';
         if(job.status==='discarded')html+='<div class="mmaf-note">'+t('This package was discarded. Choose another ZIP above when you are ready.')+'</div>';
         if(!ready&&!done&&job.status!=='uploading'&&!needs&&!terminal(job)){html+='<p>'+t('You can close this page. Processing continues on the server.')+'</p>';if(total){html+='<label for="mmaf-job-progress">'+t(phaseProgress.unit||'Batches')+': '+processed+' / '+total+'</label><progress id="mmaf-job-progress" max="100" value="'+percent+'"></progress>';}html+='<div class="mmaf-meta">'+t('Last activity')+': '+escape(job.last_activity||t('Waiting for the next worker check'))+'</div>';}
         if(job.status==='uploading')html+='<div class="mmaf-note">'+t('Select the same ZIP above to resume the upload, or discard it to choose a different package.')+'</div>';
@@ -105,6 +105,7 @@
         if(!job.writes_started&&['uploading','awaiting_approval','rejected'].includes(job.status))html+='<button type="button" id="mmaf-discard" class="button" data-operation="discard">'+t('Discard package')+'</button>';
         if(job.writes_started||done)html+='<a class="button" href="'+escape(job.review_url)+'">'+t('Open review items')+'</a>';
         if(job.backup&&!job.artifact_expired)html+='<a class="button" href="'+escape(job.backup_url)+'">'+t('Download backup')+'</a>';
+        if(job.diagnostics?.length&&!job.artifact_expired)html+='<a class="button" href="'+escape(job.diagnostic_url)+'">'+t('Download diagnostic')+'</a>';
         if(done&&!job.artifact_expired)html+='<a class="button" href="'+escape(job.report_url)+'">'+t('Download report')+'</a>';
         if(job.readiness&&!job.artifact_expired)html+='<a class="button" href="'+escape(job.source_enrichment_url)+'">'+t('Download source enrichment queue')+'</a>';
         if(done)html+='<button type="button" id="mmaf-new" class="button" data-new>'+t('New import')+'</button>';
@@ -140,7 +141,17 @@
         form.addEventListener('submit',async event=>{event.preventDefault();const data={};
             for(const kind of ['bytes','inodes']){data[kind+'_unlimited']=form.elements[kind+'_unlimited'].checked;for(const key of ['used','limit']){const raw=form.elements[key+'_'+kind].value;data[key+'_'+kind]=raw===''?null:Math.ceil(Number(raw)*(kind==='bytes'?1073741824:1));}}
             const button=form.querySelector('button');button.disabled=true;
-            try{await api('import-capacity',{method:'POST',body:data});capacityDirty=false;button.focus();await loadSetup(true);message(t('Account capacity observation saved.'),false);}catch(e){message(e.message);}finally{if(button.isConnected)button.disabled=false;}
+            try{
+                let result,error;
+                // A busy worker is expected to be short lived. Keep the entered values,
+                // but retry only this lock-contention response (1s, 2s, then 4s).
+                for(let attempt=0;attempt<4;attempt++){
+                    try{result=await api('import-capacity',{method:'POST',body:data});error=null;break;}
+                    catch(e){error=e;if(e.code!=='busy'||attempt===3)throw e;await new Promise(resolve=>setTimeout(resolve,1000*(2**attempt)));}
+                }
+                if(!result)throw error;
+                capacityDirty=false;button.focus();await loadSetup(true);message(t('Account capacity observation saved.'),false);
+            }catch(e){message(e.message);}finally{if(button.isConnected)button.disabled=false;}
         });
     }
     async function loadSetup(force=false){
@@ -148,9 +159,9 @@
         try{
             setup=await api('import-setup');
             byId('mmaf-worker-state').textContent=setup.ready?t('Background worker ready'):t('Setup needs attention');
-            const p=setup.preflight||{},r=p.restore_verification||{};
+            const p=setup.preflight||{},r=p.restore_verification||{},s=setup.supervisor||{};
             const worker=setup.managed_supervisor?'<p>'+t('The existing server supervisor runs this site. Worker sessions stop at a time or memory limit and resume their saved progress.')+'</p>':'<p>'+t('Ask the administrator to run this script every minute with the WordPress root, PHP CLI path and WP-CLI path as its three arguments.')+'</p><pre>'+escape(setup.runner_script)+'\n'+escape(setup.wordpress_root)+'</pre>';
-            byId('mmaf-setup').innerHTML='<span class="mmaf-badge '+(setup.ready?'good':'warning')+'">'+t(setup.ready?'Ready':'Needs attention')+'</span><ul class="mmaf-checklist">'+setup.problems.map(problem=>'<li>'+escape(problem)+'</li>').join('')+'</ul><p>'+t('Worker last seen')+': '+escape(setup.worker_seen||t('Not yet'))+'</p><p>'+t('Estimated backup working space')+': '+(Number(p.backup_estimated_bytes||0)/1073741824).toFixed(2)+' GiB · '+t('Media files')+': '+Number(p.media_files||0).toLocaleString()+'</p><p>'+t('Last full restore verification')+': '+escape(r.ok?r.checked_at:t('Not recorded'))+(p.restore_verification_due?' · '+t('Full restore verification is due under the administrator policy.'):'')+'</p><p>'+t('Private storage')+': <code>'+escape(setup.storage||'—')+'</code></p>'+worker+capacityForm()+'<p>'+t('Backups include the database and locally managed media. Completed import artifacts are retained for 30 days and at least the last three imports; unfinished imports are retained.')+'</p>';
+            byId('mmaf-setup').innerHTML='<span class="mmaf-badge '+(setup.ready?'good':'warning')+'">'+t(setup.ready?'Ready':'Needs attention')+'</span><ul class="mmaf-checklist">'+setup.problems.map(problem=>'<li>'+escape(problem)+'</li>').join('')+'</ul><p>'+t('Worker last seen')+': '+escape(setup.worker_seen||t('Not yet'))+'</p><p>'+t('Supervisor')+': '+escape(s.state||t('Not recorded'))+(s.stop_reason?' · '+escape(s.stop_reason):'')+(s.error?' · '+escape(s.error):'')+'</p><p>'+t('Estimated backup working space')+': '+(Number(p.backup_estimated_bytes||0)/1073741824).toFixed(2)+' GiB · '+t('Media files')+': '+Number(p.media_files||0).toLocaleString()+'</p><p>'+t('Last full restore verification')+': '+escape(r.ok?r.checked_at:t('Not recorded'))+(p.restore_verification_due?' · '+t('Full restore verification is due under the administrator policy.'):'')+'</p><p>'+t('Private storage')+': <code>'+escape(setup.storage||'—')+'</code></p>'+worker+capacityForm()+'<p>'+t('Backups include the database and locally managed media. Completed import artifacts are retained for 30 days and at least the last three imports; unfinished imports are retained.')+'</p>';
             wireCapacityForm();
         }catch(error){message(error.message);}
     }

@@ -16,13 +16,14 @@ final class Engine {
         $unit=function(): array {return Mutex::run(function(): array {
             update_option('mmaf_import_worker_seen',gmdate('c'),false);
             $job=$this->repo->active();
-            if(!$job||in_array($job['status'],['uploading','awaiting_approval','paused','needs_attention'],true)){return ['worked'=>false];}
+            if(!$job){return ['worked'=>false,'blocked'=>'idle'];}
+            if(in_array($job['status'],['uploading','awaiting_approval','paused','needs_attention'],true)){return ['worked'=>false,'blocked'=>$job['status']];}
             $id=(int)$job['id'];
-            if($job['retry_at']&&strtotime($job['retry_at'].' UTC')>time()){return ['worked'=>false];}
-            if(!empty($job['pause_requested'])){$this->repo->update($id,['status'=>'paused']);return ['worked'=>false];}
+            if($job['retry_at']&&strtotime($job['retry_at'].' UTC')>time()){return ['worked'=>false,'blocked'=>'retry_wait'];}
+            if(!empty($job['pause_requested'])){$this->repo->update($id,['status'=>'paused']);return ['worked'=>false,'blocked'=>'paused'];}
             // A previous process that vanished did not commit its current unit of work.
             $attempts=(int)$job['attempts'];
-            if($job['status']==='running'&&$attempts>=3){$this->repo->update($id,['status'=>'needs_attention','error'=>['message'=>'The worker stopped three times. Check the server log, then resume.','reason'=>'worker_interrupted','retryable'=>true]]);return ['worked'=>false];}
+            if($job['status']==='running'&&$attempts>=3){$this->repo->update($id,['status'=>'needs_attention','error'=>['message'=>'The worker stopped three times. Check the server log, then resume.','reason'=>'worker_interrupted','retryable'=>true]]);return ['worked'=>false,'blocked'=>'needs_attention'];}
             $this->repo->update($id,['status'=>'running','attempts'=>$attempts+1,'retry_at'=>null,'heartbeat_at'=>gmdate('Y-m-d H:i:s')]);
             global $wpdb;$job=$this->repo->get($id);$start=microtime(true);$queryStart=$wpdb->num_queries;$lastBeat=0;
             $heartbeat=function() use ($id,&$lastBeat): void {if(time()-$lastBeat>=2){Storage::write(Storage::job($id).'/heartbeat.json',['at'=>gmdate('c'),'phase'=>$this->repo->get($id)['phase']]);$lastBeat=time();}};
@@ -31,7 +32,7 @@ final class Engine {
                 if(($job['meta']['site_url']??'')!==home_url('/')){throw new ImportException('This job belongs to a different site.','destination');}
                 if($job['phase']==='backup'){
                     $meta=$job['meta'];$meta['backup']=Backup::create($id,$heartbeat);
-                    $meta['baseline']=DatabaseState::integrity();$meta['calculation_input_baseline']=DatabaseState::calculationRevision();$meta['protected_baseline']=DatabaseState::protectedState();
+                    $meta['baseline']=DatabaseState::integrity();$meta['calculation_input_baseline']=DatabaseState::calculationRevision();$meta['calculation_policy']=DatabaseState::calculationPolicy();$meta['protected_baseline']=DatabaseState::protectedState();
                     $mode=$meta['package']['mode']??'';$writePhase=$mode==='career_history'?'career':($mode==='ufc_roster'?'ufc':'results');
                     $this->repo->update($id,['meta'=>$meta,'phase'=>$writePhase,'status'=>'queued','attempts'=>0,'writes_started'=>1,'error'=>null]);
                 }else{
@@ -50,13 +51,20 @@ final class Engine {
                 }
                 return ['worked'=>true,'job_id'=>$id,'phase'=>$latest['phase'],'status'=>$latest['status']];
             }catch(\Throwable $e){
-                $retryable=!$e instanceof ImportException||$e->retryable;
+                $retryable=Diagnostics::retryable($e);
                 $current=$this->repo->get($id);$attempts=(int)$current['attempts'];
                 $terminal=!$retryable||$attempts>=3;
                 $status=$terminal?'needs_attention':'queued';
                 if(!$retryable&&!$current['writes_started']&&!$current['approved_by']){$status='rejected';}
-                $this->repo->update($id,['status'=>$status,'retry_at'=>$terminal?null:gmdate('Y-m-d H:i:s',time()+60*$attempts),'error'=>['message'=>$e->getMessage(),'reason'=>$e instanceof ImportException?$e->reason:'execution_error','retryable'=>$retryable],'finished_at'=>$status==='rejected'?gmdate('Y-m-d H:i:s'):null]);
-                return ['worked'=>false,'job_id'=>$id,'status'=>$status,'error'=>$e->getMessage()];
+                $diagnostic=null;
+                try{$diagnostic=Diagnostics::record($current,$e,$attempts);}catch(\Throwable $diagnosticError){$diagnostic=['message'=>'Import diagnostic could not be saved: '.substr($diagnosticError->getMessage(),0,300)];}
+                $meta=$current['meta'];$history=(array)($meta['diagnostics']??[]);
+                if($diagnostic){array_unshift($history,$diagnostic);$meta['diagnostics']=array_slice($history,0,20);}
+                $reason=$e instanceof ImportException?$e->reason:Diagnostics::reason($e);
+                $message=$e->getMessage();
+                if(!empty($diagnostic['diagnostic_id'])){$message.=' Diagnostic ID: '.$diagnostic['diagnostic_id'].'.';}
+                $this->repo->update($id,['meta'=>$meta,'status'=>$status,'retry_at'=>$terminal?null:gmdate('Y-m-d H:i:s',time()+60*$attempts),'error'=>['message'=>$message,'reason'=>$reason,'retryable'=>$retryable,'diagnostic'=>$diagnostic],'finished_at'=>$status==='rejected'?gmdate('Y-m-d H:i:s'):null]);
+                return ['worked'=>false,'job_id'=>$id,'status'=>$status,'error'=>$message,'diagnostic'=>$diagnostic];
             }finally{WriteGuard::$worker=false;}
         });};
         return $next && $next['phase']==='backup'?BackupGuard::run($unit):$unit();
@@ -124,7 +132,7 @@ final class Engine {
         }
         if(in_array($phase,['results','profiles','review','ufc'],true)){
             $batch=$this->repo->nextBatch($id,$phase,false);
-            if($batch){$this->importBatch($job,$batch);$this->repo->update($id,['status'=>'queued']);return;}
+            if($batch){try{$this->importBatch($job,$batch);}catch(\Throwable $error){throw $this->withBatchContext($error,$batch);}$this->repo->update($id,['status'=>'queued']);return;}
             $next=['results'=>'profiles','profiles'=>'review','review'=>'ufc','ufc'=>(($meta['package']['mode']??'')==='ufc_roster'?'ufc_audit':'stored_career')][$phase];
             $this->repo->update($id,['phase'=>$next,'status'=>'queued']);return;
         }
@@ -272,12 +280,16 @@ final class Engine {
             $this->applied($id,'ufc_roster',(string)$data['run_id'],'review',$summary);
         }elseif($kind==='results'){
             $result=(new ScraperJsonImportService())->import_json_string(wp_json_encode($data),$actor);$summary=$result['summary'];
-            if(empty($result['is_valid'])||!empty($summary['item_failures'])||($summary['status']??'')==='failed'){throw new \RuntimeException('An import batch reported failed records.');}
             $run=(int)$summary['import_run_id'];$items=CanonicalSchema::table_names()['source_import_items'];
             $logs=$wpdb->get_results($wpdb->prepare("SELECT * FROM $items WHERE import_run_id=%d ORDER BY id",$run),ARRAY_A);
+            $failed=array_values(array_filter($logs?:[],static fn($log)=>($log['status']??'')==='failed'));
+            if(empty($result['is_valid'])||!empty($summary['item_failures'])||($summary['status']??'')==='failed'||$failed){
+                $record=$failed[0]??array();
+                $message=!empty($record['error_message'])?'Import record failed: '.$record['error_message']:'An import batch reported failed records.';
+                throw new ImportException($message,'record_failure',false,['record'=>$record]);
+            }
             foreach($logs?:[] as $log){
                 if($log['item_type']==='fighter' && !empty($log['canonical_id'])){\MMAF\DataEngine\Services\Operations\Membership::record($id,(int)$log['canonical_id'],'canonical_import_item');}
-                if($log['status']==='failed'){throw new \RuntimeException('Record failed: '.($log['error_message']??''));}
                 $key=(string)($log['source_id']?:$log['canonical_id']?:$log['identity_hash']?:$log['id']);
                 $category=self::category($log['status']);$this->applied($id,$log['item_type'],$key,$category,$log);
                 if($category==='review'){Review::upsert($id,'import_'.$log['item_type'].'_'.$log['action'],$key,['source_id'=>$key,'identity_hash'=>$log['identity_hash'],'reason'=>$log['action']],$actor);}
@@ -347,6 +359,31 @@ final class Engine {
     }
     private function verifyFiles(array $job): void {
         foreach($job['meta']['package']['files'] as $name=>$info){$path=Storage::job((int)$job['id']).'/source/'.$name;if(!is_file($path)||!hash_equals($info['sha256'],hash_file('sha256',$path))){throw new ImportException('Package file changed after checking: '.$name,'checksum');}}
+    }
+    public function validateResume(array $job): void {
+        if(($job['meta']['site_url']??'')!==home_url('/')){throw new ImportException('This job belongs to a different site.','destination');}
+        foreach(array('writes-paused.flag','maintenance.flag','recovery-readonly.flag') as $flag){
+            if(defined('MMAF_OPERATIONS_DIR')&&is_file(MMAF_OPERATIONS_DIR.'/'.$flag)){throw new ImportException('Writes are currently paused for release or recovery. Try Resume again after the release completes.','release_locked',true);}
+        }
+        $preflight=Preflight::inspect();
+        if(!$preflight['ready']){throw new ImportException('Finish the Setup checks before resuming: '.implode('; ',$preflight['problems']),'setup');}
+        if(isset($job['meta']['calculation_policy'])&&!hash_equals((string)$job['meta']['calculation_policy'],DatabaseState::calculationPolicy())){throw new ImportException('Import rules changed after this job started. Start a fresh import.','policy');}
+        if(empty($job['meta']['package'])||!is_file(Storage::job((int)$job['id']).'/bundle.zip')){throw new ImportException('The original package is unavailable; this import cannot safely resume.','missing_file');}
+        $this->verifyFiles($job);
+        foreach($this->repo->batches((int)$job['id']) as $batch){if(!(int)$batch['completed']){Package::payload($job,$batch);}}
+    }
+    public function diagnose(int $id): array {
+        $job=$this->repo->get($id);$phase=(string)$job['phase'];
+        $checking=str_starts_with($phase,'check_');$kind=$checking?substr($phase,6):$phase;
+        $batch=in_array($kind,['results','profiles','review','ufc','career'],true)?$this->repo->nextBatch($id,$kind,$checking):null;
+        $artifact=array('bundle'=>is_file(Storage::job($id).'/bundle.zip'),'source'=>is_dir(Storage::job($id).'/source'),'backup'=>is_file(Storage::job($id).'/before-import.sql.gz'));
+        if($batch){$path=Storage::job($id).'/'.$batch['kind'].'-'.$batch['batch_index'].'.json';$artifact['next_batch_checksum']=is_file($path)&&hash_equals($batch['payload_hash'],hash_file('sha256',$path));}
+        return array('job'=>array_intersect_key($job,array_flip(['id','status','phase','bundle_hash','attempts','retry_at','heartbeat_at','writes_started','error'])),'next_batch'=>$batch?array_intersect_key($batch,array_flip(['id','kind','batch_index','payload_hash','row_count','checked','completed'])):null,'artifacts'=>$artifact,'diagnostics'=>Diagnostics::history($id));
+    }
+    private function withBatchContext(\Throwable $error,array $batch): ImportException {
+        $context=$error instanceof ImportException?$error->context:array();
+        $context['batch']=array_intersect_key($batch,array_flip(['id','kind','batch_index','payload_hash','row_count']));
+        return new ImportException($error->getMessage(),$error instanceof ImportException?$error->reason:Diagnostics::reason($error),Diagnostics::retryable($error),$context);
     }
     private function careerStep(array $job): void {
         global $wpdb; $id=(int)$job['id'];$meta=$job['meta'];$phase=$job['phase'];$career=new CareerHistory();

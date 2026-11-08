@@ -16,7 +16,7 @@ if(!(int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")){
     MigrationRunner::run();check((int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")===0,'additive schema upgrade is idempotent');
 }
 $archive=getenv('MMAF_PIPELINE_FIXTURE');if(!$archive||!is_file($archive)){throw new RuntimeException('Generate the parser/cycle/ZIP fixture first.');}
-$repo=new Repository();$dir=null;$deltaDir=null;$temporary=[];$t=Schema::table_names();$q=PipelineSchema::tables()['queue'];
+$repo=new Repository();$dir=null;$deltaDir=null;$failedDir=null;$temporary=[];$t=Schema::table_names();$q=PipelineSchema::tables()['queue'];
 WriteGuard::$worker=true;Transaction::begin();
 try{
     $capacityPath=MMAF_OPERATIONS_DIR.'/capacity.json';$capacityBefore=is_file($capacityPath)?file_get_contents($capacityPath):null;
@@ -57,6 +57,17 @@ try{
     $assessmentTable=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
     $draftVersion=$draft?$wpdb->get_var($wpdb->prepare("SELECT formula_version FROM {$t['ranking_runs']} WHERE id=%d",$draft)):null;
     check($draft && $draftVersion==='v1.8' && (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $assessmentTable WHERE ranking_run_id=%d AND fighter_id IN (%d,%d) AND status='main'",$draft,$a['fighter_id'],$b['fighter_id']))===2,'real parser → ZIP → import → frozen whole-career assessment → inactive v1.8 ranking draft covers both perspectives');
+    $failed=$repo->create('synthetic-diagnostic.zip',filesize($archive),1);$failedDir=Storage::job($failed);copy($archive,$failedDir.'/bundle.zip');$repo->update($failed,['phase'=>'prepare','status'=>'queued']);
+    for($n=0;$n<100;$n++){$candidate=$repo->get($failed);if($candidate['status']==='awaiting_approval'){break;}$result=(new Engine())->work();if(empty($result['worked'])){throw new RuntimeException(wp_json_encode($result));}}
+    $candidate=$repo->get($failed);$failureMeta=$candidate['meta'];$failureMeta['baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::integrity();$failureMeta['protected_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedState();$failureMeta['backup']=['fixture_only'=>true];
+    $runsBeforeFailure=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['source_import_runs']}");$repo->update($failed,['meta'=>$failureMeta,'approved_by'=>1,'writes_started'=>1,'phase'=>'results','status'=>'queued']);
+    $stopImport=static function($jobId){if((int)$jobId===$GLOBALS['mmaf_diagnostic_job']){throw new RuntimeException('Synthetic deterministic checkpoint failure');}};$GLOBALS['mmaf_diagnostic_job']=$failed;add_action('mmaf_regular_import_before_checkpoint',$stopImport);
+    try{Worker::run(35,256,1);}finally{remove_action('mmaf_regular_import_before_checkpoint',$stopImport);unset($GLOBALS['mmaf_diagnostic_job']);}
+    $failedJob=$repo->get($failed);$failedBatch=$repo->nextBatch($failed,'results',false);$history=\MMAF\DataEngine\Services\RegularImport\Diagnostics::history($failed);
+    check($failedJob['status']==='needs_attention' && empty($failedJob['error']['retryable']) && !empty($failedJob['error']['diagnostic']['diagnostic_id']),'a deterministic import failure stops without blind retries and retains a diagnostic ID');
+    check($failedBatch && !(int)$failedBatch['completed'] && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['source_import_runs']}")===$runsBeforeFailure,'a failed batch rolls back its writes and leaves its checkpoint incomplete');
+    check(count($history)===1 && ($history[0]['batch']['kind']??'')==='results' && (new Engine())->diagnose($failed)['artifacts']['next_batch_checksum'],'rollback diagnostics retain the failed batch and a verified resume artifact');
+    $repo->update($failed,['status'=>'discarded']);
     if(getenv('MMAF_PIPELINE_METRICS')){file_put_contents(getenv('MMAF_PIPELINE_METRICS'),wp_json_encode(['worker'=>$units,'phases'=>$current['meta']['performance'],'source_readiness'=>$current['meta']['package']['readiness'],'environment'=>'isolated local synthetic database; two profiles; backup covered separately'],JSON_PRETTY_PRINT));}
     $receipt=Storage::read($dir.'/receipt.json');
     check(\MMAF\DataEngine\Services\RegularImport\Receipt::validate($receipt)['job_id']===$job,'committed destination receipt is accepted as a delta base');
@@ -106,4 +117,4 @@ try{
     $revision=\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision();
     $wpdb->update($table,['accepted_bouts_count'=>1],['fighter_id'=>94990250]);
     check($revision!==\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision(),'calculation digest covers pages beyond 250 career records with fighter_id cursors');
-}finally{Transaction::rollback();WriteGuard::$worker=false;if($dir){Storage::removeTree($dir);}if($deltaDir){Storage::removeTree($deltaDir);}foreach($temporary as $file){@unlink($file);}wp_cache_flush();}
+}finally{Transaction::rollback();WriteGuard::$worker=false;if($dir){Storage::removeTree($dir);}if($deltaDir){Storage::removeTree($deltaDir);}if($failedDir){Storage::removeTree($failedDir);}foreach($temporary as $file){@unlink($file);}wp_cache_flush();}

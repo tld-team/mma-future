@@ -39,6 +39,7 @@ jobs:
           python3 tests/unit/monitor.py
           python3 tests/unit/integration-bootstrap.py
           python3 tests/unit/import-operations.py
+          php tests/unit/import-diagnostics.php
           python3 -m compileall -q ops
           php tests/unit/json-document.php
           php tests/unit/opponent-impact.php

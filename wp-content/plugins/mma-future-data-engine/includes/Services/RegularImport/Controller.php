@@ -85,6 +85,7 @@ final class Controller {
                 $repo->update($id,['approved_by'=>get_current_user_id(),'approved_hash'=>$job['meta']['approval_token'],'status'=>'queued','phase'=>'preflight','attempts'=>0,'error'=>null]);
             }elseif($op==='resume'){
                 if(!in_array($job['status'],['paused','needs_attention'],true)){throw new ImportException('This import is not paused.','state');}
+                (new Engine())->validateResume($job);
                 $repo->update($id,['status'=>'queued','pause_requested'=>0,'attempts'=>0,'retry_at'=>null,'error'=>null]);
             }elseif($op==='discard'){
                 if($job['writes_started']||$job['approved_by']){throw new ImportException('An approved import can be paused or resumed; its existing writes must be preserved.','state');}
@@ -99,8 +100,10 @@ final class Controller {
         foreach(['zip','pdo_mysql','zlib'] as $ext){if(!extension_loaded($ext)){$problems[]='PHP extension missing: '.$ext;}}
         $seen=get_option('mmaf_import_worker_seen');
         if(!$seen||strtotime($seen)<time()-180){$problems[]='Background worker has not checked in within three minutes.';}
+        $supervisor=[];
+        if(defined('MMAF_OPERATIONS_DIR')){$path=MMAF_OPERATIONS_DIR.'/supervisor-heartbeat.json';if(is_file($path)&&filesize($path)<=65536){$supervisor=json_decode((string)file_get_contents($path),true)?:[];if(($supervisor['state']??'')==='failed'){$problems[]='The server supervisor last failed: '.substr((string)($supervisor['error']??'unknown error'),0,300);}}}
         $preflight=Preflight::inspect();$problems=array_merge($problems,$preflight['problems']);
-        return ['ready'=>!$problems,'problems'=>$problems,'preflight'=>$preflight,'managed_supervisor'=>defined('MMAF_SERVER_SUPERVISOR')&&MMAF_SERVER_SUPERVISOR,'worker_seen'=>$seen?:null,'storage'=>$storage,'free_bytes'=>$storage?disk_free_space($storage):null,'site_url'=>home_url('/'),'environment'=>wp_get_environment_type(),'zip_limit'=>Storage::ZIP_LIMIT,'chunk_size'=>Storage::CHUNK_SIZE,'runner_script'=>MMAF_PLUGIN_DIR.'bin/regular-import-runner.sh','wordpress_root'=>ABSPATH];
+        return ['ready'=>!$problems,'problems'=>$problems,'preflight'=>$preflight,'managed_supervisor'=>defined('MMAF_SERVER_SUPERVISOR')&&MMAF_SERVER_SUPERVISOR,'supervisor'=>array_intersect_key($supervisor,array_flip(['at','state','command','stop_reason','error'])),'worker_seen'=>$seen?:null,'storage'=>$storage,'free_bytes'=>$storage?disk_free_space($storage):null,'site_url'=>home_url('/'),'environment'=>wp_get_environment_type(),'zip_limit'=>Storage::ZIP_LIMIT,'chunk_size'=>Storage::CHUNK_SIZE,'runner_script'=>MMAF_PLUGIN_DIR.'bin/regular-import-runner.sh','wordpress_root'=>ABSPATH];
     }
     public static function capacity($request): array {Preflight::recordCapacity((array)$request->get_json_params());return self::setup(null);}
     public static function view(array $job): array {
@@ -109,7 +112,8 @@ final class Controller {
         $heartbeat=$job['heartbeat_at'];$heartbeatFile=Storage::root().'/job-'.$id.'/heartbeat.json';
         if(is_file($heartbeatFile)){$heartbeat=Storage::read($heartbeatFile)['at']??$heartbeat;}
         $view=array_intersect_key($job,array_flip(['id','filename','status','phase','created_at','finished_at','attempts','retry_at','pause_requested','writes_started','error','bundle_hash']));
-        $view+=['progress'=>$progress,'last_activity'=>$heartbeat,'notice'=>$meta['notice']??null,'package'=>array_intersect_key($meta['package']??[],array_flip(['counts','date_from','date_to'])),'plan'=>$meta['plan']??$repo->planCounts($id),'actual'=>(new Engine())->actualCounts($id),'approval_token'=>$job['status']==='awaiting_approval'?($meta['approval_token']??null):null,'backup'=>isset($meta['backup'])?array_intersect_key($meta['backup'],array_flip(['bytes','created_at','sha256'])):null,'stats'=>$meta['stats']??null,'integrity'=>$meta['integrity']??null,'peak_memory_mb'=>$meta['peak_memory_mb']??null,'artifact_expired'=>!empty($meta['artifact_expired']),'site_url'=>$meta['site_url']??home_url('/')];
+        $diagnostics=(array)($meta['diagnostics']??[]);
+        $view+=['progress'=>$progress,'last_activity'=>$heartbeat,'notice'=>$meta['notice']??null,'package'=>array_intersect_key($meta['package']??[],array_flip(['counts','date_from','date_to'])),'plan'=>$meta['plan']??$repo->planCounts($id),'actual'=>(new Engine())->actualCounts($id),'approval_token'=>$job['status']==='awaiting_approval'?($meta['approval_token']??null):null,'backup'=>isset($meta['backup'])?array_intersect_key($meta['backup'],array_flip(['bytes','created_at','sha256'])):null,'stats'=>$meta['stats']??null,'integrity'=>$meta['integrity']??null,'peak_memory_mb'=>$meta['peak_memory_mb']??null,'artifact_expired'=>!empty($meta['artifact_expired']),'site_url'=>$meta['site_url']??home_url('/'),'diagnostics'=>$diagnostics];
         $view['phase_progress']=Progress::forJob($job);
         $view['readiness']=$meta['package']['readiness']??null;
         if(isset($meta['package']['event_coverage'])){$view['readiness']=$view['readiness']??[];$view['readiness']['event_coverage']=$meta['package']['event_coverage'];}
@@ -130,15 +134,16 @@ final class Controller {
             }
         }
         $view['review_url']=add_query_arg(['page'=>'mmaf-review','tab'=>'needs_review','import_job_id'=>$id],admin_url('admin.php'));
-        foreach(['backup','report','readiness','source_enrichment'] as $kind){$view[$kind.'_url']=html_entity_decode(wp_nonce_url(add_query_arg(['action'=>'mmaf_regular_import_download','job_id'=>$id,'kind'=>$kind],admin_url('admin-post.php')),'mmaf_import_download_'.$id.'_'.$kind),ENT_QUOTES,'UTF-8');}
+        foreach(['backup','report','readiness','source_enrichment','diagnostic'] as $kind){$view[$kind.'_url']=html_entity_decode(wp_nonce_url(add_query_arg(['action'=>'mmaf_regular_import_download','job_id'=>$id,'kind'=>$kind],admin_url('admin-post.php')),'mmaf_import_download_'.$id.'_'.$kind),ENT_QUOTES,'UTF-8');}
         return $view;
     }
     public static function download(): void {
         if(!current_user_can('manage_options')){wp_die('Not allowed','',['response'=>403]);}
         $id=absint($_GET['job_id']??0);$kind=sanitize_key($_GET['kind']??'');
         check_admin_referer('mmaf_import_download_'.$id.'_'.$kind);
-        if(!in_array($kind,['backup','report','readiness','source_enrichment'],true)){wp_die('Unknown artifact','',['response'=>400]);}
-        $job=(new Repository())->get($id);$names=['backup'=>'before-import.sql.gz','report'=>'report.json','readiness'=>'source/readiness_report.json','source_enrichment'=>'source/source_enrichment_queue.json'];$file=Storage::root().'/job-'.$id.'/'.$names[$kind];
+        if(!in_array($kind,['backup','report','readiness','source_enrichment','diagnostic'],true)){wp_die('Unknown artifact','',['response'=>400]);}
+        $job=(new Repository())->get($id);$names=['backup'=>'before-import.sql.gz','report'=>'report.json','readiness'=>'source/readiness_report.json','source_enrichment'=>'source/source_enrichment_queue.json'];
+        if($kind==='diagnostic'){$history=Diagnostics::history($id);$relative=(string)($history[0]['file']??'');$file=preg_match('#^diagnostics/diag-[a-zA-Z0-9-]+\.json$#',$relative)?Storage::job($id).'/'.$relative:'';}else{$file=Storage::root().'/job-'.$id.'/'.$names[$kind];}
         if(!is_file($file)||($kind==='backup'&&empty($job['meta']['backup']))){wp_die('This file is not available.','',['response'=>404]);}
         nocache_headers();header('X-Content-Type-Options: nosniff');header('Content-Type: '.($kind==='backup'?'application/gzip':'application/json'));header('Content-Disposition: attachment; filename="mmaf-import-'.$id.'-'.$kind.($kind==='backup'?'.sql.gz':'.json').'"');header('Content-Length: '.filesize($file));readfile($file);exit;
     }

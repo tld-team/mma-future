@@ -15,6 +15,8 @@ class FakeRunner:
     schema = '1.10.0'
     calls = []
     root = None
+    fail_background = False
+    stop_reason = 'idle'
 
     def __init__(self, config):
         self.root = Path(config).parent
@@ -28,7 +30,9 @@ class FakeRunner:
         if args[:3] == ('option', 'get', 'mmaf_db_version'):
             return self.schema
         if args[:2] == ('mmaf', 'background'):
-            return json.dumps({'worked': True, 'units': 47, 'elapsed_seconds': 12, 'peak_memory_mb': 62, 'db_queries': 1250, 'stop_reason': 'idle'})
+            if self.fail_background:
+                raise RuntimeError('synthetic worker failure')
+            return json.dumps({'worked': True, 'units': 47, 'elapsed_seconds': 12, 'peak_memory_mb': 62, 'db_queries': 1250, 'stop_reason': self.stop_reason})
         return json.dumps({'worked': False})
 
 
@@ -44,6 +48,17 @@ class ImportOperationsTests(unittest.TestCase):
             self.assertEqual(heartbeat['db_queries'], 1250)
             self.assertEqual(heartbeat['state'], 'idle')
 
+    def test_supervisor_keeps_a_blocked_import_outcome_visible(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(supervisor, 'Runner', FakeRunner):
+            FakeRunner.schema = '1.10.0'; FakeRunner.calls = []; FakeRunner.stop_reason = 'needs_attention'
+            try:
+                supervisor.run(Path(temp) / 'config.json')
+                heartbeat = json.loads((Path(temp) / 'supervisor-heartbeat.json').read_text())
+                self.assertEqual(heartbeat['state'], 'needs_attention')
+                self.assertEqual(heartbeat['stop_reason'], 'needs_attention')
+            finally:
+                FakeRunner.stop_reason = 'idle'
+
     def test_old_schema_keeps_compatible_workers_and_pause_stops_dispatch(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(supervisor, 'Runner', FakeRunner):
             FakeRunner.schema = '1.9.0'; FakeRunner.calls = []
@@ -53,6 +68,18 @@ class ImportOperationsTests(unittest.TestCase):
             FakeRunner.calls = []
             supervisor.run(Path(temp) / 'config.json')
             self.assertEqual(FakeRunner.calls, [])
+
+    def test_supervisor_records_a_failed_worker_outcome(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(supervisor, 'Runner', FakeRunner):
+            FakeRunner.schema = '1.10.0'; FakeRunner.calls = []; FakeRunner.fail_background = True
+            try:
+                with self.assertRaisesRegex(RuntimeError, 'synthetic worker failure'):
+                    supervisor.run(Path(temp) / 'config.json')
+                heartbeat = json.loads((Path(temp) / 'supervisor-heartbeat.json').read_text())
+                self.assertEqual(heartbeat['state'], 'failed')
+                self.assertIn('synthetic worker failure', heartbeat['error'])
+            finally:
+                FakeRunner.fail_background = False
 
     def test_backup_wrapper_binds_identity_and_delegates_actual_restore(self):
         with tempfile.TemporaryDirectory() as temp:
