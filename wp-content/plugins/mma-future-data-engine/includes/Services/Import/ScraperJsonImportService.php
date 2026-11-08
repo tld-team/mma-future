@@ -342,13 +342,21 @@ final class ScraperJsonImportService {
 						continue;
 					}
 
+					if ( 'review_source_identity_conflict' === $action ) {
+						$source = $this->bout_sources->find_by_source( self::SOURCE, $source_bout_id );
+						$this->summary['bouts_needs_review_conflict']++;
+						$this->summary['needs_review_count']++;
+						$this->log_item( $run_id, 'bout', $source_bout_id, $identity_hash, $content_hash, $source && ! empty( $source['bout_id'] ) ? (int) $source['bout_id'] : null, 'needs_review', 'source_identity_conflict', array_merge( $warnings, array( 'Existing source mapping identity_hash differs; canonical bout participants were not overwritten.' ) ) );
+						continue;
+					}
+
 					if ( in_array( $action, array( 'review_bout_match', 'excluded_amateur', 'excluded_cancelled', 'excluded_overturned', 'upcoming_review', 'skipped_non_scoring' ), true ) ) {
 						$status = in_array( $action, array( 'review_bout_match', 'upcoming_review' ), true ) ? 'needs_review' : 'skipped';
 						$this->summary[ 'skipped_non_scoring' === $action ? 'bouts_skipped_non_scoring' : 'bouts_needs_review_conflict' ]++;
 						if ( 'needs_review' === $status ) {
 							$this->summary['needs_review_count']++;
 						}
-						$this->log_item( $run_id, 'bout', $source_bout_id, $identity_hash, $content_hash, null, $status, 'skipped_non_scoring' === $action ? 'skipped_non_scoring' : 'needs_review', $warnings );
+						$this->log_item( $run_id, 'bout', $source_bout_id, $identity_hash, $content_hash, null, $status, 'skipped_non_scoring' === $action ? 'skipped_non_scoring' : $action, $warnings );
 						continue;
 					}
 
@@ -363,8 +371,10 @@ final class ScraperJsonImportService {
 
 					$source = $this->bout_sources->find_by_source( self::SOURCE, $source_bout_id );
 					if ( $source && ! empty( $source['identity_hash'] ) && $source['identity_hash'] !== $identity_hash ) {
-						$warnings[] = 'source_bout_identity_hash_changed:update_existing_source_bout';
-						$this->summary['warnings_count']++;
+						$this->summary['bouts_needs_review_conflict']++;
+						$this->summary['needs_review_count']++;
+						$this->log_item( $run_id, 'bout', $source_bout_id, $identity_hash, $content_hash, (int) ( $source['bout_id'] ?? 0 ) ?: null, 'needs_review', 'source_identity_conflict', array_merge( $warnings, array( 'Existing source mapping identity_hash differs; canonical bout participants were not overwritten.' ) ) );
+						continue;
 					}
 
 					if ( $source && ! empty( $source['bout_id'] ) ) {

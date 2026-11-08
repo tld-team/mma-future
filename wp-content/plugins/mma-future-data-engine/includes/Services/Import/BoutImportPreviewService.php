@@ -32,6 +32,7 @@ final class BoutImportPreviewService {
 			'update_candidate'     => 0,
 			'no_change_candidate'  => 0,
 			'review_bout_match'    => 0,
+			'review_source_identity_conflict' => 0,
 			'excluded_amateur'     => 0,
 			'excluded_cancelled'   => 0,
 			'excluded_overturned'  => 0,
@@ -112,7 +113,9 @@ final class BoutImportPreviewService {
 				$reason       = 'Exact source bout mapping exists.';
 
 				if ( ! empty( $matched_source['identity_hash'] ) && $matched_source['identity_hash'] !== $identity_hash ) {
-					$warnings[] = 'source_bout_id ' . $source_bout_id . ' is mapped but incoming identity_hash differs; exact source ID will update the existing bout and log review context.';
+					$action     = 'review_source_identity_conflict';
+					$reason     = 'Exact source bout mapping has a different identity; the canonical bout will not be changed automatically.';
+					$warnings[] = 'source_bout_id ' . $source_bout_id . ' is mapped but incoming identity_hash differs; review is required before changing the canonical bout.';
 					++$warning_count;
 				}
 			} else {
