@@ -17,7 +17,7 @@ final class Worker {
             update_option('mmaf_import_worker_seen',gmdate('c'),false);
             try{$last=$unit?$unit():self::step();}
             catch(ImportException $e){if(in_array($e->reason,['busy','release_locked'],true)){$reason=$e->reason;break;}throw $e;}
-            if(empty($last['worked'])){$reason=$last['blocked']??'idle';break;}
+            if(empty($last['worked'])){$reason=$last['blocked']??($last['status']??'idle');break;}
             ++$units;
             if(function_exists('wp_cache_flush_runtime')){wp_cache_flush_runtime();}
         }

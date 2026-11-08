@@ -18,6 +18,10 @@ final class Module {
                 catch(\Throwable $e){\WP_CLI::error($e->getMessage());}
             });
             \WP_CLI::add_command('mmaf import-job cleanup',static function(){Cleanup::run();\WP_CLI::success('Import retention checked.');});
+            \WP_CLI::add_command('mmaf import-job diagnose',static function($args){
+                $id=(int)($args[0]??0);if($id<1){\WP_CLI::error('Usage: wp mmaf import-job diagnose <job-id>');}
+                \WP_CLI::line(wp_json_encode((new Engine())->diagnose($id),JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
+            });
         }
     }
 }
