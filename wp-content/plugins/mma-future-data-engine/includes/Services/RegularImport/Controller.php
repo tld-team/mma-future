@@ -112,7 +112,10 @@ final class Controller {
         $heartbeat=$job['heartbeat_at'];$heartbeatFile=Storage::root().'/job-'.$id.'/heartbeat.json';
         if(is_file($heartbeatFile)){$heartbeat=Storage::read($heartbeatFile)['at']??$heartbeat;}
         $view=array_intersect_key($job,array_flip(['id','filename','status','phase','created_at','finished_at','attempts','retry_at','pause_requested','writes_started','error','bundle_hash']));
-        $diagnostics=(array)($meta['diagnostics']??[]);
+		$diagnostics=(array)($meta['diagnostics']??[]);
+		if ( empty( $diagnostics ) ) {
+			$diagnostics = Diagnostics::history( $id );
+		}
         $view+=['progress'=>$progress,'last_activity'=>$heartbeat,'notice'=>$meta['notice']??null,'package'=>array_intersect_key($meta['package']??[],array_flip(['counts','date_from','date_to'])),'plan'=>$meta['plan']??$repo->planCounts($id),'actual'=>(new Engine())->actualCounts($id),'approval_token'=>$job['status']==='awaiting_approval'?($meta['approval_token']??null):null,'backup'=>isset($meta['backup'])?array_intersect_key($meta['backup'],array_flip(['bytes','created_at','sha256'])):null,'stats'=>$meta['stats']??null,'integrity'=>$meta['integrity']??null,'peak_memory_mb'=>$meta['peak_memory_mb']??null,'artifact_expired'=>!empty($meta['artifact_expired']),'site_url'=>$meta['site_url']??home_url('/'),'diagnostics'=>$diagnostics];
         $view['phase_progress']=Progress::forJob($job);
         $view['readiness']=$meta['package']['readiness']??null;

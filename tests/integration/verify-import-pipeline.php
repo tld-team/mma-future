@@ -50,6 +50,43 @@ try{
     $career=$wpdb->get_results($wpdb->prepare("SELECT status FROM {$t['fighter_career_coverage']} WHERE fighter_id IN (%d,%d)",$a['fighter_id'],$b['fighter_id']),ARRAY_A);
     check(count($career)===2 && array_column($career,'status')===['complete','complete'],'section evidence survives Python to PHP and confirms both fighter perspectives');
     check((int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bout_sources']} WHERE source_bout_id='tapology_bout_94981301'")===1,'two source perspectives produce one canonical bout');
+	// Regression for staging import #10: a recycled Tapology source ID with a
+	// different participant pair is a review item, never an in-place replacement.
+	Transaction::begin();
+	try {
+	$incidentSource='tapology_bout_1192678';
+	$replacement=fixture_fighter(94981103,'Synthetic replacement participant',['is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable','status'=>'verified']);
+	$sourceBatch=null;$sourcePayload=null;$originalSource=null;
+	foreach($repo->batches($job,'results') as $batch){
+		$payload=\MMAF\DataEngine\Services\RegularImport\Package::payload($current,$batch);
+		foreach((array)($payload['events']??[]) as $event){foreach((array)($event['bouts']??[]) as $bout){$candidate=(string)($bout['source_bout_id']??'');if($candidate!=='' && (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t['bout_sources']} WHERE source_bout_id=%s",$candidate))===1){$sourceBatch=$batch;$sourcePayload=$payload;$originalSource=$candidate;break 2;}}}
+		if($sourcePayload){break;}
+	}
+	check($sourceBatch!==null && $sourcePayload!==null && $originalSource!==null,'fixture contains a canonical results source bout for the participant-identity regression');
+	Repository::check($wpdb->update($t['bout_sources'],['source_bout_id'=>$incidentSource],['source_bout_id'=>$originalSource]));
+	$canonicalBout=(int)$wpdb->get_var($wpdb->prepare("SELECT bout_id FROM {$t['bout_sources']} WHERE source_bout_id=%s",$incidentSource));
+	$participantsBefore=$wpdb->get_col($wpdb->prepare("SELECT fighter_id FROM {$t['bout_participants']} WHERE bout_id=%d ORDER BY fighter_id",$canonicalBout));
+	foreach ( $sourcePayload['events'] as &$event ) {
+		foreach ( $event['bouts'] as &$bout ) {
+			if ( ( $bout['source_bout_id'] ?? '' ) !== $originalSource ) {
+				continue;
+			}
+			$bout['source_bout_id'] = $incidentSource;
+			$bout['fighter_b'] = array_merge( (array) $bout['fighter_b'], array( 'name' => $replacement['display_name'], 'url' => $replacement['source_url'], 'source_fighter_id' => $replacement['source_fighter_id'] ) );
+			$bout['identity_hash'] = hash( 'sha256', 'tapology_bout_1192678-recycled-participants' );
+			$bout['content_hash'] = hash( 'sha256', 'tapology_bout_1192678-recycled-content' );
+		}
+		unset( $bout );
+	}
+	unset( $event );
+	$identityConflict=(new \MMAF\DataEngine\Services\Import\ScraperJsonImportService())->import_json_string(wp_json_encode($sourcePayload),1);
+	$conflictItem=$wpdb->get_row($wpdb->prepare("SELECT status,action,error_message FROM {$t['source_import_items']} WHERE import_run_id=%d AND item_type='bout' AND source_id=%s ORDER BY id DESC LIMIT 1",$identityConflict['summary']['import_run_id'],$incidentSource),ARRAY_A);
+	check((int)$identityConflict['summary']['item_failures']===0 && (int)$identityConflict['summary']['needs_review_count']>0,'recycled source identity is handled as review instead of a failed batch record');
+	check($conflictItem['status']==='needs_review' && $conflictItem['action']==='source_identity_conflict','source identity conflict is explicit and reviewable');
+	check($participantsBefore===$wpdb->get_col($wpdb->prepare("SELECT fighter_id FROM {$t['bout_participants']} WHERE bout_id=%d ORDER BY fighter_id",$canonicalBout)),'source identity conflict never replaces canonical bout participants');
+	} finally {
+		Transaction::rollback();
+	}
     check($units['bootstraps']===1 && $units['units']>1,'supported worker reuses one WordPress bootstrap for multiple atomic units');
     check((new Engine())->profileChanges($job)['snapshot_new']===2,'raw snapshot counters are separate from profile fact changes');
     check(!empty($current['meta']['performance']['stored_career']['units']),'phase performance is recorded durably');
