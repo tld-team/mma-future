@@ -55,7 +55,9 @@ final class Module {
             $result=Jobs::work();
             if(empty($result['worked'])){$result=Calculation::work();}
             if(empty($result['worked'])){$result=FactProtectionReport::work();}
-            $result['readiness_refreshed']=Readiness::work(250);
+            // Small batches keep each locked unit short (evaluation cost grows with the
+            // batch), so an administrator's POST can still get the shared write lock.
+            $result['readiness_refreshed']=Readiness::work(empty($result['worked'])?50:10);
             $result['worked']=!empty($result['worked']) || $result['readiness_refreshed']>0;
             $result['cache_retry']=\MMAF\DataEngine\Services\PublicCacheService::retry_invalidation();
             $progress=(array)get_option('mmaf_membership_backfill',[]);

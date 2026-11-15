@@ -67,10 +67,13 @@ final class Readiness {
     }
     public static function refresh(array $ids,float $seconds=3.0): int {
         global $wpdb; $table=Schema::tables()['readiness'];
-        $deadline=microtime(true)+max(0,$seconds);$processed=0;
+        $processed=0;
         $fighters=(new \MMAF\DataEngine\Repositories\FighterRepository())->find_many($ids);
         $evaluated=(new FighterReadinessService())->evaluate_fighters_for_table($fighters);
         $metadata=Processor::metadata($ids); $now=gmdate('Y-m-d H:i:s');
+        // The write budget starts after the batch evaluation. Starting it before
+        // meant a slow evaluation exhausted it, so a 250-fighter batch stored one row.
+        $deadline=microtime(true)+max(0,$seconds);
         foreach($fighters as $fighter) {
             if($processed && microtime(true)>=$deadline){break;}
             $id=(int)$fighter['id']; $decision=self::decision($fighter,$metadata[$id]??[]);
