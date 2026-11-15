@@ -69,15 +69,35 @@ abstract class AbstractRestController {
 			);
 		}
 
-		$image_id = get_post_thumbnail_id( $post_id );
-
 		return array(
 			'wp_post_id' => $post_id,
 			'slug'       => $post->post_name,
 			'permalink'  => get_permalink( $post ),
 			'excerpt'    => get_the_excerpt( $post ),
-			'image'      => $this->image_data( $image_id ),
+			'image'      => $this->fighter_image_data( $post_id ),
 		);
+	}
+
+	/**
+	 * Attachment IDs a fighter profile can use as its portrait, in display order.
+	 * Mirrors the profile hero: the editorial hero image wins, the featured image is the fallback.
+	 */
+	public static function fighter_image_ids( int $post_id ): array {
+		return array_values( array_filter( array(
+			(int) get_post_meta( $post_id, 'hero_image', true ),
+			(int) get_post_thumbnail_id( $post_id ),
+		) ) );
+	}
+
+	protected function fighter_image_data( int $post_id ): ?array {
+		foreach ( self::fighter_image_ids( $post_id ) as $attachment_id ) {
+			$image = $this->image_data( $attachment_id );
+			if ( $image ) {
+				return $image;
+			}
+		}
+
+		return null;
 	}
 
 	protected function image_data( $attachment_id ): ?array {
