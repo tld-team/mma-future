@@ -115,7 +115,8 @@ function mmaf_render_rankings( $full = false, $block_id = '' ) {
  $service = mmaf_public_service(); if ( ! $service ) { return; }
  $prefix = mmaf_instance_prefix( 'mmaf_rankings_' . sanitize_key( $block_id ?: wp_unique_id() ) );
  $options = array( 'board' => mmaf_site_field( $full ? 'default_board' : 'ranking_board' ) ?: ( $full ? 'male' : 'overall' ), 'per_page' => max( 1, (int) ( mmaf_site_field( $full ? 'rows_per_page' : 'top_five_count' ) ?: ( $full ? 25 : 5 ) ) ), 'include_breakdown' => $full && mmaf_site_field( 'show_score_breakdown' ) );
- if ( $full ) { foreach ( array( 'board', 'view', 'q', 'sort', 'order', 'top15', 'page' ) as $key ) { if ( isset( $_GET[$prefix . '_' . $key] ) && is_scalar( $_GET[$prefix . '_' . $key] ) ) { $options[$key] = sanitize_text_field( wp_unslash( $_GET[$prefix . '_' . $key] ) ); } } }
+ if ( $full ) { foreach ( array( 'board', 'q', 'sort', 'order', 'top15', 'page' ) as $key ) { if ( isset( $_GET[$prefix . '_' . $key] ) && is_scalar( $_GET[$prefix . '_' . $key] ) ) { $options[$key] = sanitize_text_field( wp_unslash( $_GET[$prefix . '_' . $key] ) ); } } }
+ $options['view'] = 'main'; // The public site shows only the official activated ranking.
  $data = $service->rankings( $options );
  if ( is_wp_error( $data ) ) { echo '<p>' . esc_html( $data->get_error_message() ) . '</p>'; return; }
  $data += array( 'sort' => $options['sort'] ?? 'rank', 'order' => $options['order'] ?? 'asc' );
@@ -133,7 +134,7 @@ add_action( 'rest_api_init', static function() {
 	foreach ( array( 'rankings', 'history' ) as $kind ) {
 		register_rest_route( 'mma-future-site/v1', '/views/' . $kind, array( 'methods' => 'GET', 'permission_callback' => '__return_true', 'callback' => static function( WP_REST_Request $request ) use ( $kind ) {
 			$service = mmaf_public_service(); if ( ! $service ) { return new WP_Error( 'unavailable', 'Public data is temporarily unavailable.', array( 'status' => 503 ) ); }
-			$options = $request->get_params(); $data = 'rankings' === $kind ? $service->rankings( $options ) : $service->history( (int) ( $options['fighter_id'] ?? 0 ), $options );
+			$options = $request->get_params(); if ( 'rankings' === $kind ) { $options['view'] = 'main'; } $data = 'rankings' === $kind ? $service->rankings( $options ) : $service->history( (int) ( $options['fighter_id'] ?? 0 ), $options );
 			if ( is_wp_error( $data ) ) { return $data; }
 			$data += array( 'sort' => $options['sort'] ?? 'rank', 'order' => $options['order'] ?? 'asc' );
 			$prefix = sanitize_key( $options['prefix'] ?? 'mmaf' );
@@ -142,7 +143,7 @@ add_action( 'rest_api_init', static function() {
 			$host = wp_parse_url( $candidate, PHP_URL_HOST );
 			$base = ( ! $host && str_starts_with( $candidate, '/' ) && ! str_starts_with( $candidate, '//' ) ) || $host === wp_parse_url( home_url(), PHP_URL_HOST ) ? $candidate : $fallback;
 			$args = array();
-			foreach ( array( 'board', 'view', 'q', 'sort', 'order', 'top15', 'result', 'method' ) as $key ) { if ( isset( $options[$key] ) && is_scalar( $options[$key] ) ) { $args[$prefix . '_' . $key] = sanitize_text_field( $options[$key] ); } }
+			foreach ( array( 'board', 'q', 'sort', 'order', 'top15', 'result', 'method' ) as $key ) { if ( isset( $options[$key] ) && is_scalar( $options[$key] ) ) { $args[$prefix . '_' . $key] = sanitize_text_field( $options[$key] ); } }
 			$previous_url = $GLOBALS['mmaf_view_url'] ?? null;
 			$GLOBALS['mmaf_view_url'] = add_query_arg( $args, $base );
 			try {
