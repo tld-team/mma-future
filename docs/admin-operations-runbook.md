@@ -27,6 +27,8 @@ A failed first fetch means **Stored profile unavailable**. A later failed attemp
 
 **Calculation history** provides preview links and a separate disclosure for manual activation. The activation form names the exact run and retains its existing nonce and confirmation. A completed calculation with rows is technically activatable; this does not certify source quality. **Calculate Ranking Draft** queues the existing resumable calculation and opens Operations.
 
+Statistics and ranking drafts are **manual by default**. Imports, profile preparation, UFC confirmations and edits only queue a refresh; nothing is calculated until an administrator clicks **Pokreni statistiku + ranking draft** in the MMA Future notice (CLI: `wp mmaf data-process calculate-queued --user=ADMIN_ID`). One approval produces one statistics generation and one inactive draft; later changes wait for a new approval. The age/inactivity disposition pass also runs only on request (**Proveri starost/neaktivnost** on the Rankings page, CLI: `wp mmaf data-process time-rules --user=ADMIN_ID`). The old automatic chain can be restored with the `mmaf_auto_calculation` option or filter. Explicit **Calculate** buttons, operation approvals and the import's own statistics phase are unchanged.
+
 **Diagnostics** runs the existing detailed warning/integrity queries only after **Compute diagnostics** is requested. Counts across categories are row occurrences, not unique fighters. Large diagnostic scans are separate from ordinary paginated preview requests.
 
 ## Worker and diagnosis

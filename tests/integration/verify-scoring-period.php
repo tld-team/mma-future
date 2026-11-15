@@ -9,6 +9,8 @@ use MMAF\DataEngine\Repositories\{RankingRunRepository,FighterStatsRepository};
 
 function check($ok,$why){if(!$ok){throw new RuntimeException($why);}echo "PASS: $why\n";}
 wp_set_current_user(1);\MMAF\DataEngine\Migrations\MigrationRunner::run();
+// This suite exercises the automatic preparation chain; production defaults to manual approval.
+add_filter('mmaf_auto_calculation','__return_true');
 $t=\MMAF\DataEngine\Migrations\Schema::table_names();$s=Schema::tables();
 $before=hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['ranking_current']} ORDER BY id",ARRAY_A)));
 WriteGuard::$worker=true;Transaction::begin();

@@ -12,6 +12,8 @@ final class Processor {
         add_action('mmaf_process_stored_profiles',[self::class,'cron']);
         add_action('admin_notices',[self::class,'notice']);
         add_action('admin_post_mmaf_retry_preparation',[self::class,'retry']);
+        add_action('admin_post_mmaf_run_queued_calculation',[self::class,'run_queued_post']);
+        add_action('admin_post_mmaf_request_time_rules',[self::class,'time_rules_post']);
         add_action('mmaf_public_data_changed',static function($reason) {
             if (!WriteGuard::$worker && in_array($reason,['bout','event'],true)) { self::request_refresh(get_current_user_id(),true); }
         });
@@ -22,6 +24,12 @@ final class Processor {
                 \WP_CLI::line(wp_json_encode($result));
             });
             \WP_CLI::add_command('mmaf data-process status',static function(){ \WP_CLI::line(wp_json_encode(self::status())); });
+            \WP_CLI::add_command('mmaf data-process calculate-queued',static function(){
+                \WP_CLI::line(wp_json_encode(['approved'=>self::approve_queued(get_current_user_id())]));
+            });
+            \WP_CLI::add_command('mmaf data-process time-rules',static function(){
+                self::request_time_rules(get_current_user_id());\WP_CLI::line(wp_json_encode(['requested'=>true]));
+            });
             \WP_CLI::add_command('mmaf data-process seed',static function($args,$assoc) {
                 if (empty($assoc['file'])) { \WP_CLI::error('Provide --file=/private/path/fighter_profiles.json.'); }
                 \WP_CLI::line(wp_json_encode((new Backfill())->run($assoc['file'],isset($assoc['prepare']))));
@@ -51,6 +59,31 @@ final class Processor {
         $state['stats_needed']=!empty($state['stats_needed']) || $stats_needed;
         $state['actor']=$actor; $state['requested_at']=gmdate('Y-m-d H:i:s'); $state['attempts']=0; $state['error']=null;
         self::save($state); self::schedule();
+    }
+    /**
+     * Statistics and ranking drafts are manual by default: a queued refresh only
+     * runs after an administrator approves it. Set the option (or filter) to
+     * restore the previous automatic chain.
+     */
+    public static function auto_calculation(): bool {
+        return (bool)apply_filters('mmaf_auto_calculation',(bool)get_option('mmaf_auto_calculation',false));
+    }
+    /** Explicitly start the queued statistics generation and one ranking draft. */
+    public static function approve_queued(int $actor=0): bool {
+        $state=self::state();
+        if (empty($state['pending'])) { return false; }
+        $state['approved']=true; $state['approved_by']=$actor; $state['approved_at']=gmdate('Y-m-d H:i:s');
+        self::save($state); self::schedule();
+        return true;
+    }
+    /** Explicitly start one bounded age/inactivity disposition pass over all fighters. */
+    public static function request_time_rules(int $actor=0): void {
+        $state=self::state();
+        $state['time_rules_requested']=true; $state['time_rules_actor']=$actor; $state['time_rules_requested_at']=gmdate('Y-m-d H:i:s');
+        self::save($state); self::schedule();
+    }
+    private static function chain_allowed(array $state): bool {
+        return !empty($state['pending']) && (self::auto_calculation() || !empty($state['approved']) || isset($state['frozen_generation']));
     }
     public static function enqueue(int $id,int $actor=0,int $job=0): void {
         global $wpdb; $t=Canonical::table_names(); $queue=Schema::tables()['queue'];
@@ -84,7 +117,18 @@ final class Processor {
 				// browser work or scraper request is required.  A frozen import
 				// preparation always wins, though: a disposition sweep must not spend
 				// the worker's only step before its already-queued draft can advance.
-				$time_rules=($calculating || !empty($state['pending']))?null:(new \MMAF\DataEngine\Services\RankingDispositionService())->refresh_time_rules_step(get_current_user_id(),100);
+				// Outside automatic mode the pass runs only after an explicit request.
+				$time_rules=null;$time_rules_worked=false;
+				if (!$calculating && !self::chain_allowed($state) && (self::auto_calculation() || !empty($state['time_rules_requested']))) {
+					$time_rules=(new \MMAF\DataEngine\Services\RankingDispositionService())->refresh_time_rules_step((int)($state['time_rules_actor']??get_current_user_id()),100);
+					// A requested pass keeps the worker busy until it completes; the
+					// automatic mode keeps its old "changed only" semantics.
+					$time_rules_worked=!empty($time_rules['changed']) || (!empty($state['time_rules_requested']) && !empty($time_rules['checked']));
+					if (!empty($time_rules['completed']) && !empty($state['time_rules_requested'])) {
+						$state=self::state(); unset($state['time_rules_requested'],$state['time_rules_actor'],$state['time_rules_requested_at']);
+						$state['time_rules_finished_at']=gmdate('Y-m-d H:i:s'); self::save($state);
+					}
+				}
             }
             global $wpdb; $queue=Schema::tables()['queue']; $limit=min(50,max(1,$limit));
             $rows=!empty($calculating)?[]:$wpdb->get_results($wpdb->prepare("SELECT * FROM $queue WHERE status='pending' AND (retry_at IS NULL OR retry_at<=UTC_TIMESTAMP())".($job?' AND import_job_id=%d':' AND %d=0')." ORDER BY fighter_id LIMIT %d",$job,$limit),ARRAY_A);
@@ -112,7 +156,7 @@ final class Processor {
             if ($job) { return ['processed'=>$processed,'pending'=>$pending]; }
             $state=self::state();
             if ($pending && empty($calculating)) { self::schedule(); return ['worked'=>$processed>0,'processed'=>$processed,'pending'=>$pending]; }
-            if (!empty($state['pending'])) {
+            if (self::chain_allowed($state)) {
                 $generation=(int)($state['frozen_generation']??$state['generation']);
                 $actor=(int)($state['actor']??0);
                 if (!isset($state['frozen_generation'])) { $state['frozen_generation']=$generation; $state['frozen_stats_needed']=!empty($state['stats_needed']); self::save($state); }
@@ -130,10 +174,12 @@ final class Processor {
                 $state['draft']=$calculation['summary'];$state['pending']=(int)$state['generation']!==$generation;
                 if(!$state['pending']){$state['stats_needed']=false;}
                 $state['processed_generation']=$generation;$state['finished_at']=gmdate('Y-m-d H:i:s');$state['error']=null;
-                unset($state['stats_job'],$state['ranking_job'],$state['frozen_generation'],$state['frozen_stats_needed'],$state['stats_done']);self::save($state);
+                // One approval covers one generation; later requests wait for the next one.
+                unset($state['stats_job'],$state['ranking_job'],$state['frozen_generation'],$state['frozen_stats_needed'],$state['stats_done'],$state['approved'],$state['approved_by'],$state['approved_at']);self::save($state);
                 do_action('mmaf_public_data_changed','preparation_completed');$calculated=true;
             }
-			return ['worked'=>$processed>0 || $calculated || !empty($time_rules['changed']),'processed'=>$processed,'pending'=>0,'draft_run_id'=>$state['draft']['ranking_run_id']??null,'time_rules'=>$time_rules];
+			$time_rules=$time_rules??null;
+			return ['worked'=>$processed>0 || $calculated || !empty($time_rules_worked),'processed'=>$processed,'pending'=>0,'draft_run_id'=>$state['draft']['ranking_run_id']??null,'time_rules'=>$time_rules];
         });
     }
     public function prepare(int $id,int $actor,int $job,int $operation=0,array $progress=[]): array {
@@ -249,9 +295,26 @@ final class Processor {
                 }
                 Repository::check($wpdb->query("UPDATE $queue SET status='pending',attempts=0,error_message=NULL,retry_at=NULL WHERE status='failed'"));
                 self::request_refresh($actor,true);
+                // The retry button is itself an explicit administrator decision.
+                self::approve_queued($actor);
                 return ['retried'=>$failed,'restarted_calculation'=>$failedCalculation];
             });
         });
+    }
+    public static function run_queued_post(): void {
+        if (!current_user_can(\MMAF\DataEngine\Support\Capabilities::MANAGE)) { wp_die('Access denied.',403); }
+        check_admin_referer('mmaf_run_queued_calculation');
+        self::approve_queued(get_current_user_id());
+        wp_safe_redirect(wp_get_referer() ?: admin_url('admin.php?page=mmaf-rankings'));exit;
+    }
+    public static function time_rules_post(): void {
+        if (!current_user_can(\MMAF\DataEngine\Support\Capabilities::MANAGE)) { wp_die('Access denied.',403); }
+        check_admin_referer('mmaf_request_time_rules');
+        self::request_time_rules(get_current_user_id());
+        wp_safe_redirect(wp_get_referer() ?: admin_url('admin.php?page=mmaf-rankings'));exit;
+    }
+    private static function action_button(string $action,string $label): string {
+        return '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'" style="display:inline-block;margin-right:8px">'.wp_nonce_field($action,'_wpnonce',true,false).'<input type="hidden" name="action" value="'.esc_attr($action).'"><button class="button">'.esc_html($label).'</button></form>';
     }
     public static function notice(): void {
         $page=sanitize_key($_GET['page']??'');
@@ -259,13 +322,20 @@ final class Processor {
         $status=self::status(); $counts=[];
         foreach ($status['queue'] as $row) { $counts[$row['status']]=(int)$row['total']; }
         $state=$status['calculation'];
+        $manual=!self::auto_calculation();
+        if ($manual && $page==='mmaf-rankings') {
+            $timeText=!empty($state['time_rules_requested'])?'Provera starosti/neaktivnosti je u toku.':'Provera starosti/neaktivnosti boraca pokreće se samo ručno'.(!empty($state['time_rules_finished_at'])?' (poslednja: '.$state['time_rules_finished_at'].' UTC).':'.');
+            echo '<div class="notice notice-info"><p>'.esc_html($timeText).'</p>'.(empty($state['time_rules_requested'])?'<p>'.self::action_button('mmaf_request_time_rules','Proveri starost/neaktivnost').'</p>':'').'</div>';
+        }
         if (!$counts && !$state) { return; }
         $text=sprintf('Stored profile preparation: %d pending, %d completed, %d need review, %d failed.',$counts['pending']??0,$counts['completed']??0,$counts['review']??0,$counts['failed']??0);
-        if (!empty($state['pending'])) { $text.=' Statistics and one ranking draft are queued.'; }
+        $waiting=!empty($state['pending']) && !self::chain_allowed($state);
+        if ($waiting) { $text.=' Promene čekaju ručno pokretanje statistike i jednog ranking draft-a.'; }
+        elseif (!empty($state['pending'])) { $text.=' Statistics and one ranking draft are queued.'; }
         elseif (!empty($state['draft']['ranking_run_id'])) { $text.=' Prepared draft #'.(int)$state['draft']['ranking_run_id'].'.'; }
         if (!empty($state['error'])) { $text.=' Calculation needs attention: '.$state['error']; }
         $text.=' Ranking activation remains a separate action.';
-        echo '<div class="notice notice-info" id="mmaf-preparation-notice"><p>'.esc_html($text).'</p></div>';
+        echo '<div class="notice notice-info" id="mmaf-preparation-notice"><p>'.esc_html($text).'</p>'.($waiting?'<p>'.self::action_button('mmaf_run_queued_calculation','Pokreni statistiku + ranking draft').'</p>':'').'</div>';
         if (($counts['failed']??0)>0 || !empty($state['error'])) {
             echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
             wp_nonce_field('mmaf_retry_preparation');
