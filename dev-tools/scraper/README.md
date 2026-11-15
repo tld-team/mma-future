@@ -375,6 +375,15 @@ Preserve in production:
 
 Warning: deleting `data/state/` resets internal IDs and can confuse a future importer that has already seen previous `mf_event_*` or `mf_bout_*` IDs.
 
+### `prune-runs` (opt-in)
+
+```bash
+python -m mma_future_scraper.cli prune-runs            # dry-run: prints the plan, changes nothing
+python -m mma_future_scraper.cli prune-runs --apply    # archive snapshots, then delete
+```
+
+Only `data/runs/<run_id>/` is modified; `state/`, `latest/`, `derived/` and `upcoming/` are never touched. Whole run folders stay untouched when they are referenced by a non-finalized import cycle (`state/import-cycles/*.json`), are among the newest `--keep-event-runs` event runs (default 5), or are younger than `--min-age-hours` (default 48). In every other run it removes `fighter_profiles_report.*`, `raw_debug/`, `debug.json` and `profile_snapshots/`; primary outputs such as `results.json`, `fighter_profiles.json` and `run_manifest.json` stay. Before snapshot folders are removed, the newest `profile_snapshots/<fighter>.json` per fighter among the pruned runs is written to `data/archive/profile_snapshots_<timestamp>.tar.gz` (override with `--archive-dir`) and verified. `--details` lists every pruned run.
+
 ## Atomic Writes
 
 JSON files are written through temporary files and atomically replaced. Successful commits write run artifacts, stage state files, commit state/index files, then update `latest/`.
