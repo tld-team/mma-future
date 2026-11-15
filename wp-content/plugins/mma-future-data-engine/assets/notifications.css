@@ -1,135 +1,141 @@
-/* Follow fighter: compact secondary action on light surfaces, primary CTA in the dark fighter hero. */
+/*
+ * Follow fighter.
+ * Lists (rankings, calendar, account): a quiet ghost control that only gains a surface on hover or when following.
+ * Fighter hero: matches the hero's own glass CTA ("Read more") so it reads as part of the same family.
+ */
 .mmaf-follow {
-  --follow-bg: #fff;
-  --follow-border: #e2e8f0;
-  --follow-text: #0f172a;
-  --follow-icon: #0047a8;
-  --follow-hover-bg: #f0f5fc;
-  --follow-hover-border: rgba(0,71,168,.45);
-  --follow-on-bg: #e8f0fb;
-  --follow-on-border: rgba(0,71,168,.35);
+  --follow-bg: transparent;
+  --follow-border: transparent;
+  --follow-text: #64748b;
+  --follow-icon: #94a3b8;
+  --follow-hover-bg: rgba(0,71,168,.06);
+  --follow-hover-border: transparent;
+  --follow-hover-text: #0047a8;
+  --follow-on-bg: rgba(0,71,168,.08);
+  --follow-on-hover-bg: rgba(0,71,168,.12);
+  --follow-on-border: transparent;
   --follow-on-text: #0047a8;
-  --follow-ring: rgba(0,71,168,.28);
+  --follow-on-icon: #0047a8;
+  --follow-ring: rgba(0,71,168,.3);
+  --follow-pad-x: .5rem;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: .4rem;
-  min-height: 2rem;
-  max-width: 100%;
-  margin: 0;
-  padding: .3rem .75rem .3rem .6rem;
+  gap: .375rem;
+  flex: none;
+  min-height: 1.75rem;
+  padding: .25rem var(--follow-pad-x);
   border: 1px solid var(--follow-border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--follow-bg);
   color: var(--follow-text);
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  font-size: .8125rem;
+  font-size: .78125rem;
   font-weight: 600;
   line-height: 1.2;
-  letter-spacing: .005em;
+  letter-spacing: .01em;
   white-space: nowrap;
   text-decoration: none;
+  vertical-align: middle;
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
-  transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s ease;
 }
-.mmaf-follow [data-mmaf-follow-label] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .mmaf-follow__bell {
   flex: none;
-  width: 1rem;
-  height: 1rem;
+  width: .9375rem;
+  height: .9375rem;
   color: var(--follow-icon);
-  transform-origin: 50% 10%;
+  transform-origin: 50% 12%;
+  transition: color .2s ease;
 }
-.mmaf-follow__bell path:first-child { fill: transparent; transition: fill .18s ease; }
-.mmaf-follow:hover {
-  background: var(--follow-hover-bg);
-  border-color: var(--follow-hover-border);
-  color: var(--follow-on-text);
-}
-.mmaf-follow:hover .mmaf-follow__bell { animation: mmaf-follow-ring .5s ease; }
+.mmaf-follow__bell path:first-child { fill: transparent; transition: fill .2s ease; }
+.mmaf-follow:hover { background: var(--follow-hover-bg); border-color: var(--follow-hover-border); color: var(--follow-hover-text); }
+.mmaf-follow:hover .mmaf-follow__bell { color: currentColor; }
+.mmaf-follow:not(.is-following):hover .mmaf-follow__bell { animation: mmaf-follow-ring .6s ease; }
 .mmaf-follow:focus { outline: none; }
-.mmaf-follow:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--follow-ring); border-color: var(--follow-hover-border); }
-.mmaf-follow:active { transform: translateY(1px); }
-.mmaf-follow.is-following {
-  background: var(--follow-on-bg);
-  border-color: var(--follow-on-border);
-  color: var(--follow-on-text);
-}
-.mmaf-follow.is-following .mmaf-follow__bell { color: var(--follow-on-text); }
+.mmaf-follow:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--follow-ring); }
+.mmaf-follow.is-following { background: var(--follow-on-bg); border-color: var(--follow-on-border); color: var(--follow-on-text); }
+.mmaf-follow.is-following:hover { background: var(--follow-on-hover-bg); }
+.mmaf-follow.is-following .mmaf-follow__bell { color: var(--follow-on-icon); }
 .mmaf-follow.is-following .mmaf-follow__bell path:first-child { fill: currentColor; }
-.mmaf-follow:disabled { opacity: .6; cursor: progress; transform: none; }
+.mmaf-follow:disabled { opacity: .55; cursor: progress; }
 .mmaf-follow:disabled .mmaf-follow__bell { animation: none; }
+@media (pointer: coarse) { .mmaf-follow { min-height: 2.25rem; } }
 
-/* Hero: sits on the dark fighter photo backdrop, so the default state is the primary call to action. */
+/* Hero: same glass treatment as .mf-hero-bubble__cta; following drops to the neutral glass of the "Learn more" toggle. */
 .mmaf-follow--hero {
-  --follow-bg: #0047a8;
-  --follow-border: #2563eb;
+  --follow-bg: linear-gradient(135deg, rgba(59,130,246,.18), rgba(59,130,246,.12));
+  --follow-border: rgba(59,130,246,.4);
   --follow-text: #fff;
-  --follow-icon: #fff;
-  --follow-hover-bg: #0a56c4;
-  --follow-hover-border: #3b82f6;
-  --follow-on-bg: rgba(255,255,255,.08);
-  --follow-on-border: rgba(255,255,255,.24);
-  --follow-on-text: #fff;
-  --follow-ring: rgba(96,165,250,.45);
-  gap: .55rem;
-  min-height: 2.75rem;
-  padding: .6rem 1.25rem .6rem 1rem;
-  border-radius: 12px;
-  font-family: "Sora", ui-sans-serif, system-ui, sans-serif;
-  font-size: .9375rem;
-  box-shadow: 0 8px 22px rgba(0,71,168,.35);
+  --follow-icon: #93c5fd;
+  --follow-hover-bg: linear-gradient(135deg, rgba(59,130,246,.28), rgba(59,130,246,.2));
+  --follow-hover-border: rgba(59,130,246,.55);
+  --follow-hover-text: #fff;
+  --follow-on-bg: rgba(255,255,255,.06);
+  --follow-on-border: rgba(255,255,255,.14);
+  --follow-on-text: rgba(255,255,255,.88);
+  --follow-on-icon: #93c5fd;
+  --follow-ring: rgba(96,165,250,.5);
+  --follow-pad-x: 1.125rem;
+  gap: .5rem;
+  min-height: 2.625rem;
+  padding-left: .95rem;
+  border-radius: .5rem;
+  font-size: .875rem;
+  letter-spacing: .005em;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
-.mmaf-follow--hero .mmaf-follow__bell { width: 1.125rem; height: 1.125rem; }
-.mmaf-follow--hero:hover { color: #fff; box-shadow: 0 10px 26px rgba(37,99,235,.4); transform: translateY(-1px); }
-.mmaf-follow--hero.is-following { box-shadow: none; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-.mmaf-follow--hero.is-following:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.34); box-shadow: none; }
-.mmaf-follow--hero:focus-visible { box-shadow: 0 0 0 3px var(--follow-ring); }
+.mmaf-follow--hero .mmaf-follow__bell { width: 1rem; height: 1rem; }
+.mmaf-follow--hero:not(.is-following):hover { box-shadow: 0 6px 20px rgba(59,130,246,.25); transform: translateY(-1px); }
+.mmaf-follow--hero.is-following:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); color: #fff; }
+.mmaf-follow--hero .mmaf-follow__bell, .mmaf-follow--hero:hover .mmaf-follow__bell { color: var(--follow-icon); }
+.mmaf-follow--hero.is-following .mmaf-follow__bell { color: var(--follow-on-icon); }
+.mmaf-follow--hero:disabled { transform: none; box-shadow: none; }
 
-/* Placement inside lists. */
-.rk-main-row .mmaf-follow, .rk-card .mmaf-follow { margin-top: .5rem; }
-.mmaf-calendar__bouts .mmaf-follow { display: flex; width: max-content; max-width: 100%; margin-top: .4rem; }
+/* Placement: under a fighter name the ghost pulls left so its icon lines up with the name. */
+.rk-main-row .mmaf-follow, .rk-card .mmaf-follow { margin: .3rem 0 0 calc(-1 * var(--follow-pad-x) - 1px); }
+/* Calendar rows run edge to edge between dividers, so the control stays inside them. */
+.mmaf-calendar__bouts .mmaf-follow { --follow-pad-x: .4rem; display: flex; width: max-content; margin: .3rem 0 0; }
 .mmaf-calendar__bouts li > span:last-of-type .mmaf-follow { margin-left: auto; }
 
 @keyframes mmaf-follow-ring {
   0%, 100% { transform: rotate(0); }
-  25% { transform: rotate(14deg); }
-  50% { transform: rotate(-10deg); }
-  75% { transform: rotate(5deg); }
+  20% { transform: rotate(12deg); }
+  45% { transform: rotate(-9deg); }
+  70% { transform: rotate(4deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mmaf-follow, .mmaf-follow__bell path:first-child { transition: none; }
-  .mmaf-follow:hover .mmaf-follow__bell { animation: none; }
-  .mmaf-follow:hover, .mmaf-follow:active { transform: none; }
+  .mmaf-follow, .mmaf-follow__bell, .mmaf-follow__bell path:first-child { transition: none; }
+  .mmaf-follow:not(.is-following):hover .mmaf-follow__bell { animation: none; }
+  .mmaf-follow--hero:not(.is-following):hover { transform: none; }
 }
 
 /* Dark surfaces follow the theme toggle (data-theme), with the OS preference as the no-JS fallback. */
 :root[data-theme="dark"] .mmaf-follow:not(.mmaf-follow--hero) {
-  --follow-bg: #18263b;
-  --follow-border: #334155;
-  --follow-text: #dce3ec;
-  --follow-icon: #93c5fd;
-  --follow-hover-bg: #20324d;
-  --follow-hover-border: #60a5fa;
-  --follow-on-bg: rgba(59,130,246,.18);
-  --follow-on-border: rgba(96,165,250,.5);
-  --follow-on-text: #bfdbfe;
-  --follow-ring: rgba(96,165,250,.45);
+  --follow-text: #94a3b8;
+  --follow-icon: #64748b;
+  --follow-hover-bg: rgba(96,165,250,.1);
+  --follow-hover-text: #bfdbfe;
+  --follow-on-bg: rgba(96,165,250,.14);
+  --follow-on-hover-bg: rgba(96,165,250,.2);
+  --follow-on-text: #93c5fd;
+  --follow-on-icon: #93c5fd;
+  --follow-ring: rgba(96,165,250,.5);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) .mmaf-follow:not(.mmaf-follow--hero) {
-    --follow-bg: #18263b;
-    --follow-border: #334155;
-    --follow-text: #dce3ec;
-    --follow-icon: #93c5fd;
-    --follow-hover-bg: #20324d;
-    --follow-hover-border: #60a5fa;
-    --follow-on-bg: rgba(59,130,246,.18);
-    --follow-on-border: rgba(96,165,250,.5);
-    --follow-on-text: #bfdbfe;
-    --follow-ring: rgba(96,165,250,.45);
+    --follow-text: #94a3b8;
+    --follow-icon: #64748b;
+    --follow-hover-bg: rgba(96,165,250,.1);
+    --follow-hover-text: #bfdbfe;
+    --follow-on-bg: rgba(96,165,250,.14);
+    --follow-on-hover-bg: rgba(96,165,250,.2);
+    --follow-on-text: #93c5fd;
+    --follow-on-icon: #93c5fd;
+    --follow-ring: rgba(96,165,250,.5);
   }
 }
 

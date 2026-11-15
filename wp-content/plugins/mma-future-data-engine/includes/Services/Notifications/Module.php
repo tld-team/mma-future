@@ -64,11 +64,16 @@ final class Module {
 		wp_send_json_success( array( 'loggedIn'=>is_user_logged_in(), 'nonce'=>is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : null, 'userId'=>get_current_user_id() ) );
 	}
 
-	/** @param string $variant Empty for the compact list button, or 'hero' for the dark fighter hero. */
-	public static function button( int $fighter_id, string $label = 'Follow fighter', string $variant = '' ): string {
+	/**
+	 * @param string $label   Initial label; defaults to the variant's "not following" label.
+	 * @param string $variant Empty for the quiet list control ("Follow"), or 'hero' for the fighter hero ("Follow fighter").
+	 */
+	public static function button( int $fighter_id, string $label = '', string $variant = '' ): string {
 		if ( $fighter_id < 1 || ! Config::feature_enabled() ) { return ''; }
-		$class = 'mmaf-follow' . ( 'hero' === $variant ? ' mmaf-follow--hero' : '' );
-		return '<button type="button" class="' . esc_attr( $class ) . '" data-mmaf-follow="' . esc_attr( (string) $fighter_id ) . '" aria-pressed="false">' . self::BELL_ICON . '<span data-mmaf-follow-label>' . esc_html( $label ) . '</span></button>';
+		$hero  = 'hero' === $variant;
+		$off   = $hero ? 'Follow fighter' : 'Follow';
+		$class = 'mmaf-follow' . ( $hero ? ' mmaf-follow--hero' : '' );
+		return '<button type="button" class="' . esc_attr( $class ) . '" data-mmaf-follow="' . esc_attr( (string) $fighter_id ) . '" data-mmaf-label-off="' . esc_attr( $off ) . '" aria-pressed="false">' . self::BELL_ICON . '<span data-mmaf-follow-label>' . esc_html( '' !== $label ? $label : $off ) . '</span></button>';
 	}
 
 	public static function login_url( array $intent = array() ): string {

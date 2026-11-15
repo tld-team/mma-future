@@ -38,3 +38,13 @@ test('new AJAX-rendered fighter buttons receive state without embedding a cached
   let states=0;const t=setup('<div id="results"></div>',(url)=>{if(url.includes('admin-ajax'))return json({success:true,data:{loggedIn:true,nonce:'nonce'}});if(url.includes('/state')){states++;return json({following:{99:true}});}throw Error('Unexpected request '+url);});
   try{await flush();t.doc.querySelector('#results').innerHTML='<button data-mmaf-follow="99"><span data-mmaf-follow-label>Follow fighter</span></button>';await flush();assert.equal(t.doc.querySelector('[data-mmaf-follow]').getAttribute('aria-pressed'),'true');assert.equal(states,1);}finally{t.dom.window.close();}
 });
+
+test('unfollowing restores the button variant label',async()=>{
+  const t=setup('<button data-mmaf-follow="5" data-mmaf-label-off="Follow"><span data-mmaf-follow-label>Follow</span></button><button data-mmaf-follow="5"><span data-mmaf-follow-label>Follow fighter</span></button>',(url,options)=>{
+    if(url.includes('admin-ajax'))return json({success:true,data:{loggedIn:true,nonce:'nonce'}});
+    if(url.includes('/state'))return json({following:{5:true}});
+    if(options.method==='DELETE')return json({fighter_id:5,following:false});
+    throw Error('Unexpected request '+url);
+  });
+  try{await flush();const [list,hero]=[...t.doc.querySelectorAll('[data-mmaf-follow]')];assert.equal(list.textContent,'Following');list.click();await flush();assert.equal(list.textContent,'Follow');assert.equal(hero.textContent,'Follow fighter');assert.ok(!list.classList.contains('is-following'));}finally{t.dom.window.close();}
+});
