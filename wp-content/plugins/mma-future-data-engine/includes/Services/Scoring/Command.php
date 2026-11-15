@@ -27,7 +27,7 @@ final class Command {
             if($wpdb->last_error){throw new \RuntimeException('Cannot export known candidate results.');}
             foreach($batch as $target){$id=(int)$target['fighter_id'];$record=$records[$id]??null;$items[]=$target+['action'=>'refresh_source_evidence','force_refresh'=>isset($options['pilot']),'fetch_scope'=>!isset($options['pilot']) && (($record['status']??'')!=='accepted' || $record['record']['pro_fights_count']>30)?'career_record':'professional_mma_career','career_record'=>$record,'known_results'=>$known[$id]??[],'reasons'=>['Verify the whole professional MMA career; unknown records and methods receive neutral contributions.']];}
         }
-        $value=['schema_version'=>'mmaf_source_enrichment_v1','contract_version'=>1,'generated_at'=>gmdate('c'),'career_scope'=>'professional_mma_career_v1','max_verification_age_days'=>7,'scope'=>isset($options['pilot'])?'top_ranked_plus_recorded_conflicts':'public_or_rankable','target_count'=>count($items),'excluded_identity_review'=>$manifest['excluded_identity_review'],'items'=>$items];
+        $value=['schema_version'=>'mmaf_source_enrichment_v1','contract_version'=>1,'generated_at'=>gmdate('c'),'career_scope'=>'professional_mma_career_v1','max_verification_age_days'=>\MMAF\DataEngine\Services\Formula\FormulaV18::MAX_VERIFICATION_AGE_DAYS,'scope'=>isset($options['pilot'])?'top_ranked_plus_recorded_conflicts':'public_or_rankable','target_count'=>count($items),'excluded_identity_review'=>$manifest['excluded_identity_review'],'items'=>$items];
         $this->output($value,$options);
     }
     public function report(array $args,array $options): void {

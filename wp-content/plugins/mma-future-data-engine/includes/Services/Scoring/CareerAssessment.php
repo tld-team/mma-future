@@ -11,10 +11,10 @@ final class CareerAssessment {
     public static function current_roster_verified($proof): bool {
         return is_array($proof) && ($proof['verified']??false)===true && ($proof['promotion']??'')==='ufc' && ($proof['evidence']??'')==='current_ufc_ranking_widget' && ($proof['widget_boundary_verified']??false)===true && ($proof['logo_alt']??'')==='UFC' && strtolower((string)($proof['heading']??''))==='ufc ranking' && preg_match('~^https://(?:www\.)?tapology\.com/rankings/ufc/[^/?#]+$~D',(string)($proof['ranking_url']??''))===1;
     }
-    public static function fresh(?string $verified_at,string $calculated_at): bool {
+    public static function fresh(?string $verified_at,string $calculated_at,int $max_days=FormulaV18::MAX_VERIFICATION_AGE_DAYS): bool {
         if(!$verified_at){return false;}
         $checked=strtotime($verified_at.' UTC');$frozen=strtotime($calculated_at.' UTC');
-        return $checked!==false && $frozen!==false && $checked<=$frozen && $frozen-$checked<=7*86400;
+        return $checked!==false && $frozen!==false && $checked<=$frozen && $frozen-$checked<=$max_days*86400;
     }
     public static function valid_date($date): bool {
         if(!is_string($date)){return false;}

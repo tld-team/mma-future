@@ -15,6 +15,8 @@ final class FormulaV18 {
 	public const VERSION = 'v1.8';
 	public const PERIOD_START = null;
 	public const SCOPE = 'professional_mma_career_v1';
+	/** Source profile evidence older than this (relative to the frozen calculation time) is stale. */
+	public const MAX_VERIFICATION_AGE_DAYS = 30;
 
 	public static function config(): array {
 		return array(
@@ -61,7 +63,7 @@ final class FormulaV18 {
 				'career_eligibility' => true,
 				'career_base_results' => array( 'win', 'loss' ),
 				'career_quality_results' => array( 'win', 'loss' ),
-				'max_verification_age_days' => 7,
+				'max_verification_age_days' => self::MAX_VERIFICATION_AGE_DAYS,
 				'minimum_sample' => 'career_win_loss_bouts',
 			),
 			'tie_breakers' => array(
