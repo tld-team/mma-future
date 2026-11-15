@@ -118,7 +118,7 @@
 </div>
 <!-- Social Icons Row -->
 <div class="space-y-3 mt-8 sm:mt-10 lg:mt-12 xl:mt-14"><?php mmaf_social_links( (array) $c['editorial']['fighter_social_links'], 'inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/15', 'link' ); ?></div>
-<p class="text-white/70 text-sm"><?php echo esc_html( mmaf_fighter_record_available( $c ) ? mmaf_record_label($c) : 'Professional record not available yet' ); ?></p><?php mmaf_render_dates( $c['dates'] ); if(($f['ranking_status'] ?? '')==='ranked_or_candidate'){mmaf_render_scoring_assessment($c);} ?></div>
+<?php mmaf_render_fighter_hero_details( $c ); ?></div>
 <!-- Right Column: Methodology Bubble -->
 <aside class="mf-hero-bubble w-full lg:w-auto">
 <div class="mf-hero-bubble__card rounded-2xl p-5 lg:p-6 space-y-3 lg:space-y-4">

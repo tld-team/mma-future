@@ -27,12 +27,33 @@ function mmaf_display_record(array $context): ?array {
 function mmaf_record_label(array $context): string {
     return !empty($context['career_record']['record']) ? ('Professional MMA career record'.(($context['career_record']['status']??'')==='review'?' — pending review':'')) : 'Recorded fights';
 }
+/** Plain-text pieces of a scoring assessment, shared by the ranking rows and the fighter hero. */
+function mmaf_scoring_assessment_parts(array $context): ?array {
+    $a=$context['scoring_assessment']??null;if(!$a){return null;}
+    $notes=array();
+    if(($a['methodology']??'')==='professional_mma_career_v1'){$d=$a['detail_coverage']??[];$notes['coverage']='Nepoznat pre-fight rekord ili metod daje 0 dodatnih poena; poznati 0–0 je poznat rekord. Aktuelni profilni rekord može se razlikovati od zamrznutih ulaza. Poznati/nepoznati rekordi: '.($d['known_records']??0).'/'.($d['unknown_records']??0).'; metode: '.($d['known_methods']??0).'/'.($d['unknown_methods']??0).'.';}
+    if(!empty($a['no_recent_fights'])){$notes['no_recent_fights']='Bez mečeva od 9. maja 2026.';}
+    if($a['status']==='provisional'){$notes['provisional']='Privremeni zbir: '.mmaf_display_number($a['known_points']??null,2).' · Konačan score i glavno mesto nisu dodeljeni. '.implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']));}
+    return array('label'=>$context['dates']['score_label']??'MMA Future bodovi od 9. maja 2026.','status'=>ucfirst($a['status']),'sample_size'=>$a['sample_size'],'checked'=>!empty($a['verified_at'])?gmdate('Y-m-d H:i:s',strtotime($a['verified_at'])).' UTC':'unknown','career'=>($a['methodology']??'')==='professional_mma_career_v1','notes'=>$notes);
+}
 function mmaf_render_scoring_assessment(array $context): void {
-    $a=$context['scoring_assessment']??null;if(!$a){return;}
-    echo '<p class="text-sm text-muted">'.esc_html($context['dates']['score_label']??'MMA Future bodovi od 9. maja 2026.').' · '.esc_html(ucfirst($a['status'])).' · '.esc_html($a['sample_size']).' scoring bouts · checked '.esc_html(!empty($a['verified_at'])?gmdate('Y-m-d H:i:s',strtotime($a['verified_at'])).' UTC':'unknown').'</p>';
-    if(($a['methodology']??'')==='professional_mma_career_v1'){$d=$a['detail_coverage']??[];echo '<p class="text-sm text-muted">Osnovni poeni, poznate završnice i kvalitet protivnika za celu profesionalnu MMA karijeru. Nepoznat pre-fight rekord ili metod daje 0 dodatnih poena; poznati 0–0 je poznat rekord. Aktuelni profilni rekord može se razlikovati od zamrznutih ulaza. Poznati/nepoznati rekordi: '.esc_html(($d['known_records']??0).'/'.($d['unknown_records']??0)).'; metode: '.esc_html(($d['known_methods']??0).'/'.($d['unknown_methods']??0)).'.</p>';}
-    if(!empty($a['no_recent_fights'])){echo '<p class="text-sm text-muted">Bez mečeva od 9. maja 2026.</p>';}
-    if($a['status']==='provisional'){echo '<p class="text-sm text-muted">Privremeni zbir: '.esc_html(mmaf_display_number($a['known_points']??null,2)).' · Konačan score i glavno mesto nisu dodeljeni. '.esc_html(implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']))).'</p>';}
+    $p=mmaf_scoring_assessment_parts($context);if(!$p){return;}
+    echo '<p class="text-sm text-muted">'.esc_html($p['label']).' · '.esc_html($p['status']).' · '.esc_html($p['sample_size']).' scoring bouts · checked '.esc_html($p['checked']).'</p>';
+    foreach($p['notes'] as $key=>$note){echo '<p class="text-sm text-muted">'.esc_html('coverage'===$key?'Osnovni poeni, poznate završnice i kvalitet protivnika za celu profesionalnu MMA karijeru. '.$note:$note).'</p>';}
+}
+/** Fine print for the fighter hero, collapsed into one discreet disclosure. */
+function mmaf_render_fighter_hero_details(array $c): void {
+    $f=$c['fighter']??array(); $dates=$c['dates']??array();
+    $p=($f['ranking_status']??'')==='ranked_or_candidate'?mmaf_scoring_assessment_parts($c):null;
+    $rows=array('Record'=>mmaf_fighter_record_available($c)?mmaf_record_label($c):'Professional record not available yet');
+    if($p){$rows['Score basis']=$p['label'];$rows['Assessment']=$p['status'].' · '.$p['sample_size'].' scoring bouts';$rows['Checked']=$p['checked'];}
+    elseif(!empty($dates['scoring_scope'])&&!empty($dates['score_label'])){$rows['Score basis']=$dates['score_label'];}
+    $rows+=array('Rankings calculated'=>mmaf_display_date($dates['ranking_calculated_at']??null),'Activated'=>mmaf_display_date($dates['ranking_activated_at']??null),'Statistics updated'=>mmaf_display_date($dates['stats_updated_at']??null));
+    echo '<details class="mf-hero-details"><summary class="mf-hero-details__summary"><svg aria-hidden="true" class="mf-hero-details__icon" fill="currentColor" viewBox="0 0 20 20"><path clip-rule="evenodd" fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/></svg><span>Score &amp; data details</span><svg aria-hidden="true" class="mf-hero-details__chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg></summary><div class="mf-hero-details__panel"><dl class="mf-hero-details__list">';
+    foreach($rows as $label=>$value){echo '<div><dt>'.esc_html($label).'</dt><dd>'.esc_html($value).'</dd></div>';}
+    echo '</dl>';
+    if($p&&$p['notes']){echo '<div class="mf-hero-details__notes">';foreach($p['notes'] as $note){echo '<p>'.esc_html($note).'</p>';}echo '</div>';}
+    echo '</div></details>';
 }
 /** An empty imported record must not imply that the fighter has never competed. */
 function mmaf_fighter_has_fight_data( array $context ): bool {
