@@ -6,7 +6,8 @@
     const t = text => wp.i18n.__(text, 'mma-future-data-engine');
     const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const byId = id => document.getElementById(id);
-    let current = null, uploading = false, busy = false, tab = 'new', lastAnnouncement = '', setup = null, explicitJob = null, capacityDirty = false;
+    let current = null, uploading = false, busy = false, tab = 'new', lastAnnouncement = '', setup = null, explicitJob = null, capacityDirty = false, refreshing = false, setupLoading = false;
+    const transport = {poll:'', setup:''};
     const labels = {uploading:'Upload in progress',queued:'Waiting for worker',running:'In progress',awaiting_approval:'Ready to review',paused:'Paused',needs_attention:'Needs attention',completed:'Completed',completed_with_review:'Completed with review items',rejected:'Package needs correction',discarded:'Discarded'};
     const phases = {upload:'Upload',assemble:'Preparing uploaded file',prepare:'Checking package contents',check_results:'Checking fighters, events and bouts',check_profiles:'Checking fighter profiles',check_review:'Checking review items',ready:'Review proposed changes',preflight:'Confirming the approved plan',backup:'Creating database backup',results:'Importing fighters, events and bouts',profiles:'Updating fighter profiles',review:'Saving review items',stored_career:'Preparing approved career histories',stored_career_verify:'Verifying shared career histories',check_career:'Checking career histories',career:'Importing career histories',stats:'Rebuilding stats',audit:'Verifying results',done:'Import finished'};
     const terminal = job => ['completed','completed_with_review','rejected','discarded'].includes(job.status);
@@ -19,6 +20,13 @@
         return data;
     }
     function message(text, error=true) {const el=byId('mmaf-message');el.hidden=!text;el.className='mmaf-note '+(error?'error':'');el.textContent=text;}
+    // Background reads report into their own transient status, never the action banner,
+    // and each source clears its entry on the next successful read.
+    function connection(source, error=null) {
+        transport[source]=error?(error instanceof TypeError?t('Connection interrupted. Retrying…'):error.message+' '+t('Retrying…')):'';
+        const el=byId('mmaf-connection');if(!el)return;
+        const text=transport.poll||transport.setup;el.hidden=!text;el.textContent=text;
+    }
     function showTab(name) {tab=name;for(const key of ['new','history','setup']){byId('mmaf-panel-'+key).hidden=key!==name;app.querySelector('[data-tab="'+key+'"]').classList.toggle('nav-tab-active',key===name);}if(name==='setup') loadSetup();}
     app.querySelectorAll('[data-tab]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();showTab(link.dataset.tab);}));
     function countsTable(counts) {
@@ -155,7 +163,8 @@
         });
     }
     async function loadSetup(force=false){
-        if(!force&&(capacityDirty||byId('mmaf-capacity-form')?.contains(document.activeElement)))return;
+        if(!force&&(setupLoading||capacityDirty||byId('mmaf-capacity-form')?.contains(document.activeElement)))return;
+        setupLoading=true;
         try{
             setup=await api('import-setup');
             byId('mmaf-worker-state').textContent=setup.ready?t('Background worker ready'):t('Setup needs attention');
@@ -163,8 +172,9 @@
             const worker=setup.managed_supervisor?'<p>'+t('The existing server supervisor runs this site. Worker sessions stop at a time or memory limit and resume their saved progress.')+'</p>':'<p>'+t('Ask the administrator to run this script every minute with the WordPress root, PHP CLI path and WP-CLI path as its three arguments.')+'</p><pre>'+escape(setup.runner_script)+'\n'+escape(setup.wordpress_root)+'</pre>';
             byId('mmaf-setup').innerHTML='<span class="mmaf-badge '+(setup.ready?'good':'warning')+'">'+t(setup.ready?'Ready':'Needs attention')+'</span><ul class="mmaf-checklist">'+setup.problems.map(problem=>'<li>'+escape(problem)+'</li>').join('')+'</ul><p>'+t('Worker last seen')+': '+escape(setup.worker_seen||t('Not yet'))+'</p><p>'+t('Supervisor')+': '+escape(s.state||t('Not recorded'))+(s.stop_reason?' · '+escape(s.stop_reason):'')+(s.error?' · '+escape(s.error):'')+'</p><p>'+t('Estimated backup working space')+': '+(Number(p.backup_estimated_bytes||0)/1073741824).toFixed(2)+' GiB · '+t('Media files')+': '+Number(p.media_files||0).toLocaleString()+'</p><p>'+t('Last full restore verification')+': '+escape(r.ok?r.checked_at:t('Not recorded'))+(p.restore_verification_due?' · '+t('Full restore verification is due under the administrator policy.'):'')+'</p><p>'+t('Private storage')+': <code>'+escape(setup.storage||'—')+'</code></p>'+worker+capacityForm()+'<p>'+t('Backups include the database and locally managed media. Completed import artifacts are retained for 30 days and at least the last three imports; unfinished imports are retained.')+'</p>';
             wireCapacityForm();
-        }catch(error){message(error.message);}
+            connection('setup');
+        }catch(error){connection('setup',error);}finally{setupLoading=false;}
     }
-    async function refresh(){if(uploading||busy)return;try{const data=await api('import-jobs');if(explicitJob){render(await api('import-jobs/'+explicitJob));}else if(data.active){render(data.active);}byId('mmaf-history').innerHTML=data.history.length?'<div class="mmaf-table-scroll"><table><thead><tr>'+['Import','Package','Started','Status',''].map(x=>'<th>'+t(x)+'</th>').join('')+'</tr></thead><tbody>'+data.history.map(job=>'<tr><td>#'+job.id+'</td><td>'+escape(job.filename)+'</td><td>'+escape(job.created_at)+' UTC</td><td>'+escape(t(labels[job.status]||job.status))+'</td><td><button class="button" data-open="'+job.id+'">'+t('View')+'</button></td></tr>').join('')+'</tbody></table></div>':'<p>'+t('Your imports will appear here.')+'</p>';byId('mmaf-history').querySelectorAll('[data-open]').forEach(button=>button.addEventListener('click',async()=>{explicitJob=Number(button.dataset.open);showTab('new');render(await api('import-jobs/'+explicitJob));}));}catch(e){message(e.message);}}
+    async function refresh(){if(uploading||busy||refreshing)return;refreshing=true;try{const data=await api('import-jobs');if(explicitJob){render(await api('import-jobs/'+explicitJob));}else if(data.active){render(data.active);}byId('mmaf-history').innerHTML=data.history.length?'<div class="mmaf-table-scroll"><table><thead><tr>'+['Import','Package','Started','Status',''].map(x=>'<th>'+t(x)+'</th>').join('')+'</tr></thead><tbody>'+data.history.map(job=>'<tr><td>#'+job.id+'</td><td>'+escape(job.filename)+'</td><td>'+escape(job.created_at)+' UTC</td><td>'+escape(t(labels[job.status]||job.status))+'</td><td><button class="button" data-open="'+job.id+'">'+t('View')+'</button></td></tr>').join('')+'</tbody></table></div>':'<p>'+t('Your imports will appear here.')+'</p>';byId('mmaf-history').querySelectorAll('[data-open]').forEach(button=>button.addEventListener('click',async()=>{explicitJob=Number(button.dataset.open);showTab('new');render(await api('import-jobs/'+explicitJob));}));connection('poll');}catch(e){connection('poll',e);}finally{refreshing=false;}}
     loadSetup();refresh();setInterval(refresh,3000);setInterval(loadSetup,60000);
 })();
