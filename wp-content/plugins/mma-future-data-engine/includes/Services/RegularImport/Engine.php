@@ -143,13 +143,20 @@ final class Engine {
             Storage::write(Storage::job($id).'/report.json',['mode'=>'ufc_roster','job_id'=>$id,'destination'=>['site_url'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null],'run_ids'=>['ufc'=>$meta['package']['headers']['ufc']['run_id']??null],'status'=>'completed_with_review','plan'=>$meta['plan'],'actual'=>$meta['actual'],'last_successful_import'=>get_option('mmaf_ufc_roster_last_import',null)]);return;
         }
         if($phase==='stats'){
-            $previous=(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->get_last_rebuild_summary();
-            $same=isset($meta['calculation_input_baseline']) && hash_equals($meta['calculation_input_baseline'],DatabaseState::calculationRevision());
-            if($same && $previous && ($previous['calculation_policy']??'')===DatabaseState::calculationPolicy() && ($previous['reference_date']??'')===current_time('Y-m-d') && !DatabaseState::integrity()['fighters_without_stats']){
-                $meta['stats']=$previous+['reused'=>true];$meta['calculation_needed']=false;
-                $this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);return;
+            // Decide reuse vs. calculation once per import. The whole-table input
+            // scan is expensive; later units only advance the calculation, whose
+            // own step guard (Calculation::step via Revision::current) rejects
+            // input changes made while it runs.
+            if(!isset($meta['calculation_needed'])){
+                $previous=(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->get_last_rebuild_summary();
+                $same=isset($meta['calculation_input_baseline']) && hash_equals($meta['calculation_input_baseline'],DatabaseState::calculationRevision());
+                if($same && $previous && ($previous['calculation_policy']??'')===DatabaseState::calculationPolicy() && ($previous['reference_date']??'')===current_time('Y-m-d') && !DatabaseState::integrity()['fighters_without_stats']){
+                    $meta['stats']=$previous+['reused'=>true];$meta['calculation_needed']=false;
+                    $this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);return;
+                }
+                $meta['calculation_needed']=true;
+                $this->repo->update($id,['meta'=>$meta]);
             }
-            $meta['calculation_needed']=true;
             $calculation=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,(int)$job['approved_by'],'import:'.$id.':stats');
             $result=\MMAF\DataEngine\Services\Operations\Calculation::step($calculation);
             if($result['status']==='failed'){throw new ImportException('Statistics generation failed: '.$result['error_message'],'calculation');}

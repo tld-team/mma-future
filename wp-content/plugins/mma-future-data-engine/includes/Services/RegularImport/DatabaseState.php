@@ -2,6 +2,8 @@
 namespace MMAF\DataEngine\Services\RegularImport;
 use MMAF\DataEngine\Migrations\Schema as CanonicalSchema;
 final class DatabaseState {
+    /** Number of whole-table calculation input scans in this process (diagnostics and tests). */
+    public static int $calculationRevisionScans=0;
     public static function revision(): string {
         global $wpdb; $tables=CanonicalSchema::table_names(); $hash=hash_init('sha256');
         foreach (['fighters','fighter_sources','events','event_sources','bouts','bout_sources','bout_participants','field_provenance','fighter_stats_overrides','ranking_current'] as $kind) {
@@ -44,6 +46,7 @@ final class DatabaseState {
     }
     /** Freshness and protected career decisions are calculation inputs in evidence-backed formulas. */
     public static function calculationRevision(): string {
+        ++self::$calculationRevisionScans;
         $t=CanonicalSchema::table_names();$hash=hash_init('sha256');
         $queries=[
             ['fighters',"SELECT id,date_of_birth,gender,weight_class,status,is_public,is_rankable,rankability_status,in_ufc,tracking_mode,tracking_revision,tracking_last_checked_bout_id,tracking_return_candidate_at,deleted_soft FROM {$t['fighters']} ORDER BY id",'id'],
