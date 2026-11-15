@@ -1,22 +1,144 @@
+/*
+ * Follow fighter.
+ * Lists (rankings, calendar, account): a quiet ghost control that only gains a surface on hover or when following.
+ * Fighter hero: matches the hero's own glass CTA ("Read more") so it reads as part of the same family.
+ */
 .mmaf-follow {
+  --follow-bg: transparent;
+  --follow-border: transparent;
+  --follow-text: #64748b;
+  --follow-icon: #94a3b8;
+  --follow-hover-bg: rgba(0,71,168,.06);
+  --follow-hover-border: transparent;
+  --follow-hover-text: #0047a8;
+  --follow-on-bg: rgba(0,71,168,.08);
+  --follow-on-hover-bg: rgba(0,71,168,.12);
+  --follow-on-border: transparent;
+  --follow-on-text: #0047a8;
+  --follow-on-icon: #0047a8;
+  --follow-ring: rgba(0,71,168,.3);
+  --follow-pad-x: .5rem;
   display: inline-flex;
   align-items: center;
-  gap: .45rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: #fff;
-  color: #0f172a;
-  padding: .55rem .9rem;
-  font: 600 .875rem/1.2 inherit;
+  gap: .375rem;
+  flex: none;
+  min-height: 1.75rem;
+  padding: .25rem var(--follow-pad-x);
+  border: 1px solid var(--follow-border);
+  border-radius: 8px;
+  background: var(--follow-bg);
+  color: var(--follow-text);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: .78125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  text-decoration: none;
+  vertical-align: middle;
   cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s ease;
 }
-.mmaf-follow:hover, .mmaf-follow:focus-visible {
-  border-color: #0047a8;
-  outline: 2px solid transparent;
-  box-shadow: 0 0 0 3px rgba(0,71,168,.18);
+.mmaf-follow__bell {
+  flex: none;
+  width: .9375rem;
+  height: .9375rem;
+  color: var(--follow-icon);
+  transform-origin: 50% 12%;
+  transition: color .2s ease;
 }
-.mmaf-follow.is-following { background: #0047a8; border-color: #0047a8; color: #fff; }
-.mmaf-follow:disabled { opacity: .65; cursor: wait; }
+.mmaf-follow__bell path:first-child { fill: transparent; transition: fill .2s ease; }
+.mmaf-follow:hover { background: var(--follow-hover-bg); border-color: var(--follow-hover-border); color: var(--follow-hover-text); }
+.mmaf-follow:hover .mmaf-follow__bell { color: currentColor; }
+.mmaf-follow:not(.is-following):hover .mmaf-follow__bell { animation: mmaf-follow-ring .6s ease; }
+.mmaf-follow:focus { outline: none; }
+.mmaf-follow:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--follow-ring); }
+.mmaf-follow.is-following { background: var(--follow-on-bg); border-color: var(--follow-on-border); color: var(--follow-on-text); }
+.mmaf-follow.is-following:hover { background: var(--follow-on-hover-bg); }
+.mmaf-follow.is-following .mmaf-follow__bell { color: var(--follow-on-icon); }
+.mmaf-follow.is-following .mmaf-follow__bell path:first-child { fill: currentColor; }
+.mmaf-follow:disabled { opacity: .55; cursor: progress; }
+.mmaf-follow:disabled .mmaf-follow__bell { animation: none; }
+@media (pointer: coarse) { .mmaf-follow { min-height: 2.25rem; } }
+
+/* Hero: same glass treatment as .mf-hero-bubble__cta; following drops to the neutral glass of the "Learn more" toggle. */
+.mmaf-follow--hero {
+  --follow-bg: linear-gradient(135deg, rgba(59,130,246,.18), rgba(59,130,246,.12));
+  --follow-border: rgba(59,130,246,.4);
+  --follow-text: #fff;
+  --follow-icon: #93c5fd;
+  --follow-hover-bg: linear-gradient(135deg, rgba(59,130,246,.28), rgba(59,130,246,.2));
+  --follow-hover-border: rgba(59,130,246,.55);
+  --follow-hover-text: #fff;
+  --follow-on-bg: rgba(255,255,255,.06);
+  --follow-on-border: rgba(255,255,255,.14);
+  --follow-on-text: rgba(255,255,255,.88);
+  --follow-on-icon: #93c5fd;
+  --follow-ring: rgba(96,165,250,.5);
+  --follow-pad-x: 1.125rem;
+  gap: .5rem;
+  min-height: 2.625rem;
+  padding-left: .95rem;
+  border-radius: .5rem;
+  font-size: .875rem;
+  letter-spacing: .005em;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.mmaf-follow--hero .mmaf-follow__bell { width: 1rem; height: 1rem; }
+.mmaf-follow--hero:not(.is-following):hover { box-shadow: 0 6px 20px rgba(59,130,246,.25); transform: translateY(-1px); }
+.mmaf-follow--hero.is-following:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); color: #fff; }
+.mmaf-follow--hero .mmaf-follow__bell, .mmaf-follow--hero:hover .mmaf-follow__bell { color: var(--follow-icon); }
+.mmaf-follow--hero.is-following .mmaf-follow__bell { color: var(--follow-on-icon); }
+.mmaf-follow--hero:disabled { transform: none; box-shadow: none; }
+
+/* Placement: under a fighter name the ghost pulls left so its icon lines up with the name. */
+.rk-main-row .mmaf-follow, .rk-card .mmaf-follow { margin: .3rem 0 0 calc(-1 * var(--follow-pad-x) - 1px); }
+/* Calendar rows run edge to edge between dividers, so the control stays inside them. */
+.mmaf-calendar__bouts .mmaf-follow { --follow-pad-x: .4rem; display: flex; width: max-content; margin: .3rem 0 0; }
+.mmaf-calendar__bouts li > span:last-of-type .mmaf-follow { margin-left: auto; }
+
+@keyframes mmaf-follow-ring {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(12deg); }
+  45% { transform: rotate(-9deg); }
+  70% { transform: rotate(4deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mmaf-follow, .mmaf-follow__bell, .mmaf-follow__bell path:first-child { transition: none; }
+  .mmaf-follow:not(.is-following):hover .mmaf-follow__bell { animation: none; }
+  .mmaf-follow--hero:not(.is-following):hover { transform: none; }
+}
+
+/* Dark surfaces follow the theme toggle (data-theme), with the OS preference as the no-JS fallback. */
+:root[data-theme="dark"] .mmaf-follow:not(.mmaf-follow--hero) {
+  --follow-text: #94a3b8;
+  --follow-icon: #64748b;
+  --follow-hover-bg: rgba(96,165,250,.1);
+  --follow-hover-text: #bfdbfe;
+  --follow-on-bg: rgba(96,165,250,.14);
+  --follow-on-hover-bg: rgba(96,165,250,.2);
+  --follow-on-text: #93c5fd;
+  --follow-on-icon: #93c5fd;
+  --follow-ring: rgba(96,165,250,.5);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .mmaf-follow:not(.mmaf-follow--hero) {
+    --follow-text: #94a3b8;
+    --follow-icon: #64748b;
+    --follow-hover-bg: rgba(96,165,250,.1);
+    --follow-hover-text: #bfdbfe;
+    --follow-on-bg: rgba(96,165,250,.14);
+    --follow-on-hover-bg: rgba(96,165,250,.2);
+    --follow-on-text: #93c5fd;
+    --follow-on-icon: #93c5fd;
+    --follow-ring: rgba(96,165,250,.5);
+  }
+}
+
 .mmaf-calendar__reminder {
   border: 1px solid #0047a8;
   border-radius: 8px;
@@ -60,7 +182,7 @@
 .mmaf-muted { color: #64748b; }
 @media (prefers-color-scheme: dark) {
   .mmaf-notification-page { background: #020617; }
-  .mmaf-notification-card, .mmaf-follow { background: #0f172a; color: #f8fafc; border-color: #334155; }
+  .mmaf-notification-card { background: #0f172a; color: #f8fafc; border-color: #334155; }
   .mmaf-notification-card section, .mmaf-account-list li, .mmaf-separator { border-color: #334155; }
   .mmaf-separator span { background: #0f172a; }
 }
