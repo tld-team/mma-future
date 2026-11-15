@@ -23,6 +23,14 @@ $formula=new FormulaV18();
 $check('version','v1.8',FormulaV18::VERSION);
 $check('scope','professional_mma_career_v1',FormulaV18::SCOPE);
 $check('no_lower_date',null,FormulaV18::PERIOD_START);
+require_once $base . 'Services/Scoring/CareerAssessment.php';
+$fresh=static fn(string $verified,string $calculated): bool => \MMAF\DataEngine\Services\Scoring\CareerAssessment::fresh($verified,$calculated);
+$check('verification_window_days',30,FormulaV18::config()['scoring_scope']['max_verification_age_days']);
+$check('verification_9_days_old_is_fresh',true,$fresh('2026-11-06 23:05:40','2026-11-15 12:00:00'));
+$check('verification_exactly_30_days_is_fresh',true,$fresh('2026-10-16 12:00:00','2026-11-15 12:00:00'));
+$check('verification_over_30_days_is_stale',false,$fresh('2026-10-16 11:59:59','2026-11-15 12:00:00'));
+$check('verification_after_calculation_is_rejected',false,$fresh('2026-11-15 12:00:01','2026-11-15 12:00:00'));
+$check('missing_verification_is_stale',false,\MMAF\DataEngine\Services\Scoring\CareerAssessment::fresh(null,'2026-11-15 12:00:00'));
 
 foreach([[-11,-2.0],[-10,-2.0],[-9,0.0],[-1,0.0],[0,1.0],[10,1.0],[11,3.0],[30,3.0],[31,5.0],[60,5.0],[61,7.0],[100,7.0],[101,10.0]] as [$od,$points]){
     $check('win_'.$od,$points,$formula->opponent_differential_points_for_win($od));

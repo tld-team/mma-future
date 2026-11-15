@@ -26,7 +26,10 @@ unresolved identities, missing bouts and aggregate mismatches remain blockers.
 
 A `main` assessment requires versioned whole-career evidence, complete loading,
 row-level professional MMA scope, reciprocal canonical participants/results,
-component-equal aggregate totals and the existing eligibility rules. An
+component-equal aggregate totals, source profile evidence no older than
+`FormulaV18::MAX_VERIFICATION_AGE_DAYS` (30 days) at the frozen calculation time,
+and the existing eligibility rules. The preserved v1.6/v1.7 engines keep their
+seven-day window. An
 incomplete assessment is `provisional`: `score`, `raw_score` and `total_score`
 are null, while `known_points` may display a clearly provisional neutral sum.
 The frozen assessment contract v2 stores accepted career bouts, aggregate,
