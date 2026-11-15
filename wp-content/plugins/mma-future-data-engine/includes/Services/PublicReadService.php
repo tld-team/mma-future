@@ -157,6 +157,6 @@ final class PublicReadService extends AbstractRestController {
 	private function not_found(): \WP_Error { return new \WP_Error('mmaf_fighter_not_found','Fighter not found.',array('status'=>404)); }
 	private function prime( array $ids ): void {
 		$ids=array_values(array_unique(array_filter(array_map('intval',$ids)))); if(!$ids) { return; }
-		_prime_post_caches($ids,false,true); $images=array(); foreach($ids as $id) { $image=(int)get_post_thumbnail_id($id); if($image) { $images[]=$image; } } if($images) { _prime_post_caches(array_unique($images),false,true); }
+		_prime_post_caches($ids,false,true); $images=array(); foreach($ids as $id) { foreach(self::fighter_image_ids($id) as $image) { $images[]=$image; } } if($images) { _prime_post_caches(array_unique($images),false,true); }
 	}
 }

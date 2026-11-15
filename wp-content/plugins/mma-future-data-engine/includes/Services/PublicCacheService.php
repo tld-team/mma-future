@@ -5,13 +5,13 @@ use MMAF\DataEngine\Services\RegularImport\WriteGuard;
 /** One revision and one page-cache purge per successful request/bulk operation. */
 final class PublicCacheService {
  // Bump when the cached public response contract changes.
- private const CONTRACT_VERSION=4;
+ private const CONTRACT_VERSION=5;
  private static bool $pending=false;
  public static function register(): void {
   add_action('mmaf_public_data_changed',array(self::class,'changed'));
   add_action('acf/save_post',static function(){self::changed('editorial');},30);
   add_action('save_post',static function($id){if(!wp_is_post_revision($id)&&!wp_is_post_autosave($id)){self::changed('post');}},30);
-  foreach(array('added_post_meta','updated_post_meta','deleted_post_meta') as $hook){add_action($hook,static function($meta,$post,$key){if($key==='_thumbnail_id'){self::changed('image');}},10,3);}
+  foreach(array('added_post_meta','updated_post_meta','deleted_post_meta') as $hook){add_action($hook,static function($meta,$post,$key){if(in_array($key,array('_thumbnail_id','hero_image'),true)){self::changed('image');}},10,3);}
   add_action('shutdown',array(self::class,'flush'),999);
  }
  public static function changed(string $reason='data'): void {
