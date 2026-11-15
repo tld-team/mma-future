@@ -210,6 +210,131 @@
     }
 }
 
+/* Fighter hero fine print: one discreet disclosure instead of loose paragraphs */
+.mf-hero .mf-hero-details {
+    max-width: 40rem;
+    text-align: left;
+}
+
+.mf-hero .mf-hero-details__summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.25;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.mf-hero .mf-hero-details__summary::-webkit-details-marker {
+    display: none;
+}
+
+.mf-hero .mf-hero-details__summary:hover,
+.mf-hero .mf-hero-details[open] .mf-hero-details__summary {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.mf-hero .mf-hero-details__summary:focus-visible {
+    outline: 2px solid rgba(96, 165, 250, 0.8);
+    outline-offset: 2px;
+}
+
+.mf-hero .mf-hero-details__icon {
+    width: 0.95rem;
+    height: 0.95rem;
+    opacity: 0.7;
+}
+
+.mf-hero .mf-hero-details__chevron {
+    width: 0.85rem;
+    height: 0.85rem;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mf-hero .mf-hero-details[open] .mf-hero-details__chevron {
+    transform: rotate(180deg);
+}
+
+.mf-hero .mf-hero-details__panel {
+    margin-top: 0.75rem;
+    padding: 1rem 1.15rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.mf-hero .mf-hero-details__list {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+}
+
+.mf-hero .mf-hero-details__list > div {
+    display: grid;
+    grid-template-columns: minmax(8.5rem, 10rem) 1fr;
+    gap: 1rem;
+    align-items: baseline;
+}
+
+.mf-hero .mf-hero-details__list dt {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.mf-hero .mf-hero-details__list dd {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.mf-hero .mf-hero-details__notes {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mf-hero .mf-hero-details__notes p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.78rem;
+    line-height: 1.6;
+}
+
+.mf-hero .mf-hero-details__notes p + p {
+    margin-top: 0.4rem;
+}
+
+@media (max-width: 479px) {
+    .mf-hero .mf-hero-details__list > div {
+        grid-template-columns: 1fr;
+        gap: 0.1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mf-hero .mf-hero-details__summary,
+    .mf-hero .mf-hero-details__chevron {
+        transition: none;
+    }
+}
+
 /* single-fighter-quick-stats-section */
 
 /* ============================================
