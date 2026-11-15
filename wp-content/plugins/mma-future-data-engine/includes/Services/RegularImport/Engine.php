@@ -72,18 +72,25 @@ final class Engine {
     private function step(array $job,callable $heartbeat): void {
         global $wpdb;$id=(int)$job['id'];$meta=$job['meta'];$phase=$job['phase'];
         if($phase==='assemble'){
-            $dir=Storage::job($id);$out=fopen($dir.'/bundle.zip.partial','wb');
-            if(!$out){throw new ImportException('Cannot assemble the upload.','storage',true);}
-            $total=0;
-            try{
-            $count=(int)ceil($meta['upload_bytes']/Storage::CHUNK_SIZE);
-            for($i=0;$i<$count;$i++){
-                $file=$dir.'/upload-'.$i.'.part';
-                if(!is_file($file)||!hash_equals($meta['received_chunks'][(string)$i],hash_file('sha256',$file))){throw new ImportException('An uploaded file part is missing or changed.','checksum');}
-                $in=fopen($file,'rb');try{$written=stream_copy_to_stream($in,$out);if($written===false){throw new ImportException('Could not assemble upload.','storage',true);}$total+=$written;}finally{fclose($in);}$heartbeat();
-            }}finally{fclose($out);}
-            if($total!==(int)$meta['upload_bytes']||!rename($dir.'/bundle.zip.partial',$dir.'/bundle.zip')){throw new ImportException('Upload size verification failed.','storage');}
-            chmod($dir.'/bundle.zip',0600);
+            $dir=Storage::job($id);$bundle=$dir.'/bundle.zip';
+            // A retried unit may find the parts already removed after a verified assembly.
+            if(!$this->assembledBundleMatches($bundle,$meta,$heartbeat)){
+                $out=fopen($dir.'/bundle.zip.partial','wb');
+                if(!$out){throw new ImportException('Cannot assemble the upload.','storage',true);}
+                $total=0;
+                try{
+                $count=(int)ceil($meta['upload_bytes']/Storage::CHUNK_SIZE);
+                for($i=0;$i<$count;$i++){
+                    $file=$dir.'/upload-'.$i.'.part';
+                    if(!is_file($file)||!hash_equals($meta['received_chunks'][(string)$i],hash_file('sha256',$file))){throw new ImportException('An uploaded file part is missing or changed.','checksum');}
+                    $in=fopen($file,'rb');try{$written=stream_copy_to_stream($in,$out);if($written===false){throw new ImportException('Could not assemble upload.','storage',true);}$total+=$written;}finally{fclose($in);}$heartbeat();
+                }}finally{fclose($out);}
+                if($total!==(int)$meta['upload_bytes']||!rename($dir.'/bundle.zip.partial',$bundle)){throw new ImportException('Upload size verification failed.','storage');}
+                chmod($bundle,0600);clearstatcache(true,$bundle);
+                if(filesize($bundle)!==(int)$meta['upload_bytes']){throw new ImportException('Upload size verification failed.','storage');}
+            }
+            // The verified bundle replaces the parts; they would otherwise stay until retention.
+            foreach(glob($dir.'/upload-*.part')?:[] as $part){@unlink($part);}
             $this->repo->update($id,['phase'=>'prepare','status'=>'queued']);return;
         }
         if($phase==='prepare'){
@@ -190,6 +197,20 @@ final class Engine {
             Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'destination'=>['site_url'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null],'run_ids'=>['events'=>$meta['package']['headers']['run_manifest']['run_id']??null,'profiles'=>$meta['package']['headers']['profiles']['run_id']??null,'ufc'=>$meta['package']['headers']['ufc']['run_id']??null],'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'profile_changes'=>$this->profileChanges($id),'readiness'=>$meta['package']['readiness']??null,'event_coverage'=>$meta['package']['event_coverage']??['complete'=>false,'legacy'=>true],'ufc_roster'=>isset($meta['package']['headers']['ufc'])?['included'=>true,'run_id'=>$meta['package']['headers']['ufc']['run_id']??null,'scraped_at'=>$meta['package']['headers']['ufc']['scraped_at']??null]:['included'=>false,'warning'=>$meta['package']['ufc_warning']??null,'last_successful_import'=>$meta['package']['ufc_roster_last_import']??null],'priority_targets'=>$meta['package']['priority_targets']??null,'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit'],'receipt'=>$receipt]);return;
         }
         throw new ImportException('Unknown import phase: '.$phase,'state');
+    }
+    /** True when bundle.zip already holds exactly the uploaded parts, checked slice by slice against their recorded hashes. */
+    private function assembledBundleMatches(string $bundle,array $meta,callable $heartbeat): bool {
+        $bytes=(int)($meta['upload_bytes']??0);
+        if($bytes<1||!is_file($bundle)||filesize($bundle)!==$bytes){return false;}
+        $in=fopen($bundle,'rb');if(!$in){return false;}
+        try{
+            $count=(int)ceil($bytes/Storage::CHUNK_SIZE);
+            for($i=0;$i<$count;$i++){
+                $expected=(string)($meta['received_chunks'][(string)$i]??'');$chunk=stream_get_contents($in,Storage::CHUNK_SIZE);
+                if($expected===''||!is_string($chunk)||!hash_equals($expected,hash('sha256',$chunk))){return false;}$heartbeat();
+            }
+            return true;
+        }finally{fclose($in);}
     }
     /**
      * Classify every canonical fighter touched by this package before statistics

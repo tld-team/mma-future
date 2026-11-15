@@ -18,7 +18,7 @@ if(!(int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")){
     MigrationRunner::run();check((int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")===0,'additive schema upgrade is idempotent');
 }
 $archive=getenv('MMAF_PIPELINE_FIXTURE');if(!$archive||!is_file($archive)){throw new RuntimeException('Generate the parser/cycle/ZIP fixture first.');}
-$repo=new Repository();$dir=null;$deltaDir=null;$failedDir=null;$temporary=[];$t=Schema::table_names();$q=PipelineSchema::tables()['queue'];
+$repo=new Repository();$dir=null;$deltaDir=null;$failedDir=null;$uploadDir=null;$temporary=[];$t=Schema::table_names();$q=PipelineSchema::tables()['queue'];
 WriteGuard::$worker=true;Transaction::begin();
 try{
     $capacityPath=MMAF_OPERATIONS_DIR.'/capacity.json';$capacityBefore=is_file($capacityPath)?file_get_contents($capacityPath):null;
@@ -30,6 +30,16 @@ try{
     $contract=json_decode(file_get_contents(__DIR__.'/../fixtures/import-pipeline/contracts.json'),true);
     foreach($contract['digest_cases'] as $case){check(\MMAF\DataEngine\Services\RegularImport\InputDigest::hash($case['input'])===$case['sha256'],'shared JSON digest contract preserves floats, Unicode, empty maps and volatile observations');}
     foreach($contract['url_cases'] as $case){$identity=\MMAF\DataEngine\Support\TapologyFighterUrl::parse($case['url']);$source=$identity?($identity['source_fighter_id']?:'tapology_fighter_url_'.substr($identity['source_url_hash'],0,24)):null;check(($identity['source_url']??null)===$case['normalized'] && $source===$case['source_fighter_id'],'shared URL contract: '.$case['url']);}
+    // Chunked upload → assemble: the verified bundle replaces the upload parts.
+    $upload=$repo->create('synthetic-upload.zip',filesize($archive),1);$uploadDir=Storage::job($upload);$uploadMeta=$repo->get($upload)['meta'];$source=fopen($archive,'rb');
+    for($i=0;!feof($source);$i++){$chunk=stream_get_contents($source,Storage::CHUNK_SIZE);if($chunk===''){break;}Storage::writeBytes($uploadDir.'/upload-'.$i.'.part',$chunk);$uploadMeta['received_chunks'][(string)$i]=hash('sha256',$chunk);}
+    fclose($source);$repo->update($upload,['meta'=>$uploadMeta,'status'=>'queued','phase'=>'assemble']);
+    check(count(glob($uploadDir.'/upload-*.part'))===count($uploadMeta['received_chunks']),'fixture upload is stored as verified parts before assembly');
+    $result=(new Engine())->work();
+    check(!empty($result['worked']) && $repo->get($upload)['phase']==='prepare' && hash_file('sha256',$uploadDir.'/bundle.zip')===hash_file('sha256',$archive) && !glob($uploadDir.'/upload-*.part'),'assembly verifies bundle.zip and removes every upload part');
+    $repo->update($upload,['status'=>'queued','phase'=>'assemble']);$result=(new Engine())->work();
+    check(!empty($result['worked']) && $repo->get($upload)['phase']==='prepare','a retried assembly accepts the verified bundle after its parts were removed');
+    $repo->update($upload,['status'=>'discarded']);Storage::removeTree($uploadDir);$uploadDir=null;
     $a=fixture_fighter(94981101,'Synthetic A',['is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable','status'=>'verified']);
     $b=fixture_fighter(94981102,'Synthetic B',['is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable','status'=>'verified']);
     $job=$repo->create('synthetic-parser-cycle.zip',filesize($archive),1);$dir=Storage::job($job);copy($archive,$dir.'/bundle.zip');
@@ -176,4 +186,4 @@ try{
     $revision=\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision();
     $wpdb->update($table,['accepted_bouts_count'=>1],['fighter_id'=>94990250]);
     check($revision!==\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision(),'calculation digest covers pages beyond 250 career records with fighter_id cursors');
-}finally{Transaction::rollback();WriteGuard::$worker=false;if($dir){Storage::removeTree($dir);}if($deltaDir){Storage::removeTree($deltaDir);}if($failedDir){Storage::removeTree($failedDir);}foreach($temporary as $file){@unlink($file);}wp_cache_flush();}
+}finally{Transaction::rollback();WriteGuard::$worker=false;if($dir){Storage::removeTree($dir);}if($deltaDir){Storage::removeTree($deltaDir);}if($failedDir){Storage::removeTree($failedDir);}if($uploadDir){Storage::removeTree($uploadDir);}foreach($temporary as $file){@unlink($file);}wp_cache_flush();}
