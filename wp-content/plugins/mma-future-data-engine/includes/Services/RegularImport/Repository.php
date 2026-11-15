@@ -13,6 +13,12 @@ final class Repository {
         if (!$row) { throw new ImportException('Import was not found.', 'not_found'); }
         return $row;
     }
+    /** Light lookup for heartbeats: avoids decoding the job's meta JSON. */
+    public function phase(int $id): ?string {
+        global $wpdb;
+        $phase=$wpdb->get_var($wpdb->prepare("SELECT phase FROM {$this->tables['jobs']} WHERE id=%d",$id));
+        return $phase===null?null:(string)$phase;
+    }
     public function recent(): array {
         global $wpdb;
         return array_map([$this,'decode'], $wpdb->get_results("SELECT * FROM {$this->tables['jobs']} ORDER BY id DESC LIMIT 50", ARRAY_A) ?: []);

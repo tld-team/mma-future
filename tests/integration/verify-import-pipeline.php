@@ -18,7 +18,7 @@ if(!(int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")){
     MigrationRunner::run();check((int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")===0,'additive schema upgrade is idempotent');
 }
 $archive=getenv('MMAF_PIPELINE_FIXTURE');if(!$archive||!is_file($archive)){throw new RuntimeException('Generate the parser/cycle/ZIP fixture first.');}
-$repo=new Repository();$dir=null;$deltaDir=null;$failedDir=null;$temporary=[];$t=Schema::table_names();$q=PipelineSchema::tables()['queue'];
+$repo=new Repository();$dir=null;$deltaDir=null;$failedDir=null;$uploadDir=null;$temporary=[];$t=Schema::table_names();$q=PipelineSchema::tables()['queue'];
 WriteGuard::$worker=true;Transaction::begin();
 try{
     $capacityPath=MMAF_OPERATIONS_DIR.'/capacity.json';$capacityBefore=is_file($capacityPath)?file_get_contents($capacityPath):null;
@@ -30,6 +30,16 @@ try{
     $contract=json_decode(file_get_contents(__DIR__.'/../fixtures/import-pipeline/contracts.json'),true);
     foreach($contract['digest_cases'] as $case){check(\MMAF\DataEngine\Services\RegularImport\InputDigest::hash($case['input'])===$case['sha256'],'shared JSON digest contract preserves floats, Unicode, empty maps and volatile observations');}
     foreach($contract['url_cases'] as $case){$identity=\MMAF\DataEngine\Support\TapologyFighterUrl::parse($case['url']);$source=$identity?($identity['source_fighter_id']?:'tapology_fighter_url_'.substr($identity['source_url_hash'],0,24)):null;check(($identity['source_url']??null)===$case['normalized'] && $source===$case['source_fighter_id'],'shared URL contract: '.$case['url']);}
+    // Chunked upload → assemble: the verified bundle replaces the upload parts.
+    $upload=$repo->create('synthetic-upload.zip',filesize($archive),1);$uploadDir=Storage::job($upload);$uploadMeta=$repo->get($upload)['meta'];$source=fopen($archive,'rb');
+    for($i=0;!feof($source);$i++){$chunk=stream_get_contents($source,Storage::CHUNK_SIZE);if($chunk===''){break;}Storage::writeBytes($uploadDir.'/upload-'.$i.'.part',$chunk);$uploadMeta['received_chunks'][(string)$i]=hash('sha256',$chunk);}
+    fclose($source);$repo->update($upload,['meta'=>$uploadMeta,'status'=>'queued','phase'=>'assemble']);
+    check(count(glob($uploadDir.'/upload-*.part'))===count($uploadMeta['received_chunks']),'fixture upload is stored as verified parts before assembly');
+    $result=(new Engine())->work();
+    check(!empty($result['worked']) && $repo->get($upload)['phase']==='prepare' && hash_file('sha256',$uploadDir.'/bundle.zip')===hash_file('sha256',$archive) && !glob($uploadDir.'/upload-*.part'),'assembly verifies bundle.zip and removes every upload part');
+    $repo->update($upload,['status'=>'queued','phase'=>'assemble']);$result=(new Engine())->work();
+    check(!empty($result['worked']) && $repo->get($upload)['phase']==='prepare','a retried assembly accepts the verified bundle after its parts were removed');
+    $repo->update($upload,['status'=>'discarded']);Storage::removeTree($uploadDir);$uploadDir=null;
     $a=fixture_fighter(94981101,'Synthetic A',['is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable','status'=>'verified']);
     $b=fixture_fighter(94981102,'Synthetic B',['is_public'=>1,'is_rankable'=>1,'rankability_status'=>'rankable','status'=>'verified']);
     $job=$repo->create('synthetic-parser-cycle.zip',filesize($archive),1);$dir=Storage::job($job);copy($archive,$dir.'/bundle.zip');
@@ -44,11 +54,14 @@ try{
     check((int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bouts']}")===0,'dry-run keeps canonical bouts untouched');
     // Test safe writes with a frozen baseline; the separate backup tests cover actual restore.
     // This fixture never bypasses backup in application code.
-    $meta=$current['meta'];$meta['baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::integrity();$meta['protected_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedState();$meta['backup']=['fixture_only'=>true];
+    $meta=$current['meta'];$meta['baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::integrity();$meta['protected_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedState();$meta['calculation_input_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision();$meta['backup']=['fixture_only'=>true];
     $repo->update($job,['meta'=>$meta,'approved_by'=>1,'writes_started'=>1,'phase'=>'results','status'=>'queued']);
+    \MMAF\DataEngine\Services\RegularImport\DatabaseState::$calculationRevisionScans=0;
     $units=Worker::run(35,256,250);
     $current=$repo->get($job);
     check(in_array($current['status'],['completed','completed_with_review'],true) && !$current['error'],'one bounded worker finishes actual import, careers, statistics and final audit');
+    check(isset($current['meta']['protected_baseline']['publication_rows']),'final audit still accepts a job whose meta holds the older full protected baseline');
+    check((int)($current['meta']['performance']['stats']['units']??0)>1 && \MMAF\DataEngine\Services\RegularImport\DatabaseState::$calculationRevisionScans===1 && ($current['meta']['calculation_needed']??null)===true,'the whole-table calculation input scan runs once per import, not on every statistics unit');
     $career=$wpdb->get_results($wpdb->prepare("SELECT status FROM {$t['fighter_career_coverage']} WHERE fighter_id IN (%d,%d)",$a['fighter_id'],$b['fighter_id']),ARRAY_A);
     check(count($career)===2 && array_column($career,'status')===['complete','complete'],'section evidence survives Python to PHP and confirms both fighter perspectives');
     check((int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['bout_sources']} WHERE source_bout_id='tapology_bout_94981301'")===1,'two source perspectives produce one canonical bout');
@@ -125,10 +138,27 @@ try{
     for($n=0;$n<100;$n++){$d=$repo->get($delta);if($d['status']==='awaiting_approval'){break;}$result=(new Engine())->work();if(empty($result['worked'])){throw new RuntimeException(wp_json_encode($result));}}
     $d=$repo->get($delta);
     check($d['status']==='awaiting_approval' && !$d['meta']['package']['counts']['results'] && !$d['meta']['package']['counts']['profiles'],'identical input becomes a valid empty delta across Python and PHP hashes');
-    $dm=$d['meta'];$dm['baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::integrity();$dm['protected_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedState();$dm['calculation_input_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision();$dm['backup']=['fixture_only'=>true];
+    $dm=$d['meta'];$dm['baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::integrity();$dm['protected_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::storeProtectedBaseline($delta,\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedState());$dm['calculation_input_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision();$dm['backup']=['fixture_only'=>true];
     $runsBefore=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}");
-    $repo->update($delta,['meta'=>$dm,'approved_by'=>1,'writes_started'=>1,'phase'=>'results','status'=>'queued']);Worker::run(35,256,250);$d=$repo->get($delta);
-    check(in_array($d['status'],['completed','completed_with_review'],true) && !empty($d['meta']['stats']['reused']) && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$runsBefore,'empty same-date delta reuses verified stats and creates no additional ranking draft');
+    $repo->update($delta,['meta'=>$dm,'approved_by'=>1,'writes_started'=>1,'phase'=>'results','status'=>'queued']);\MMAF\DataEngine\Services\RegularImport\DatabaseState::$calculationRevisionScans=0;Worker::run(35,256,250);$d=$repo->get($delta);
+    check(in_array($d['status'],['completed','completed_with_review'],true) && !empty($d['meta']['stats']['reused']) && \MMAF\DataEngine\Services\RegularImport\DatabaseState::$calculationRevisionScans===1 && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$runsBefore,'empty same-date delta reuses verified stats and creates no additional ranking draft');
+    $stored=$d['meta']['protected_baseline'];$baselineFile=$deltaDir.'/protected-baseline.json';
+    check(!isset($stored['publication_rows']) && isset($stored['publication_hash'],$stored['max_fighter_id'],$stored['publication_rows_sha256']) && is_file($baselineFile) && hash_equals($stored['publication_rows_sha256'],hash_file('sha256',$baselineFile)),'protected baseline rows live in the job file while meta keeps hashes, max_fighter_id and the file checksum');
+    check(\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedStateMatches($stored,$delta) && \MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedStateUnchanged($stored),'audit accepts the file-backed protected baseline');
+    $baselineBytes=file_get_contents($baselineFile);
+    Transaction::begin();
+    try{
+        $mode=$wpdb->get_var($wpdb->prepare("SELECT tracking_mode FROM {$t['fighters']} WHERE id=%d",$a['fighter_id']))==='paused'?'opponent_only':'paused';
+        Repository::check($wpdb->update($t['fighters'],['is_rankable'=>0,'tracking_mode'=>$mode,'tracking_source'=>'ranking_disposition'],['id'=>$a['fighter_id']]));
+        check(!\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedStateUnchanged($stored) && \MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedStateMatches($stored,$delta),'approved disposition transition is verified row by row against the baseline file');
+        Repository::check($wpdb->update($t['fighters'],['tracking_source'=>'manual'],['id'=>$a['fighter_id']]));
+        check(!\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedStateMatches($stored,$delta),'a publication change outside the disposition policy fails against the baseline file');
+        Repository::check($wpdb->update($t['fighters'],['tracking_source'=>'ranking_disposition'],['id'=>$a['fighter_id']]));
+        file_put_contents($baselineFile,$baselineBytes.' ');
+        check(!\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedStateMatches($stored,$delta),'an altered baseline file fails the audit closed');
+        unlink($baselineFile);
+        check(!\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedStateMatches($stored,$delta),'a missing baseline file fails the audit closed');
+    }finally{Transaction::rollback();file_put_contents($baselineFile,$baselineBytes);}
     $profile=(new ProfileStore())->for_fighter($a['fighter_id']);$raw=$profile['profile'];
     $invalid=$raw;$invalid['history_scope_verified']='false';$invalid['history_exhausted']='false';$adapted=ProfileStore::career_profile($invalid,$a['fighter_id']);
     check(!$adapted['history_scope_verified'] && !$adapted['history_exhausted'],'string false cannot masquerade as verified scope or complete history');
@@ -156,4 +186,4 @@ try{
     $revision=\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision();
     $wpdb->update($table,['accepted_bouts_count'=>1],['fighter_id'=>94990250]);
     check($revision!==\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision(),'calculation digest covers pages beyond 250 career records with fighter_id cursors');
-}finally{Transaction::rollback();WriteGuard::$worker=false;if($dir){Storage::removeTree($dir);}if($deltaDir){Storage::removeTree($deltaDir);}if($failedDir){Storage::removeTree($failedDir);}foreach($temporary as $file){@unlink($file);}wp_cache_flush();}
+}finally{Transaction::rollback();WriteGuard::$worker=false;if($dir){Storage::removeTree($dir);}if($deltaDir){Storage::removeTree($deltaDir);}if($failedDir){Storage::removeTree($failedDir);}if($uploadDir){Storage::removeTree($uploadDir);}foreach($temporary as $file){@unlink($file);}wp_cache_flush();}

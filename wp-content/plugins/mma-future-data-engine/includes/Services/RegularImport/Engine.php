@@ -26,13 +26,13 @@ final class Engine {
             if($job['status']==='running'&&$attempts>=3){$this->repo->update($id,['status'=>'needs_attention','error'=>['message'=>'The worker stopped three times. Check the server log, then resume.','reason'=>'worker_interrupted','retryable'=>true]]);return ['worked'=>false,'blocked'=>'needs_attention'];}
             $this->repo->update($id,['status'=>'running','attempts'=>$attempts+1,'retry_at'=>null,'heartbeat_at'=>gmdate('Y-m-d H:i:s')]);
             global $wpdb;$job=$this->repo->get($id);$start=microtime(true);$queryStart=$wpdb->num_queries;$lastBeat=0;
-            $heartbeat=function() use ($id,&$lastBeat): void {if(time()-$lastBeat>=2){Storage::write(Storage::job($id).'/heartbeat.json',['at'=>gmdate('c'),'phase'=>$this->repo->get($id)['phase']]);$lastBeat=time();}};
+            $heartbeat=function() use ($id,&$lastBeat): void {if(time()-$lastBeat>=2){Storage::write(Storage::job($id).'/heartbeat.json',['at'=>gmdate('c'),'phase'=>$this->repo->phase($id)]);$lastBeat=time();}};
             $heartbeat();WriteGuard::$worker=true;
             try{
                 if(($job['meta']['site_url']??'')!==home_url('/')){throw new ImportException('This job belongs to a different site.','destination');}
                 if($job['phase']==='backup'){
                     $meta=$job['meta'];$meta['backup']=Backup::create($id,$heartbeat);
-                    $meta['baseline']=DatabaseState::integrity();$meta['calculation_input_baseline']=DatabaseState::calculationRevision();$meta['calculation_policy']=DatabaseState::calculationPolicy();$meta['protected_baseline']=DatabaseState::protectedState();
+                    $meta['baseline']=DatabaseState::integrity();$meta['calculation_input_baseline']=DatabaseState::calculationRevision();$meta['calculation_policy']=DatabaseState::calculationPolicy();$meta['protected_baseline']=DatabaseState::storeProtectedBaseline($id,DatabaseState::protectedState());
                     $mode=$meta['package']['mode']??'';$writePhase=$mode==='career_history'?'career':($mode==='ufc_roster'?'ufc':'results');
                     $this->repo->update($id,['meta'=>$meta,'phase'=>$writePhase,'status'=>'queued','attempts'=>0,'writes_started'=>1,'error'=>null]);
                 }else{
@@ -72,18 +72,25 @@ final class Engine {
     private function step(array $job,callable $heartbeat): void {
         global $wpdb;$id=(int)$job['id'];$meta=$job['meta'];$phase=$job['phase'];
         if($phase==='assemble'){
-            $dir=Storage::job($id);$out=fopen($dir.'/bundle.zip.partial','wb');
-            if(!$out){throw new ImportException('Cannot assemble the upload.','storage',true);}
-            $total=0;
-            try{
-            $count=(int)ceil($meta['upload_bytes']/Storage::CHUNK_SIZE);
-            for($i=0;$i<$count;$i++){
-                $file=$dir.'/upload-'.$i.'.part';
-                if(!is_file($file)||!hash_equals($meta['received_chunks'][(string)$i],hash_file('sha256',$file))){throw new ImportException('An uploaded file part is missing or changed.','checksum');}
-                $in=fopen($file,'rb');try{$written=stream_copy_to_stream($in,$out);if($written===false){throw new ImportException('Could not assemble upload.','storage',true);}$total+=$written;}finally{fclose($in);}$heartbeat();
-            }}finally{fclose($out);}
-            if($total!==(int)$meta['upload_bytes']||!rename($dir.'/bundle.zip.partial',$dir.'/bundle.zip')){throw new ImportException('Upload size verification failed.','storage');}
-            chmod($dir.'/bundle.zip',0600);
+            $dir=Storage::job($id);$bundle=$dir.'/bundle.zip';
+            // A retried unit may find the parts already removed after a verified assembly.
+            if(!$this->assembledBundleMatches($bundle,$meta,$heartbeat)){
+                $out=fopen($dir.'/bundle.zip.partial','wb');
+                if(!$out){throw new ImportException('Cannot assemble the upload.','storage',true);}
+                $total=0;
+                try{
+                $count=(int)ceil($meta['upload_bytes']/Storage::CHUNK_SIZE);
+                for($i=0;$i<$count;$i++){
+                    $file=$dir.'/upload-'.$i.'.part';
+                    if(!is_file($file)||!hash_equals($meta['received_chunks'][(string)$i],hash_file('sha256',$file))){throw new ImportException('An uploaded file part is missing or changed.','checksum');}
+                    $in=fopen($file,'rb');try{$written=stream_copy_to_stream($in,$out);if($written===false){throw new ImportException('Could not assemble upload.','storage',true);}$total+=$written;}finally{fclose($in);}$heartbeat();
+                }}finally{fclose($out);}
+                if($total!==(int)$meta['upload_bytes']||!rename($dir.'/bundle.zip.partial',$bundle)){throw new ImportException('Upload size verification failed.','storage');}
+                chmod($bundle,0600);clearstatcache(true,$bundle);
+                if(filesize($bundle)!==(int)$meta['upload_bytes']){throw new ImportException('Upload size verification failed.','storage');}
+            }
+            // The verified bundle replaces the parts; they would otherwise stay until retention.
+            foreach(glob($dir.'/upload-*.part')?:[] as $part){@unlink($part);}
             $this->repo->update($id,['phase'=>'prepare','status'=>'queued']);return;
         }
         if($phase==='prepare'){
@@ -138,18 +145,25 @@ final class Engine {
         }
         if($phase==='ufc_audit'){
             $this->verifyFiles($job);foreach($this->repo->batches($id) as $batch){if(!$batch['completed']){throw new ImportException('The UFC roster batch has no completed checkpoint.','audit');}}
-			if(DatabaseState::protectedState((int)$meta['protected_baseline']['max_fighter_id'])!==$meta['protected_baseline']){throw new ImportException('UFC evidence import changed protected fighter decisions.','audit');}
+			if(!DatabaseState::protectedStateUnchanged($meta['protected_baseline'])){throw new ImportException('UFC evidence import changed protected fighter decisions.','audit');}
             $meta['actual']=$this->actualCounts($id);$meta['completed_at']=gmdate('c');$this->repo->update($id,['meta'=>$meta,'status'=>'completed_with_review','phase'=>'done','finished_at'=>gmdate('Y-m-d H:i:s')]);
             Storage::write(Storage::job($id).'/report.json',['mode'=>'ufc_roster','job_id'=>$id,'destination'=>['site_url'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null],'run_ids'=>['ufc'=>$meta['package']['headers']['ufc']['run_id']??null],'status'=>'completed_with_review','plan'=>$meta['plan'],'actual'=>$meta['actual'],'last_successful_import'=>get_option('mmaf_ufc_roster_last_import',null)]);return;
         }
         if($phase==='stats'){
-            $previous=(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->get_last_rebuild_summary();
-            $same=isset($meta['calculation_input_baseline']) && hash_equals($meta['calculation_input_baseline'],DatabaseState::calculationRevision());
-            if($same && $previous && ($previous['calculation_policy']??'')===DatabaseState::calculationPolicy() && ($previous['reference_date']??'')===current_time('Y-m-d') && !DatabaseState::integrity()['fighters_without_stats']){
-                $meta['stats']=$previous+['reused'=>true];$meta['calculation_needed']=false;
-                $this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);return;
+            // Decide reuse vs. calculation once per import. The whole-table input
+            // scan is expensive; later units only advance the calculation, whose
+            // own step guard (Calculation::step via Revision::current) rejects
+            // input changes made while it runs.
+            if(!isset($meta['calculation_needed'])){
+                $previous=(new \MMAF\DataEngine\Repositories\FighterStatsRepository())->get_last_rebuild_summary();
+                $same=isset($meta['calculation_input_baseline']) && hash_equals($meta['calculation_input_baseline'],DatabaseState::calculationRevision());
+                if($same && $previous && ($previous['calculation_policy']??'')===DatabaseState::calculationPolicy() && ($previous['reference_date']??'')===current_time('Y-m-d') && !DatabaseState::integrity()['fighters_without_stats']){
+                    $meta['stats']=$previous+['reused'=>true];$meta['calculation_needed']=false;
+                    $this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);return;
+                }
+                $meta['calculation_needed']=true;
+                $this->repo->update($id,['meta'=>$meta]);
             }
-            $meta['calculation_needed']=true;
             $calculation=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,(int)$job['approved_by'],'import:'.$id.':stats');
             $result=\MMAF\DataEngine\Services\Operations\Calculation::step($calculation);
             if($result['status']==='failed'){throw new ImportException('Statistics generation failed: '.$result['error_message'],'calculation');}
@@ -157,7 +171,7 @@ final class Engine {
         }
         if($phase==='audit'){
             $this->verifyFiles($job);$after=DatabaseState::integrity();
-			if(isset($meta['protected_baseline'])&&!DatabaseState::protectedStateMatches($meta['protected_baseline'])){throw new ImportException('Protected manual data or publication flags changed outside the approved ranking-disposition policy.','audit');}
+			if(isset($meta['protected_baseline'])&&!DatabaseState::protectedStateMatches($meta['protected_baseline'],$id)){throw new ImportException('Protected manual data or publication flags changed outside the approved ranking-disposition policy.','audit');}
             $counts=$this->actualCounts($id);
             foreach(['event'=>'results','bout'=>'bouts','profile'=>'profiles'] as $kind=>$source){if(array_sum($counts[$kind]??[])!==(int)$meta['package']['counts'][$source]){throw new ImportException('Final coverage check failed for '.$kind.'.','audit');}}
 			// A profile can now be made public only by the approved disposition
@@ -183,6 +197,20 @@ final class Engine {
             Storage::write(Storage::job($id).'/report.json',['job_id'=>$id,'destination'=>['site_url'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null],'run_ids'=>['events'=>$meta['package']['headers']['run_manifest']['run_id']??null,'profiles'=>$meta['package']['headers']['profiles']['run_id']??null,'ufc'=>$meta['package']['headers']['ufc']['run_id']??null],'status'=>$status,'filename'=>$job['filename'],'bundle_hash'=>$job['bundle_hash'],'plan'=>$meta['plan'],'actual'=>$meta['actual'],'profile_changes'=>$this->profileChanges($id),'readiness'=>$meta['package']['readiness']??null,'event_coverage'=>$meta['package']['event_coverage']??['complete'=>false,'legacy'=>true],'ufc_roster'=>isset($meta['package']['headers']['ufc'])?['included'=>true,'run_id'=>$meta['package']['headers']['ufc']['run_id']??null,'scraped_at'=>$meta['package']['headers']['ufc']['scraped_at']??null]:['included'=>false,'warning'=>$meta['package']['ufc_warning']??null,'last_successful_import'=>$meta['package']['ufc_roster_last_import']??null],'priority_targets'=>$meta['package']['priority_targets']??null,'backup'=>$meta['backup'],'stats'=>$meta['stats'],'integrity'=>$after,'audit'=>$meta['audit'],'receipt'=>$receipt]);return;
         }
         throw new ImportException('Unknown import phase: '.$phase,'state');
+    }
+    /** True when bundle.zip already holds exactly the uploaded parts, checked slice by slice against their recorded hashes. */
+    private function assembledBundleMatches(string $bundle,array $meta,callable $heartbeat): bool {
+        $bytes=(int)($meta['upload_bytes']??0);
+        if($bytes<1||!is_file($bundle)||filesize($bundle)!==$bytes){return false;}
+        $in=fopen($bundle,'rb');if(!$in){return false;}
+        try{
+            $count=(int)ceil($bytes/Storage::CHUNK_SIZE);
+            for($i=0;$i<$count;$i++){
+                $expected=(string)($meta['received_chunks'][(string)$i]??'');$chunk=stream_get_contents($in,Storage::CHUNK_SIZE);
+                if($expected===''||!is_string($chunk)||!hash_equals($expected,hash('sha256',$chunk))){return false;}$heartbeat();
+            }
+            return true;
+        }finally{fclose($in);}
     }
     /**
      * Classify every canonical fighter touched by this package before statistics
@@ -431,7 +459,7 @@ final class Engine {
                 }
             }
             $this->verifyFiles($job);$after=DatabaseState::integrity();
-            if(DatabaseState::protectedState((int)$meta['protected_baseline']['max_fighter_id'])!==$meta['protected_baseline']){throw new ImportException('Protected publication/manual decisions changed during career import.','audit');}
+            if(!DatabaseState::protectedStateUnchanged($meta['protected_baseline'])){throw new ImportException('Protected publication/manual decisions changed during career import.','audit');}
             foreach(['duplicate_fighter_sources','duplicate_event_sources','duplicate_bout_sources','malformed_bouts','orphan_participants','bouts_without_event'] as $key){if($after[$key]>$meta['baseline'][$key]){throw new ImportException('Career integrity regression: '.$key,'audit');}}
             if($after['fighters_without_stats']!==0||$after['ranking_hash']!==$meta['baseline']['ranking_hash']){throw new ImportException('Career import changed public rankings or missed statistics.','audit');}
             $t=CanonicalSchema::table_names();$count=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND kind='actual_career_profile'",$id));

@@ -2,6 +2,8 @@
 namespace MMAF\DataEngine\Services\RegularImport;
 use MMAF\DataEngine\Migrations\Schema as CanonicalSchema;
 final class DatabaseState {
+    /** Number of whole-table calculation input scans in this process (diagnostics and tests). */
+    public static int $calculationRevisionScans=0;
     public static function revision(): string {
         global $wpdb; $tables=CanonicalSchema::table_names(); $hash=hash_init('sha256');
         foreach (['fighters','fighter_sources','events','event_sources','bouts','bout_sources','bout_participants','field_provenance','fighter_stats_overrides','ranking_current'] as $kind) {
@@ -44,6 +46,7 @@ final class DatabaseState {
     }
     /** Freshness and protected career decisions are calculation inputs in evidence-backed formulas. */
     public static function calculationRevision(): string {
+        ++self::$calculationRevisionScans;
         $t=CanonicalSchema::table_names();$hash=hash_init('sha256');
         $queries=[
             ['fighters',"SELECT id,date_of_birth,gender,weight_class,status,is_public,is_rankable,rankability_status,in_ufc,tracking_mode,tracking_revision,tracking_last_checked_bout_id,tracking_return_candidate_at,deleted_soft FROM {$t['fighters']} ORDER BY id",'id'],
@@ -63,7 +66,8 @@ final class DatabaseState {
     public static function calculationPolicy(): string {
         return hash('sha256',wp_json_encode([MMAF_DB_VERSION,\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_version(),\MMAF\DataEngine\Services\Formula\FormulaRegistry::current_config()]));
     }
-    public static function protectedState(?int $maxId=null): array {
+    /** @param bool $rows false omits the per-fighter map when only the hashes are compared. */
+    public static function protectedState(?int $maxId=null,bool $rows=true): array {
         global $wpdb;$t=CanonicalSchema::table_names();
         $maxId=$maxId??(int)$wpdb->get_var("SELECT MAX(id) FROM {$t['fighters']}");
 		$flags=iterator_to_array(self::rows($wpdb->prepare("SELECT f.id,f.is_public,f.is_rankable,f.status,f.rankability_status,f.deleted_soft,f.in_ufc,f.tracking_mode,f.tracking_reason,f.tracking_source,f.tracking_evidence_url,f.tracking_changed_at,f.tracking_revision,f.tracking_last_checked_at,f.tracking_last_checked_bout_id,f.tracking_return_candidate_at,p.post_status FROM {$t['fighters']} f LEFT JOIN {$wpdb->posts} p ON p.ID=f.wp_post_id WHERE f.id<=%d ORDER BY f.id",$maxId),'f.id'),false);
@@ -90,17 +94,51 @@ final class DatabaseState {
         })();
         $career=\MMAF\DataEngine\Services\Scoring\Schema::tables()['career'];
         $protectedCareer=self::rows("SELECT * FROM $career WHERE protected=1 ORDER BY id");
-		$byId=[];foreach($flags as $flag){$byId[(int)$flag['id']]=$flag;}
-		return ['max_fighter_id'=>$maxId,'publication_hash'=>self::arrayHash($flags),'publication_rows'=>$byId,'manual_hash'=>self::arrayHash($manual),'protected_career_hash'=>self::arrayHash($protectedCareer)];
+		$state=['max_fighter_id'=>$maxId,'publication_hash'=>self::arrayHash($flags)];
+		if($rows){$byId=[];foreach($flags as $flag){$byId[(int)$flag['id']]=$flag;}$state['publication_rows']=$byId;}
+		return $state+['manual_hash'=>self::arrayHash($manual),'protected_career_hash'=>self::arrayHash($protectedCareer)];
     }
+	public const PROTECTED_BASELINE_FILE='protected-baseline.json';
+	/**
+	 * Keep the large per-fighter publication map out of job meta. The rows go to
+	 * the private job directory; meta keeps the hashes, max_fighter_id and the
+	 * file checksum, so a missing or altered file fails the audit closed.
+	 */
+	public static function storeProtectedBaseline(int $jobId,array $state): array {
+		$bytes=wp_json_encode(['format'=>1,'job_id'=>$jobId,'max_fighter_id'=>(int)$state['max_fighter_id'],'publication_hash'=>$state['publication_hash'],'publication_rows'=>(object)($state['publication_rows']??[])]);
+		if(!is_string($bytes)){throw new ImportException('Cannot save the protected data baseline.','storage');}
+		Storage::writeBytes(Storage::job($jobId).'/'.self::PROTECTED_BASELINE_FILE,$bytes);
+		unset($state['publication_rows']);
+		return $state+['publication_rows_file'=>self::PROTECTED_BASELINE_FILE,'publication_rows_sha256'=>hash('sha256',$bytes)];
+	}
+	/** Per-fighter baseline rows: from older job meta, or from the verified job file. Null when unavailable or altered. */
+	public static function protectedBaselineRows(array $baseline,int $jobId): ?array {
+		if(isset($baseline['publication_rows'])){return is_array($baseline['publication_rows'])?$baseline['publication_rows']:null;}
+		if(empty($baseline['publication_rows_sha256']) || $jobId<1){return null;}
+		$path=Storage::job($jobId).'/'.self::PROTECTED_BASELINE_FILE;
+		$bytes=is_file($path)?file_get_contents($path):false;
+		if(!is_string($bytes) || !hash_equals((string)$baseline['publication_rows_sha256'],hash('sha256',$bytes))){return null;}
+		$data=json_decode($bytes,true);
+		if(!is_array($data) || (int)($data['job_id']??0)!==$jobId || (int)($data['max_fighter_id']??-1)!==(int)($baseline['max_fighter_id']??0) || ($data['publication_hash']??'')!==($baseline['publication_hash']??'') || !is_array($data['publication_rows']??null)){return null;}
+		return $data['publication_rows'];
+	}
+	/** Exact equality of protected state, compared through the hashes that cover every baseline row. */
+	public static function protectedStateUnchanged(array $baseline): bool {
+		$current=self::protectedState((int)($baseline['max_fighter_id']??0),false);
+		foreach(['max_fighter_id','publication_hash','manual_hash','protected_career_hash'] as $key){
+			if(!isset($baseline[$key]) || (string)$current[$key]!==(string)$baseline[$key]){return false;}
+		}
+		return true;
+	}
 	/** Permit only the explicit, evidence-backed disposition transition in an approved import. */
-	public static function protectedStateMatches(array $baseline): bool {
+	public static function protectedStateMatches(array $baseline,int $jobId=0): bool {
 		$current=self::protectedState((int)($baseline['max_fighter_id']??0));
 		if(($current['manual_hash']??'')!==($baseline['manual_hash']??'') || ($current['protected_career_hash']??'')!==($baseline['protected_career_hash']??'')){return false;}
 		if(($current['publication_hash']??'')===($baseline['publication_hash']??'')){return true;}
-		if(empty($baseline['publication_rows']) || !is_array($baseline['publication_rows'])){return false;}
+		$baselineRows=self::protectedBaselineRows($baseline,$jobId);
+		if(!$baselineRows){return false;}
 		$allowed=['is_public'=>true,'is_rankable'=>true,'status'=>true,'rankability_status'=>true,'tracking_mode'=>true,'tracking_reason'=>true,'tracking_source'=>true,'tracking_evidence_url'=>true,'tracking_changed_at'=>true,'tracking_revision'=>true,'tracking_last_checked_at'=>true,'tracking_last_checked_bout_id'=>true,'tracking_return_candidate_at'=>true,'post_status'=>true];
-		foreach($baseline['publication_rows'] as $id=>$before){$after=$current['publication_rows'][(int)$id]??null;if(!$after){return false;}$changed=[];foreach($before as $field=>$value){if((string)($after[$field]??'')!==(string)$value){$changed[$field]=true;}}
+		foreach($baselineRows as $id=>$before){$after=$current['publication_rows'][(int)$id]??null;if(!$after){return false;}$changed=[];foreach($before as $field=>$value){if((string)($after[$field]??'')!==(string)$value){$changed[$field]=true;}}
 			if(!$changed){continue;}
 			if(array_diff_key($changed,$allowed) || ($after['tracking_source']??'')!=='ranking_disposition' || !in_array($after['tracking_mode']??'', ['paused','opponent_only'],true) || (int)($after['is_rankable']??1)!==0){return false;}
 		}
