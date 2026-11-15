@@ -1,22 +1,138 @@
+/* Follow fighter: compact secondary action on light surfaces, primary CTA in the dark fighter hero. */
 .mmaf-follow {
+  --follow-bg: #fff;
+  --follow-border: #e2e8f0;
+  --follow-text: #0f172a;
+  --follow-icon: #0047a8;
+  --follow-hover-bg: #f0f5fc;
+  --follow-hover-border: rgba(0,71,168,.45);
+  --follow-on-bg: #e8f0fb;
+  --follow-on-border: rgba(0,71,168,.35);
+  --follow-on-text: #0047a8;
+  --follow-ring: rgba(0,71,168,.28);
   display: inline-flex;
   align-items: center;
-  gap: .45rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: #fff;
-  color: #0f172a;
-  padding: .55rem .9rem;
-  font: 600 .875rem/1.2 inherit;
+  justify-content: center;
+  gap: .4rem;
+  min-height: 2rem;
+  max-width: 100%;
+  margin: 0;
+  padding: .3rem .75rem .3rem .6rem;
+  border: 1px solid var(--follow-border);
+  border-radius: 10px;
+  background: var(--follow-bg);
+  color: var(--follow-text);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: .8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: .005em;
+  white-space: nowrap;
+  text-decoration: none;
   cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
-.mmaf-follow:hover, .mmaf-follow:focus-visible {
-  border-color: #0047a8;
-  outline: 2px solid transparent;
-  box-shadow: 0 0 0 3px rgba(0,71,168,.18);
+.mmaf-follow [data-mmaf-follow-label] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mmaf-follow__bell {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--follow-icon);
+  transform-origin: 50% 10%;
 }
-.mmaf-follow.is-following { background: #0047a8; border-color: #0047a8; color: #fff; }
-.mmaf-follow:disabled { opacity: .65; cursor: wait; }
+.mmaf-follow__bell path:first-child { fill: transparent; transition: fill .18s ease; }
+.mmaf-follow:hover {
+  background: var(--follow-hover-bg);
+  border-color: var(--follow-hover-border);
+  color: var(--follow-on-text);
+}
+.mmaf-follow:hover .mmaf-follow__bell { animation: mmaf-follow-ring .5s ease; }
+.mmaf-follow:focus { outline: none; }
+.mmaf-follow:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--follow-ring); border-color: var(--follow-hover-border); }
+.mmaf-follow:active { transform: translateY(1px); }
+.mmaf-follow.is-following {
+  background: var(--follow-on-bg);
+  border-color: var(--follow-on-border);
+  color: var(--follow-on-text);
+}
+.mmaf-follow.is-following .mmaf-follow__bell { color: var(--follow-on-text); }
+.mmaf-follow.is-following .mmaf-follow__bell path:first-child { fill: currentColor; }
+.mmaf-follow:disabled { opacity: .6; cursor: progress; transform: none; }
+.mmaf-follow:disabled .mmaf-follow__bell { animation: none; }
+
+/* Hero: sits on the dark fighter photo backdrop, so the default state is the primary call to action. */
+.mmaf-follow--hero {
+  --follow-bg: #0047a8;
+  --follow-border: #2563eb;
+  --follow-text: #fff;
+  --follow-icon: #fff;
+  --follow-hover-bg: #0a56c4;
+  --follow-hover-border: #3b82f6;
+  --follow-on-bg: rgba(255,255,255,.08);
+  --follow-on-border: rgba(255,255,255,.24);
+  --follow-on-text: #fff;
+  --follow-ring: rgba(96,165,250,.45);
+  gap: .55rem;
+  min-height: 2.75rem;
+  padding: .6rem 1.25rem .6rem 1rem;
+  border-radius: 12px;
+  font-family: "Sora", ui-sans-serif, system-ui, sans-serif;
+  font-size: .9375rem;
+  box-shadow: 0 8px 22px rgba(0,71,168,.35);
+}
+.mmaf-follow--hero .mmaf-follow__bell { width: 1.125rem; height: 1.125rem; }
+.mmaf-follow--hero:hover { color: #fff; box-shadow: 0 10px 26px rgba(37,99,235,.4); transform: translateY(-1px); }
+.mmaf-follow--hero.is-following { box-shadow: none; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.mmaf-follow--hero.is-following:hover { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.34); box-shadow: none; }
+.mmaf-follow--hero:focus-visible { box-shadow: 0 0 0 3px var(--follow-ring); }
+
+/* Placement inside lists. */
+.rk-main-row .mmaf-follow, .rk-card .mmaf-follow { margin-top: .5rem; }
+.mmaf-calendar__bouts .mmaf-follow { display: flex; width: max-content; max-width: 100%; margin-top: .4rem; }
+.mmaf-calendar__bouts li > span:last-of-type .mmaf-follow { margin-left: auto; }
+
+@keyframes mmaf-follow-ring {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(14deg); }
+  50% { transform: rotate(-10deg); }
+  75% { transform: rotate(5deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mmaf-follow, .mmaf-follow__bell path:first-child { transition: none; }
+  .mmaf-follow:hover .mmaf-follow__bell { animation: none; }
+  .mmaf-follow:hover, .mmaf-follow:active { transform: none; }
+}
+
+/* Dark surfaces follow the theme toggle (data-theme), with the OS preference as the no-JS fallback. */
+:root[data-theme="dark"] .mmaf-follow:not(.mmaf-follow--hero) {
+  --follow-bg: #18263b;
+  --follow-border: #334155;
+  --follow-text: #dce3ec;
+  --follow-icon: #93c5fd;
+  --follow-hover-bg: #20324d;
+  --follow-hover-border: #60a5fa;
+  --follow-on-bg: rgba(59,130,246,.18);
+  --follow-on-border: rgba(96,165,250,.5);
+  --follow-on-text: #bfdbfe;
+  --follow-ring: rgba(96,165,250,.45);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .mmaf-follow:not(.mmaf-follow--hero) {
+    --follow-bg: #18263b;
+    --follow-border: #334155;
+    --follow-text: #dce3ec;
+    --follow-icon: #93c5fd;
+    --follow-hover-bg: #20324d;
+    --follow-hover-border: #60a5fa;
+    --follow-on-bg: rgba(59,130,246,.18);
+    --follow-on-border: rgba(96,165,250,.5);
+    --follow-on-text: #bfdbfe;
+    --follow-ring: rgba(96,165,250,.45);
+  }
+}
+
 .mmaf-calendar__reminder {
   border: 1px solid #0047a8;
   border-radius: 8px;
@@ -60,7 +176,7 @@
 .mmaf-muted { color: #64748b; }
 @media (prefers-color-scheme: dark) {
   .mmaf-notification-page { background: #020617; }
-  .mmaf-notification-card, .mmaf-follow { background: #0f172a; color: #f8fafc; border-color: #334155; }
+  .mmaf-notification-card { background: #0f172a; color: #f8fafc; border-color: #334155; }
   .mmaf-notification-card section, .mmaf-account-list li, .mmaf-separator { border-color: #334155; }
   .mmaf-separator span { background: #0f172a; }
 }

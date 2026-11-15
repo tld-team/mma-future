@@ -4,6 +4,8 @@ namespace MMAF\DataEngine\Services\Notifications;
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 final class Module {
+	private const BELL_ICON = '<svg class="mmaf-follow__bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+
 	public static function register(): void {
 		add_action( 'init', array( self::class, 'rewrites' ) );
 		add_filter( 'query_vars', static function( array $vars ): array { $vars[] = 'mmaf_notification_page'; return $vars; } );
@@ -51,8 +53,9 @@ final class Module {
 
 	public static function assets(): void {
 		if ( is_admin() || ( ! Config::feature_enabled() && ! get_query_var( 'mmaf_notification_page' ) ) ) { return; }
-		wp_enqueue_style( 'mmaf-notifications', plugins_url( 'assets/notifications.css', MMAF_PLUGIN_FILE ), array(), MMAF_PLUGIN_VERSION );
-		wp_enqueue_script( 'mmaf-notifications', plugins_url( 'assets/notifications.js', MMAF_PLUGIN_FILE ), array(), MMAF_PLUGIN_VERSION, true );
+		$assets = dirname( MMAF_PLUGIN_FILE ) . '/assets/';
+		wp_enqueue_style( 'mmaf-notifications', plugins_url( 'assets/notifications.css', MMAF_PLUGIN_FILE ), array(), MMAF_PLUGIN_VERSION . '.' . filemtime( $assets . 'notifications.css' ) );
+		wp_enqueue_script( 'mmaf-notifications', plugins_url( 'assets/notifications.js', MMAF_PLUGIN_FILE ), array(), MMAF_PLUGIN_VERSION . '.' . filemtime( $assets . 'notifications.js' ), true );
 		wp_localize_script( 'mmaf-notifications', 'mmafNotifications', array( 'ajaxUrl'=>admin_url( 'admin-ajax.php' ), 'restUrl'=>rest_url( 'mma-future/v1/notifications/' ), 'loginUrl'=>home_url( '/login/' ), 'accountUrl'=>home_url( '/account/' ), 'featureEnabled'=>Config::feature_enabled() ) );
 	}
 
@@ -61,9 +64,11 @@ final class Module {
 		wp_send_json_success( array( 'loggedIn'=>is_user_logged_in(), 'nonce'=>is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : null, 'userId'=>get_current_user_id() ) );
 	}
 
-	public static function button( int $fighter_id, string $label = 'Follow fighter' ): string {
+	/** @param string $variant Empty for the compact list button, or 'hero' for the dark fighter hero. */
+	public static function button( int $fighter_id, string $label = 'Follow fighter', string $variant = '' ): string {
 		if ( $fighter_id < 1 || ! Config::feature_enabled() ) { return ''; }
-		return '<button type="button" class="mmaf-follow" data-mmaf-follow="' . esc_attr( (string) $fighter_id ) . '" aria-pressed="false"><span class="mmaf-follow__bell" aria-hidden="true">&#128276;</span><span data-mmaf-follow-label>' . esc_html( $label ) . '</span></button>';
+		$class = 'mmaf-follow' . ( 'hero' === $variant ? ' mmaf-follow--hero' : '' );
+		return '<button type="button" class="' . esc_attr( $class ) . '" data-mmaf-follow="' . esc_attr( (string) $fighter_id ) . '" aria-pressed="false">' . self::BELL_ICON . '<span data-mmaf-follow-label>' . esc_html( $label ) . '</span></button>';
 	}
 
 	public static function login_url( array $intent = array() ): string {
