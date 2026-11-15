@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import LATEST_DIR
-from .storage import DataStore, atomic_write_json
+from .storage import atomic_write_json
 from .utils import utc_now
 
 
@@ -167,11 +167,13 @@ def write_profile_enrichment_report(
     latest_dir: Path = LATEST_DIR,
     write_markdown: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Path]]:
-    report = build_profile_enrichment_report(document)
-    store = DataStore()
-    if run_dir is None and report.get("run_id"):
-        run_dir = store.runs_dir / str(report["run_id"])
+    """Write the report to ``latest_dir`` and, only when given explicitly, to ``run_dir``.
 
+    ``run_dir`` is never derived from the document's ``run_id``: the cumulative
+    (merged) document carries the current run's ID, and deriving the run folder
+    from it used to copy the full cumulative report into every profile run.
+    """
+    report = build_profile_enrichment_report(document)
     paths: dict[str, Path] = {}
     if run_dir is not None:
         atomic_write_json(run_dir / "fighter_profiles_report.json", report)

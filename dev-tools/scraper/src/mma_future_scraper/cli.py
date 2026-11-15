@@ -6,7 +6,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from .config import BROWSER_CHANNELS, BROWSER_ENGINES, LATEST_DIR, ScraperConfig
+from .config import BROWSER_CHANNELS, BROWSER_ENGINES, DATA_DIR, LATEST_DIR, ScraperConfig
 from .fighter_profile_queue import (
     DEFAULT_QUEUE_PATH,
     build_fighter_profile_queue,
@@ -528,6 +528,16 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument('--cycle-task', help='Declared task, e.g. events-1 or profiles-1')
         command.add_argument('--finalize-import', action='store_true', help='Publish the ZIP automatically once all cycle tasks finish')
         command.add_argument('--import-output-dir', type=Path, default=Path('output/import-ready'))
+    prune = subparsers.add_parser(
+        "prune-runs",
+        help="Dry-run (default) or --apply cleanup of redundant data/runs/<run_id>/ artifacts; never touches state/latest/derived/upcoming",
+    )
+    prune.add_argument("--data-dir", type=Path, default=DATA_DIR, help="Scraper data directory (contains runs/, state/, latest/)")
+    prune.add_argument("--apply", action="store_true", help="Actually archive snapshots and delete; without it only a plan is printed")
+    prune.add_argument("--keep-event-runs", type=non_negative_int, default=5, help="Keep the newest N event runs untouched")
+    prune.add_argument("--min-age-hours", type=non_negative_float, default=48.0, help="Keep runs younger than this untouched")
+    prune.add_argument("--archive-dir", type=Path, default=None, help="Where the snapshot tar.gz goes (default: <data-dir>/archive)")
+    prune.add_argument("--details", action="store_true", help="List every pruned run and what is removed from it")
     recovery=subparsers.add_parser('prepare-import-recovery',help='Reparse exact saved DOM snapshots and prepare targeted source enrichment')
     recovery.add_argument('--source-profiles',type=Path,required=True)
     recovery.add_argument('--snapshots-dir',type=Path,required=True)
@@ -555,6 +565,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     from .import_cycle import ImportCycle, writer_lock
     latest=getattr(args,'latest_dir',LATEST_DIR)
+    if args.command=='prune-runs':latest=args.data_dir.expanduser().resolve()/'latest'
     cycle=None; started=False
     try:
         with writer_lock(latest.parent):
@@ -593,6 +604,18 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _dispatch(args) -> int:
+    if args.command == "prune-runs":
+        from .prune_runs import prune_runs
+        summary = prune_runs(
+            args.data_dir,
+            apply=args.apply,
+            keep_event_runs=args.keep_event_runs,
+            min_age_hours=args.min_age_hours,
+            archive_dir=args.archive_dir,
+            details=args.details,
+        )
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+        return 0
     if args.command == "scrape-upcoming":
         from .upcoming_calendar import scrape_upcoming
         try:

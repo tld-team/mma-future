@@ -532,8 +532,10 @@ class FighterProfileEnricher:
                 manifest={**self._priority_targets,'items':[t for t in self._priority_targets['items'] if t['source_fighter_id'] in present]}
                 atomic_write_json(target/'priority_targets.json',manifest)
 
+        # Run-scoped report (this run's profiles only) stays in the run folder;
+        # the cumulative report goes only to latest/.
         _, run_report_paths = write_profile_enrichment_report(document, run_dir=run_dir, latest_dir=run_dir)
-        _, latest_report_paths = write_profile_enrichment_report(merged_document, run_dir=None, latest_dir=self._store.latest_dir)
+        _, latest_report_paths = write_profile_enrichment_report(merged_document, latest_dir=self._store.latest_dir)
         log(
             "info",
             "fighter_profile_enrichment_end",
