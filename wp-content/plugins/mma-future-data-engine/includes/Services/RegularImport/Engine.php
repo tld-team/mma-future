@@ -26,13 +26,13 @@ final class Engine {
             if($job['status']==='running'&&$attempts>=3){$this->repo->update($id,['status'=>'needs_attention','error'=>['message'=>'The worker stopped three times. Check the server log, then resume.','reason'=>'worker_interrupted','retryable'=>true]]);return ['worked'=>false,'blocked'=>'needs_attention'];}
             $this->repo->update($id,['status'=>'running','attempts'=>$attempts+1,'retry_at'=>null,'heartbeat_at'=>gmdate('Y-m-d H:i:s')]);
             global $wpdb;$job=$this->repo->get($id);$start=microtime(true);$queryStart=$wpdb->num_queries;$lastBeat=0;
-            $heartbeat=function() use ($id,&$lastBeat): void {if(time()-$lastBeat>=2){Storage::write(Storage::job($id).'/heartbeat.json',['at'=>gmdate('c'),'phase'=>$this->repo->get($id)['phase']]);$lastBeat=time();}};
+            $heartbeat=function() use ($id,&$lastBeat): void {if(time()-$lastBeat>=2){Storage::write(Storage::job($id).'/heartbeat.json',['at'=>gmdate('c'),'phase'=>$this->repo->phase($id)]);$lastBeat=time();}};
             $heartbeat();WriteGuard::$worker=true;
             try{
                 if(($job['meta']['site_url']??'')!==home_url('/')){throw new ImportException('This job belongs to a different site.','destination');}
                 if($job['phase']==='backup'){
                     $meta=$job['meta'];$meta['backup']=Backup::create($id,$heartbeat);
-                    $meta['baseline']=DatabaseState::integrity();$meta['calculation_input_baseline']=DatabaseState::calculationRevision();$meta['calculation_policy']=DatabaseState::calculationPolicy();$meta['protected_baseline']=DatabaseState::protectedState();
+                    $meta['baseline']=DatabaseState::integrity();$meta['calculation_input_baseline']=DatabaseState::calculationRevision();$meta['calculation_policy']=DatabaseState::calculationPolicy();$meta['protected_baseline']=DatabaseState::storeProtectedBaseline($id,DatabaseState::protectedState());
                     $mode=$meta['package']['mode']??'';$writePhase=$mode==='career_history'?'career':($mode==='ufc_roster'?'ufc':'results');
                     $this->repo->update($id,['meta'=>$meta,'phase'=>$writePhase,'status'=>'queued','attempts'=>0,'writes_started'=>1,'error'=>null]);
                 }else{
@@ -138,7 +138,7 @@ final class Engine {
         }
         if($phase==='ufc_audit'){
             $this->verifyFiles($job);foreach($this->repo->batches($id) as $batch){if(!$batch['completed']){throw new ImportException('The UFC roster batch has no completed checkpoint.','audit');}}
-			if(DatabaseState::protectedState((int)$meta['protected_baseline']['max_fighter_id'])!==$meta['protected_baseline']){throw new ImportException('UFC evidence import changed protected fighter decisions.','audit');}
+			if(!DatabaseState::protectedStateUnchanged($meta['protected_baseline'])){throw new ImportException('UFC evidence import changed protected fighter decisions.','audit');}
             $meta['actual']=$this->actualCounts($id);$meta['completed_at']=gmdate('c');$this->repo->update($id,['meta'=>$meta,'status'=>'completed_with_review','phase'=>'done','finished_at'=>gmdate('Y-m-d H:i:s')]);
             Storage::write(Storage::job($id).'/report.json',['mode'=>'ufc_roster','job_id'=>$id,'destination'=>['site_url'=>home_url('/'),'database'=>defined('DB_NAME')?DB_NAME:null],'run_ids'=>['ufc'=>$meta['package']['headers']['ufc']['run_id']??null],'status'=>'completed_with_review','plan'=>$meta['plan'],'actual'=>$meta['actual'],'last_successful_import'=>get_option('mmaf_ufc_roster_last_import',null)]);return;
         }
@@ -164,7 +164,7 @@ final class Engine {
         }
         if($phase==='audit'){
             $this->verifyFiles($job);$after=DatabaseState::integrity();
-			if(isset($meta['protected_baseline'])&&!DatabaseState::protectedStateMatches($meta['protected_baseline'])){throw new ImportException('Protected manual data or publication flags changed outside the approved ranking-disposition policy.','audit');}
+			if(isset($meta['protected_baseline'])&&!DatabaseState::protectedStateMatches($meta['protected_baseline'],$id)){throw new ImportException('Protected manual data or publication flags changed outside the approved ranking-disposition policy.','audit');}
             $counts=$this->actualCounts($id);
             foreach(['event'=>'results','bout'=>'bouts','profile'=>'profiles'] as $kind=>$source){if(array_sum($counts[$kind]??[])!==(int)$meta['package']['counts'][$source]){throw new ImportException('Final coverage check failed for '.$kind.'.','audit');}}
 			// A profile can now be made public only by the approved disposition
@@ -438,7 +438,7 @@ final class Engine {
                 }
             }
             $this->verifyFiles($job);$after=DatabaseState::integrity();
-            if(DatabaseState::protectedState((int)$meta['protected_baseline']['max_fighter_id'])!==$meta['protected_baseline']){throw new ImportException('Protected publication/manual decisions changed during career import.','audit');}
+            if(!DatabaseState::protectedStateUnchanged($meta['protected_baseline'])){throw new ImportException('Protected publication/manual decisions changed during career import.','audit');}
             foreach(['duplicate_fighter_sources','duplicate_event_sources','duplicate_bout_sources','malformed_bouts','orphan_participants','bouts_without_event'] as $key){if($after[$key]>$meta['baseline'][$key]){throw new ImportException('Career integrity regression: '.$key,'audit');}}
             if($after['fighters_without_stats']!==0||$after['ranking_hash']!==$meta['baseline']['ranking_hash']){throw new ImportException('Career import changed public rankings or missed statistics.','audit');}
             $t=CanonicalSchema::table_names();$count=(int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->repo->tables['items']} WHERE job_id=%d AND kind='actual_career_profile'",$id));
