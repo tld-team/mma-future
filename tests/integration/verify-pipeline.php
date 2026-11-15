@@ -21,6 +21,8 @@ function drive_processor(): array {
 }
 set_exception_handler(function($e){fwrite(STDERR,$e->getMessage().' at '.$e->getFile().':'.$e->getLine()."\n");exit(1);});
 \MMAF\DataEngine\Migrations\MigrationRunner::run();wp_set_current_user(1);
+// This suite exercises the automatic preparation chain; production defaults to manual approval.
+add_filter('mmaf_auto_calculation','__return_true');
 $t=Schema::table_names();$p=PipelineSchema::tables();$store=new ProfileStore();$now=gmdate('Y-m-d H:i:s');
 $active=(new RankingRunRepository())->get_active_ranking_run_id();
 $rank_hash=hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['ranking_current']} ORDER BY id",ARRAY_A)));
@@ -106,6 +108,30 @@ try {
  check(empty(Processor::status()['calculation']['pending']) && !empty(Processor::status()['calculation']['draft']['ranking_run_id']),'retried preparation completes a fresh statistics generation and inactive draft');
  $noRetry=Processor::retry_failed(1);drive_processor();
  check($noRetry['retried']===0 && !$noRetry['restarted_calculation'] && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$retryDrafts,'retry without failures is a no-op rather than another calculation');
+ // Manual mode (the production default): nothing calculates until an administrator asks.
+ remove_filter('mmaf_auto_calculation','__return_true');$ops=Operations::tables()['jobs'];
+ $countCalculations=static function()use($wpdb,$ops){return (int)$wpdb->get_var("SELECT COUNT(*) FROM $ops WHERE kind IN ('stats','ranking')");};
+ $manualRuns=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}");$manualOps=$countCalculations();
+ check(!Processor::auto_calculation(),'statistics and ranking drafts default to manual approval');
+ Processor::request_refresh(1);$idle=(new Processor())->work();$idleAgain=(new Processor())->work();
+ check(empty($idle['worked']) && empty($idleAgain['worked']) && !empty(Processor::status()['calculation']['pending']) && $countCalculations()===$manualOps && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$manualRuns,'a queued refresh waits without creating statistics or a ranking draft');
+ check(($idle['time_rules']??null)===null && ($idleAgain['time_rules']??null)===null,'the age/inactivity sweep never starts on its own');
+ check(Processor::approve_queued(1),'an administrator can approve the queued calculation');
+ for($n=0;$n<2000 && !empty(Processor::status()['calculation']['pending']);++$n){$step=(new Processor())->work();if(!empty($step['blocked'])){throw new RuntimeException('Approved calculation blocked: '.wp_json_encode($step));}}
+ $afterApproval=Processor::status()['calculation'];
+ check(empty($afterApproval['pending']) && empty($afterApproval['approved']) && (int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$manualRuns+1,'one approval produces exactly one draft and is then consumed');
+ Processor::request_refresh(1);(new Processor())->work();
+ check((int)$wpdb->get_var("SELECT COUNT(*) FROM {$t['ranking_runs']}")===$manualRuns+1,'a later change waits for a new approval');
+ check(Processor::approve_queued(1),'the waiting change is approved separately');
+ for($n=0;$n<2000 && !empty(Processor::status()['calculation']['pending']);++$n){(new Processor())->work();}
+ check(!Processor::approve_queued(1),'approval without a queued refresh is a no-op');
+ Processor::request_time_rules(1);$sweep=(new Processor())->work();
+ check(isset($sweep['time_rules']['checked']),'a requested age/inactivity pass runs in the background worker');
+ for($n=0;$n<500 && !empty(Processor::status()['calculation']['time_rules_requested']);++$n){(new Processor())->work();}
+ $swept=Processor::status()['calculation'];
+ check(empty($swept['time_rules_requested']) && !empty($swept['time_rules_finished_at']),'a requested pass finishes once and is not repeated automatically');
+ if(!empty($swept['pending'])){Processor::approve_queued(1);for($n=0;$n<2000 && !empty(Processor::status()['calculation']['pending']);++$n){(new Processor())->work();}}
+ add_filter('mmaf_auto_calculation','__return_true');
  $hidden=(new FighterReadinessService())->process_bulk_action('mark_not_public',[$a['id']],1);clean_post_cache($post);check($hidden['updated_count']===1 && get_post_status($post)==='draft','bulk hiding synchronizes the public profile immediately');
  check((new RankingRunRepository())->get_active_ranking_run_id()===$active && hash('sha256',wp_json_encode($wpdb->get_results("SELECT * FROM {$t['ranking_current']} ORDER BY id",ARRAY_A)))===$rank_hash,'all imports, approvals and draft calculations leave active rankings unchanged');
  $seedFile=tempnam(sys_get_temp_dir(),'mmaf-source-seed-');

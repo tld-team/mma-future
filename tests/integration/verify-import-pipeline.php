@@ -8,6 +8,8 @@ function check($ok,string $reason): void {if(!$ok){throw new RuntimeException($r
 set_exception_handler(static function($e){fwrite(STDERR,$e->getMessage().' at '.$e->getFile().':'.$e->getLine()."\n");exit(1);});
 set_error_handler(static function($severity,$message,$file,$line){if(error_reporting()&$severity){throw new ErrorException($message,0,$severity,$file,$line);}return false;});
 MigrationRunner::run();wp_set_current_user(1);
+// This suite exercises the automatic preparation chain; production defaults to manual approval.
+add_filter('mmaf_auto_calculation','__return_true');
 $queueTable=PipelineSchema::tables()['queue'];
 if(!(int)$wpdb->get_var("SELECT COUNT(*) FROM $queueTable")){
     Repository::check($wpdb->query("ALTER TABLE $queueTable DROP COLUMN processed_context_hash"));update_option('mmaf_db_version','1.9.0',false);
