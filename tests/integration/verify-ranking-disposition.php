@@ -65,9 +65,13 @@ try {
 	$over_limit = $service->classify( $repo->find( $thirty_one['fighter_id'] ), $reference );
 	disposition_expect( RankingDispositionService::PERMANENT === $over_limit['outcome'] && in_array( 'confirmed_pro_fights_over_30', $over_limit['reasons'], true ), '31 professional bouts is permanently outside ranking' );
 	$early = fixture_fighter( 948880007, 'Disposition Early Career', array( 'date_of_birth' => '1999-01-01' ) );
-	disposition_profile( $early, 4, 99 );
+	disposition_profile( $early, 4, 1 );
 	$early_decision = $service->classify( $repo->find( $early['fighter_id'] ), $reference );
-	disposition_expect( ! in_array( 'loss_limit', $early_decision['reasons'], true ), '0–4 wins has no loss-limit exclusion' );
+	disposition_expect( ! in_array( 'loss_limit', $early_decision['reasons'], true ), 'fewer than five wins with one loss passes the loss limit' );
+	$early_losses = fixture_fighter( 948880012, 'Disposition Early Career Losses', array( 'date_of_birth' => '1999-01-01' ) );
+	disposition_profile( $early_losses, 4, 2 );
+	$early_losses_decision = $service->classify( $repo->find( $early_losses['fighter_id'] ), $reference );
+	disposition_expect( RankingDispositionService::TEMPORARY === $early_losses_decision['outcome'] && in_array( 'loss_limit', $early_losses_decision['reasons'], true ) && 1 === ( $early_losses_decision['evidence']['record']['allowed_losses'] ?? null ), 'fewer than five wins with two losses is temporarily outside ranking' );
 	$ufc = fixture_fighter( 948880008, 'Disposition UFC', array( 'in_ufc' => 1, 'date_of_birth' => '1999-01-01' ) );
 	$ufc_decision = $service->classify( $repo->find( $ufc['fighter_id'] ), $reference );
 	disposition_expect( RankingDispositionService::PERMANENT === $ufc_decision['outcome'] && in_array( 'confirmed_ufc_signing', $ufc_decision['reasons'], true ), 'a confirmed UFC signing is permanently outside ranking' );

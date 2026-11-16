@@ -108,7 +108,7 @@ try{
     $draft=Processor::status()['calculation']['draft']['ranking_run_id']??0;
     $assessmentTable=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
     $draftVersion=$draft?$wpdb->get_var($wpdb->prepare("SELECT formula_version FROM {$t['ranking_runs']} WHERE id=%d",$draft)):null;
-    check($draft && $draftVersion==='v1.8' && (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $assessmentTable WHERE ranking_run_id=%d AND fighter_id IN (%d,%d) AND status='main'",$draft,$a['fighter_id'],$b['fighter_id']))===2,'real parser → ZIP → import → frozen whole-career assessment → inactive v1.8 ranking draft covers both perspectives');
+    check($draft && $draftVersion==='v1.9' && (int)$wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $assessmentTable WHERE ranking_run_id=%d AND fighter_id IN (%d,%d) AND status='main'",$draft,$a['fighter_id'],$b['fighter_id']))===2,'real parser → ZIP → import → frozen whole-career assessment → inactive v1.8 ranking draft covers both perspectives');
     $failed=$repo->create('synthetic-diagnostic.zip',filesize($archive),1);$failedDir=Storage::job($failed);copy($archive,$failedDir.'/bundle.zip');$repo->update($failed,['phase'=>'prepare','status'=>'queued']);
     for($n=0;$n<100;$n++){$candidate=$repo->get($failed);if($candidate['status']==='awaiting_approval'){break;}$result=(new Engine())->work();if(empty($result['worked'])){throw new RuntimeException(wp_json_encode($result));}}
     $candidate=$repo->get($failed);$failureMeta=$candidate['meta'];$failureMeta['baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::integrity();$failureMeta['protected_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedState();$failureMeta['backup']=['fixture_only'=>true];

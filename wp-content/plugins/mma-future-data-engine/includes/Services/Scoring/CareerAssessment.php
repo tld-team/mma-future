@@ -176,14 +176,16 @@ final class CareerAssessment {
     }
     /** Independent activation check from frozen inputs, never today's fighter statistics. */
     public static function validate_frozen(array $assessment,array $inputs,array $snapshot,array $run): void {
-        $fail=static function(){throw new \RuntimeException('Invalid or inconsistent frozen v1.8 career assessment.');};
+        $version=(string)($run['formula_version']??'');$fail=static function() use ($version){throw new \RuntimeException('Invalid or inconsistent frozen '.($version?:'career').' career assessment.');};
+        if(!\MMAF\DataEngine\Services\Formula\FormulaRegistry::is_career_version($version)){$fail();}
+        $formula=\MMAF\DataEngine\Services\Formula\FormulaRegistry::career_formula($version);$config=$formula::config();
         if(($assessment['contract_version']??0)!==2 || ($assessment['status']??'')!=='main' || ($assessment['coverage']??'')!=='confirmed' || !empty($assessment['reasons']) || ($assessment['methodology']??'')!==FormulaV18::SCOPE || ($run['data_scope_version']??'')!==FormulaV18::SCOPE || !hash_equals(self::input_hash($inputs),(string)($assessment['input_hash']??''))){$fail();}
-        if(($inputs['reference_date']??null)!==$run['reference_date'] || ($assessment['period']['start']??null)!==null || ($inputs['formula_config']??null)!=FormulaV18::config() || json_decode($run['formula_config_snapshot'],true)!=FormulaV18::config()){$fail();}
+        if(($inputs['reference_date']??null)!==$run['reference_date'] || ($assessment['period']['start']??null)!==null || ($inputs['formula_config']??null)!=$config || json_decode($run['formula_config_snapshot'],true)!=$config){$fail();}
         $stats=self::stats($inputs['accepted_career_bouts']??[],$run['reference_date']);
         $aggregate=$assessment['career_record_used']??[];
         foreach(['wins','losses','draws','nc'] as $key){if(($aggregate[$key]??null)!==$stats[$key] || ($assessment['career_stats'][$key]??null)!==$stats[$key]){$fail();}}
         $expected=[];foreach($inputs['accepted_career_bouts']??[] as $row){if(in_array($row['result_for_fighter'],['win','loss'],true)){$expected[(int)$row['bout_id']]=$row['result_for_fighter'];}}
-        $formula=new FormulaV18();$score=0.0;$seen=[];
+        $score=0.0;$seen=[];
         foreach($inputs['scoring_bouts']??[] as $item){
             $id=(int)$item['bout_id'];$result=$item['result_for_fighter'];
             if(isset($seen[$id]) || ($expected[$id]??null)!==$result || !self::valid_date($item['event_date']??null) || $item['event_date']>$run['reference_date']){$fail();}

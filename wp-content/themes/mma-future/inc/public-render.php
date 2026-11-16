@@ -3,6 +3,26 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 function mmaf_display_number( $value, $decimals = 0 ) { return null === $value ? '—' : number_format_i18n( (float) $value, $decimals ); }
 function mmaf_display_date( $value ) { return $value ? wp_date( 'M j, Y', strtotime( $value ), wp_timezone() ) : '—'; }
+/** Whole-career formulas (v1.8+) share one public explanation. */
+function mmaf_is_career_formula( array $context ): bool {
+    $scope = $context['scoring_scope'] ?? ( $context['dates']['scoring_scope'] ?? '' );
+    if ( 'professional_mma_career_v1' === $scope ) { return true; }
+    $version = $context['formula_version'] ?? ( $context['dates']['formula_version'] ?? '' );
+    return in_array( $version, array( 'v1.8', 'v1.9' ), true );
+}
+/** Points one known KO/TKO or submission win adds, from the active run's formula. */
+function mmaf_points_per_finish( array $context ): ?float {
+    $value = $context['points_per_finish'] ?? ( $context['dates']['points_per_finish'] ?? ( $context['scoring_finishes']['points_per_finish'] ?? null ) );
+    return is_numeric( $value ) && (float) $value > 0 ? (float) $value : null;
+}
+function mmaf_points_text( float $points ): string {
+    $text = rtrim( rtrim( number_format( $points, 2, '.', '' ), '0' ), '.' );
+    return $text . ( 1.0 === $points ? ' point' : ' points' );
+}
+function mmaf_finish_points_note( array $context ): string {
+    $points = mmaf_points_per_finish( $context );
+    return null === $points ? 'Included in Score' : '+' . mmaf_points_text( $points ) . ' each';
+}
 function mmaf_display_percent( $value ) { return null === $value ? '—' : number_format_i18n( 100 * (float) $value, 0 ) . '%'; }
 function mmaf_display_signed_points( $value ): string {
     if ( null === $value ) { return '—'; }
@@ -31,15 +51,15 @@ function mmaf_record_label(array $context): string {
 function mmaf_scoring_assessment_parts(array $context): ?array {
     $a=$context['scoring_assessment']??null;if(!$a){return null;}
     $notes=array();
-    if(($a['methodology']??'')==='professional_mma_career_v1'){$d=$a['detail_coverage']??[];$notes['coverage']='Nepoznat pre-fight rekord ili metod daje 0 dodatnih poena; poznati 0–0 je poznat rekord. Aktuelni profilni rekord može se razlikovati od zamrznutih ulaza. Poznati/nepoznati rekordi: '.($d['known_records']??0).'/'.($d['unknown_records']??0).'; metode: '.($d['known_methods']??0).'/'.($d['unknown_methods']??0).'.';}
-    if(!empty($a['no_recent_fights'])){$notes['no_recent_fights']='Bez mečeva od 9. maja 2026.';}
-    if($a['status']==='provisional'){$notes['provisional']='Privremeni zbir: '.mmaf_display_number($a['known_points']??null,2).' · Konačan score i glavno mesto nisu dodeljeni. '.implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']));}
-    return array('label'=>$context['dates']['score_label']??'MMA Future bodovi od 9. maja 2026.','status'=>ucfirst($a['status']),'sample_size'=>$a['sample_size'],'checked'=>!empty($a['verified_at'])?gmdate('Y-m-d H:i:s',strtotime($a['verified_at'])).' UTC':'unknown','career'=>($a['methodology']??'')==='professional_mma_career_v1','notes'=>$notes);
+    if(($a['methodology']??'')==='professional_mma_career_v1'){$d=$a['detail_coverage']??[];$notes['coverage']='An unknown pre-fight record or method adds 0 extra points; a confirmed 0–0 is a known record. The current profile record can differ from the frozen scoring inputs. Known/unknown opponent records: '.($d['known_records']??0).'/'.($d['unknown_records']??0).'; methods: '.($d['known_methods']??0).'/'.($d['unknown_methods']??0).'.';}
+    if(!empty($a['no_recent_fights'])){$notes['no_recent_fights']='No fights since 9 May 2026.';}
+    if($a['status']==='provisional'){$notes['provisional']='Provisional sum: '.mmaf_display_number($a['known_points']??null,2).' · No final score or main ranking position yet. '.implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']));}
+    return array('label'=>$context['dates']['score_label']??'MMA Future Score','status'=>ucfirst($a['status']),'sample_size'=>$a['sample_size'],'checked'=>!empty($a['verified_at'])?gmdate('Y-m-d H:i:s',strtotime($a['verified_at'])).' UTC':'unknown','career'=>($a['methodology']??'')==='professional_mma_career_v1','notes'=>$notes);
 }
 function mmaf_render_scoring_assessment(array $context): void {
     $p=mmaf_scoring_assessment_parts($context);if(!$p){return;}
     echo '<p class="text-sm text-muted">'.esc_html($p['label']).' · '.esc_html($p['status']).' · '.esc_html($p['sample_size']).' scoring bouts · checked '.esc_html($p['checked']).'</p>';
-    foreach($p['notes'] as $key=>$note){echo '<p class="text-sm text-muted">'.esc_html('coverage'===$key?'Osnovni poeni, poznate završnice i kvalitet protivnika za celu profesionalnu MMA karijeru. '.$note:$note).'</p>';}
+    foreach($p['notes'] as $key=>$note){echo '<p class="text-sm text-muted">'.esc_html('coverage'===$key?'Base points, known finishes and opponent quality across the whole professional MMA career. '.$note:$note).'</p>';}
 }
 /** Fine print for the fighter hero, collapsed into one discreet disclosure. */
 function mmaf_render_fighter_hero_details(array $c): void {
@@ -116,7 +136,7 @@ function mmaf_filter_select( $name, $label, $choices, $value ) {
 }
 function mmaf_score_details( $ranking ) {
 	if ( empty( $ranking['breakdown'] ) ) { return; }
-	$score_label=($ranking['formula_version']??'')==='v1.8'?'Cela profesionalna MMA karijera':(($ranking['formula_version']??'')==='v1.7'?'Karijerna osnovica + noviji kvalitet':((($ranking['formula_version']??'')==='v1.6')?'MMA Future bodovi od 9. maja 2026.':'MMA Future Score'));
+	$score_label=mmaf_is_career_formula($ranking)?'Whole professional MMA career':(($ranking['formula_version']??'')==='v1.7'?'Career base + recent quality':((($ranking['formula_version']??'')==='v1.6')?'MMA Future points since 9 May 2026':'MMA Future Score'));
 	echo '<details class="mmaf-score-details"><summary>Score details</summary><p>' . esc_html($score_label) . ': ' . esc_html( mmaf_display_number( $ranking['score'], 2 ) ) . ' · Formula ' . esc_html( $ranking['formula_version'] ) . '</p>';
 	$walk = static function( $data ) use ( &$walk ) {
 		echo '<dl>'; foreach ( $data as $label => $value ) {

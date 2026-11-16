@@ -1,4 +1,43 @@
-# Whole-career ranking and Formula v1.8
+# Whole-career ranking: Formula v1.9 (current) and v1.8
+
+## Formula v1.9
+
+Formula v1.9 is the current calculation engine. It keeps the v1.8 scope
+`professional_mma_career_v1`, evidence contracts, 30-day verification window,
+frozen assessment contract and tie-breakers. Two client decisions change:
+
+- a known KO/TKO or submission win adds **0.25** points (v1.8: 1 point);
+- a fighter with **fewer than five career wins may have at most one career
+  loss**. The full loss table is 20+ wins → 5, 15+ → 4, 10+ → 3, 5+ → 2,
+  0–4 → 1. v1.8 had no limit below five wins.
+
+```text
+score = 0.5 × wins − 1.5 × losses
+      + 0.25 × known KO/TKO or submission wins
+      + win-opponent quality
+      + loss-opponent quality
+      + one age adjustment
+```
+
+`FormulaV19` extends `FormulaV18` and overrides only its config, so the scoring
+methods read the version's own values. `FormulaRegistry::is_career_version()`,
+`career_formula()` and `points_per_finish()` replace hardcoded `v1.8` checks:
+calculation, frozen-input activation replay, run scope, public DTOs and the
+theme treat v1.8 and v1.9 the same way except for those values. Completed and
+active v1.8 runs keep their frozen v1.8 config and stay activatable.
+
+The public API exposes `points_per_finish` with the methodology, and finish
+summaries are validated against it. Public labels are English:
+
+> Base points, known finishes and opponent quality across the whole professional MMA career.
+
+Rollout: deploy with no import running (the import calculation policy hash
+changes, so the next import must be a full package), import a full package,
+calculate an inactive draft (it is v1.9 automatically), review and activate
+manually. The ranking disposition pass pauses fighters that now fail the loss
+limit. The first v1.9 activation is a Movers methodology boundary.
+
+## Formula v1.8
 
 Formula v1.8 uses scope `professional_mma_career_v1`. Every unique, accepted
 professional MMA bout through the run reference date is evaluated once. The

@@ -60,17 +60,17 @@ final class RankingCalculatorService {
 
 	public function __construct(?string $version=null) {
         $this->version=$version??FormulaRegistry::current_version();
-		if(!in_array($this->version,['v1.5','v1.6','v1.7','v1.8'],true)){throw new \InvalidArgumentException('Only v1.5, v1.6, v1.7 and v1.8 calculation engines are supported.');}
+		if(!in_array($this->version,['v1.5','v1.6','v1.7','v1.8','v1.9'],true)){throw new \InvalidArgumentException('Only v1.5, v1.6, v1.7, v1.8 and v1.9 calculation engines are supported.');}
         $this->config=FormulaRegistry::config_for_version($this->version);
 		$this->runs       = new RankingRunRepository();
 		$this->rankings   = new RankingCurrentRepository();
 		$this->eligibility = new EligibilityService();
-		$this->formula    = FormulaV18::VERSION === $this->version ? new FormulaV18() : (FormulaV17::VERSION === $this->version ? new FormulaV17() : new FormulaV15());
+		$this->formula    = FormulaRegistry::is_career_version( $this->version ) ? FormulaRegistry::career_formula( $this->version ) : (FormulaV17::VERSION === $this->version ? new FormulaV17() : new FormulaV15());
 		$this->audit_log  = new AuditLogService();
 	}
 
 	public function calculate_draft( int $actor_user_id = 0, ?string $reference_date = null, string $reason = 'Manual draft ranking calculation' ): array {
-		if($this->version===FormulaV18::VERSION && version_compare((string)get_option('mmaf_db_version','0'),'1.17.0','<')){throw new \RuntimeException('Migrate to schema 1.17.0 before v1.8 calculation.');}
+		if(FormulaRegistry::is_career_version($this->version) && version_compare((string)get_option('mmaf_db_version','0'),'1.17.0','<')){throw new \RuntimeException('Migrate to schema 1.17.0 before '.$this->version.' calculation.');}
 		if(in_array($this->version,['v1.6','v1.7'],true) && version_compare((string)get_option('mmaf_db_version','0'),'1.11.0','<')){throw new \RuntimeException('Migrate the additive schema before creating evidence-backed ranking drafts.');}
 		\MMAF\DataEngine\Services\RegularImport\WriteGuard::assertAllowed();
 		$reference_date = $reference_date ? $reference_date : current_time( 'Y-m-d' );
@@ -158,7 +158,7 @@ final class RankingCalculatorService {
     }
 
 	public function score_batch( array $fighters, string $reference_date, string $calculated_at, int $run_id=0 ): array {
-		if($this->version===FormulaV18::VERSION){return $this->score_career_batch($fighters,$reference_date,$calculated_at,$run_id);}
+		if(FormulaRegistry::is_career_version($this->version)){return $this->score_career_batch($fighters,$reference_date,$calculated_at,$run_id);}
 		if($this->version===FormulaV17::VERSION){return $this->score_hybrid_batch($fighters,$reference_date,$calculated_at,$run_id);}
         if($this->version===\MMAF\DataEngine\Services\Formula\FormulaV16::VERSION){return $this->score_period_batch($fighters,$reference_date,$calculated_at,$run_id);}
 		$ranked              = array();
@@ -666,7 +666,7 @@ final class RankingCalculatorService {
 
     private function hard_ineligibility(array $evaluation): array {
 		$hard = ['deleted_soft','not_rankable_flag','rankability_status_not_rankable','ineligible_too_many_fights','ineligible_loss_limit','ineligible_ufc','ineligible_age_35_plus','tracking_mode_paused','tracking_mode_opponent_only'];
-		if ( in_array($this->version,[FormulaV17::VERSION,FormulaV18::VERSION],true) ) {
+		if ( FormulaRegistry::uses_known_points( $this->version ) ) {
 			$hard[] = 'ineligible_inactive_24_months';
 			$hard[] = 'insufficient_career_sample_size';
 		}
@@ -846,7 +846,7 @@ final class RankingCalculatorService {
 				'loss_quality_penalty'    => $loss_quality,
 				'warnings'                => array_values( array_unique( $item_warnings ) ),
 			);
-			if ( $this->version === FormulaV18::VERSION ) {
+			if ( FormulaRegistry::is_career_version( $this->version ) ) {
 				$record_status = \MMAF\DataEngine\Services\Scoring\RecordEvidence::opponent( $item );
 				$per_fight['quality_evidence_status'] = $record_status['status'];
 				$per_fight['quality_fallback_reason'] = $record_status['reason'];
@@ -1032,7 +1032,7 @@ final class RankingCalculatorService {
 	}
 
 	private function opponent_prefight_diff( array $item ): ?int {
-        if($this->version===FormulaV18::VERSION){return \MMAF\DataEngine\Services\Scoring\RecordEvidence::opponent($item)['diff'];}
+        if(FormulaRegistry::is_career_version($this->version)){return \MMAF\DataEngine\Services\Scoring\RecordEvidence::opponent($item)['diff'];}
 		if ( FormulaV17::VERSION === $this->version ) {
 			if ( null === ( $item['opponent_prefight_wins'] ?? null ) || null === ( $item['opponent_prefight_losses'] ?? null ) ) {
 				return null;
@@ -1135,6 +1135,6 @@ final class RankingCalculatorService {
 	}
 
 	private function storage_strategy(): string {
-		return 'draft rows are stored in mmaf_ranking_snapshots by ranking_run_id; mmaf_ranking_current is live-only; direct-score formulas v1.5-v1.8 store the same component total in total_score and raw_score, while normalized_score and confidence_score stay NULL until a manual activation chooses a completed draft.';
+		return 'draft rows are stored in mmaf_ranking_snapshots by ranking_run_id; mmaf_ranking_current is live-only; direct-score formulas v1.5-v1.9 store the same component total in total_score and raw_score, while normalized_score and confidence_score stay NULL until a manual activation chooses a completed draft.';
 	}
 }
