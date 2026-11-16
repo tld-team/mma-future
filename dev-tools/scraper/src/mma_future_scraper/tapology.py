@@ -3458,7 +3458,7 @@ class TapologyScraper:
                 "fighter_profiles": {},
             }
             if self._event_matches_excluded_promotion(event):
-                self._scope_coverage(event,"excluded_promotion_ufc",event.get("promotion_name") or event.get("promotion_url"),run_dir)
+                self._scope_coverage(event,"excluded_promotion_ufc",event.get("promotion_name") or event.get("promotion_url"),run_dir,kind)
                 event["warnings"].append("event_skipped_ufc")
                 summary["warnings"].append(f"event_skipped_ufc:{event_url}")
                 log(
@@ -3495,9 +3495,9 @@ class TapologyScraper:
                 if non_mma_reason and not event.get('source_mma_bouts_total'):
                     warning=f'event_skipped_non_mma:{non_mma_reason}'
                     event['warnings'].append(warning);summary['warnings'].append(f'{warning}:{event_url}')
-                    self._scope_coverage(event,'non_mma_metadata',non_mma_reason,run_dir)
+                    self._scope_coverage(event,'non_mma_metadata',non_mma_reason,run_dir,kind)
                 else:
-                    proof=assess_event(event,[],[]);event['event_coverage']=proof;self._coverage_entries[event['source_event_id']]=proof
+                    proof=assess_event(event,[],[]);event['event_coverage']=proof;self._remember_coverage(event['source_event_id'],proof,kind)
                 if (event.get("event_coverage") or {}).get("status")!="excluded":
                     event["warnings"].append("fight_card_missing")
                     summary["warnings"].append(f"fight_card_missing:{event_url}")
@@ -3518,10 +3518,18 @@ class TapologyScraper:
         finally:
             page.close()
 
-    def _scope_coverage(self,event,reason,evidence,run_dir):
+    def _remember_coverage(self, sid: str | None, proof: dict[str, Any], kind: str) -> None:
+        # event_coverage.json proves the *results* contract and is validated against
+        # results events. Upcoming events have scheduled bouts, not results, so their
+        # proof stays on the event only; recording it here made every upcoming-only
+        # run fail with "Accepted coverage has no source results".
+        if sid and kind == "results":
+            self._coverage_entries[sid] = proof
+
+    def _scope_coverage(self,event,reason,evidence,run_dir,kind="results"):
         proof=assess_event(event,[],[])
         proof.update(status='excluded',reasons=[],event_exclusion=reason,exclusion_evidence=str(evidence))
-        event['event_coverage']=proof;self._coverage_entries[event['source_event_id']]=proof
+        event['event_coverage']=proof;self._remember_coverage(event['source_event_id'],proof,kind)
         write_json(run_dir/'event_snapshots'/f"{event['source_event_id']}.json",{'parser_version':PARSER_VERSION,'source_url':event['event_url'],'observed_at':proof['observed_at'],'event':event,'rows':[]})
 
     def _find_fight_card(self, page: Any) -> tuple[Any | None, str | None, bool]:
@@ -4187,7 +4195,7 @@ class TapologyScraper:
         coverage=assess_event(event,rows,decisions)
         event['event_coverage']=coverage
         sid=event.get('source_event_id') or source_event_id_from_url(event.get('event_url'))
-        if sid:self._coverage_entries[sid]=coverage
+        self._remember_coverage(sid,coverage,kind)
         confirmed=sum(row_classification(r)==('pro','mma') and row_completed_result(r) for r in rows)
         if kind=='results' and confirmed and not bouts:
             raise FatalScrapeError('event_parser_zero_professional_results:'+str(sid))

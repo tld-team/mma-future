@@ -111,10 +111,16 @@ def build_document(
 ) -> dict[str, Any]:
     events: list[dict[str, Any]] = []
     incomplete = 0
+    sport_unconfirmed: list[dict[str, Any]] = []
     for raw_event in raw.get("events", []):
         event = normalize_event(raw_event)
         event_date = parse_date(event.get("date"))
         if not event_date or event_date < start or event_date > end:
+            continue
+        if not event["full_card_read"] and is_sport_unconfirmed_event(raw_event, event):
+            sport_unconfirmed.append(
+                {"title": event["title"], "date": event["date"], "source_url": event["source_url"]}
+            )
             continue
         if not event["full_card_read"]:
             incomplete += 1
@@ -146,7 +152,9 @@ def build_document(
             "complete": complete,
             "incomplete_events": incomplete,
             "event_fetch_failures": event_failures,
+            "sport_unconfirmed_events": len(sport_unconfirmed),
         },
+        "skipped_sport_unconfirmed": sport_unconfirmed,
         "events": events,
         "counts": {
             "events": len(events),
@@ -188,6 +196,31 @@ def normalize_event(raw: dict[str, Any]) -> dict[str, Any]:
         "full_card_read": bool(full_card),
         "bouts": bouts,
     }
+
+
+SPORT_UNCONFIRMED_REASONS = {"unresolved_bouts", "sport_unconfirmed"}
+
+
+def is_sport_unconfirmed_event(raw: dict[str, Any], event: dict[str, Any]) -> bool:
+    """True for events whose card never shows MMA (e.g. slap fighting, freestyle wrestling).
+
+    Tapology lists them in the MMA schedule without a sport label on any bout, so every
+    bout stays unresolved. They contribute nothing to the calendar and must not block it.
+    Any event with a confirmed MMA bout, a stated MMA bout total, or another reason for
+    being partial still counts as incomplete.
+    """
+    coverage = raw.get("event_coverage") if isinstance(raw.get("event_coverage"), dict) else {}
+    reasons = set(coverage.get("reasons") or [])
+    bouts = coverage.get("bouts") or []
+    return bool(
+        not event["bouts"]
+        and coverage.get("status") == "partial"
+        and "sport_unconfirmed" in reasons
+        and reasons <= SPORT_UNCONFIRMED_REASONS
+        and not coverage.get("source_mma_bouts_total")
+        and bouts
+        and all(item.get("sport") == "unknown" and item.get("decision") == "unresolved" for item in bouts)
+    )
 
 
 def normalize_bout(raw: dict[str, Any], event_stable_id: str, order: int) -> dict[str, Any] | None:
