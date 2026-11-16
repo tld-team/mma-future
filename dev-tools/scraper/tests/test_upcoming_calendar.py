@@ -66,6 +66,18 @@ def test_exact_inclusive_window_and_shared_professional_scope():
     assert document["events"][0]["start_utc"].endswith("Z")
 
 
+def test_headed_upcoming_waits_for_manual_challenge_by_default():
+    from mma_future_scraper.cli import UPCOMING_HEADED_CHALLENGE_WAIT_SECONDS, build_parser, upcoming_challenge_options
+
+    args = build_parser().parse_args(["scrape-upcoming", "--headed"])
+    assert upcoming_challenge_options(
+        headed=args.headed, wait_seconds=args.wait_for_manual_challenge, pause=args.pause_on_manual_challenge
+    ) == (UPCOMING_HEADED_CHALLENGE_WAIT_SECONDS, False)
+    assert upcoming_challenge_options(headed=True, wait_seconds=120, pause=True) == (120, True)
+    assert upcoming_challenge_options(headed=False, wait_seconds=None, pause=False) == (0, False)
+    assert upcoming_challenge_options(headed=False, wait_seconds=600, pause=True) == (0, False)
+
+
 def test_period_is_capped_at_thirty_days():
     assert validate_days(30) == 30
     with pytest.raises(ValueError):
@@ -224,3 +236,73 @@ def test_bundle_has_checksums_and_upcoming_mode(tmp_path):
         manifest = json.loads(archive.read("latest/package_manifest.json"))
         assert manifest["contract"] == "mmaf_upcoming_v1"
         assert set(manifest["files"]) == {"upcoming.json", "run_manifest.json"}
+
+
+def sport_unconfirmed_raw_event(**coverage_overrides) -> dict:
+    coverage = {
+        "status": "partial",
+        "reasons": ["unresolved_bouts", "sport_unconfirmed"],
+        "source_mma_bouts_total": None,
+        "bouts": [
+            {"source_bout_id": "tapology_bout_901", "sport": "unknown", "division": "pro", "decision": "unresolved"},
+            {"source_bout_id": "tapology_bout_902", "sport": "unknown", "division": "pro", "decision": "unresolved"},
+        ],
+    }
+    coverage.update(coverage_overrides)
+    return {
+        "source_event_id": "tapology_event_909",
+        "event_url": "https://www.tapology.com/fightcenter/events/909-slap-night",
+        "event_name": "Slap Night 27",
+        "promotion_name": "Slap League",
+        "event_date": "2026-12-31",
+        "warnings": ["bouts_skipped_unknown_professional_status:2"],
+        "event_coverage": coverage,
+        "bouts": [],
+    }
+
+
+def test_event_without_any_mma_signal_does_not_block_the_calendar():
+    document = build_document(
+        {"run": {"run_id": "run-sport"}, "events": [raw_event(), sport_unconfirmed_raw_event()]},
+        {"pagination_stop_reason": "natural_end_no_load_more_button", "event_fetch_failures": 0},
+        start=date(2026, 12, 30),
+        end=date(2027, 1, 8),
+        timezone_name="Europe/Belgrade",
+    )
+    assert document["coverage"]["complete"] is True
+    assert document["coverage"]["incomplete_events"] == 0
+    assert document["coverage"]["sport_unconfirmed_events"] == 1
+    assert document["skipped_sport_unconfirmed"][0]["title"] == "Slap Night 27"
+    assert [event["title"] for event in document["events"]] == ["New Year Fight Night"]
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"source_mma_bouts_total": 2},
+        {"reasons": ["unresolved_bouts", "sport_unconfirmed", "fight_card_missing"]},
+        {"bouts": [{"source_bout_id": "tapology_bout_901", "sport": "mma", "division": "pro", "decision": "unresolved"}]},
+    ],
+)
+def test_event_with_any_mma_signal_still_counts_as_incomplete(overrides):
+    document = build_document(
+        {"run": {"run_id": "run-sport"}, "events": [raw_event(), sport_unconfirmed_raw_event(**overrides)]},
+        {"pagination_stop_reason": "natural_end_no_load_more_button", "event_fetch_failures": 0},
+        start=date(2026, 12, 30),
+        end=date(2027, 1, 8),
+        timezone_name="Europe/Belgrade",
+    )
+    assert document["coverage"]["complete"] is False
+    assert document["coverage"]["incomplete_events"] == 1
+
+
+def test_upcoming_event_proof_is_not_validated_as_results_coverage():
+    from mma_future_scraper.tapology import TapologyScraper
+
+    scraper = TapologyScraper.__new__(TapologyScraper)
+    scraper._coverage_entries = {}
+    scraper._remember_coverage("tapology_event_1", {"status": "complete"}, "upcoming")
+    scraper._remember_coverage(None, {"status": "complete"}, "results")
+    assert scraper._coverage_entries == {}
+    scraper._remember_coverage("tapology_event_2", {"status": "complete"}, "results")
+    assert list(scraper._coverage_entries) == ["tapology_event_2"]

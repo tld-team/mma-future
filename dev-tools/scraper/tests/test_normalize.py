@@ -84,6 +84,10 @@ def test_explicit_non_mma_bout_detection():
     assert is_explicit_non_mma_bout("MAIN CARD 3 x 3 | Pro Muay Thai") is True
     assert is_explicit_non_mma_bout("MAIN CARD 3 x 3 | Pro Modified Boxing") is True
     assert is_explicit_non_mma_bout("MAIN CARD Boxing (Bare Knuckle) BKFC") is True
+    assert is_explicit_non_mma_bout("Professional Wrestling") is True
+    assert is_explicit_non_mma_bout("Professional Slap Fighting") is True
+    assert is_explicit_non_mma_bout("PSLAP Middleweight Championship Power Slap 5 Rounds + OT | Pro") is True
+    assert is_explicit_non_mma_bout("Professional MMA") is False
     assert is_explicit_non_mma_bout("POSTLIM 145 3 x 5 | Pro MMA") is False
     assert is_explicit_non_mma_bout("MAIN EVENT 160 3 x 5 | Pro") is False
 
