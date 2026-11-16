@@ -16,8 +16,10 @@ python -m mma_future_scraper.cli export-upcoming-bundle --output output/upcoming
 Tapology usually shows a Cloudflare check ("Just a moment…") to headless browsers, and the run then fails with `cloudflare_challenge_not_cleared`. Run headed with a persistent browser profile instead:
 
 ```bash
-python -m mma_future_scraper.cli scrape-upcoming --days 30 --headed --browser-profile-dir data/browser_profile/calendar-chrome
+python -m mma_future_scraper.cli scrape-upcoming --days 30 --headed --browser-channel chrome --browser-profile-dir data/browser_profile/calendar-chrome
 ```
+
+`--browser-channel chrome` uses the installed Google Chrome, so no Playwright browser download is needed (and a newer Playwright package can no longer fail with "Executable doesn't exist").
 
 With `--headed` the scraper waits up to 600 seconds (`--wait-for-manual-challenge SECONDS`) for the check to be completed in the visible window, then continues automatically. `--pause-on-manual-challenge` waits for ENTER instead. The profile keeps the Cloudflare clearance, so later runs are usually not challenged.
 
