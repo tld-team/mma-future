@@ -282,6 +282,10 @@ def is_explicit_non_mma_bout(raw_text: str | None) -> bool:
         r"\btech\s+fall\b",
         r"\bpinfall\b",
         r"\bfreestyle\s+wrestling\b",
+        r"\bprofessional\s+wrestling\b",
+        r"\bamateur\s+wrestling\b",
+        r"\bslap\s*fighting\b",
+        r"\bpower\s+slap\b",
     ]
     return bool(re.search("|".join(non_mma_patterns), text))
 
