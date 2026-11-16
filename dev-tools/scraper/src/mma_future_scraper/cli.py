@@ -354,7 +354,7 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--max-event-fetch-failures", type=non_negative_int, default=0)
     export.add_argument("--min-profile-success-rate", type=failure_rate_float, default=0.99)
     upcoming = subparsers.add_parser("scrape-upcoming", help="Scrape the next 1-30 days into the isolated calendar lane")
-    upcoming.add_argument("--days", type=positive_int, default=10, help="Inclusive period starting today (default: 10; maximum: 30)")
+    upcoming.add_argument("--days", type=positive_int, default=30, help="Inclusive period starting today (default: 30; maximum: 30)")
     upcoming.add_argument("--timezone", default="Europe/Belgrade", help="IANA timezone used to calculate today and coverage")
     upcoming.add_argument("--data-dir", type=Path, default=None, help="Override the isolated upcoming data directory")
     upcoming_head = upcoming.add_mutually_exclusive_group()

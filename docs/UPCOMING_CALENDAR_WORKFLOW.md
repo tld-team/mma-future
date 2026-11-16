@@ -7,11 +7,11 @@ The calendar lane is intentionally separate from canonical results, statistics, 
 Run from `dev-tools/scraper` with the project environment active:
 
 ```bash
-python -m mma_future_scraper.cli scrape-upcoming --days 10
+python -m mma_future_scraper.cli scrape-upcoming --days 30
 python -m mma_future_scraper.cli export-upcoming-bundle --output output/upcoming-YYYYMMDD.zip
 ```
 
-`--days` is inclusive of today and accepts 1–30. The default timezone is `Europe/Belgrade`. The scraper writes isolated state to `data/upcoming`, uses the shared professional-MMA and promotion classifiers, and preserves the last successful export when a run is blocked or incomplete.
+`--days` is inclusive of today and accepts 1–30 (default: 30, the maximum window the WordPress importer accepts). The default timezone is `Europe/Belgrade`. The scraper writes isolated state to `data/upcoming`, uses the shared professional-MMA and promotion classifiers, and preserves the last successful export when a run is blocked or incomplete.
 
 The ZIP contains `mmaf_upcoming_v1` data, actual coverage, a run manifest, and a transport manifest with SHA-256 checksums.
 
