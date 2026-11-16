@@ -66,6 +66,18 @@ def test_exact_inclusive_window_and_shared_professional_scope():
     assert document["events"][0]["start_utc"].endswith("Z")
 
 
+def test_headed_upcoming_waits_for_manual_challenge_by_default():
+    from mma_future_scraper.cli import UPCOMING_HEADED_CHALLENGE_WAIT_SECONDS, build_parser, upcoming_challenge_options
+
+    args = build_parser().parse_args(["scrape-upcoming", "--headed"])
+    assert upcoming_challenge_options(
+        headed=args.headed, wait_seconds=args.wait_for_manual_challenge, pause=args.pause_on_manual_challenge
+    ) == (UPCOMING_HEADED_CHALLENGE_WAIT_SECONDS, False)
+    assert upcoming_challenge_options(headed=True, wait_seconds=120, pause=True) == (120, True)
+    assert upcoming_challenge_options(headed=False, wait_seconds=None, pause=False) == (0, False)
+    assert upcoming_challenge_options(headed=False, wait_seconds=600, pause=True) == (0, False)
+
+
 def test_period_is_capped_at_thirty_days():
     assert validate_days(30) == 30
     with pytest.raises(ValueError):

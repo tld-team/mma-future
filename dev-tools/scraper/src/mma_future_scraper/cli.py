@@ -23,6 +23,28 @@ from .tapology import TapologyScraper
 from .validation import validate_results_document
 
 
+UPCOMING_HEADED_CHALLENGE_WAIT_SECONDS = 600
+
+
+def upcoming_challenge_options(*, headed: bool, wait_seconds: int | None, pause: bool) -> tuple[int, bool]:
+    """Resolve manual Cloudflare-challenge handling for scrape-upcoming.
+
+    Headed runs wait for the operator by default; headless runs always fail fast.
+    """
+    if not headed:
+        if wait_seconds or pause:
+            print(
+                "[manual-challenge] --wait-for-manual-challenge/--pause-on-manual-challenge require --headed; "
+                "ignoring them for this headless run.",
+                file=sys.stderr,
+                flush=True,
+            )
+        return 0, False
+    if wait_seconds is None:
+        wait_seconds = UPCOMING_HEADED_CHALLENGE_WAIT_SECONDS
+    return wait_seconds, bool(pause)
+
+
 def add_browser_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--browser-engine",
@@ -364,6 +386,22 @@ def build_parser() -> argparse.ArgumentParser:
     upcoming.add_argument("--max-events", type=positive_int, default=None)
     upcoming.add_argument("--slow-mo", type=non_negative_int, default=0)
     upcoming.add_argument("--browser-profile-dir", type=Path, default=None)
+    upcoming.add_argument(
+        "--wait-for-manual-challenge",
+        type=non_negative_int,
+        default=None,
+        metavar="SECONDS",
+        help=(
+            "With --headed, wait up to SECONDS for the operator to solve a Cloudflare/Turnstile challenge "
+            f"in the visible browser (default with --headed: {UPCOMING_HEADED_CHALLENGE_WAIT_SECONDS}). "
+            "Ignored in headless mode."
+        ),
+    )
+    upcoming.add_argument(
+        "--pause-on-manual-challenge",
+        action="store_true",
+        help="With --headed, stop at a challenge until the operator presses ENTER. Ignored in headless mode.",
+    )
     upcoming.add_argument("--resume-from", type=Path, default=None, help="Resume from a checkpoint_upcoming.json file")
     upcoming.add_argument("--debug", action="store_true")
     add_browser_options(upcoming)
@@ -618,6 +656,11 @@ def _dispatch(args) -> int:
         return 0
     if args.command == "scrape-upcoming":
         from .upcoming_calendar import scrape_upcoming
+        challenge_wait_seconds, pause_on_challenge = upcoming_challenge_options(
+            headed=args.headed,
+            wait_seconds=args.wait_for_manual_challenge,
+            pause=args.pause_on_manual_challenge,
+        )
         try:
             result = scrape_upcoming(
                 days=args.days,
@@ -633,6 +676,8 @@ def _dispatch(args) -> int:
                     "browser_executable_path": args.browser_executable_path,
                     "browser_profile_dir": args.browser_profile_dir if args.headed else None,
                     "resume_upcoming_checkpoint": args.resume_from,
+                    "wait_for_manual_challenge_seconds": challenge_wait_seconds,
+                    "pause_on_manual_challenge": pause_on_challenge,
                     "debug": args.debug,
                 },
             )
