@@ -89,6 +89,15 @@ class ReleaseTests(unittest.TestCase):
         ready=self.package(1);data=json.loads(ready.read_text());data['sha256']='0'*64;ready.write_text(json.dumps(data))
         with self.assertRaises(ValueError):self.runner.release()
         self.assertFalse((self.runner.root/'maintenance.flag').exists());self.assertFalse((self.wp/'wp-content').exists())
+    def test_early_failure_after_failed_release_publishes_new_sequence(self):
+        self.package(1);self.runner.release()
+        ready=self.package(2);data=json.loads(ready.read_text());data['sha256']='0'*64;ready.write_text(json.dumps(data))
+        with self.assertRaises(ValueError):self.runner.release()
+        ready=self.package(3);data=json.loads(ready.read_text());data['sha256']='0'*64;ready.write_text(json.dumps(data))
+        with self.assertRaises(ValueError):self.runner.release()
+        receipt=json.loads((self.wp/'.well-known/mmaf-release.json').read_text())
+        self.assertEqual((receipt['sequence'],receipt['state'],receipt['package_sha256']),(3,'failed','0'*64))
+        self.assertTrue((self.runner.root/'quarantine/3.failed').exists())
     def test_partial_upload_has_no_ready_marker(self):
         (self.runner.root/'incoming/partial.zip').write_bytes(b'partial');self.runner.release()
         self.assertEqual(self.runner.events,[])
