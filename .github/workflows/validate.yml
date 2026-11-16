@@ -47,6 +47,8 @@ jobs:
           php tests/unit/scoring-finishes.php
           php tests/unit/home-ranking-overview.php
           php tests/unit/ufc-matcher.php
+          php tests/unit/nationality-suggestion.php
+          php tests/unit/public-cache.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v14.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v15.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v17.php
