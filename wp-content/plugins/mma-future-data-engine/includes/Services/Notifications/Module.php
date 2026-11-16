@@ -21,10 +21,18 @@ final class Module {
 		add_action( 'wp_login', array( self::class, 'continue_intent' ), 20, 2 );
 		add_action( 'mmaf_notifications_run', static function(): void { try { ( new Worker() )->run( 25 ); } catch ( \Throwable $e ) { error_log( 'MMAF notifications worker: ' . $e->getMessage() ); } } );
 		add_filter( 'nsl_register_roles', static fn(): array => array( 'subscriber' ) );
-		add_filter( 'nsl_google_auto_link_allowed', '__return_false' );
-		add_action( 'nsl_google_register_new_user', static function( int $user_id ): void { $user = get_userdata( $user_id ); if ( $user ) { $user->set_role( 'subscriber' ); update_user_meta( $user_id, '_mmaf_email_verified', '1' ); } } );
-		add_filter( 'nsl_google_is_login_allowed', static function( bool $allowed, $provider, int $user_id ): bool { $user = get_userdata( $user_id ); return $allowed && $user && in_array( 'subscriber', (array) $user->roles, true ) && ! user_can( $user, 'edit_posts' ); }, 10, 3 );
-		add_action( 'nsl_google_login', static function( int $user_id ): void { $user = get_userdata( $user_id ); if ( $user && in_array( 'subscriber', (array) $user->roles, true ) && ! user_can( $user, 'edit_posts' ) ) { update_user_meta( $user_id, '_mmaf_email_verified', '1' ); } }, 10, 1 );
+		// Google is the public reader sign-up path, so it must not depend on WordPress "Anyone can register" (left off to keep wp-login.php registration closed).
+		add_filter( 'nsl_is_register_allowed', static function( $allowed, $provider = null ): bool { return (bool) $allowed || ( Config::feature_enabled() && is_object( $provider ) && method_exists( $provider, 'getId' ) && 'google' === $provider->getId() ); }, 20, 2 );
+		// A reader who first signed in by email link proves the same mailbox Google verifies, so link those accounts; never link privileged accounts.
+		add_filter( 'nsl_google_auto_link_allowed', static function( $allowed, $provider, $user_id ): bool { return (bool) $allowed && self::is_reader( (int) $user_id ); }, 10, 3 );
+		add_filter( 'nsl_disabled_login_redirect_url', array( self::class, 'social_error_url' ) );
+		add_filter( 'nsl_disabled_register_redirect_url', array( self::class, 'social_error_url' ) );
+		add_filter( 'nsl_autolink_error_redirect_url', array( self::class, 'social_error_url' ) );
+		add_filter( 'nsl_disabled_login_error_message', static fn(): string => 'Google sign-in is available only for reader accounts. Staff accounts must use the WordPress login.' );
+		add_filter( 'document_title_parts', array( self::class, 'title' ) );
+		add_action( 'nsl_google_register_new_user', static function( $user_id ): void { $user = get_userdata( (int) $user_id ); if ( $user ) { $user->set_role( 'subscriber' ); update_user_meta( (int) $user_id, '_mmaf_email_verified', '1' ); } } );
+		add_filter( 'nsl_google_is_login_allowed', static function( $allowed, $provider, $user_id ): bool { return (bool) $allowed && self::is_reader( (int) $user_id ); }, 10, 3 );
+		add_action( 'nsl_google_login', static function( $user_id ): void { if ( self::is_reader( (int) $user_id ) ) { update_user_meta( (int) $user_id, '_mmaf_email_verified', '1' ); } }, 10, 1 );
 		add_filter( 'wp_privacy_personal_data_exporters', array( self::class, 'exporters' ) );
 		add_filter( 'wp_privacy_personal_data_erasers', array( self::class, 'erasers' ) );
 		if ( defined( 'WP_CLI' ) && WP_CLI ) { \WP_CLI::add_command( 'mmaf notifications work', static function( array $args, array $assoc ): void { \WP_CLI::log( wp_json_encode( ( new Worker() )->run( absint( $assoc['limit'] ?? 25 ) ) ) ); } ); }
@@ -48,7 +56,28 @@ final class Module {
 			exit;
 		}
 		if ( 'account' === get_query_var( 'mmaf_notification_page' ) && ! is_user_logged_in() ) { wp_safe_redirect( self::login_url( array( 'return_to' => home_url( '/account/' ) ) ) ); exit; }
-		if ( in_array( get_query_var( 'mmaf_notification_page' ), array( 'login','register' ), true ) ) { self::remember_intent_from_request(); }
+		if ( in_array( get_query_var( 'mmaf_notification_page' ), array( 'login','register' ), true ) ) {
+			// Signed-in visitors (e.g. returning from Google) have nothing to do here; the sign-in buttons render empty for them.
+			if ( is_user_logged_in() ) { wp_safe_redirect( ( new Auth() )->safe_return( (string) wp_unslash( $_GET['return_to'] ?? '' ) ) ); exit; }
+			self::remember_intent_from_request();
+		}
+	}
+
+	public static function title( array $parts ): array {
+		$titles = array( 'login'=>'Sign in', 'register'=>'Create your account', 'account'=>'Your notifications', 'notification-action'=>'Confirm notification action' );
+		$view = (string) get_query_var( 'mmaf_notification_page' );
+		if ( isset( $titles[ $view ] ) ) { $parts['title'] = $titles[ $view ]; unset( $parts['page'] ); }
+		return $parts;
+	}
+
+	public static function social_error_url(): string {
+		$intent = self::read_intent_cookie();
+		return $intent ? self::login_url( $intent ) : home_url( '/login/' );
+	}
+
+	private static function is_reader( int $user_id ): bool {
+		$user = get_userdata( $user_id );
+		return $user && in_array( 'subscriber', (array) $user->roles, true ) && ! user_can( $user, 'edit_posts' );
 	}
 
 	public static function assets(): void {

@@ -21,7 +21,9 @@ define('MMAF_NOTIFICATION_STAGING_ALLOWLIST', 'qa-gmail@example.com,qa-outlook@e
 
 Local and development environments always use the fake mailbox stored in the `mmaf_notification_fake_mailbox` option. They never call Sender directly. Sender domain verification, SPF, DKIM and the visible From address must be complete before production is enabled.
 
-Install and configure Nextend Social Login Free separately. Create distinct Google OAuth clients or authorized callback URLs for staging and production, request only identity/email scopes, disable automatic email-based account linking, and complete Google brand verification. The custom login page displays the Google button only when Nextend's shortcode is available. Email-link login remains available without Nextend.
+Install and configure Nextend Social Login Free separately. Create distinct Google OAuth clients or authorized callback URLs for staging and production, request only identity/email scopes, and complete Google brand verification. The custom login page displays the Google button only when Nextend's shortcode is available. Email-link login remains available without Nextend.
+
+While the feature is enabled, the module allows new Google registrations even when WordPress **Anyone can register** is off, so keep that setting off: `wp-login.php` registration stays closed. New Google users get the `subscriber` role. Google sign-in and email-based account linking work only for reader accounts (subscriber without `edit_posts`); a reader who first signed in by email link is linked to the Google account with the same verified address. Staff accounts are never linked and are refused with a message. Nextend errors return to `/login/`, keeping the pending follow.
 
 ## Release sequence
 
