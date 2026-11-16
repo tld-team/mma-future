@@ -1,0 +1,48 @@
+{
+ "active_ranking_run_id": 41,
+ "view": "main",
+ "board": "overall",
+ "page": 2,
+ "per_page": 2,
+ "total": 4,
+ "total_pages": 2,
+ "items": [
+  {
+   "board": "overall",
+   "rank": 3,
+   "fighter_id": 103,
+   "display_name": "Foreign Url",
+   "scoring_assessment": {
+    "contract_version": 2,
+    "status": "main",
+    "verified_at": "2026-10-01T09:00:00Z",
+    "reasons": []
+   },
+   "career_record": {
+    "status": "accepted",
+    "record": {
+     "wins": 8,
+     "losses": 1,
+     "draws": 0,
+     "nc": 0,
+     "pro_fights_count": 9
+    },
+    "source_type": "tapology",
+    "source_url": "https://example.com/fighters/1003-foreign",
+    "verified_at": "2026-10-01T09:00:00Z"
+   }
+  },
+  {
+   "board": "overall",
+   "rank": 4,
+   "fighter_id": 104,
+   "display_name": "No Career Record",
+   "scoring_assessment": {
+    "contract_version": 2,
+    "status": "main",
+    "verified_at": null,
+    "reasons": []
+   }
+  }
+ ]
+}

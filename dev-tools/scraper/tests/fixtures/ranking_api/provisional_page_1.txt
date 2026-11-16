@@ -1,0 +1,95 @@
+<br />
+<b>Notice</b>:  Function _load_textdomain_just_in_time was called <strong>incorrectly</strong> in <b>/wp-includes/functions.php</b> on line <b>6121</b><br />
+{
+ "active_ranking_run_id": 41,
+ "view": "provisional",
+ "board": "overall",
+ "page": 1,
+ "per_page": 2,
+ "total": 3,
+ "total_pages": 1,
+ "items": [
+  {
+   "board": "overall",
+   "rank": null,
+   "fighter_id": 201,
+   "display_name": "Stale Provisional",
+   "scoring_assessment": {
+    "contract_version": 2,
+    "status": "provisional",
+    "verified_at": "2026-10-14T23:43:16Z",
+    "reasons": [
+     "career_coverage_unconfirmed",
+     "career_verification_stale"
+    ]
+   },
+   "career_record": {
+    "status": "accepted",
+    "record": {
+     "wins": 8,
+     "losses": 1,
+     "draws": 0,
+     "nc": 0,
+     "pro_fights_count": 9
+    },
+    "source_type": "tapology",
+    "source_url": "https://WWW.tapology.com/fightcenter/fighters/2001-Stale-Provisional/",
+    "verified_at": "2026-10-14T23:43:16Z"
+   }
+  },
+  {
+   "board": "overall",
+   "rank": null,
+   "fighter_id": 202,
+   "display_name": "Never Verified",
+   "scoring_assessment": {
+    "contract_version": 2,
+    "status": "provisional",
+    "verified_at": null,
+    "reasons": [
+     "career_coverage_unconfirmed"
+    ]
+   },
+   "career_record": {
+    "status": "accepted",
+    "record": {
+     "wins": 8,
+     "losses": 1,
+     "draws": 0,
+     "nc": 0,
+     "pro_fights_count": 9
+    },
+    "source_type": "tapology",
+    "source_url": "https://www.tapology.com/fightcenter/fighters/2002-never-verified",
+    "verified_at": null
+   }
+  },
+  {
+   "board": "overall",
+   "rank": null,
+   "fighter_id": 203,
+   "display_name": "Slug Only",
+   "scoring_assessment": {
+    "contract_version": 2,
+    "status": "provisional",
+    "verified_at": "2026-10-10T09:00:00Z",
+    "reasons": [
+     "career_verification_stale"
+    ]
+   },
+   "career_record": {
+    "status": "accepted",
+    "record": {
+     "wins": 8,
+     "losses": 1,
+     "draws": 0,
+     "nc": 0,
+     "pro_fights_count": 9
+    },
+    "source_type": "tapology",
+    "source_url": "https://www.tapology.com/fightcenter/fighters/slug-only",
+    "verified_at": "2026-10-10T09:00:00Z"
+   }
+  }
+ ]
+}
