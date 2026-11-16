@@ -49,9 +49,9 @@
 <div class="mmaf-browser-results"><?php mmaf_render_rankings_table( $data, $options['include_breakdown'], $prefix ); mmaf_pagination( $data, $prefix ); ?></div>
 <div class="rk-methodology">
 <a class="rk-methodology__link" href="<?php echo esc_url( home_url( '/about/' ) ); ?>">
-<svg class="rk-methodology__icon" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16.5h.01"/></svg>
+<svg class="rk-methodology__icon" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 1.5-2.5 2-2.5 3.5M12 16.5h.01"/></svg>
 <span>How scoring works</span>
-<svg class="rk-methodology__arrow" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+<svg class="rk-methodology__arrow" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
 </a>
 </div>
 </div>

@@ -535,7 +535,7 @@
 :where(:root[data-theme="dark"]) .rk-card a:hover { color:var(--mmaf-link)!important; }
 :where(:root[data-theme="dark"]) .rk-card details > div, :where(:root[data-theme="dark"]) .rk-card .rk-impact-mobile { border-color:var(--mmaf-border)!important; }
 :where(:root[data-theme="dark"]) .rk-card details a { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; }
-:where(:root[data-theme="dark"]) .rk-card :is(.text-xs,.rk-impact-mobile-label,.rk-impact-heading-note,.rk-impact-parts,.rk-finishes-parts),:where(:root[data-theme="dark"]) .rk-wrap :is(.rk-impact-parts strong,.rk-finishes-parts strong) { color:var(--mmaf-muted)!important; }
+:where(:root[data-theme="dark"]) .rk-card :is(.text-xs,.rk-impact-mobile-label,.rk-impact-heading-scope,.rk-impact-heading-note,.rk-impact-parts,.rk-finishes-parts),:where(:root[data-theme="dark"]) .rk-wrap :is(.rk-impact-parts strong,.rk-finishes-parts strong) { color:var(--mmaf-muted)!important; }
 :where(:root[data-theme="dark"]) .rk-wrap .rk-streak[data-streak="W"] { background:#14322a!important; color:#86efac!important; }
 :where(:root[data-theme="dark"]) .rk-wrap .rk-streak[data-streak="L"] { background:#3a222b!important; color:#fca5a5!important; }
 :where(:root[data-theme="dark"]) .mmaf-directory__eyebrow { color:var(--mmaf-link)!important; }
@@ -603,7 +603,7 @@
   :where(:root:not([data-theme])) .rk-card a:hover { color:var(--mmaf-link)!important; }
   :where(:root:not([data-theme])) .rk-card details > div, :where(:root:not([data-theme])) .rk-card .rk-impact-mobile { border-color:var(--mmaf-border)!important; }
   :where(:root:not([data-theme])) .rk-card details a { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; }
-  :where(:root:not([data-theme])) .rk-card :is(.text-xs,.rk-impact-mobile-label,.rk-impact-heading-note,.rk-impact-parts,.rk-finishes-parts),:where(:root:not([data-theme])) .rk-wrap :is(.rk-impact-parts strong,.rk-finishes-parts strong) { color:var(--mmaf-muted)!important; }
+  :where(:root:not([data-theme])) .rk-card :is(.text-xs,.rk-impact-mobile-label,.rk-impact-heading-scope,.rk-impact-heading-note,.rk-impact-parts,.rk-finishes-parts),:where(:root:not([data-theme])) .rk-wrap :is(.rk-impact-parts strong,.rk-finishes-parts strong) { color:var(--mmaf-muted)!important; }
   :where(:root:not([data-theme])) .rk-wrap .rk-streak[data-streak="W"] { background:#14322a!important; color:#86efac!important; }
   :where(:root:not([data-theme])) .rk-wrap .rk-streak[data-streak="L"] { background:#3a222b!important; color:#fca5a5!important; }
   :where(:root:not([data-theme])) .mmaf-directory__eyebrow { color:var(--mmaf-link)!important; }
@@ -700,7 +700,7 @@
   :where(:root:not([data-theme])) body.single-post #primary a[style*="color:var(--brand)"] { color:var(--mmaf-link)!important; background:var(--mmaf-raised)!important; }
 }
 
-:where(:root[data-theme="dark"]) .rk-wrap :is(.rk-impact-heading-label,.rk-impact-heading-note,.rk-finishes-parts,.rk-impact-parts),:where(:root[data-theme="dark"]) .rk-cards .rk-impact-parts strong { color:var(--mmaf-muted)!important; }
+:where(:root[data-theme="dark"]) .rk-wrap :is(.rk-impact-heading-label,.rk-impact-heading-scope,.rk-impact-heading-note,.rk-finishes-parts,.rk-impact-parts),:where(:root[data-theme="dark"]) .rk-cards .rk-impact-parts strong { color:var(--mmaf-muted)!important; }
 
 :where(:root[data-theme="dark"]) .rk-impact-info { color:var(--mmaf-muted)!important; border-color:var(--mmaf-field-border)!important; }
 
@@ -715,7 +715,7 @@
 :where(:root[data-theme="dark"]) .mf-bio-card__divider { background:var(--mmaf-border)!important; }
 
 @media (prefers-color-scheme: dark) {
-  :where(:root:not([data-theme])) .rk-wrap :is(.rk-impact-heading-label,.rk-impact-heading-note,.rk-finishes-parts,.rk-impact-parts),:where(:root:not([data-theme])) .rk-cards .rk-impact-parts strong { color:var(--mmaf-muted)!important; }
+  :where(:root:not([data-theme])) .rk-wrap :is(.rk-impact-heading-label,.rk-impact-heading-scope,.rk-impact-heading-note,.rk-finishes-parts,.rk-impact-parts),:where(:root:not([data-theme])) .rk-cards .rk-impact-parts strong { color:var(--mmaf-muted)!important; }
   :where(:root:not([data-theme])) .rk-impact-info { color:var(--mmaf-muted)!important; border-color:var(--mmaf-field-border)!important; }
   :where(:root:not([data-theme])) .rk-impact-info:is(:hover,:focus,:active) { background:var(--mmaf-hover)!important; color:var(--mmaf-link)!important; }
   :where(:root:not([data-theme])) .about-featured-section__icon svg { color:var(--mmaf-link)!important; }
