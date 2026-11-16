@@ -24,8 +24,10 @@ def run(config):
         quota_command=worker.c.get('quota_command')
         if quota_command:
             try:
-                value=json.loads(subprocess.check_output(quota_command,timeout=60,stderr=subprocess.PIPE));atomic(worker.root/'capacity.json',value)
-            except (subprocess.SubprocessError,ValueError):pass # previous evidence expires; never assume unlimited
+                value=json.loads(subprocess.check_output(quota_command,timeout=60,stderr=subprocess.PIPE))
+                if not isinstance(value,dict):raise ValueError('Quota evidence must be an object')
+                atomic(worker.root/'capacity.json',value)
+            except (OSError,subprocess.SubprocessError,ValueError):pass # previous evidence expires; never assume unlimited
         quota_path=worker.root/'capacity.json'
         quota=json.loads(quota_path.read_text()) if quota_path.exists() else {}
         atomic(worker.root/'capacity-status.json',capacity(worker.root,quota))
