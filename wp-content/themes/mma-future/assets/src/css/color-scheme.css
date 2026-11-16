@@ -221,7 +221,7 @@
   .rk-card a:hover { color:var(--mmaf-link)!important; }
   .rk-card details > div, .rk-card .rk-impact-mobile { border-color:var(--mmaf-border)!important; }
   .rk-card details a { background:var(--mmaf-raised)!important; border-color:var(--mmaf-field-border)!important; }
-  .rk-card :is(.text-xs,.rk-impact-mobile-label,.rk-impact-heading-note,.rk-impact-parts,.rk-finishes-parts),
+  .rk-card :is(.text-xs,.rk-impact-mobile-label,.rk-impact-heading-scope,.rk-impact-heading-note,.rk-impact-parts,.rk-finishes-parts),
   .rk-wrap :is(.rk-impact-parts strong,.rk-finishes-parts strong) { color:var(--mmaf-muted)!important; }
   .rk-wrap .rk-streak[data-streak="W"] { background:#14322a!important; color:#86efac!important; }
   .rk-wrap .rk-streak[data-streak="L"] { background:#3a222b!important; color:#fca5a5!important; }
@@ -311,7 +311,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .rk-wrap :is(.rk-impact-heading-label,.rk-impact-heading-note,.rk-finishes-parts,.rk-impact-parts), .rk-cards .rk-impact-parts strong { color:var(--mmaf-muted)!important; }
+  .rk-wrap :is(.rk-impact-heading-label,.rk-impact-heading-scope,.rk-impact-heading-note,.rk-finishes-parts,.rk-impact-parts), .rk-cards .rk-impact-parts strong { color:var(--mmaf-muted)!important; }
   .rk-impact-info { color:var(--mmaf-muted)!important; border-color:var(--mmaf-field-border)!important; }
   .rk-impact-info:is(:hover,:focus,:active) { background:var(--mmaf-hover)!important; color:var(--mmaf-link)!important; }
   .about-featured-section__icon svg { color:var(--mmaf-link)!important; }
