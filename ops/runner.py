@@ -311,12 +311,14 @@ class Runner:
             path=self.root/'apply-state.json';journal=json.loads(path.read_text()) if path.exists() else {}
             pending=next((p for seq,p in ready if seq==journal.get('sequence')),None)
             selected=pending if pending and journal.get('state') not in {'verified','failed','rolled_back'} else max(ready)[1]
+            attempted=json.loads(selected.read_text())
             try: self.apply(selected)
             except Busy: raise
             except Exception:
                 status=json.loads((self.root/'release-status.json').read_text()) if (self.root/'release-status.json').exists() else {}
-                if status.get('state') not in {'failed','rolled_back'}:
-                    failed=json.loads(selected.read_text()) if selected.exists() else {};self.status('failed',failed)
+                # A failure already published for an earlier sequence must not hide this one from CI.
+                if status.get('state') not in {'failed','rolled_back'} or status.get('sequence')!=attempted.get('sequence'):
+                    self.status('failed',attempted)
                 if selected.exists(): selected.replace(self.root/'quarantine'/(selected.stem+'.failed'))
                 raise
 
