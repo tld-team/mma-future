@@ -47,7 +47,7 @@ def upcoming_data_dir(base: Path | None = None) -> Path:
 
 def scrape_upcoming(
     *,
-    days: int = 10,
+    days: int = MAX_DAYS,
     timezone_name: str = DEFAULT_TIMEZONE,
     data_dir: Path | None = None,
     config_overrides: dict[str, Any] | None = None,

@@ -8,7 +8,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Renderer {
 	private const PAGE_SIZE = 3;
 	private const DEFAULT_TITLE = 'Upcoming MMA Events';
-	private const DEFAULT_INTRO = 'Professional MMA events scheduled for the next 10 days. Select a date, then open an event to see its fight card.';
+	private const DEFAULT_INTRO = 'Professional MMA events scheduled for the next 30 days. Select a date, then open an event to see its fight card.';
+	private const LEGACY_INTROS = array(
+		'Pregled profesionalnih MMA događaja u narednih 10 dana. Izaberite datum za kompletan program borbi.',
+		'Professional MMA events scheduled for the next 10 days. Select a date to see the complete fight card.',
+		'Professional MMA events scheduled for the next 10 days. Select a date, then open an event to see its fight card.',
+		'Professional MMA events scheduled for the next 30 days. Select a date to see the complete fight card.',
+	);
 
 	public static function render( array $settings = array() ): void {
 		$timezone = CalendarService::valid_timezone( sanitize_text_field( wp_unslash( $_GET['calendar_tz'] ?? '' ) ) );
@@ -38,7 +44,7 @@ final class Renderer {
 		if ( '' === $title || 'Kalendar MMA događaja' === $title ) {
 			$title = self::DEFAULT_TITLE;
 		}
-		if ( '' === $intro || in_array( $intro, array( 'Pregled profesionalnih MMA događaja u narednih 10 dana. Izaberite datum za kompletan program borbi.', 'Professional MMA events scheduled for the next 10 days. Select a date to see the complete fight card.' ), true ) ) {
+		if ( '' === $intro || in_array( $intro, self::LEGACY_INTROS, true ) ) {
 			$intro = self::DEFAULT_INTRO;
 		}
 		?>

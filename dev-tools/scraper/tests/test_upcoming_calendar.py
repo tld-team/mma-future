@@ -92,6 +92,29 @@ def test_upcoming_scrape_skips_matchup_detail_pages(monkeypatch, tmp_path):
     assert observed["config"].scrape_matchup_pages is False
 
 
+def test_default_window_is_the_full_thirty_days(monkeypatch, tmp_path):
+    observed = {}
+
+    class SuccessfulScraper:
+        def __init__(self, config):
+            observed["config"] = config
+
+        def run(self, *, results, upcoming):
+            atomic_write_json(
+                observed["config"].data_dir / "latest" / "upcoming.json",
+                {"run": {"run_id": "run-default-window"}, "events": [raw_event("2027-01-29")]},
+            )
+            return {"successful": True, "date_window_stop_confirmed": True, "event_fetch_failures": 0}
+
+    monkeypatch.setattr("mma_future_scraper.upcoming_calendar.TapologyScraper", SuccessfulScraper)
+    result = scrape_upcoming(data_dir=tmp_path / "upcoming", today=date(2026, 12, 31))
+
+    assert observed["config"].from_date == "2026-12-31"
+    assert observed["config"].until_date == "2027-01-29"
+    assert result["coverage"]["requested_days"] == 30
+    assert result["events"] == 1
+
+
 def test_natural_listing_end_publishes_an_importable_calendar(monkeypatch, tmp_path):
     class SuccessfulScraper:
         def __init__(self, config):

@@ -20,7 +20,7 @@
       "instructions": "Optional short description for the calendar.",
       "required": 0,
       "rows": 3,
-      "default_value": "Professional MMA events scheduled for the next 10 days. Select a date to see the complete fight card.",
+      "default_value": "Professional MMA events scheduled for the next 30 days. Select a date to see the complete fight card.",
       "wrapper": {"width": "", "class": "", "id": ""}
     }
   ],
@@ -32,5 +32,5 @@
   "instruction_placement": "label",
   "active": true,
   "show_in_rest": 0,
-  "modified": 1792636800
+  "modified": 1794833049
 }
