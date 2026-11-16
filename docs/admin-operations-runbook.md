@@ -47,7 +47,13 @@ Before retrying, resolve an identity or source-data conflict. A repeated conflic
 
 Development stays local. `main` publishes staging after CI validation and a deterministic build. The restricted FTPS account uploads only a complete code package and its ready marker into private incoming storage.
 
-For now, **manually check cPanel Statistics before each staging release**. Record the displayed account disk limit/usage and inode limit/usage in private `capacity.json`, with `source: manual_cpanel` and the actual `checked_at` time. Keep a dated screenshot with the release evidence. Only use `bytes_unlimited: true` when cPanel explicitly displays an unlimited disk limit; an unknown limit stays unknown. The review expires after one hour and is never renewed automatically. The runner separately checks filesystem space and the required backup/workspace reserve. Refresh the manual review before retrying a release whose review has expired.
+Releases require account quota evidence in private `capacity.json` that is at most one hour old. The runner separately checks filesystem space and the required backup/workspace reserve. Without fresh evidence every release fails with `Account quota is unknown or stale.`
+
+**Automatic (recommended):** set `quota_command` in the private config to `["PYTHON", "PRIVATE_ROOT/current/cpanel-quota.py"]`. The every-minute monitor runs it and writes `capacity.json` (`source: cpanel_uapi`) from cPanel's own `uapi Quota get_quota_info`, the same figures as cPanel Statistics. cPanel's explicit unlimited value (0, shown as ∞) maps to `bytes_unlimited`/`inodes_unlimited`; a missing, malformed or failed response writes nothing, so the last evidence expires and releases stay blocked. Check it once by running the command by hand; it must print one JSON object.
+
+**Manual fallback:** check cPanel Statistics and write `capacity.json` with the displayed disk limit/usage and inode limit/usage, `source: manual_cpanel` and the actual `checked_at` time. Keep a dated screenshot with the release evidence. Only use `bytes_unlimited: true` when cPanel explicitly displays an unlimited disk limit; an unknown limit stays unknown. A manual review expires after one hour.
+
+A release rejected for stale quota is moved to `quarantine/SEQUENCE-COMMIT.failed` before any backup, so it can be retried: refresh the evidence, then move it back to `incoming/SEQUENCE-COMMIT.ready`. The release cron picks up the highest ready sequence within a minute.
 
 The private runner verifies checksums and schema compatibility, waits for the worker checkpoint, prevents new writes, creates a checked backup, enters short maintenance, applies explicit migrations and verifies the site before reopening. CI success requires a receipt for the exact commit, sequence and package hash; uploaded/queued alone is not success.
 

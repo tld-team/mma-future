@@ -36,6 +36,17 @@ class MonitorTests(unittest.TestCase):
  def test_quota_unknown_is_not_assumed_unlimited(self):
   with patch.object(monitor.Runner,'wp',return_value='{}'):monitor.run(self.config)
   result=json.loads((self.worker.root/'capacity-status.json').read_text());self.assertFalse(result['ok']);self.assertIsNone(result['account_inode_free'])
+ def test_quota_command_refreshes_evidence_and_missing_command_does_not_crash(self):
+  import sys
+  self.worker.c['quota_command']=[sys.executable,'-c','import json,time;print(json.dumps({"checked_at":time.time(),"bytes_unlimited":True,"limit_inodes":100,"used_inodes":10}))']
+  self.config.write_text(json.dumps(self.worker.c))
+  with patch.object(monitor.Runner,'wp',return_value='{}'):monitor.run(self.config)
+  self.assertEqual(json.loads((self.worker.root/'capacity.json').read_text())['limit_inodes'],100)
+  self.assertEqual(json.loads((self.worker.root/'capacity-status.json').read_text())['account_inode_free'],90)
+  for command in ([str(self.root/'absent-quota-command')],[sys.executable,'-c','print("[]")']):
+   self.worker.c['quota_command']=command;self.config.write_text(json.dumps(self.worker.c))
+   with patch.object(monitor.Runner,'wp',return_value='{}'):monitor.run(self.config)
+   self.assertEqual(json.loads((self.worker.root/'capacity.json').read_text())['limit_inodes'],100)
  def test_alert_transport_deduplicates_and_retries_failure(self):
   with patch.object(monitor.subprocess,'run') as transport:
    transport.return_value.returncode=1;monitor.notify(self.worker,'test','Same reason');monitor.notify(self.worker,'test','Same reason');self.assertEqual(transport.call_count,2)

@@ -37,6 +37,7 @@ jobs:
           python3 tests/unit/runtime-gate.py
           python3 tests/unit/write-mutex.py
           python3 tests/unit/monitor.py
+          python3 tests/unit/cpanel-quota.py
           python3 tests/unit/integration-bootstrap.py
           python3 tests/unit/import-operations.py
           php tests/unit/import-diagnostics.php
