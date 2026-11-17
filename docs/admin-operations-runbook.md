@@ -35,7 +35,7 @@ Statistics and ranking drafts are **manual by default**. Imports, profile prepar
 
 The staging supervisor owns MMA Future processing; WordPress core cron runs separately. Schema 1.10.0 uses one bounded WordPress session per worker dispatch, checking the time/memory budget and release flags between existing atomic units. Preparation units process up to ten fighters (five during regular import); calculation steps retain their 250-row/byte budget. Do not launch competing worker scripts. See [the import pipeline runbook](import-pipeline.md) for cycle finalization, targeted recovery, capacity entry and destination receipts.
 
-Readiness projection steps also stop at a three-second budget, leaving remaining rows for the next step. A human POST waits up to five seconds for the current atomic unit; system workers yield immediately when the shared lock is busy. Longer frozen calculations can still reject a competing edit with a clear retry/pause message.
+Readiness projection steps also stop at a three-second budget, leaving remaining rows for the next step. A human POST waits up to fifteen seconds for the current atomic unit and announces itself through `worker.lock.interactive`; system workers yield immediately when the shared lock is busy and stop at the next unit boundary while a human save is waiting, resuming on the next supervisor run. Longer frozen calculations can still reject a competing edit with a clear retry/pause message.
 
 Check **Operations / Health** for status, phase, heartbeat, progress and error reason. No heartbeat for five minutes is a warning, ten minutes is critical. Heartbeat without progress may still indicate a stalled job. Critical mail is sent to `luka.m@tldteam.com`; actual receipt must be verified during staging acceptance.
 
