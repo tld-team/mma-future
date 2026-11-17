@@ -19,9 +19,48 @@ function mmaf_points_text( float $points ): string {
     $text = rtrim( rtrim( number_format( $points, 2, '.', '' ), '0' ), '.' );
     return $text . ( 1.0 === $points ? ' point' : ' points' );
 }
-function mmaf_finish_points_note( array $context ): string {
-    $points = mmaf_points_per_finish( $context );
-    return null === $points ? 'Included in Score' : '+' . mmaf_points_text( $points ) . ' each';
+/** Signed points without padding zeros: +2, +2.25, −1.5, 0. */
+function mmaf_display_points( $value ): string {
+    if ( ! is_numeric( $value ) ) { return '—'; }
+    $number = (float) $value;
+    $text = rtrim( rtrim( number_format( abs( $number ), 3, '.', '' ), '0' ), '.' );
+    return ( $number > 0 ? '+' : ( $number < 0 ? '−' : '' ) ) . $text;
+}
+/** Marks deductions so they read as deductions at a glance. */
+function mmaf_negative_class( $value ): string { return is_numeric( $value ) && (float) $value < 0 ? ' rk-neg' : ''; }
+/** The parts that add up to the displayed score, or null when they are not all known. */
+function mmaf_score_components( array $ranking ): ?array {
+    $parts = $ranking['score_components'] ?? null;
+    return is_array( $parts ) && isset( $parts['record_points'], $parts['finish_points'], $parts['opponent_points'], $parts['age_points'], $parts['total'] ) ? $parts : null;
+}
+/** One description of each score part, shared by the table row, the mobile card and the details panel. */
+function mmaf_score_parts( array $r ): array {
+    $c = mmaf_score_components( $r ); $f = $r['scoring_finishes'] ?? null; $o = $r['opponent_impact'] ?? null;
+    $record = mmaf_record( mmaf_display_record( $r ) ); $per = mmaf_points_per_finish( $r );
+    $count = $f ? (int) $f['count'] : null; $unknown = $f ? (int) $f['unknown_win_methods'] : 0;
+    $finishes = null === $count ? '' : ( $unknown && ! $count ? 'Finishes unknown' : ( $unknown ? '≥' : '' ) . $count . ( 1 === $count ? ' finish' : ' finishes' ) );
+    $wins = $c['scoring_wins'] ?? null; $losses = $c['scoring_losses'] ?? null;
+    $missing = $o ? $o['missing_record_bouts'] : 0;
+    return array(
+        'record' => array( 'label' => 'Record', 'value' => $c['record_points'] ?? null, 'note' => '—' === $record ? '' : $record, 'warn' => '',
+            'lines' => null !== $wins && null !== $losses ? array( $wins . ( 1 === $wins ? ' win' : ' wins' ) . ' · ' . $losses . ( 1 === $losses ? ' loss' : ' losses' ) ) : array() ),
+        'finishes' => array( 'label' => 'Finishes', 'value' => $f['points'] ?? ( $c['finish_points'] ?? null ), 'note' => $finishes,
+            'warn' => $unknown ? $unknown . ( 1 === $unknown ? ' win method unknown' : ' win methods unknown' ) : '',
+            'lines' => $f ? array_values( array_filter( array( $unknown && ! $count ? '' : $finishes . ( null === $per ? '' : ' × ' . rtrim( rtrim( number_format( $per, 2, '.', '' ), '0' ), '.' ) ), $f['ko_tko'] . ' KO/TKO · ' . $f['submission'] . ' SUB' ) ) ) : array() ),
+        'opponents' => array( 'label' => 'Opponents', 'value' => $o['total_points'] ?? ( $c['opponent_points'] ?? null ), 'note' => $o && null === $missing ? 'Opponent record coverage unavailable' : '',
+            'warn' => $missing > 0 ? $o['known_record_bouts'] . '/' . $o['scoring_bouts'] . ' opponent records known' : '',
+            'lines' => $o ? array( 'Win adjustment ' . mmaf_display_points( $o['win_points'] ), 'Extra loss penalty ' . mmaf_display_points( $o['loss_points'] ) ) : array() ),
+        'age' => array( 'label' => 'Age', 'value' => $c['age_points'] ?? null, 'note' => isset( $r['age'] ) ? 'Age ' . (int) $r['age'] : '', 'warn' => '',
+            'lines' => isset( $r['age'] ) ? array( 'Age ' . (int) $r['age'] ) : array() ),
+    );
+}
+/** A score part as one number with at most one line of context; details live in the breakdown panel. */
+function mmaf_render_score_part( array $part, string $sr = '' ): void {
+    $value = $part['value']; $known = is_numeric( $value );
+    echo '<div class="rk-part' . ( $known && 0.0 === (float) $value ? ' is-zero' : '' ) . '"><span class="rk-impact-total' . mmaf_negative_class( $value ) . '">' . ( $sr ? '<span class="sr-only">' . esc_html( $sr ) . ': </span>' : '' ) . esc_html( mmaf_display_points( $value ) ) . ( $sr && $known ? '<span class="sr-only"> points</span>' : '' ) . '</span>';
+    if ( '' !== $part['note'] ) { echo '<span class="rk-impact-note">' . esc_html( $part['note'] ) . '</span>'; }
+    if ( '' !== $part['warn'] ) { echo '<span class="rk-impact-note rk-impact-note--partial">' . esc_html( $part['warn'] ) . '</span>'; }
+    echo '</div>';
 }
 function mmaf_display_percent( $value ) { return null === $value ? '—' : number_format_i18n( 100 * (float) $value, 0 ) . '%'; }
 function mmaf_display_signed_points( $value ): string {
@@ -55,11 +94,6 @@ function mmaf_scoring_assessment_parts(array $context): ?array {
     if(!empty($a['no_recent_fights'])){$notes['no_recent_fights']='No fights since 9 May 2026.';}
     if($a['status']==='provisional'){$notes['provisional']='Provisional sum: '.mmaf_display_number($a['known_points']??null,2).' · No final score or main ranking position yet. '.implode('; ',array_map(static fn($r)=>str_replace('_',' ',$r),$a['reasons']));}
     return array('label'=>$context['dates']['score_label']??'MMA Future Score','status'=>ucfirst($a['status']),'sample_size'=>$a['sample_size'],'checked'=>!empty($a['verified_at'])?gmdate('Y-m-d H:i:s',strtotime($a['verified_at'])).' UTC':'unknown','career'=>($a['methodology']??'')==='professional_mma_career_v1','notes'=>$notes);
-}
-function mmaf_render_scoring_assessment(array $context): void {
-    $p=mmaf_scoring_assessment_parts($context);if(!$p){return;}
-    echo '<p class="text-sm text-muted">'.esc_html($p['label']).' · '.esc_html($p['status']).' · '.esc_html($p['sample_size']).' scoring bouts · checked '.esc_html($p['checked']).'</p>';
-    foreach($p['notes'] as $key=>$note){echo '<p class="text-sm text-muted">'.esc_html('coverage'===$key?'Base points, known finishes and opponent quality across the whole professional MMA career. '.$note:$note).'</p>';}
 }
 /** Fine print for the fighter hero, collapsed into one discreet disclosure. */
 function mmaf_render_fighter_hero_details(array $c): void {
@@ -158,6 +192,7 @@ function mmaf_render_rankings( $full = false, $block_id = '' ) {
  $options = array( 'board' => mmaf_site_field( $full ? 'default_board' : 'ranking_board' ) ?: ( $full ? 'male' : 'overall' ), 'per_page' => max( 1, (int) ( mmaf_site_field( $full ? 'rows_per_page' : 'top_five_count' ) ?: ( $full ? 25 : 5 ) ) ), 'include_breakdown' => $full && mmaf_site_field( 'show_score_breakdown' ) );
  if ( $full ) { foreach ( array( 'board', 'q', 'sort', 'order', 'top15', 'page' ) as $key ) { if ( isset( $_GET[$prefix . '_' . $key] ) && is_scalar( $_GET[$prefix . '_' . $key] ) ) { $options[$key] = sanitize_text_field( wp_unslash( $_GET[$prefix . '_' . $key] ) ); } } }
  $options['view'] = 'main'; // The public site shows only the official activated ranking.
+ $options['include_scoring_fights'] = (bool) $full; // The fight-by-fight list in the row details.
  $data = $service->rankings( $options );
  if ( is_wp_error( $data ) ) { echo '<p>' . esc_html( $data->get_error_message() ) . '</p>'; return; }
  $data += array( 'sort' => $options['sort'] ?? 'rank', 'order' => $options['order'] ?? 'asc' );
@@ -175,7 +210,7 @@ add_action( 'rest_api_init', static function() {
 	foreach ( array( 'rankings', 'history' ) as $kind ) {
 		register_rest_route( 'mma-future-site/v1', '/views/' . $kind, array( 'methods' => 'GET', 'permission_callback' => '__return_true', 'callback' => static function( WP_REST_Request $request ) use ( $kind ) {
 			$service = mmaf_public_service(); if ( ! $service ) { return new WP_Error( 'unavailable', 'Public data is temporarily unavailable.', array( 'status' => 503 ) ); }
-			$options = $request->get_params(); if ( 'rankings' === $kind ) { $options['view'] = 'main'; } $data = 'rankings' === $kind ? $service->rankings( $options ) : $service->history( (int) ( $options['fighter_id'] ?? 0 ), $options );
+			$options = $request->get_params(); if ( 'rankings' === $kind ) { $options['view'] = 'main'; $options['include_scoring_fights'] = true; } $data = 'rankings' === $kind ? $service->rankings( $options ) : $service->history( (int) ( $options['fighter_id'] ?? 0 ), $options );
 			if ( is_wp_error( $data ) ) { return $data; }
 			$data += array( 'sort' => $options['sort'] ?? 'rank', 'order' => $options['order'] ?? 'asc' );
 			$prefix = sanitize_key( $options['prefix'] ?? 'mmaf' );

@@ -6,7 +6,7 @@ use MMAF\DataEngine\Services\RegularImport\WriteGuard;
 final class PublicCacheService {
  // Bump when the cached public response contract or its storage format changes.
  // 6: values are stored as ASCII-only JSON strings instead of PHP-serialized arrays.
- private const CONTRACT_VERSION=6;
+ private const CONTRACT_VERSION=7;
  private static bool $pending=false;
  public static function register(): void {
   add_action('mmaf_public_data_changed',array(self::class,'changed'));

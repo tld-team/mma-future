@@ -7,6 +7,8 @@ use MMAF\DataEngine\REST\AbstractRestController;
 use MMAF\DataEngine\Services\Formula\FormulaRegistry;
 use MMAF\DataEngine\Services\Scoring\OpponentImpact;
 use MMAF\DataEngine\Services\Scoring\FinishSummary;
+use MMAF\DataEngine\Services\Scoring\ScoreComponents;
+use MMAF\DataEngine\Services\Scoring\ScoringFights;
 
 /** One public contract for templates and REST. No administrator visibility bypass. */
 final class PublicReadService extends AbstractRestController {
@@ -81,13 +83,20 @@ final class PublicReadService extends AbstractRestController {
 		$this->prime(array_column($result['rows'],'wp_post_id')); $items=array();
         $scoring=(new \MMAF\DataEngine\Services\Scoring\PublicAssessments())->for_fighters(array_column($result['rows'],'fighter_id'),$active);$dates=$this->dates($active);
 		$rankMap=$active?$this->public->rank_map((int)$active['id'],$board):[];
+		$with_fights=!empty($options['include_scoring_fights']); $fight_breakdowns=array();
 		foreach($result['rows'] as $r) {
 			$r['rank_position']=$rankMap[(int)$r['fighter_id']]??$r['rank_position'];
 			$p=$this->profile_data($r['wp_post_id']); $item=$this->ranking($r,$active);
 			$item=array_merge($item,array('fighter_id'=>(int)$r['fighter_id'],'display_name'=>$r['display_name'],'nickname'=>$r['nickname'],'slug'=>$p['slug'],'permalink'=>$p['permalink'],'image'=>$p['image'],'gender'=>$r['gender'],'weight_class'=>$r['weight_class'],'nationality'=>$r['nationality'],'age'=>$this->age($r['date_of_birth'],$r['birth_year']),'record'=>array('wins'=>isset($r['wins'])?(int)$r['wins']:null,'losses'=>isset($r['losses'])?(int)$r['losses']:null,'draws'=>isset($r['draws'])?(int)$r['draws']:null,'nc'=>isset($r['nc'])?(int)$r['nc']:null,'pro_fights_count'=>isset($r['pro_fights_count'])?(int)$r['pro_fights_count']:null), 'stats'=>array('finish_wins'=>isset($r['finish_wins'])?(int)$r['finish_wins']:null,'finish_rate'=>isset($r['finish_rate'])?(float)$r['finish_rate']:null,'last_fight_date'=>$r['last_fight_date'],'streak'=>$r['streak'],'recent_form'=>$r['recent_form'],'activity_status'=>$r['activity_status'],'calculated_at'=>$this->utc($r['stats_calculated_at']))));
+			if($with_fights && FormulaRegistry::uses_direct_scores($item['formula_version'])) { $fight_breakdowns[count($items)]=$item['breakdown']; }
 			if(empty($options['include_breakdown'])) { unset($item['breakdown']); }
             $item=array_merge($item,$scoring[(int)$r['fighter_id']]??[],['dates'=>$dates]);
 			$items[]=$item;
+		}
+		if($with_fights) {
+			// One name lookup for the whole page; the names are the same ones shown in public fight histories.
+			$names=$this->public->fighter_names(array_merge(array(),...array_map(array(ScoringFights::class,'opponent_ids'),array_values($fight_breakdowns))));
+			foreach($items as $index=>$item) { $items[$index]['scoring_fights']=isset($fight_breakdowns[$index])?ScoringFights::from_breakdown($fight_breakdowns[$index],$names):null; }
 		}
 		return array_merge($state,$this->dates($active),array('view'=>'main','board'=>$board,'formula_version'=>$active['formula_version'] ?? null,'generated_at'=>$active['calculated_at'] ?? null,'active_calculated_at'=>$active['calculated_at'] ?? null,'latest_completed_ranking_run_id'=>$state['latest_completed_run_id'],'page'=>$options['page'],'per_page'=>$options['per_page'],'total'=>$result['total'],'total_pages'=>(int)ceil($result['total']/$options['per_page']),'items'=>$items,'available_boards'=>$active?$this->public->boards((int)$active['id']):array(),'message'=>$active?null:'No active ranking run is available.'));
 	}
@@ -148,6 +157,7 @@ final class PublicReadService extends AbstractRestController {
 		$out=array('board'=>$r['board_key'],'rank'=>(int)$r['rank_position'],'score'=>$this->ranking_public_score($r,$version),'raw_score'=>$this->ranking_raw_public_score($r),'formula_version'=>$version,'sample_size'=>(int)$r['sample_size'],'active_ranking_run_id'=>(int)$r['ranking_run_id'],'breakdown'=>$this->json_value($r['breakdown_json'] ?? null),'quality_flags'=>$this->json_value($r['quality_flags_json'] ?? null),'warnings_count'=>count($this->json_value($r['warnings_json'] ?? null) ?? array()));
 		$out['opponent_impact']=FormulaRegistry::uses_direct_scores($version) ? OpponentImpact::from_breakdown($out['breakdown'],$this->json_value($r['source_summary_json']??null)) : null;
 		$out['scoring_finishes']=FormulaRegistry::uses_direct_scores($version) ? FinishSummary::from_breakdown($out['breakdown'],FormulaRegistry::points_per_finish($version)??1.0) : null;
+		$out['score_components']=FormulaRegistry::uses_direct_scores($version) ? ScoreComponents::from_breakdown($out['breakdown'],$out['score']) : null;
 		if(FormulaRegistry::uses_normalized_scores($version)) { $out['performance_raw_score']=$this->ranking_performance_raw_public_score($r,$version); $out['confidence_score']=$this->ranking_confidence_public_score($r,$version); }
 		return $out;
 	}
