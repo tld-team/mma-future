@@ -29,6 +29,7 @@ final class MigrationRunner {
 		}
 
 		self::run_safe_alters();
+		self::migrate_notification_slots();
         $assessments=\MMAF\DataEngine\Services\Scoring\Schema::tables()['assessments'];
         $period=$wpdb->get_row("SHOW COLUMNS FROM `$assessments` WHERE Field='period_start'",ARRAY_A);
         if(!$period){throw new \RuntimeException('Assessment scope column is missing.');}
@@ -115,6 +116,31 @@ final class MigrationRunner {
 			$columns=array_map('trim',explode(',',$match[3]));$found=$actual[$name]??[];if(isset($found['columns'])){ksort($found['columns']);}
 			if(array_values($found['columns']??[])!==$columns || (($primary || stripos($match[1],'UNIQUE')===0) && empty($found['unique']))){throw new \RuntimeException('Required operational index is missing or incompatible: '.$table.'.'.$name);}
 		}
+	}
+
+	/**
+	 * 1.19.0: reminders leave the one-message-per-day slot and are timed from the event's start.
+	 *
+	 * dbDelta has already added the new columns and the unique (user_id, digest_day) key; it never drops an index,
+	 * so the old unique (user_id, local_day) key is still there on an upgraded site and doubles as the marker that
+	 * this has not run. It is dropped last: while both keys exist the copy below cannot collide, and a failure
+	 * part-way leaves the marker in place so the next run repeats every step.
+	 */
+	private static function migrate_notification_slots(): void {
+		global $wpdb;
+		$n = \MMAF\DataEngine\Services\Notifications\Schema::tables();
+		if ( ! self::index_exists( $n['messages'], 'user_day' ) ) { return; }
+		$u = \MMAF\DataEngine\Services\Upcoming\Schema::tables();
+		// Every message sent so far was an announcement digest.
+		self::query( "UPDATE {$n['messages']} SET digest_day=local_day WHERE channel='digest' AND digest_day IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$n['messages']} WHERE channel='digest' AND digest_day IS NULL" ) > 0 ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			throw new \RuntimeException( 'Notification messages could not be assigned to their daily slot.' );
+		}
+		// Open reminders move from "09:00 the day before" to 24 hours before a known start. Date-only events keep their time.
+		self::query( "UPDATE {$n['reminders']} r JOIN {$u['bouts']} b ON b.id=r.bout_id JOIN {$u['events']} e ON e.id=b.event_id SET r.event_start_snapshot=e.event_datetime_utc,r.scheduled_at_utc=IF(r.status='active' AND e.event_datetime_utc IS NOT NULL,DATE_SUB(e.event_datetime_utc,INTERVAL 24 HOUR),r.scheduled_at_utc)" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// Reminders that were pushed to "tomorrow 09:00" behind a digest no longer have to wait.
+		self::query( "UPDATE {$n['items']} SET due_at=UTC_TIMESTAMP() WHERE kind='reminder' AND status='pending' AND due_at>UTC_TIMESTAMP()" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		self::query( "ALTER TABLE {$n['messages']} DROP INDEX user_day" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	private static function run_safe_alters(): void {

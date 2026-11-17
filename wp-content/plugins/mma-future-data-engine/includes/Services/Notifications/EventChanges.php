@@ -8,37 +8,62 @@ final class EventChanges {
 	public function __construct() { $this->t = Schema::tables(); }
 
 	public function record( ?array $before, array $after, string $source_type, ?int $import_id = null ): int {
+		// The changes table has existed since 1.18.0. Recording must not wait for the delivery schema, or changes made between deploy and migrate would be lost.
 		if ( version_compare( (string) get_option( 'mmaf_db_version', '0' ), '1.18.0', '<' ) ) { return 0; }
 		$old = array();
 		foreach ( (array) ( $before['bouts'] ?? array() ) as $bout ) { $old[ (string) $bout['stable_id'] ] = $bout; }
 		$count = 0;
 		foreach ( (array) ( $after['bouts'] ?? array() ) as $bout ) {
 			$previous = $old[ (string) $bout['stable_id'] ] ?? null;
-			foreach ( $this->classify( $before, $after, $previous, $bout ) as $type ) {
-				if ( $this->insert( $type, $before, $after, $previous, $bout, $source_type, $import_id ) ) { ++$count; }
+			foreach ( $this->classify( $before, $after, $previous, $bout ) as $type => $extra ) {
+				if ( $this->insert( $type, $before, $after, $previous, $bout, $source_type, $import_id, $extra ) ) { ++$count; }
 			}
 		}
 		return $count;
 	}
 
+	/**
+	 * @return array<string,array> Change type => extra payload fields for that change.
+	 */
 	private function classify( ?array $old_event, array $event, ?array $old_bout, array $bout ): array {
-		if ( ! $this->notifiable( $event, $bout ) && ! $old_bout ) { return array(); }
-		if ( ! $old_bout ) { return $this->notifiable( $event, $bout ) ? array( 'new_bout' ) : array(); }
+		$notifiable = $this->notifiable( $event, $bout );
+		// "New" means new to readers: a fight that was on the calendar but could not be announced yet
+		// (unconfirmed, hidden, or neither fighter linked) is announced the first time it can be.
+		if ( ! $old_bout || ! $old_event || ! $this->notifiable( $old_event, $old_bout ) ) { return $notifiable ? array( 'new_bout' => array() ) : array(); }
 		$types = array();
 		$old_cancelled = $this->cancelled( $old_event, $old_bout );
 		$new_cancelled = $this->cancelled( $event, $bout );
-		if ( ! $old_cancelled && $new_cancelled ) { $types[] = 'cancelled'; }
+		if ( ! $old_cancelled && $new_cancelled ) { $types['cancelled'] = array(); }
 		$old_postponed = 'postponed' === ( $old_event['status'] ?? '' );
 		$new_postponed = 'postponed' === ( $event['status'] ?? '' );
-		if ( ! $new_cancelled && ! $old_postponed && $new_postponed ) { $types[] = 'postponed'; }
-		if ( ! $new_cancelled && ( (string) ( $old_event['event_date'] ?? '' ) !== (string) $event['event_date'] || (string) ( $old_event['event_datetime_utc'] ?? '' ) !== (string) ( $event['event_datetime_utc'] ?? '' ) ) ) { $types[] = 'schedule_changed'; }
-		if ( $this->participants( $old_bout ) !== $this->participants( $bout ) ) { $types[] = 'opponent_changed'; }
-		return array_values( array_unique( $types ) );
+		if ( ! $new_cancelled && ! $old_postponed && $new_postponed ) { $types['postponed'] = array(); }
+		if ( ! $new_cancelled && ( (string) ( $old_event['event_date'] ?? '' ) !== (string) $event['event_date'] || (string) ( $old_event['event_datetime_utc'] ?? '' ) !== (string) ( $event['event_datetime_utc'] ?? '' ) ) ) { $types['schedule_changed'] = array(); }
+		$old_corners = $this->corners( $old_bout ); $new_corners = $this->corners( $bout );
+		if ( array_keys( $old_corners ) !== array_keys( $new_corners ) ) {
+			$types['opponent_changed'] = array();
+		} elseif ( $notifiable ) {
+			// Same two names, but a corner has just been linked to a fighter profile. Its followers have never been told about this fight;
+			// the other corner's followers have, so the announcement is addressed to the new link only.
+			$linked = array_values( array_diff( array_filter( array_values( $new_corners ) ), array_values( $old_corners ) ) );
+			if ( $linked ) { $types['new_bout'] = array( 'notify_fighter_ids' => $linked ); }
+		}
+		return $types;
 	}
 
-	private function insert( string $type, ?array $old_event, array $event, ?array $old_bout, array $bout, string $source_type, ?int $import_id ): bool {
+	/** Corner name => fighter id, sorted by name so listing a fight as "B vs A" instead of "A vs B" is not a change. */
+	private function corners( array $b ): array {
+		$corners = array();
+		foreach ( array( 'a', 'b' ) as $side ) {
+			$name = mb_strtolower( trim( (string) preg_replace( '/\s+/', ' ', (string) ( $b[ 'fighter_' . $side . '_name' ] ?? '' ) ) ) );
+			$corners[ $name ] = (int) ( $b[ 'fighter_' . $side . '_id' ] ?? 0 );
+		}
+		ksort( $corners );
+		return $corners;
+	}
+
+	private function insert( string $type, ?array $old_event, array $event, ?array $old_bout, array $bout, string $source_type, ?int $import_id, array $extra = array() ): bool {
 		global $wpdb;
-		$payload = $this->payload( $event, $bout, $type );
+		$payload = array_merge( $this->payload( $event, $bout, $type ), $extra );
 		$before = $old_bout ? $this->payload( $old_event ?: array(), $old_bout, $type ) : null;
 		$payload['change_note'] = $this->change_note( $type, $before, $payload );
 		$fingerprint = hash( 'sha256', implode( '|', array( $type, (string) $bout['stable_id'], wp_json_encode( $this->meaningful( $payload ) ) ) ) );
@@ -76,7 +101,6 @@ final class EventChanges {
 		if('postponed'===$type){return 'The event is now confirmed as postponed.';}
 		return '';
 	}
-	private function participants( array $b ): array { return array( (int) ( $b['fighter_a_id'] ?? 0 ), (int) ( $b['fighter_b_id'] ?? 0 ), (string) ( $b['fighter_a_name'] ?? '' ), (string) ( $b['fighter_b_name'] ?? '' ) ); }
 	private function cancelled( ?array $e, array $b ): bool { return 'cancelled' === ( $e['status'] ?? '' ) || 'cancelled' === ( $b['status'] ?? '' ); }
 	private function notifiable( array $e, array $b ): bool { return empty( $e['hidden'] ) && ! empty( $e['scope_confirmed'] ) && in_array( $e['status'], array( 'published','scheduled','postponed' ), true ) && empty( $b['hidden'] ) && 'confirmed' === $b['scope_status'] && ! in_array( $b['status'], array( 'cancelled','hidden' ), true ) && ( ! empty( $b['fighter_a_id'] ) || ! empty( $b['fighter_b_id'] ) ); }
 }

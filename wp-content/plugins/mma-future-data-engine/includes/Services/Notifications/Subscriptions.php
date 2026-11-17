@@ -49,8 +49,7 @@ final class Subscriptions {
 			$bout = $row; $bout['id'] = (int) $row['id'];
 			$payload = $detector->payload( $event, $bout, 'new_bout' );
 			$payload['change_note'] = 'This upcoming fight was already known when you followed the fighter.';
-			$key = hash( 'sha256', 'new_bout|' . $bout['stable_id'] . '|' . $event['event_date'] . '|' . $bout['fighter_a_id'] . '|' . $bout['fighter_b_id'] );
-			$this->repo->add_item( $user_id, (int) $bout['id'], 'new_bout', $key, $payload );
+			$this->repo->add_new_bout_item( $user_id, (int) $bout['id'], $payload );
 		}
 	}
 }

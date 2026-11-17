@@ -4,9 +4,16 @@ namespace MMAF\DataEngine\Services\Notifications;
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 final class Config {
+	/** The schema the delivery code reads and writes (message channels, reminder start snapshots). */
+	public const SCHEMA_VERSION = '1.19.0';
+
+	/** Releases deploy code before they migrate. Until the migration has run, the feature stays off rather than querying columns that do not exist yet. */
+	public static function schema_ready(): bool {
+		return version_compare( (string) get_option( 'mmaf_db_version', '0' ), self::SCHEMA_VERSION, '>=' );
+	}
+
 	public static function feature_enabled(): bool {
-		$schema_ready = version_compare( (string) get_option( 'mmaf_db_version', '0' ), '1.18.0', '>=' );
-		$enabled = $schema_ready && defined( 'MMAF_NOTIFICATIONS_ENABLED' ) && true === MMAF_NOTIFICATIONS_ENABLED;
+		$enabled = self::schema_ready() && defined( 'MMAF_NOTIFICATIONS_ENABLED' ) && true === MMAF_NOTIFICATIONS_ENABLED;
 		return (bool) apply_filters( 'mmaf_notifications_feature_enabled', $enabled );
 	}
 

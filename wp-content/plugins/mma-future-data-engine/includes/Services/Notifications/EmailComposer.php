@@ -148,7 +148,7 @@ final class EmailComposer {
 		return implode( ', ', array_filter( array( $venue, $location ) ) );
 	}
 
-	private function reminder_available( array $p, string $zone ): bool { $today = ( new \DateTimeImmutable( 'now', new \DateTimeZone( $zone ) ) )->format( 'Y-m-d' ); return ! empty( $p['event_date'] ) && $p['event_date'] > $today && ! in_array( $p['event_status'] ?? '', array( 'cancelled','postponed' ), true ); }
+	private function reminder_available( array $p, string $zone ): bool { return ! in_array( $p['event_status'] ?? '', array( 'cancelled','postponed' ), true ) && Reminders::in_time( (string) ( $p['event_date'] ?? '' ), ( $p['event_datetime_utc'] ?? null ) ?: null, $zone ); }
 
 	private function text( array $m ): string {
 		$text = $m['headline'] . "\n" . $m['intro'] . "\n\n";
