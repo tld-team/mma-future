@@ -2662,3 +2662,39 @@ def test_event_profile_enrichment_skips_requests_blocked_by_tracking_manifest(tm
     assert summary["profile_requests_after_tracking"] == 1
     assert summary["tracking_skipped_count"] == 1
     assert summary["tracking_skipped_by_mode"] == {"opponent_only": 1}
+
+
+def test_legacy_capitalised_slug_is_fetched_with_its_original_spelling(tmp_path):
+    # Tapology redirects /13594-denis-goltsov to the FightCenter index; only the
+    # linked spelling /13594-Denis-Goltsov resolves. Identity stays lowercase.
+    legacy = "https://www.tapology.com/fightcenter/fighters/13594-Denis-Goltsov"
+    plain = "https://www.tapology.com/fightcenter/fighters/7-plain-slug"
+    latest_dir = tmp_path / "latest"
+    latest_dir.mkdir()
+    results_path = latest_dir / "results.json"
+    results_path.write_text(json.dumps({"scraped_at": "2026-11-17T00:00:00+00:00", "events": [{
+        "event_date": "2026-11-14",
+        "bouts": [{"fighter_a": {"name": "Denis Goltsov", "url": legacy},
+                   "fighter_b": {"name": "Plain Slug", "url": plain}}],
+    }]}), encoding="utf-8")
+    queue, _report, _paths = build_fighter_profile_queue(
+        latest_results_path=results_path,
+        derived_index_path=tmp_path / "derived" / "fighters_index.json",
+        existing_profiles_path=latest_dir / "fighter_profiles.json",
+        output_path=latest_dir / "fighter_profile_queue.json",
+        report_path=latest_dir / "fighter_profile_queue_report.json",
+    )
+    entry = next(item for item in queue["queue"] if item["source_fighter_id"] == "tapology_fighter_13594")
+    assert entry["source_url"] == legacy.lower() and entry["fetch_url"] == legacy
+    assert "fetch_url" not in next(item for item in queue["queue"] if item["source_url"] == plain)
+
+    urls, _ = collect_fighter_profile_urls_from_queue(latest_dir / "fighter_profile_queue.json", limit=10,
+                                                      fetch_url_sources=[])
+    assert sorted(urls) == sorted([legacy, plain])
+
+    # Queues without fetch_url (older files, recovery/ranking queues) resolve the
+    # spelling from the latest results instead.
+    older = tmp_path / "older_queue.json"
+    older.write_text(json.dumps({"queue": [{"source_url": legacy.lower(), "should_refresh": True}]}))
+    assert collect_fighter_profile_urls_from_queue(older, limit=10, fetch_url_sources=[results_path])[0] == [legacy]
+    assert collect_fighter_profile_urls_from_queue(older, limit=10, fetch_url_sources=[])[0] == [legacy.lower()]
