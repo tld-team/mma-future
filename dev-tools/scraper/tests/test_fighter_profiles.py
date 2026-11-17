@@ -2034,13 +2034,15 @@ def test_build_fighter_profile_queue_classifies_refresh_priority_and_freshness(t
         report_path=latest_dir / "fighter_profile_queue_report.json",
     )
 
-    assert queue["refreshable_count"] == 2
-    assert queue["fresh_count"] == 0
+    # A profile scraped today with complete career evidence stays fresh.
+    assert queue["refreshable_count"] == 1
+    assert queue["fresh_count"] == 1
+    assert report["count_by_stale_reason"]["fresh"] == 1
     assert report["count_by_stale_reason"]["never_scraped"] == 1
 
     fresh = next(item for item in queue["queue"] if item["source_fighter_id"] == "tapology_fighter_100")
     never = next(item for item in queue["queue"] if item["source_url"].endswith("/200-never-scraped"))
-    assert fresh["should_refresh"] is True
+    assert fresh["should_refresh"] is False
     assert never["should_refresh"] is True
     assert never["priority"] >= fresh["priority"]
     assert queue["queue"][0]["source_url"].endswith("/200-never-scraped")
