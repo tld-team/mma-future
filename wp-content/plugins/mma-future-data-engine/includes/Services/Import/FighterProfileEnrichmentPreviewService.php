@@ -309,10 +309,7 @@ final class FighterProfileEnrichmentPreviewService {
 		$suggested_weight_class = $this->canonical_weight_class_suggestion( $this->string_or_null( $summary['weight_class'] ?? null ) );
 		$gender_inference = $this->gender_inference->infer_from_weight_class( $suggested_weight_class );
 		$suggested_gender = $this->string_or_null( $gender_inference['gender'] ?? null );
-		$suggested_country = $this->string_or_null( $summary['nationality'] ?? null );
-		if ( null === $suggested_country ) {
-			$suggested_country = $this->string_or_null( $summary['country'] ?? null );
-		}
+		$suggested_country = self::nationality_suggestion( $summary );
 		$born_location = $this->string_or_null( $summary['born_location'] ?? null );
 		$fighting_out_of = $this->string_or_null( $summary['fighting_out_of'] ?? null );
 		$suggested_height = $this->string_or_null( $summary['height'] ?? null );
@@ -777,6 +774,43 @@ final class FighterProfileEnrichmentPreviewService {
 		}
 
 		return $field_statuses;
+	}
+
+	/**
+	 * Country suggested for fighters.nationality from a scraped profile_summary.
+	 *
+	 * The scraper writes nationality as an object read from the profile header flag
+	 * ({raw, country_name, country_code, source, is_missing}); older packages carried a
+	 * plain string or a separate `country`. Birthplace and fighting-out-of are never used.
+	 */
+	public static function nationality_suggestion( array $summary ): ?string {
+		$nationality = $summary['nationality'] ?? null;
+		if ( is_array( $nationality ) ) {
+			$country = $nationality['country_name'] ?? null;
+			if (
+				false === ( $nationality['is_missing'] ?? null )
+				&& 'profile_header_flag' === ( $nationality['source'] ?? null )
+				&& is_string( $country )
+			) {
+				$country = trim( $country );
+				if ( '' !== $country && mb_strlen( $country ) <= 100 ) {
+					return $country;
+				}
+			}
+		} elseif ( is_scalar( $nationality ) ) {
+			$value = trim( (string) $nationality );
+			if ( '' !== $value ) {
+				return $value;
+			}
+		}
+
+		$country = $summary['country'] ?? null;
+		if ( is_scalar( $country ) ) {
+			$country = trim( (string) $country );
+			return '' === $country ? null : $country;
+		}
+
+		return null;
 	}
 
 	private function nationality_field_status( ?string $suggested_country, ?string $born_location, ?string $fighting_out_of, ?array $fighter ): string {
