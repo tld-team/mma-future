@@ -52,7 +52,7 @@ final class Worker {
 			$has_announcement = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$this->t['items']} WHERE user_id=%d AND status='pending' AND kind<>'reminder' AND due_at<=UTC_TIMESTAMP() LIMIT 1", $user_id ) );
 			if ( $row['scheduled_at_utc'] > gmdate( 'Y-m-d H:i:s' ) && ! ( $scheduled_day === $local_today && $has_announcement ) ) { continue; }
 			$c = $reminders->bout_context( (int) $row['bout_id'] ); if ( ! $c || $c['event_date'] <= $local_today || $c['event_date'] !== $row['event_date_snapshot'] || in_array($c['event_status'],array('cancelled','postponed'),true) || $c['event_hidden'] || 'cancelled' === $c['status'] || $c['hidden'] ) { continue; }
-			$event = array( 'id'=>$c['event_id'],'title'=>$c['event_title'],'promotion'=>$c['promotion'],'event_date'=>$c['event_date'],'event_datetime_utc'=>$c['event_datetime_utc'],'source_time_text'=>$c['source_time_text'],'status'=>$c['event_status'],'hidden'=>$c['event_hidden'] );
+			$event = array( 'id'=>$c['event_id'],'title'=>$c['event_title'],'promotion'=>$c['promotion'],'event_date'=>$c['event_date'],'event_datetime_utc'=>$c['event_datetime_utc'],'source_time_text'=>$c['source_time_text'],'venue'=>$c['venue'],'location'=>$c['location'],'status'=>$c['event_status'],'hidden'=>$c['event_hidden'] );
 			$c['id'] = $row['bout_id']; $p = $detector->payload( $event, $c, 'reminder' );
 			$key = hash( 'sha256', 'reminder|' . $row['bout_id'] . '|' . $row['event_date_snapshot'] . '|' . $row['updated_at'] );
 			if ( $this->repo->add_item( $user_id, (int) $row['bout_id'], 'reminder', $key, $p, null, gmdate( 'Y-m-d H:i:s' ) ) ) { ++$count; }

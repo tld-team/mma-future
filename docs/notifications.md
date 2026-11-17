@@ -46,6 +46,14 @@ The server supervisor invokes `wp mmaf notifications work --limit=25` before the
 - Local fake messages can be inspected in the `mmaf_notification_fake_mailbox` option. Never copy that option to production.
 - Accepted by the provider, confirmed delivery and failure are distinct states. The free-plan implementation does not depend on a paid webhook.
 
+## Email content and preview
+
+`EmailComposer` decides what an email says; `templates/email/notification.php` decides how it looks (nested tables with inline styles, because email clients ignore stylesheets). Each email summarises the event (promotion, title, date in the reader's timezone, venue), shows both fighters with their profile photos, and ends with two calls to action: a per-fight **Remind me** button and a link back to the site. Reminder emails never offer another reminder.
+
+**MMA Future → Notifications → Email preview** renders the announcement and the reminder with the same code, from the next upcoming fight on the calendar, and can send either to the signed-in admin as a test. Previews and tests issue no secure tokens; their action links open the account page. A test send goes through the normal transport, so on staging the admin's address must be on the allowlist, and locally it lands in the fake mailbox.
+
+After a calendar import, the confirmation message states how many new and changed fights were recorded for linked fighters, how many readers follow them, and whether sending is paused.
+
 ## Restore and privacy
 
 The notification tables use the normal WordPress table prefix and are included by full-database backup/restore. After any restore, set `mmaf_notifications_paused=1` before releasing the application, inspect the queue and only then resume; this prevents restored jobs from being sent again.

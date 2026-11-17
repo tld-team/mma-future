@@ -55,6 +55,25 @@ final class Repository {
 		return $row;
 	}
 
+	public function has_active_reminder( int $user_id, int $bout_id ): bool {
+		global $wpdb;
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$this->t['reminders']} WHERE user_id=%d AND bout_id=%d AND status='active' LIMIT 1", $user_id, $bout_id ) );
+	}
+
+	/** What one calendar import means for followers, for the admin's confirmation message. */
+	public function import_summary( int $import_id ): array {
+		global $wpdb;
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT change_type,bout_id,after_json FROM {$this->t['changes']} WHERE import_id=%d", $import_id ), ARRAY_A ) ?: array();
+		$new = array(); $changed = array(); $fighter_ids = array();
+		foreach ( $rows as $row ) {
+			$p = json_decode( (string) $row['after_json'], true ) ?: array();
+			if ( 'new_bout' === $row['change_type'] ) { $new[ (int) $row['bout_id'] ] = true; } else { $changed[ (int) $row['bout_id'] ] = true; }
+			$fighter_ids[] = (int) ( $p['fighter_a_id'] ?? 0 ); $fighter_ids[] = (int) ( $p['fighter_b_id'] ?? 0 );
+		}
+		$followers = array_unique( array_map( 'intval', wp_list_pluck( $this->subscribers_for( $fighter_ids ), 'user_id' ) ) );
+		return array( 'new_bouts' => count( $new ), 'changed_bouts' => count( array_diff_key( $changed, $new ) ), 'followers' => count( $followers ) );
+	}
+
 	public function notification_allowed( int $user_id ): bool {
 		$user = get_userdata( $user_id );
 		return $user && Config::feature_enabled() && Config::user_enabled( $user_id ) && Config::email_verified( $user_id ) && ! get_user_meta( $user_id, '_mmaf_notifications_unsubscribed_at', true );

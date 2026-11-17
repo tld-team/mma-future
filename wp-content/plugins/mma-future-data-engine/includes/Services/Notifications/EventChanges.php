@@ -59,6 +59,9 @@ final class EventChanges {
 			'fighter_a_id' => (int) ( $bout['fighter_a_id'] ?? 0 ), 'fighter_a_name' => (string) ( $bout['fighter_a_name'] ?? '' ),
 			'fighter_b_id' => (int) ( $bout['fighter_b_id'] ?? 0 ), 'fighter_b_name' => (string) ( $bout['fighter_b_name'] ?? '' ),
 			'calendar_url' => home_url( '/calendar/' ),
+			// Display-only fields for the email; deliberately absent from meaningful(), so they never create a change.
+			'venue' => (string) ( $event['venue'] ?? '' ), 'location' => (string) ( $event['location'] ?? '' ),
+			'weight_class' => (string) ( $bout['weight_class'] ?? '' ), 'bout_order' => (int) ( $bout['bout_order'] ?? 0 ),
 		);
 	}
 

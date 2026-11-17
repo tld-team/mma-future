@@ -181,6 +181,8 @@
 .mmaf-alert--error { background: #fee2e2; color: #7f1d1d; }
 .mmaf-muted { color: #64748b; }
 .mmaf-account-session { color: #64748b; font-size: .9rem; }
+.mmaf-action-fight { padding: 1rem; border: 1px solid #e2e8f0; border-radius: 12px; }
+.mmaf-action-links { margin-top: 1.5rem; font-size: .9rem; }
 .mmaf-notification-card a { color: #0047a8; }
 
 /* The card follows the theme toggle (data-theme), like the rest of the site; the OS preference is only the no-JS fallback.
@@ -188,7 +190,7 @@
 :root[data-theme="dark"] .mmaf-notification-page { background: #020617; }
 :root[data-theme="dark"] .mmaf-notification-card { background: #0f172a; color: #f8fafc; border-color: #334155; }
 :root[data-theme="dark"] .mmaf-notification-card :is(h1, h2, label) { color: #f8fafc; }
-:root[data-theme="dark"] .mmaf-notification-card :is(section, .mmaf-account-list li, .mmaf-separator) { border-color: #334155; }
+:root[data-theme="dark"] .mmaf-notification-card :is(section, .mmaf-account-list li, .mmaf-separator, .mmaf-action-fight) { border-color: #334155; }
 :root[data-theme="dark"] .mmaf-notification-card .mmaf-separator span { background: #0f172a; color: #94a3b8; }
 :root[data-theme="dark"] .mmaf-notification-card :is(.mmaf-muted, .mmaf-account-session) { color: #94a3b8; }
 :root[data-theme="dark"] .mmaf-notification-card a { color: #93c5fd; }
@@ -196,7 +198,7 @@
   :root:not([data-theme]) .mmaf-notification-page { background: #020617; }
   :root:not([data-theme]) .mmaf-notification-card { background: #0f172a; color: #f8fafc; border-color: #334155; }
   :root:not([data-theme]) .mmaf-notification-card :is(h1, h2, label) { color: #f8fafc; }
-  :root:not([data-theme]) .mmaf-notification-card :is(section, .mmaf-account-list li, .mmaf-separator) { border-color: #334155; }
+  :root:not([data-theme]) .mmaf-notification-card :is(section, .mmaf-account-list li, .mmaf-separator, .mmaf-action-fight) { border-color: #334155; }
   :root:not([data-theme]) .mmaf-notification-card .mmaf-separator span { background: #0f172a; color: #94a3b8; }
   :root:not([data-theme]) .mmaf-notification-card :is(.mmaf-muted, .mmaf-account-session) { color: #94a3b8; }
   :root:not([data-theme]) .mmaf-notification-card a { color: #93c5fd; }

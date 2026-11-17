@@ -3,6 +3,7 @@ require __DIR__ . '/bootstrap.php';
 
 use MMAF\DataEngine\Migrations\Schema as CanonicalSchema;
 use MMAF\DataEngine\Services\Notifications\Auth;
+use MMAF\DataEngine\Services\Notifications\EmailComposer;
 use MMAF\DataEngine\Services\Notifications\EventChanges;
 use MMAF\DataEngine\Services\Notifications\Repository as NotificationRepository;
 use MMAF\DataEngine\Services\Notifications\Schema as NotificationSchema;
@@ -39,6 +40,16 @@ try {
 	$result=(new Worker())->run(25);assert_notifications('ok'===$result['status'],'The notification worker did not run.');
 	assert_notifications(2===(int)$wpdb->get_var("SELECT COUNT(*) FROM {$n['messages']} WHERE user_id IN (".implode(',',$user_ids).") AND status='accepted'"),'The first relevant state did not create one accepted message per user.');
 	assert_notifications(2===count((array)get_option('mmaf_notification_fake_mailbox',array())),'Local delivery did not use the fake transport.');
+	$first_mail=null;foreach((array)get_option('mmaf_notification_fake_mailbox',array()) as $mail){if(str_contains((string)$mail['to'],'notification-one-')){$first_mail=$mail;}}
+	assert_notifications(null!==$first_mail&&'New fight announced: Fixture Alpha vs Fixture Beta'===$first_mail['subject'],'A single announced fight is not named in the subject.');
+	assert_notifications(str_contains($first_mail['html'],'Notification Fixture')&&str_contains($first_mail['html'],'Fixture MMA')&&str_contains($first_mail['html'],'You follow'),'The email does not summarise the event and the followed fighter.');
+	assert_notifications(str_contains($first_mail['html'],'purpose=reminder')&&str_contains($first_mail['html'],'Remind me the day before'),'The announcement has no reminder call to action.');
+	assert_notifications(str_contains($first_mail['html'],'new on MMA Future')&&str_contains($first_mail['html'],esc_url(home_url('/'))),'The announcement has no call to action back to the site.');
+	assert_notifications(str_contains($first_mail['html'],'purpose=unsubscribe')&&str_contains($first_mail['text'],'Unsubscribe: ')&&2===count($first_mail['headers']),'The email lost its unsubscribe link or one-click headers.');
+	$preview_items=$wpdb->get_results($wpdb->prepare("SELECT * FROM {$n['items']} WHERE user_id=%d",$user_ids[0]),ARRAY_A);$tokens_before=(int)$wpdb->get_var("SELECT COUNT(*) FROM {$n['tokens']}");$preview=(new EmailComposer())->compose($user_ids[0],$preview_items,true);
+	assert_notifications($tokens_before===(int)$wpdb->get_var("SELECT COUNT(*) FROM {$n['tokens']}")&&!str_contains($preview['html'],'token=')&&array()===$preview['headers'],'An admin preview issued secure action links.');
+	$reminder_item=$preview_items[0];$reminder_payload=json_decode((string)$reminder_item['payload_json'],true);$reminder_payload['kind']='reminder';$reminder_item['kind']='reminder';$reminder_item['payload_json']=wp_json_encode($reminder_payload);$reminder_mail=(new EmailComposer())->compose($user_ids[0],array($reminder_item),true);
+	assert_notifications('Fight reminder: Fixture Alpha vs Fixture Beta'===$reminder_mail['subject']&&!str_contains($reminder_mail['html'],'Remind me'),'A reminder email offers another reminder.');
 
 	$before=array('id'=>$event_id,'title'=>'Notification Fixture','promotion'=>'Fixture MMA','event_date'=>$date,'event_datetime_utc'=>null,'source_time_text'=>null,'status'=>'published','hidden'=>0,'scope_confirmed'=>1,'bouts'=>array(array('id'=>$bout_id,'stable_id'=>'notification_bout_'.$suffix,'status'=>'scheduled','scope_status'=>'confirmed','hidden'=>0,'fighter_a_id'=>$fighter_ids[0],'fighter_a_name'=>'Fixture Alpha','fighter_b_id'=>$fighter_ids[1],'fighter_b_name'=>'Fixture Beta')));
 	$after=$before;$after['event_date']=(new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d');

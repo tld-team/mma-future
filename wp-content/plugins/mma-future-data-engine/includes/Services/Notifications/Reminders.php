@@ -49,7 +49,7 @@ final class Reminders {
 	public function bout_context( int $bout_id ): ?array {
 		global $wpdb;
 		$u = \MMAF\DataEngine\Services\Upcoming\Schema::tables();
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT b.*,e.title event_title,e.promotion,e.event_date,e.event_datetime_utc,e.source_time_text,e.status event_status,e.hidden event_hidden,e.scope_confirmed FROM {$u['bouts']} b JOIN {$u['events']} e ON e.id=b.event_id WHERE b.id=%d", $bout_id ), ARRAY_A );
+		$row = $wpdb->get_row( $wpdb->prepare( "SELECT b.*,e.title event_title,e.promotion,e.event_date,e.event_datetime_utc,e.source_time_text,e.venue,e.location,e.status event_status,e.hidden event_hidden,e.scope_confirmed FROM {$u['bouts']} b JOIN {$u['events']} e ON e.id=b.event_id WHERE b.id=%d", $bout_id ), ARRAY_A );
 		return $row ?: null;
 	}
 
