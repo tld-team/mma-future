@@ -40,7 +40,7 @@ final class Subscriptions {
 		global $wpdb;
 		$u = \MMAF\DataEngine\Services\Upcoming\Schema::tables();
 		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT e.id event_row_id,e.title,e.promotion,e.event_date,e.event_datetime_utc,e.source_time_text,e.status event_status,e.hidden event_hidden,b.* FROM {$u['events']} e JOIN {$u['bouts']} b ON b.event_id=e.id WHERE e.hidden=0 AND e.scope_confirmed=1 AND e.status IN ('published','scheduled','postponed') AND e.event_date>=UTC_DATE() AND b.hidden=0 AND b.scope_status='confirmed' AND b.status NOT IN ('cancelled','hidden') AND (b.fighter_a_id=%d OR b.fighter_b_id=%d)",
+			"SELECT e.id event_row_id,e.title,e.promotion,e.event_date,e.event_datetime_utc,e.source_time_text,e.venue,e.location,e.status event_status,e.hidden event_hidden,b.* FROM {$u['events']} e JOIN {$u['bouts']} b ON b.event_id=e.id WHERE e.hidden=0 AND e.scope_confirmed=1 AND e.status IN ('published','scheduled','postponed') AND e.event_date>=UTC_DATE() AND b.hidden=0 AND b.scope_status='confirmed' AND b.status NOT IN ('cancelled','hidden') AND (b.fighter_a_id=%d OR b.fighter_b_id=%d)",
 			$fighter_id, $fighter_id
 		), ARRAY_A ) ?: array();
 		$detector = new EventChanges();
@@ -49,8 +49,7 @@ final class Subscriptions {
 			$bout = $row; $bout['id'] = (int) $row['id'];
 			$payload = $detector->payload( $event, $bout, 'new_bout' );
 			$payload['change_note'] = 'This upcoming fight was already known when you followed the fighter.';
-			$key = hash( 'sha256', 'new_bout|' . $bout['stable_id'] . '|' . $event['event_date'] . '|' . $bout['fighter_a_id'] . '|' . $bout['fighter_b_id'] );
-			$this->repo->add_item( $user_id, (int) $bout['id'], 'new_bout', $key, $payload );
+			$this->repo->add_new_bout_item( $user_id, (int) $bout['id'], $payload );
 		}
 	}
 }

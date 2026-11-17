@@ -106,6 +106,16 @@ final class CalendarPage {
 		}
 	}
 
+	/** Tells the admin what the import just queued for followers, so sending is never a silent side effect. */
+	private static function notification_notice( int $import_id ): string {
+		if ( ! \MMAF\DataEngine\Services\Notifications\Config::feature_enabled() ) { return ''; }
+		$summary = ( new \MMAF\DataEngine\Services\Notifications\Repository() )->import_summary( $import_id );
+		if ( ! $summary['new_bouts'] && ! $summary['changed_bouts'] ) { return ' Obaveštenja: nema novih borbi ni izmena za povezane borce.'; }
+		$text = sprintf( ' Obaveštenja — nove borbe: %d, izmene: %d, pratilaca tih boraca: %d.', $summary['new_bouts'], $summary['changed_bouts'], $summary['followers'] );
+		if ( ! $summary['followers'] ) { return $text . ' Niko ne prati te borce, pa se mejl ne šalje.'; }
+		return $text . ( \MMAF\DataEngine\Services\Notifications\Config::sending_paused() ? ' Slanje je pauzirano (MMA Future → Notifications), mejlovi čekaju u redu.' : ' Mejlovi kreću u narednom minutu.' );
+	}
+
 	public static function handle_confirm(): void {
 		self::authorize( 'mmaf_calendar_confirm' );
 		$token = sanitize_text_field( wp_unslash( $_POST['preview_token'] ?? '' ) );
@@ -121,7 +131,7 @@ final class CalendarPage {
 			$result = ( new Importer() )->apply( $package, get_current_user_id() );
 			delete_transient( self::transient_key( $token ) );
 			wp_delete_file( $stored['path'] );
-			wp_safe_redirect( admin_url( 'admin.php?page=mmaf-calendar&view=history&mmaf_notice=' . rawurlencode( $result['idempotent'] ? 'Paket je već bio uvezen; podaci nisu menjani.' : 'Paket je uspešno uvezen.' ) ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=mmaf-calendar&view=history&mmaf_notice=' . rawurlencode( $result['idempotent'] ? 'Paket je već bio uvezen; podaci nisu menjani.' : 'Paket je uspešno uvezen.' . self::notification_notice( (int) $result['import_id'] ) ) ) );
 			exit;
 		} catch ( \Throwable $error ) {
 			self::redirect_error( $error->getMessage() );

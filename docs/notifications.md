@@ -1,6 +1,6 @@
 # Fighter notifications runbook
 
-The notification module is part of `mma-future-data-engine` schema `1.18.0`. It is additive and is disabled and paused by default. Calendar imports continue to work while the feature is disabled.
+The notification module arrived with `mma-future-data-engine` schema `1.18.0`; delivery requires schema `1.19.0`. It is disabled and paused by default. Calendar imports continue to work while the feature is disabled.
 
 ## Required configuration
 
@@ -29,7 +29,7 @@ While the feature is enabled, the module allows new Google registrations even wh
 
 1. Deploy the code with the feature constant absent or false.
 2. Run the coordinated additive migration: `wp mmaf system migrate`.
-3. Confirm schema `1.18.0`, then configure Sender and Nextend on staging.
+3. Confirm schema `1.19.0`, then configure Sender and Nextend on staging.
 4. Set `MMAF_NOTIFICATIONS_ENABLED=true`, keep sending paused, and verify the staging allowlist and fake/real transport boundary.
 5. Open **MMA Future → Notifications**, inspect pending state, then resume sending for the internal test group.
 6. Verify receipt on Gmail and Outlook, including HTML/text rendering, unsubscribe and reminder confirmation.
@@ -39,12 +39,45 @@ The server supervisor invokes `wp mmaf notifications work --limit=25` before the
 
 ## Operational behavior
 
-- The worker uses an atomic, expiring notification lock and a unique user/local-day message slot.
+- The worker uses an atomic, expiring notification lock. Announcements keep a unique reader/local-day slot (`messages.digest_day`); reminders are sent on their own channel outside it.
 - Sender calls happen after database reservation and outside the calendar transaction.
 - `429` responses honor `Retry-After`; known server failures use bounded backoff; uncertain submissions require review and are not blindly repeated.
 - At 80% of the configured 15,000-message monthly quota the admin page warns. At 90% sports sending pauses automatically, leaving capacity for service login mail.
 - Local fake messages can be inspected in the `mmaf_notification_fake_mailbox` option. Never copy that option to production.
 - Accepted by the provider, confirmed delivery and failure are distinct states. The free-plan implementation does not depend on a paid webhook.
+
+## Email content and preview
+
+`EmailComposer` decides what an email says; `templates/email/notification.php` decides how it looks (nested tables with inline styles, because email clients ignore stylesheets). Each email summarises the event (promotion, title, date in the reader's timezone, venue), shows both fighters with their profile photos, and ends with two calls to action: a per-fight **Remind me** button and a link back to the site. Reminder emails never offer another reminder.
+
+**MMA Future → Notifications → Email preview** renders the announcement and the reminder with the same code, from the next upcoming fight on the calendar, and can send either to the signed-in admin as a test. Previews and tests issue no secure tokens; their action links open the account page. A test send goes through the normal transport, so on staging the admin's address must be on the allowlist, and locally it lands in the fake mailbox.
+
+After a calendar import, the confirmation message states how many new and changed fights were recorded for linked fighters, how many readers follow them, and whether sending is paused.
+
+## Followers overview
+
+**MMA Future → Followers** shows who follows whom. The default tab lists followed fighters with their follower count, most followed first; the count opens the readers behind it. The second tab lists readers with the fighters they follow, their reminders, last delivered email, and whether they actually receive email (a reader who unsubscribed, switched notifications off or never verified their address is labelled as such). Both tabs can be searched and sorted.
+
+Three CSV exports follow the current search: fighters, readers, and one row per reader–fighter pair. The files carry a UTF-8 byte order mark for Excel, and cells that a spreadsheet would run as a formula are neutralised. The page shows email addresses and is limited to `manage_options`.
+
+## Announcements and reminders
+
+**Announcements** (new fight, schedule or opponent change, cancellation, postponement) are batched into at most one email per reader per local day. The first one goes out right after the calendar import that produced it; anything later the same day waits for 09:00 local the next morning.
+
+**Reminders** are opt-in per fight and are not part of that daily slot: a reminder is never delayed or dropped because an announcement already went out that day, and two fights on the same day each get theirs.
+
+- With a confirmed start time the reminder is sent 24 hours before it. Without one there is no "24 hours before", so it is sent at 09:00 reader-local on the day before the event date.
+- A reminder can only be requested while its send time is still ahead. `Reminders::in_time()` is the single rule behind every "Remind me" control (email, account page, calendar) and the server check.
+- Every calendar write re-times open reminders, including a start time that moves within the same date. A reminder already sent is re-armed only if the fight moves far enough that a new one is still ahead.
+- Reminders whose fight has started leave the queue as `expired`.
+
+A fight is announced to a fighter's followers the first time it *can* be: when it first appears, when it is confirmed after review, or when a corner is linked to a fighter profile after the fight was already on the calendar. In the last case only the newly linked fighter's followers are told, and nobody is told twice about the same fight.
+
+### Schema 1.19.0
+
+`messages` gains `channel` (`digest` or `reminder`) and `digest_day`; the unique key moves from `(user_id, local_day)` to `(user_id, digest_day)`, which reminders leave `NULL`. `reminders` gains `event_start_snapshot`. `wp mmaf system migrate` backfills existing rows, re-times open reminders and drops the old key last, so an interrupted run repeats safely.
+
+Releases deploy code before they migrate. Until the schema reaches 1.19.0 the feature reports itself off (no Follow buttons, no sending) instead of querying columns that do not exist; calendar changes are still recorded and are sent after the migration. **Do not roll back to a release older than this one after migrating:** the old code relies on the dropped key to keep one message per day.
 
 ## Restore and privacy
 

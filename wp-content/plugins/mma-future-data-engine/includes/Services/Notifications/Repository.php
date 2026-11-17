@@ -31,11 +31,23 @@ final class Repository {
 		return (int) $wpdb->query( $sql ) > 0;
 	}
 
+	/**
+	 * Queues the "new fight" announcement at most once per reader per fight.
+	 * The existence check is deliberately independent of the dedupe key: earlier releases built that key two different ways,
+	 * so only the row itself says reliably whether this reader has been told.
+	 */
+	public function add_new_bout_item( int $user_id, int $bout_id, array $payload, ?int $change_id = null, ?string $due_at = null ): bool {
+		global $wpdb;
+		if ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$this->t['items']} WHERE user_id=%d AND bout_id=%d AND kind='new_bout' AND status<>'cancelled' LIMIT 1", $user_id, $bout_id ) ) ) { return false; }
+		return $this->add_item( $user_id, $bout_id, 'new_bout', hash( 'sha256', 'new_bout|' . (string) ( $payload['bout_stable_id'] ?? $bout_id ) ), $payload, $change_id, $due_at );
+	}
+
+	/** Whether today's announcement slot is taken. Reminders have their own channel and never count. */
 	public function user_has_daily_message( int $user_id, string $local_day ): bool {
 		global $wpdb;
 		$guard = (string) get_user_meta( $user_id, '_mmaf_notification_slot_guard_until', true );
 		if ( $guard && strtotime( $guard . ' UTC' ) > time() ) { return true; }
-		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$this->t['messages']} WHERE user_id=%d AND local_day=%s AND status IN ('reserved','sending','accepted','delivered','needs_review','retry') LIMIT 1", $user_id, $local_day ) );
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$this->t['messages']} WHERE user_id=%d AND digest_day=%s AND status IN ('reserved','sending','accepted','delivered','needs_review','retry') LIMIT 1", $user_id, $local_day ) );
 	}
 
 	public function next_local_nine_utc( int $user_id, int $days = 1 ): string {
@@ -53,6 +65,25 @@ final class Repository {
 		if ( ! $row || empty( $row['is_public'] ) || 'normal' !== $row['tracking_mode'] || empty($row['wp_post_id']) || 'publish'!==get_post_status((int)$row['wp_post_id']) ) { return null; }
 		$row['profile_url'] = get_permalink( (int) $row['wp_post_id'] );
 		return $row;
+	}
+
+	public function has_active_reminder( int $user_id, int $bout_id ): bool {
+		global $wpdb;
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$this->t['reminders']} WHERE user_id=%d AND bout_id=%d AND status='active' LIMIT 1", $user_id, $bout_id ) );
+	}
+
+	/** What one calendar import means for followers, for the admin's confirmation message. */
+	public function import_summary( int $import_id ): array {
+		global $wpdb;
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT change_type,bout_id,after_json FROM {$this->t['changes']} WHERE import_id=%d", $import_id ), ARRAY_A ) ?: array();
+		$new = array(); $changed = array(); $fighter_ids = array();
+		foreach ( $rows as $row ) {
+			$p = json_decode( (string) $row['after_json'], true ) ?: array();
+			if ( 'new_bout' === $row['change_type'] ) { $new[ (int) $row['bout_id'] ] = true; } else { $changed[ (int) $row['bout_id'] ] = true; }
+			foreach ( (array) ( $p['notify_fighter_ids'] ?? array( $p['fighter_a_id'] ?? 0, $p['fighter_b_id'] ?? 0 ) ) as $fighter_id ) { $fighter_ids[] = (int) $fighter_id; }
+		}
+		$followers = array_unique( array_map( 'intval', wp_list_pluck( $this->subscribers_for( $fighter_ids ), 'user_id' ) ) );
+		return array( 'new_bouts' => count( $new ), 'changed_bouts' => count( array_diff_key( $changed, $new ) ), 'followers' => count( $followers ) );
 	}
 
 	public function notification_allowed( int $user_id ): bool {
