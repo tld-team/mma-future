@@ -22,7 +22,7 @@ from .country_normalizer import (
     summarize_unmatched_country_values,
     summarize_unmatched_location_country_candidates,
 )
-from .fighter_profile_queue import build_fighter_profile_queue_report, collect_fighter_profile_urls_from_queue
+from .fighter_profile_queue import build_fighter_profile_queue_report, collect_fighter_profile_urls_from_queue, normalize_tapology_fighter_url
 from .fighter_profile_report import add_profile_completeness_scores, write_profile_enrichment_report
 from .logging_utils import log
 from .normalize import normalize_method, parse_round, parse_time
@@ -344,7 +344,7 @@ class FighterProfileEnricher:
             queue_document=json.loads(resolved_queue_path.read_text()) if resolved_queue_path.exists() else {}
             self._priority_targets=queue_document.get('priority_targets')
             scope_items = queue_document.get('items', []) or queue_document.get('queue', [])
-            self._fetch_scopes={canonical_url(item.get('source_url')):item.get('fetch_scope') for item in scope_items if isinstance(item,dict)}
+            self._fetch_scopes={normalize_tapology_fighter_url(item.get('source_url')):item.get('fetch_scope') for item in scope_items if isinstance(item,dict)}
         else:
             source_path = source_results_path or LATEST_DIR / "results.json"
             profile_urls = collect_fighter_profile_urls(source_path, limit_fighters)
@@ -461,7 +461,7 @@ class FighterProfileEnricher:
                     else:
                         profile = parse_profile_snapshot(snapshot, source_url)
                         profile['scraped_at']=snapshot['scraped_at']
-                        requested_scope=getattr(self,'_fetch_scopes',{}).get(canonical_url(source_url))
+                        requested_scope=getattr(self,'_fetch_scopes',{}).get(normalize_tapology_fighter_url(source_url))
                         if aggregate_only_for_scope(requested_scope, profile):
                             profile['fight_history']=[]
                             profile['history_exhausted']=False
