@@ -1,6 +1,6 @@
 # Community runbook
 
-Community turns a reader account into an identity: a public profile now, then the Fan Top 10, credibility levels and article comments in later releases. The module lives in `wp-content/plugins/mma-future-data-engine/includes/Services/Community/`. It is additive and off by default; with the switch off the site behaves exactly as before (`tests/integration/verify-community-off.php` holds that line).
+Community turns a reader account into an identity: a public profile and a Fan Top 10 that feeds the fan ranking, then credibility levels and article comments in later releases. The module lives in `wp-content/plugins/mma-future-data-engine/includes/Services/Community/`. It is additive and off by default; with the switch off the site behaves exactly as before (`tests/integration/verify-community-off.php` holds that line).
 
 ## Switches
 
@@ -13,14 +13,19 @@ Community is on only when all of these hold: the constant is `true`, the schema 
 Each area is switched separately through the `mmaf_community_areas` option (default `["profiles"]`) or the `mmaf_community_area_enabled` filter, so a later area can be deployed dark and enabled after it has been checked on staging:
 
 ```bash
-wp option update mmaf_community_areas '["profiles"]' --format=json
+wp option update mmaf_community_areas '["profiles","fan"]' --format=json
 ```
+
+| Area | What it turns on |
+| --- | --- |
+| `profiles` | Profile form, public profile, account tabs. On by default once the feature is on. |
+| `fan` | My Top 10, the Fans view of the rankings page, the fan-rank tag on fighter pages. Off until listed in the option. |
 
 ## Release sequence
 
 1. Deploy the code with the constant absent. Routes exist but answer 404; nothing else changes.
 2. The release runner migrates to schema `1.20.0` (`wp mmaf system migrate`). **The next scraper import after a schema change must be a full package**: a delta whose base was exported under the old schema is refused.
-3. Define `MMAF_COMMUNITY_ENABLED` on staging and check: sign in, open `/account/` (tabs appear, notifications unchanged), `/account/profile/`, save a profile, upload and remove a photo, open `/fan/{handle}/` signed out.
+3. Define `MMAF_COMMUNITY_ENABLED` on staging (and add `fan` to `mmaf_community_areas` for the Top 10) and check: sign in, open `/account/` (tabs appear, notifications unchanged), `/account/profile/`, save a profile, upload and remove a photo, open `/fan/{handle}/` signed out.
 4. Enable production separately.
 
 To turn everything off again, remove the constant. Data stays in place.
@@ -56,6 +61,7 @@ Wherever WordPress prints an avatar for a reader, it uses this photo or a local 
 | URL | What it is |
 | --- | --- |
 | `/account/profile/` | The reader's own form. Signed-out visitors are sent to `/login/`. |
+| `/account/top-10/` | The reader's Top 10 editor (`fan` area). |
 | `/fan/{handle}/` | The public profile. Hidden or unknown handles answer 404. |
 
 Both are excluded from page caches and marked `noindex` for now. The public profile prints only the profile itself; the "Edit profile" link is revealed by the script for its owner, so the page can be cached later without change.
@@ -64,9 +70,35 @@ The script reads the session (`admin-ajax.php?action=mmafc_session`) with a **GE
 
 Rewrite rules are registered on `init` at priority 9 and flushed once per `Routes::REWRITE_VERSION`, because the account routes flush from their own `init` callback at priority 10.
 
-REST (`mma-future/v1/community/…`, signed-in reader, own profile only): `GET|POST profile`, `GET profile/handle?value=`, `POST|DELETE profile/avatar`. Validation errors answer 400 with `data.fields` keyed by form field.
+REST (`mma-future/v1/community/…`, signed-in reader, own data only): `GET|POST profile`, `GET profile/handle?value=`, `POST|DELETE profile/avatar`, `GET|POST top-10` (`fighter_ids`, `revision`). Validation errors answer 400 with `data.fields` keyed by form field. `GET fan-scores?fighter_ids=` is public and may be cached for a minute.
 
 During a backup or release, writes answer a plain-text 503. The form explains that, keeps what was typed and can be saved again.
+
+## Fan Top 10 and the fan ranking
+
+A reader ranks up to ten fighters on `/account/top-10/`. Only those ten positions are stored; the rest of the field is the official order. A fighter can be added only while the official ranking lists them, and stays on the list afterwards (a fighter who signs with the UFC keeps their place, marked "Signed with the UFC", and stops scoring). The reader's Top 10 is shown on their public profile.
+
+**Points.** Positions 1 to 10 are worth 25, 18, 15, 12, 10, 8, 6, 4, 2 and 1 (`mmaf_community_fan_points` takes a list of ten). A fighter's fan score is the sum over every counted list; ties fall to more first places, then more lists, then the better official rank.
+
+**No stored totals.** The standings are one `GROUP BY` over `mmaf_fan_list_items`, cached through `PublicCacheService` under the `mmaf_fan_revision` option, which every save rotates. So the standings follow each save, cannot drift from the lists, and need no recalculation when an account is removed, a reader is excluded or a fighter leaves the ranking. Saving a list does **not** rotate `mmaf_public_data_revision`: that would purge the whole page cache on every save.
+
+**Which lists count.** A list counts when its owner is a reader with a confirmed email (staff can keep a list; it is stored as `unlisted`), the account is at least 24 hours old (`mmaf_community_fan_min_account_hours`), and the reader's profile is not marked `shadow`. A fighter is ranked only while the official ranking would list them.
+
+**Boards.** A fighter has one fan score. The division, gender and age views are the overall standings narrowed to the fighters on that official board and renumbered.
+
+**Saving.** One transaction: lock the list row, compare the revision, replace the positions (keeping `picked_at` for fighters that stay), advance the revision. A save from an older copy answers 409 and the editor offers to reload; an unsaved order is kept in the browser and restored after a reload. The editor works with buttons and the arrow keys; dragging is an enhancement built on pointer events, with no third-party library.
+
+### Where the theme calls in
+
+Three guarded calls, each a no-op while the `fan` area is off, so the official ranking renders exactly as before:
+
+| Theme file | Call |
+| --- | --- |
+| `inc/public-render.php`, `mmaf_render_rankings()` | `FanBoard::requested()` and `FanBoard::render()`: the Fans view replaces the official section for `?mmaf_ranking=fans` |
+| `template-parts/integration/all-rankings.php` | `FanBoard::source_toggle( 'official' )`: the Official / Fans switch |
+| `template-parts/integration/fighter-hero.php` | `FanBoard::chip( $fighter_id )`: a hidden placeholder the script fills with "Fan rank #N" |
+
+The Fans view is rendered by the plugin with plain links for division and page, and is never page-cached. The theme's own ranking templates, script and stylesheet are unchanged, so the theme needs no rebuild. Fighter pages stay cached: the tag is filled from the public `fan-scores` route.
 
 ## Moderation
 
@@ -78,6 +110,6 @@ The profile is part of the WordPress personal-data export and erasure tools. Era
 
 ## Tests
 
-- `tests/unit/community-handles.php`: handle and social-link rules.
-- `tests/integration/verify-community-schema.php`, `verify-community-profiles.php`, `verify-community-off.php`: need the CI database.
-- `tests/frontend/community.test.cjs`: the profile form in jsdom.
+- `tests/unit/community-handles.php`: handle and social-link rules. `tests/unit/community-fan-points.php`: the points schedule and the order of the standings.
+- `tests/integration/verify-community-schema.php`, `verify-community-profiles.php`, `verify-community-fan.php`, `verify-community-off.php`: need the CI database.
+- `tests/frontend/community.test.cjs` and `community-editor.test.cjs`: the profile form and the Top 10 editor in jsdom. Dragging itself is not covered there (jsdom has no layout); check it by hand on a phone and a desktop.

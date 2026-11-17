@@ -8,6 +8,7 @@
 <h1 class="text-4xl font-black" style="font-family:'Sora',sans-serif;letter-spacing:-0.025em;line-height:1;color:#0f172a"><?php echo esc_html( mmaf_site_field( 'section_title' ) ); ?></h1>
 <?php if ( mmaf_site_field( 'section_description' ) ) { echo '<p class="text-sm text-slate-500 mt-3">' . esc_html( mmaf_site_field( 'section_description' ) ) . '</p>'; } mmaf_render_dates( $data ); ?>
 </div>
+<?php if ( class_exists( '\MMAF\DataEngine\Services\Community\FanBoard' ) ) { echo \MMAF\DataEngine\Services\Community\FanBoard::source_toggle( 'official' ); } ?>
 </div>
 <!-- Controls toolbar -->
 <form class="mt-6 space-y-3 mb-5 rk-filters" method="get">

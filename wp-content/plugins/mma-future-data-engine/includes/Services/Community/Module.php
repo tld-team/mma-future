@@ -13,6 +13,7 @@ final class Module {
 		add_action( 'init', array( Routes::class, 'maybe_flush' ), 11 );
 		add_filter( 'query_vars', array( Routes::class, 'query_vars' ) );
 		add_action( 'template_redirect', array( Routes::class, 'guard' ), 0 );
+		add_action( 'template_redirect', array( FanBoard::class, 'no_cache' ), 0 );
 		add_filter( 'template_include', array( Routes::class, 'template' ), 99 );
 		add_filter( 'document_title_parts', array( Routes::class, 'title' ) );
 		// Yoast SEO answers before document_title_parts and describes these routes as the blog; they have no post of their own.
@@ -32,16 +33,26 @@ final class Module {
 	}
 
 	public static function assets(): void {
-		if ( is_admin() || ! Config::area_enabled( 'profiles' ) ) { return; }
-		$view       = Routes::view();
-		$on_account = 'account' === (string) get_query_var( 'mmaf_notification_page' );
-		if ( '' === $view && ! $on_account ) { return; }
-		$assets = dirname( MMAF_PLUGIN_FILE ) . '/assets/';
-		wp_enqueue_style( 'mmaf-community', plugins_url( 'assets/community.css', MMAF_PLUGIN_FILE ), array(), MMAF_PLUGIN_VERSION . '.' . filemtime( $assets . 'community.css' ) );
-		if ( '' === $view ) { return; }
-		wp_enqueue_script( 'mmaf-community', plugins_url( 'assets/community.js', MMAF_PLUGIN_FILE ), array(), MMAF_PLUGIN_VERSION . '.' . filemtime( $assets . 'community.js' ), true );
+		if ( is_admin() || ! Config::feature_enabled() ) { return; }
+		$assets  = dirname( MMAF_PLUGIN_FILE ) . '/assets/';
+		$version = static fn( string $file ): string => MMAF_PLUGIN_VERSION . '.' . filemtime( $assets . $file );
+		wp_register_style( 'mmaf-community', plugins_url( 'assets/community.css', MMAF_PLUGIN_FILE ), array(), $version( 'community.css' ) );
+		wp_register_script( 'mmaf-community', plugins_url( 'assets/community.js', MMAF_PLUGIN_FILE ), array(), $version( 'community.js' ), true );
 		// No nonce here: the script asks for one at runtime, so nothing per-reader is printed into HTML a cache might keep.
-		wp_localize_script( 'mmaf-community', 'mmafCommunity', array( 'ajaxUrl' => admin_url( 'admin-ajax.php' ), 'restUrl' => rest_url( 'mma-future/v1/community/' ), 'maxAvatarBytes' => Config::avatar_max_bytes() ) );
+		wp_localize_script( 'mmaf-community', 'mmafCommunity', array( 'ajaxUrl' => admin_url( 'admin-ajax.php' ), 'restUrl' => rest_url( 'mma-future/v1/community/' ), 'rankingsUrl' => rest_url( 'mma-future/v1/rankings' ), 'maxAvatarBytes' => Config::avatar_max_bytes() ) );
+		$view = Routes::view();
+		$fan  = Config::area_enabled( 'fan' );
+		if ( $fan && is_singular( 'mmaf_fighter' ) ) {
+			// Only the small script: the fan tag on a fighter page reuses the hero's own tag styles.
+			wp_enqueue_script( 'mmaf-community-fan', plugins_url( 'assets/community-fan.js', MMAF_PLUGIN_FILE ), array(), $version( 'community-fan.js' ), true );
+			wp_localize_script( 'mmaf-community-fan', 'mmafCommunityFan', array( 'scoresUrl' => rest_url( 'mma-future/v1/community/fan-scores' ) ) );
+		}
+		$rankings_page = $fan && ( FanBoard::requested() || ( is_singular() && has_block( 'acf/all-rankings-table-section' ) ) );
+		if ( '' === $view && ! $rankings_page && ! ( Config::area_enabled( 'profiles' ) && 'account' === (string) get_query_var( 'mmaf_notification_page' ) ) ) { return; }
+		wp_enqueue_style( 'mmaf-community' );
+		if ( '' === $view ) { return; }
+		wp_enqueue_script( 'mmaf-community' );
+		if ( 'account-top-10' === $view ) { wp_enqueue_script( 'mmaf-community-editor', plugins_url( 'assets/community-editor.js', MMAF_PLUGIN_FILE ), array( 'mmaf-community' ), $version( 'community-editor.js' ), true ); }
 	}
 
 	public static function session(): void {
@@ -49,7 +60,8 @@ final class Module {
 		header( 'Cache-Control: no-store, private, max-age=0' );
 		$user_id = get_current_user_id();
 		$profile = $user_id && Config::area_enabled( 'profiles' ) ? ( new Profiles() )->find_by_user( $user_id ) : null;
-		wp_send_json_success( array( 'loggedIn' => $user_id > 0, 'nonce' => $user_id ? wp_create_nonce( 'wp_rest' ) : null, 'handle' => $profile ? (string) $profile['handle'] : null ) );
+		// `key` names this reader's browser storage (an unsaved Top 10 draft) without revealing the account id.
+		wp_send_json_success( array( 'loggedIn' => $user_id > 0, 'nonce' => $user_id ? wp_create_nonce( 'wp_rest' ) : null, 'handle' => $profile ? (string) $profile['handle'] : null, 'key' => $user_id ? substr( wp_hash( 'mmafc-reader-' . $user_id ), 0, 16 ) : null ) );
 	}
 
 	/**
@@ -59,10 +71,9 @@ final class Module {
 	 */
 	public static function account_nav( $current = '' ): void {
 		if ( ! Config::area_enabled( 'profiles' ) ) { return; }
-		$tabs = array(
-			'profile'       => array( 'Profile', home_url( '/account/profile/' ) ),
-			'notifications' => array( 'Notifications', home_url( '/account/' ) ),
-		);
+		$tabs = array( 'profile' => array( 'Profile', home_url( '/account/profile/' ) ) );
+		if ( Config::area_enabled( 'fan' ) ) { $tabs['top-10'] = array( 'My Top 10', FanBoard::editor_url() ); }
+		$tabs['notifications'] = array( 'Notifications', home_url( '/account/' ) );
 		echo '<nav class="mmafc-tabs" aria-label="Account">';
 		foreach ( $tabs as $key => $tab ) {
 			$active = $key === $current;

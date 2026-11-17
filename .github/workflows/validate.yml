@@ -28,6 +28,8 @@ jobs:
           node --check wp-content/plugins/mma-future-data-engine/assets/operations.js
           node --check wp-content/plugins/mma-future-data-engine/assets/notifications.js
           node --check wp-content/plugins/mma-future-data-engine/assets/community.js
+          node --check wp-content/plugins/mma-future-data-engine/assets/community-editor.js
+          node --check wp-content/plugins/mma-future-data-engine/assets/community-fan.js
           node --check wp-content/plugins/mma-future-data-engine/assets/admin-calendar-linking.js
           node --check wp-content/plugins/mma-future-data-engine/assets/event-calendar.js
           bash -n wp-content/plugins/mma-future-data-engine/bin/regular-import-runner.sh ops/supervisor.sh ops/monitor.sh ops/upload.sh
@@ -51,6 +53,7 @@ jobs:
           php tests/unit/nationality-suggestion.php
           php tests/unit/public-cache.php
           php tests/unit/community-handles.php
+          php tests/unit/community-fan-points.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v14.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v15.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v17.php
@@ -167,6 +170,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-community-schema.php
           php -d memory_limit=256M tests/integration/verify-community-off.php
           php -d memory_limit=256M tests/integration/verify-community-profiles.php
+          php -d memory_limit=256M tests/integration/verify-community-fan.php
       - name: Actual synthetic staging-to-local transfer
         env:
           MMAF_SYNC_WP_CORE: /tmp/mmaf-wp

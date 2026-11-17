@@ -10,7 +10,7 @@ final class Config {
 	public const SCHEMA_VERSION = '1.20.0';
 
 	/** Every area this release knows. Each one is switched on separately, after its release has been checked on staging. */
-	public const AREAS = array( 'profiles' );
+	public const AREAS = array( 'profiles', 'fan' );
 
 	/** Areas that are on when the `mmaf_community_areas` option has never been saved. */
 	private const DEFAULT_AREAS = array( 'profiles' );
@@ -41,6 +41,11 @@ final class Config {
 	/** Days a reader waits between handle changes, so a handle cannot be passed around or used to dodge moderation. */
 	public static function handle_change_days(): int {
 		return max( 0, (int) apply_filters( 'mmaf_community_handle_change_days', 90 ) );
+	}
+
+	/** Hours an account must exist before its Top 10 counts, so a batch of fresh accounts cannot move the fan ranking at once. */
+	public static function fan_min_account_hours(): int {
+		return max( 0, (int) apply_filters( 'mmaf_community_fan_min_account_hours', 24 ) );
 	}
 
 	public static function avatar_max_bytes(): int {

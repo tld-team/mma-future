@@ -3,6 +3,7 @@ require __DIR__ . '/bootstrap.php';
 
 use MMAF\DataEngine\Services\Community\Avatars;
 use MMAF\DataEngine\Services\Community\Config;
+use MMAF\DataEngine\Services\Community\FanBoard;
 use MMAF\DataEngine\Services\Community\Module;
 use MMAF\DataEngine\Services\Community\Routes;
 
@@ -23,7 +24,7 @@ try {
 
 	global $wp_rewrite;
 	$rules = array_keys( (array) $wp_rewrite->extra_rules_top );
-	foreach ( array( '^login/?$', '^register/?$', '^account/?$', '^notification\-action/?$', '^account/profile/?$' ) as $rule ) {
+	foreach ( array( '^login/?$', '^register/?$', '^account/?$', '^notification\-action/?$', '^account/profile/?$', '^account/top-10/?$' ) as $rule ) {
 		assert_community_off( in_array( $rule, $rules, true ), "The rewrite rule $rule is not registered." );
 	}
 
@@ -46,7 +47,13 @@ try {
 	assert_community_off( array( 'x' => 1 ) === Routes::title( array( 'x' => 1 ) ) && 'Blog' === Routes::document_title( 'Blog' ) && array() === Routes::robots( array() ), 'An ordinary request has its title or robots changed.' );
 	assert_community_off( array( 'size' => 96 ) === Avatars::avatar_data( array( 'size' => 96 ), (int) $mmafc_off_user ), 'Avatars are replaced while profiles are off.' );
 
-	foreach ( array( array( 'GET', '/mma-future/v1/community/profile' ), array( 'POST', '/mma-future/v1/community/profile' ), array( 'POST', '/mma-future/v1/community/profile/avatar' ), array( 'DELETE', '/mma-future/v1/community/profile/avatar' ) ) as $route ) {
+	// The theme calls these three behind class_exists(); while the fan area is off they must add nothing to its pages.
+	$_GET = array( FanBoard::QUERY_VAR => 'fans' );
+	assert_community_off( false === FanBoard::requested() && '' === FanBoard::source_toggle( 'official' ) && '' === FanBoard::chip( 1 ), 'The fan ranking shows on public pages while it is off.' );
+	$_GET = array();
+	assert_community_off( 401 === rest_do_request( new WP_REST_Request( 'GET', '/mma-future/v1/community/fan-scores' ) )->get_status() || 403 === rest_do_request( new WP_REST_Request( 'GET', '/mma-future/v1/community/fan-scores' ) )->get_status(), 'Fan scores are public while the fan ranking is off.' );
+
+	foreach ( array( array( 'GET', '/mma-future/v1/community/top-10' ), array( 'POST', '/mma-future/v1/community/top-10' ), array( 'GET', '/mma-future/v1/community/profile' ), array( 'POST', '/mma-future/v1/community/profile' ), array( 'POST', '/mma-future/v1/community/profile/avatar' ), array( 'DELETE', '/mma-future/v1/community/profile/avatar' ) ) as $route ) {
 		$status = rest_do_request( new WP_REST_Request( $route[0], $route[1] ) )->get_status();
 		assert_community_off( 403 === $status, "{$route[0]} {$route[1]} answered $status while profiles are off." );
 	}
@@ -57,6 +64,7 @@ try {
 	assert_community_off( Config::feature_enabled() && ! Config::area_enabled( 'profiles' ), 'An area cannot be switched off on its own.' );
 	remove_filter( 'mmaf_community_area_enabled', '__return_false' );
 	assert_community_off( Config::area_enabled( 'profiles' ) && ! Config::area_enabled( 'unknown' ), 'A known area does not follow the feature switch, or an unknown one is on.' );
+	assert_community_off( ! Config::area_enabled( 'fan' ), 'The fan ranking is on by default once profiles are; it must be switched on separately.' );
 
 	echo wp_json_encode( array( 'ok' => true ), JSON_PRETTY_PRINT ) . PHP_EOL;
 } finally {

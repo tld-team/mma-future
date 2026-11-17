@@ -59,6 +59,7 @@
 <div class="flex flex-wrap gap-2 justify-center lg:justify-start">
 <span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-primary-500/20 border border-primary-400/30 text-primary-300 text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( $facts['Division'] ?? 'Unknown division' ); ?></span>
 <?php if ( ($f['ranking_status'] ?? '') === 'ranked_or_candidate' ) : ?><span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-accent/20 border border-accent/30 text-white text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( $overall ? '#' . $overall['rank'] . ' Overall' : 'Unranked' ); ?></span><?php endif; ?>
+<?php if ( class_exists( '\MMAF\DataEngine\Services\Community\FanBoard' ) ) { echo \MMAF\DataEngine\Services\Community\FanBoard::chip( (int) ( $f['id'] ?? 0 ) ); } ?>
 <?php if ( mmaf_fighter_has_fight_data( $c ) && ! empty( $stats['activity_status'] ) ) : ?><span class="inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-white/10 border border-white/20 text-white/90 text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm"><?php echo esc_html( ucwords( str_replace( '_', ' ', $stats['activity_status'] ) ) ); ?></span><?php endif; ?>
 </div>
 <!-- Stats Row -->
