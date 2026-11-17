@@ -18,6 +18,7 @@ final class RestServiceProvider {
 		( new HealthController() )->register_routes();
 		( new CalendarController() )->register_routes();
 		( new NotificationsController() )->register_routes();
+		( new CommunityController() )->register_routes();
 	}
 
 	public static function public_permission(): bool {

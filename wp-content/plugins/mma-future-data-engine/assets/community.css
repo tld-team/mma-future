@@ -1,0 +1,179 @@
+/*
+ * Community: account pages and the public fan profile.
+ * Colours are stated on every element that carries text or a field, so the theme's own light and dark element rules
+ * cannot bleed in. Dark values follow the theme toggle (data-theme); the OS preference is only the no-JS fallback.
+ */
+.mmafc-page,
+.mmafc-tabs {
+  --mmafc-canvas: #f1f5f9;
+  --mmafc-surface: #fff;
+  --mmafc-raised: #f8fafc;
+  --mmafc-text: #0f172a;
+  --mmafc-secondary: #475569;
+  --mmafc-muted: #64748b;
+  --mmafc-border: #e2e8f0;
+  --mmafc-field-border: #cbd5e1;
+  --mmafc-brand: #0047a8;
+  --mmafc-brand-hover: #003a8a;
+  --mmafc-on-brand: #fff;
+  --mmafc-tint: rgba(0, 71, 168, .08);
+  --mmafc-ring: rgba(0, 71, 168, .3);
+  --mmafc-danger: #b91c1c;
+  --mmafc-danger-tint: #fee2e2;
+  --mmafc-success: #166534;
+  --mmafc-warning-tint: #fef3c7;
+  --mmafc-warning-text: #92400e;
+}
+:root[data-theme="dark"] .mmafc-page,
+:root[data-theme="dark"] .mmafc-tabs {
+  --mmafc-canvas: #020617;
+  --mmafc-surface: #0f172a;
+  --mmafc-raised: #1e293b;
+  --mmafc-text: #f8fafc;
+  --mmafc-secondary: #cbd5e1;
+  --mmafc-muted: #94a3b8;
+  --mmafc-border: #334155;
+  --mmafc-field-border: #475569;
+  --mmafc-brand: #3b82f6;
+  --mmafc-brand-hover: #60a5fa;
+  --mmafc-on-brand: #020617;
+  --mmafc-tint: rgba(96, 165, 250, .14);
+  --mmafc-ring: rgba(96, 165, 250, .5);
+  --mmafc-danger: #fca5a5;
+  --mmafc-danger-tint: #450a0a;
+  --mmafc-success: #86efac;
+  --mmafc-warning-tint: #422006;
+  --mmafc-warning-text: #fcd34d;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .mmafc-page,
+  :root:not([data-theme]) .mmafc-tabs {
+    --mmafc-canvas: #020617;
+    --mmafc-surface: #0f172a;
+    --mmafc-raised: #1e293b;
+    --mmafc-text: #f8fafc;
+    --mmafc-secondary: #cbd5e1;
+    --mmafc-muted: #94a3b8;
+    --mmafc-border: #334155;
+    --mmafc-field-border: #475569;
+    --mmafc-brand: #3b82f6;
+    --mmafc-brand-hover: #60a5fa;
+    --mmafc-on-brand: #020617;
+    --mmafc-tint: rgba(96, 165, 250, .14);
+    --mmafc-ring: rgba(96, 165, 250, .5);
+    --mmafc-danger: #fca5a5;
+    --mmafc-danger-tint: #450a0a;
+    --mmafc-success: #86efac;
+    --mmafc-warning-tint: #422006;
+    --mmafc-warning-text: #fcd34d;
+  }
+}
+
+.mmafc-page {
+  min-height: 60vh;
+  padding: clamp(1.5rem, 4vw, 3rem) 1rem 4rem;
+  background: var(--mmafc-canvas);
+  color: var(--mmafc-text);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.mmafc-page *, .mmafc-tabs * { box-sizing: border-box; }
+.mmafc-shell { max-width: 680px; margin: 0 auto; }
+.mmafc-head { margin: 1.5rem 0 1.25rem; }
+.mmafc-head h1 { margin: 0; color: var(--mmafc-text); font-family: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif; font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 700; line-height: 1.2; letter-spacing: -.01em; }
+.mmafc-head p { margin: .375rem 0 0; color: var(--mmafc-secondary); }
+.mmafc-card { background: var(--mmafc-surface); color: var(--mmafc-text); border: 1px solid var(--mmafc-border); border-radius: 18px; padding: clamp(1.25rem, 4vw, 2rem); box-shadow: 0 16px 40px rgba(15, 23, 42, .06); }
+.mmafc-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Account tabs. Also printed inside the notifications card, whose own link rules these selectors outrank. */
+.mmafc-tabs { display: flex; gap: .25rem; margin: 0 0 1.5rem; padding: .25rem; overflow-x: auto; border-radius: 12px; background: var(--mmafc-raised); border: 1px solid var(--mmafc-border); font-family: "Inter", ui-sans-serif, system-ui, sans-serif; -webkit-overflow-scrolling: touch; }
+.mmafc-tabs .mmafc-tabs__link { flex: 1 0 auto; min-height: 2.5rem; padding: .5rem 1rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; color: var(--mmafc-secondary); font-size: .9375rem; font-weight: 600; text-decoration: none; white-space: nowrap; transition: background-color .15s ease, color .15s ease; }
+.mmafc-tabs .mmafc-tabs__link:hover { color: var(--mmafc-text); background: var(--mmafc-tint); }
+.mmafc-tabs .mmafc-tabs__link.is-current { background: var(--mmafc-surface); color: var(--mmafc-brand); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+.mmafc-tabs .mmafc-tabs__link:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mmafc-ring); }
+
+/* Form */
+.mmafc-form { display: grid; gap: 1.5rem; }
+.mmafc-field { display: grid; gap: .375rem; min-width: 0; }
+.mmafc-field__top { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.mmafc-fieldset { margin: 0; padding: 1.5rem 0 0; border: 0; border-top: 1px solid var(--mmafc-border); min-width: 0; }
+.mmafc-fieldset > legend { float: left; width: 100%; padding: 0; }
+.mmafc-fieldset > legend + * { clear: both; }
+.mmafc-page .mmafc-label { display: block; margin: 0; color: var(--mmafc-text); font-size: .9375rem; font-weight: 600; }
+.mmafc-page .mmafc-sublabel { display: block; margin: 0; color: var(--mmafc-secondary); font-size: .8125rem; font-weight: 600; }
+.mmafc-page .mmafc-hint { margin: 0; color: var(--mmafc-muted); font-size: .8125rem; overflow-wrap: anywhere; }
+.mmafc-page .mmafc-hint strong { color: var(--mmafc-text); font-weight: 600; }
+.mmafc-page .mmafc-counter { color: var(--mmafc-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
+.mmafc-page .mmafc-counter.is-near { color: var(--mmafc-warning-text); }
+.mmafc-page .mmafc-status { margin: 0; color: var(--mmafc-muted); font-size: .8125rem; }
+.mmafc-page .mmafc-status:empty { display: none; }
+.mmafc-page .mmafc-status.is-ok { color: var(--mmafc-success); }
+.mmafc-page .mmafc-error { margin: 0; color: var(--mmafc-danger); font-size: .8125rem; font-weight: 500; }
+/* Buttons and links set their own display, which would otherwise override the hidden attribute. */
+.mmafc-page [hidden] { display: none !important; }
+.mmafc-page .mmafc-input { display: block; width: 100%; min-height: 2.75rem; margin: 0; padding: .625rem .75rem; border: 1px solid var(--mmafc-field-border); border-radius: 10px; background: var(--mmafc-surface); color: var(--mmafc-text); font: inherit; line-height: 1.4; -webkit-appearance: none; appearance: none; transition: border-color .15s ease, box-shadow .15s ease; }
+.mmafc-page .mmafc-input::placeholder { color: var(--mmafc-muted); opacity: 1; }
+.mmafc-page .mmafc-input:focus { outline: none; border-color: var(--mmafc-brand); box-shadow: 0 0 0 3px var(--mmafc-ring); }
+.mmafc-page .mmafc-input[aria-invalid="true"] { border-color: var(--mmafc-danger); }
+.mmafc-page .mmafc-input[readonly] { background: var(--mmafc-raised); color: var(--mmafc-secondary); }
+.mmafc-page .mmafc-input--area { min-height: 6.5rem; resize: vertical; }
+.mmafc-affix { position: relative; }
+.mmafc-affix__text { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--mmafc-muted); font-weight: 600; pointer-events: none; }
+.mmafc-page .mmafc-affix .mmafc-input { padding-left: 1.875rem; }
+.mmafc-socials { display: grid; gap: 1rem; margin-top: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+
+/* Photo */
+.mmafc-photo { display: flex; align-items: center; gap: 1.25rem; }
+.mmafc-photo__body { display: grid; gap: .5rem; min-width: 0; }
+.mmafc-photo__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.mmafc-avatar { display: block; flex: none; border-radius: 50%; object-fit: cover; background: var(--mmafc-raised); border: 1px solid var(--mmafc-border); }
+.mmafc-avatar--lg { width: 96px; height: 96px; }
+.mmafc-avatar--xl { width: 128px; height: 128px; }
+.mmafc-avatar.is-busy { opacity: .5; }
+
+/* Buttons */
+.mmafc-page .mmafc-button { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; margin: 0; padding: .625rem 1.125rem; border: 1px solid transparent; border-radius: 10px; background: var(--mmafc-brand); color: var(--mmafc-on-brand); font: inherit; font-size: .9375rem; font-weight: 600; line-height: 1.2; text-decoration: none; white-space: nowrap; cursor: pointer; -webkit-appearance: none; appearance: none; transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease; }
+.mmafc-page .mmafc-button:hover { background: var(--mmafc-brand-hover); color: var(--mmafc-on-brand); }
+/* The file input is visually hidden; its label is the button, so the label shows the input's focus. */
+.mmafc-page .mmafc-button:focus-visible, .mmafc-page .mmafc-visually-hidden:focus-visible + .mmafc-button { outline: none; box-shadow: 0 0 0 3px var(--mmafc-ring); }
+.mmafc-page .mmafc-button[aria-busy="true"] { opacity: .7; cursor: progress; }
+.mmafc-page .mmafc-button--secondary { background: var(--mmafc-surface); border-color: var(--mmafc-field-border); color: var(--mmafc-text); }
+.mmafc-page .mmafc-button--secondary:hover { background: var(--mmafc-raised); color: var(--mmafc-text); }
+.mmafc-page .mmafc-button--quiet { background: transparent; color: var(--mmafc-brand); }
+.mmafc-page .mmafc-button--quiet:hover { background: var(--mmafc-tint); color: var(--mmafc-brand); }
+
+/* Save bar: stays in reach while the reader scrolls a long form on a phone. */
+.mmafc-savebar { position: sticky; bottom: .75rem; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .5rem; margin: 0 -.5rem -.5rem; padding: .625rem .75rem; border: 1px solid var(--mmafc-border); border-radius: 14px; background: var(--mmafc-raised); }
+.mmafc-page .mmafc-savebar__status { flex: 1 1 12rem; margin: 0; color: var(--mmafc-secondary); font-size: .875rem; }
+.mmafc-page .mmafc-savebar__status.is-dirty { color: var(--mmafc-warning-text); font-weight: 600; }
+.mmafc-page .mmafc-savebar__status.is-saved { color: var(--mmafc-success); font-weight: 600; }
+.mmafc-page .mmafc-savebar__status.is-error { color: var(--mmafc-danger); font-weight: 600; }
+
+.mmafc-page .mmafc-note { margin: 0 0 1rem; padding: .75rem 1rem; border-radius: 10px; background: var(--mmafc-raised); color: var(--mmafc-secondary); font-size: .9375rem; }
+.mmafc-page .mmafc-note--warning { background: var(--mmafc-warning-tint); color: var(--mmafc-warning-text); }
+
+/* Public profile */
+.mmafc-profile { display: flex; align-items: flex-start; gap: clamp(1rem, 4vw, 2rem); }
+.mmafc-profile__body { min-width: 0; flex: 1; }
+.mmafc-page .mmafc-profile__name { margin: 0; color: var(--mmafc-text); font-family: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif; font-size: clamp(1.5rem, 5vw, 2rem); font-weight: 700; line-height: 1.15; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.mmafc-page .mmafc-profile__handle { margin: .25rem 0 0; color: var(--mmafc-brand); font-weight: 600; }
+.mmafc-page .mmafc-profile__meta { margin: .25rem 0 0; color: var(--mmafc-muted); font-size: .875rem; }
+.mmafc-page .mmafc-profile__bio { margin: 1rem 0 0; color: var(--mmafc-text); overflow-wrap: anywhere; }
+.mmafc-profile__socials { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+.mmafc-page .mmafc-chip { display: inline-flex; align-items: center; gap: .375rem; min-height: 2.25rem; padding: .375rem .75rem; border: 1px solid var(--mmafc-border); border-radius: 999px; background: var(--mmafc-raised); color: var(--mmafc-text); font-size: .875rem; font-weight: 500; text-decoration: none; transition: border-color .15s ease, background-color .15s ease; }
+.mmafc-page .mmafc-chip:hover { border-color: var(--mmafc-brand); background: var(--mmafc-tint); color: var(--mmafc-text); }
+.mmafc-page .mmafc-chip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mmafc-ring); }
+.mmafc-page .mmafc-chip__label { color: var(--mmafc-muted); font-weight: 600; }
+.mmafc-page .mmafc-profile__owner { margin: 1.25rem 0 0; }
+
+@media (max-width: 520px) {
+  .mmafc-profile { flex-direction: column; align-items: center; text-align: center; }
+  .mmafc-profile__socials { justify-content: center; }
+  .mmafc-photo { align-items: flex-start; }
+  .mmafc-avatar--lg { width: 72px; height: 72px; }
+  .mmafc-savebar .mmafc-button { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mmafc-page *, .mmafc-tabs * { transition: none !important; }
+}
