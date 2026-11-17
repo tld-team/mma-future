@@ -197,7 +197,9 @@ def collect_fighter_profile_urls_from_queue(
     *,
     limit: int,
     skip_already_enriched: bool = False,
+    fetch_url_sources: list[Path] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
+    """Return fetch URLs (original slug spelling) for the queue's selected profiles."""
     if limit <= 0 or not queue_path.exists():
         return [], {
             "mode": "queue",
@@ -207,6 +209,7 @@ def collect_fighter_profile_urls_from_queue(
             "skip_already_enriched": skip_already_enriched,
         }
     document = json.loads(queue_path.read_text(encoding="utf-8"))
+    spellings = original_spelling_fighter_urls(fetch_url_sources)
     queue=document.get('queue',[])
     existing={};generated=None
     if document.get('schema_version')=='mmaf_source_enrichment_v1':
@@ -236,7 +239,10 @@ def collect_fighter_profile_urls_from_queue(
             skipped_attempted+=1;continue
         if source in seen:continue
         seen.add(source)
-        urls.append(url)
+        fetch_url = tapology_fighter_fetch_url(item.get("fetch_url"))
+        if normalize_tapology_fighter_url(fetch_url) != url:
+            fetch_url = spellings.get(url, url)
+        urls.append(fetch_url)
         if len(urls) >= limit:
             break
     metadata = {
@@ -254,12 +260,44 @@ def collect_fighter_profile_urls_from_queue(
 
 
 def normalize_tapology_fighter_url(url: str | None) -> str | None:
+    """Lowercase identity key. Not always fetchable: see tapology_fighter_fetch_url."""
     url = canonical_url(url)
     if not url:
         return None
     if not re.match(r"^https?://(?:www\.)?tapology\.com/fightcenter/fighters/[^/?#]+$", url, re.I):
         return None
     return 'https://www.tapology.com'+urlsplit(url).path.lower()
+
+
+def tapology_fighter_fetch_url(url: str | None) -> str | None:
+    """Same profile as normalize_tapology_fighter_url, keeping the slug's spelling.
+
+    Legacy profiles keep a capitalised slug (13594-Denis-Goltsov) and Tapology
+    redirects the lowercased form to the FightCenter index.
+    """
+    if not normalize_tapology_fighter_url(url):
+        return None
+    return 'https://www.tapology.com'+urlsplit(canonical_url(url)).path
+
+
+_FIGHTER_URL_IN_TEXT = re.compile(r"https?://(?:www\.)?tapology\.com/fightcenter/fighters/[^\"\\?#/\s]+", re.I)
+
+
+def original_spelling_fighter_urls(paths: list[Path] | None = None) -> dict[str, str]:
+    """Identity URL -> linked spelling, for slugs that are not all lowercase."""
+    paths = paths if paths is not None else [LATEST_DIR / "results.json", DEFAULT_DERIVED_INDEX_PATH]
+    found: dict[str, str] = {}
+    for path in paths:
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for match in _FIGHTER_URL_IN_TEXT.finditer(text):
+            fetch_url = tapology_fighter_fetch_url(match.group(0))
+            key = normalize_tapology_fighter_url(fetch_url)
+            if fetch_url and key and fetch_url != key:
+                found.setdefault(key, fetch_url)
+    return found
 
 
 class _QueueBuilder:
@@ -420,6 +458,9 @@ class _QueueBuilder:
             entry["seen_event_internal_ids"].append(event_internal_id)
         if event_source_id and event_source_id not in entry["seen_event_source_ids"]:
             entry["seen_event_source_ids"].append(event_source_id)
+        fetch_url = tapology_fighter_fetch_url(source_url)
+        if fetch_url and fetch_url != normalized_url and not entry.get("fetch_url"):
+            entry["fetch_url"] = fetch_url
         if not entry.get("display_name") and display_name:
             entry["display_name"] = display_name
         if not entry.get("source_fighter_id") and source_fighter_id:
