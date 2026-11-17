@@ -148,7 +148,7 @@
   font-weight: 700;
   cursor: pointer;
 }
-.mmaf-notification-page { min-height: 60vh; padding: 3rem 1rem; background: #f1f5f9; }
+.mmaf-notification-page { min-height: 60vh; padding: clamp(1.5rem,6vw,4rem) 1rem; background: #f1f5f9; }
 .mmaf-notification-card {
   max-width: 680px;
   margin: auto;
@@ -156,27 +156,72 @@
   color: #0f172a;
   border: 1px solid #e2e8f0;
   border-radius: 18px;
-  padding: clamp(1.25rem,4vw,2.5rem);
+  padding: clamp(1.5rem,5vw,2.5rem);
   box-shadow: 0 16px 40px rgba(15,23,42,.08);
 }
-.mmaf-notification-card h1 { font-size: 2rem; margin-top: 0; }
+/* Sign-in, registration and confirmation hold one short form: a narrow column reads as a dialog, not a page. */
+.mmaf-notification-card--narrow { max-width: 440px; }
+.mmaf-notification-card h1 { font-size: 1.75rem; line-height: 1.2; letter-spacing: -.01em; margin: 0 0 .5rem; }
 .mmaf-notification-card section { border-top: 1px solid #e2e8f0; margin-top: 2rem; padding-top: 1.5rem; }
-.mmaf-notification-card label { display: block; font-weight: 600; margin: .8rem 0; }
+.mmaf-notification-card label { display: block; font-size: .875rem; font-weight: 600; margin: .8rem 0 .4rem; }
 .mmaf-notification-card input[type=email], .mmaf-notification-card input[name=timezone] {
   display: block;
   width: 100%;
+  height: 48px;
   box-sizing: border-box;
-  margin-top: .4rem;
-  padding: .8rem;
+  margin: 0;
+  padding: 0 .875rem;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 1rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.mmaf-notification-card button { border: 0; border-radius: 8px; background: #0047a8; color: #fff; padding: .75rem 1rem; font-weight: 700; cursor: pointer; }
+.mmaf-notification-card input[type=email]::placeholder { color: #94a3b8; }
+.mmaf-notification-card input[type=email]:focus, .mmaf-notification-card input[name=timezone]:focus { border-color: #0047a8; box-shadow: 0 0 0 3px rgba(0,71,168,.18); outline: 0; }
+.mmaf-notification-card button {
+  border: 0;
+  border-radius: 10px;
+  background: #0047a8;
+  color: #fff;
+  min-height: 44px;
+  padding: .7rem 1.1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+.mmaf-notification-card button:hover { background: #003a8a; }
+.mmaf-notification-card button:focus-visible { outline: 2px solid #0047a8; outline-offset: 2px; }
+.mmaf-notification-card button:disabled { opacity: .6; cursor: progress; }
+
+/* Sign-in form: every control is one full-width, 48px row on the same radius, so nothing reads as misaligned. */
+.mmaf-auth__lead { margin: 0 0 1.75rem; color: #475569; line-height: 1.5; }
+.mmaf-notification-card .mmaf-auth__lead + .mmaf-alert { margin: -.5rem 0 1.25rem; }
+.mmaf-auth__form label { margin-top: 0; }
+.mmaf-auth__form button[type=submit] { display: block; width: 100%; height: 48px; margin-top: .875rem; }
+.mmaf-auth__hint { margin: .75rem 0 0; font-size: .8125rem; line-height: 1.4; color: #64748b; text-align: center; }
+.mmaf-auth__status { margin: 1rem 0 0; padding: .75rem 1rem; border-radius: 10px; background: #eff6ff; color: #1e3a8a; font-size: .875rem; line-height: 1.4; }
+.mmaf-auth__status:empty { display: none; }
+.mmaf-auth__switch { margin: 1.75rem 0 0; padding-top: 1.25rem; border-top: 1px solid #e2e8f0; text-align: center; font-size: .9375rem; color: #475569; }
+.mmaf-auth__switch a { font-weight: 600; text-decoration: none; }
+.mmaf-auth__switch a:hover { text-decoration: underline; }
+/* Nextend renders the Google button as a 40px inline-grid with its own font and an inset shadow; bring it onto the form's grid. */
+.mmaf-google-login .nsl-container.nsl-container-block .nsl-container-buttons { display: flex; padding: 0; }
+.mmaf-google-login .nsl-container .nsl-container-buttons a[data-plugin] { width: 100%; margin: 0; border-radius: 10px; }
+.mmaf-google-login .nsl-container .nsl-button.nsl-button-default { align-items: center; justify-content: center; height: 48px; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: none; transition: background-color .15s ease, border-color .15s ease; }
+.mmaf-google-login .nsl-container a[data-plugin]:hover .nsl-button.nsl-button-default { background-color: #f8fafc !important; border-color: #94a3b8; }
+.mmaf-google-login .nsl-container a[data-plugin]:focus-visible { outline: 2px solid #0047a8; outline-offset: 2px; }
+.mmaf-google-login .nsl-container .nsl-button .nsl-button-svg-container { flex: 0 0 20px; width: 20px; height: 20px; padding: 0; }
+.mmaf-google-login .nsl-container .nsl-button .nsl-button-svg-container svg { display: block; width: 20px; height: 20px; }
+.mmaf-google-login .nsl-container .nsl-button .nsl-button-label-container { flex: 0 1 auto; height: auto; margin: 0 0 0 .75rem; padding: 0; font: inherit; font-size: .9375rem; font-weight: 600; line-height: 1.2; color: #1f1f1f; }
+.mmaf-google-login .nsl-container .nsl-button .nsl-button-label-container b { font-weight: inherit; }
 .mmaf-checkbox { display: flex !important; gap: .5rem; align-items: center; }
 .mmaf-account-list { list-style: none; padding: 0; }
 .mmaf-account-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e2e8f0; padding: .75rem 0; }
-.mmaf-separator { text-align: center; border-top: 1px solid #e2e8f0; margin: 1.5rem 0; }
-.mmaf-separator span { background: #fff; position: relative; top: -.7rem; padding: 0 .75rem; color: #64748b; }
+.mmaf-separator { display: flex; align-items: center; gap: .75rem; margin: 1.5rem 0; color: #64748b; font-size: .75rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.mmaf-separator::before, .mmaf-separator::after { content: ""; flex: 1; height: 1px; background: #e2e8f0; }
 .mmaf-alert { padding: 1rem; border-radius: 8px; background: #dcfce7; color: #14532d; }
 .mmaf-alert--error { background: #fee2e2; color: #7f1d1d; }
 .mmaf-muted { color: #64748b; }
@@ -190,17 +235,25 @@
 :root[data-theme="dark"] .mmaf-notification-page { background: #020617; }
 :root[data-theme="dark"] .mmaf-notification-card { background: #0f172a; color: #f8fafc; border-color: #334155; }
 :root[data-theme="dark"] .mmaf-notification-card :is(h1, h2, label) { color: #f8fafc; }
-:root[data-theme="dark"] .mmaf-notification-card :is(section, .mmaf-account-list li, .mmaf-separator, .mmaf-action-fight) { border-color: #334155; }
-:root[data-theme="dark"] .mmaf-notification-card .mmaf-separator span { background: #0f172a; color: #94a3b8; }
-:root[data-theme="dark"] .mmaf-notification-card :is(.mmaf-muted, .mmaf-account-session) { color: #94a3b8; }
+:root[data-theme="dark"] .mmaf-notification-card :is(section, .mmaf-account-list li, .mmaf-action-fight, .mmaf-auth__switch) { border-color: #334155; }
+:root[data-theme="dark"] .mmaf-notification-card .mmaf-separator::before, :root[data-theme="dark"] .mmaf-notification-card .mmaf-separator::after { background: #334155; }
+:root[data-theme="dark"] .mmaf-notification-card :is(.mmaf-muted, .mmaf-account-session, .mmaf-separator, .mmaf-auth__hint) { color: #94a3b8; }
+:root[data-theme="dark"] .mmaf-notification-card :is(.mmaf-auth__lead, .mmaf-auth__switch) { color: #cbd5e1; }
+:root[data-theme="dark"] .mmaf-notification-card .mmaf-auth__status { background: rgba(96,165,250,.14); color: #bfdbfe; }
+:root[data-theme="dark"] .mmaf-notification-card :is(input[type=email], input[name=timezone]) { border-color: #475569; }
+:root[data-theme="dark"] .mmaf-notification-card :is(input[type=email], input[name=timezone]):focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.28); }
 :root[data-theme="dark"] .mmaf-notification-card a { color: #93c5fd; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) .mmaf-notification-page { background: #020617; }
   :root:not([data-theme]) .mmaf-notification-card { background: #0f172a; color: #f8fafc; border-color: #334155; }
   :root:not([data-theme]) .mmaf-notification-card :is(h1, h2, label) { color: #f8fafc; }
-  :root:not([data-theme]) .mmaf-notification-card :is(section, .mmaf-account-list li, .mmaf-separator, .mmaf-action-fight) { border-color: #334155; }
-  :root:not([data-theme]) .mmaf-notification-card .mmaf-separator span { background: #0f172a; color: #94a3b8; }
-  :root:not([data-theme]) .mmaf-notification-card :is(.mmaf-muted, .mmaf-account-session) { color: #94a3b8; }
+  :root:not([data-theme]) .mmaf-notification-card :is(section, .mmaf-account-list li, .mmaf-action-fight, .mmaf-auth__switch) { border-color: #334155; }
+  :root:not([data-theme]) .mmaf-notification-card .mmaf-separator::before, :root:not([data-theme]) .mmaf-notification-card .mmaf-separator::after { background: #334155; }
+  :root:not([data-theme]) .mmaf-notification-card :is(.mmaf-muted, .mmaf-account-session, .mmaf-separator, .mmaf-auth__hint) { color: #94a3b8; }
+  :root:not([data-theme]) .mmaf-notification-card :is(.mmaf-auth__lead, .mmaf-auth__switch) { color: #cbd5e1; }
+  :root:not([data-theme]) .mmaf-notification-card .mmaf-auth__status { background: rgba(96,165,250,.14); color: #bfdbfe; }
+  :root:not([data-theme]) .mmaf-notification-card :is(input[type=email], input[name=timezone]) { border-color: #475569; }
+  :root:not([data-theme]) .mmaf-notification-card :is(input[type=email], input[name=timezone]):focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.28); }
   :root:not([data-theme]) .mmaf-notification-card a { color: #93c5fd; }
 }
 /* Light card: state the text and field colours so the theme's dark-mode element rules cannot bleed in. */
