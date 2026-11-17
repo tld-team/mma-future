@@ -28,6 +28,7 @@ status_header(200);get_header();
 	</form>
 	<p class="mmaf-auth__switch"><?php echo 'register'===$mmaf_view?'Already have an account?':'New here?';?> <a href="<?php echo esc_url(home_url('register'===$mmaf_view?'/login/':'/register/'));?>"><?php echo 'register'===$mmaf_view?'Sign in':'Create an account';?></a></p>
 <?php elseif('account'===$mmaf_view): $subscriptions_service=new Subscriptions();$subs=$subscriptions_service->listing(get_current_user_id());$upcoming=$subscriptions_service->upcoming(get_current_user_id());$rem=(new Reminders())->listing(get_current_user_id());$notification_repo=new \MMAF\DataEngine\Services\Notifications\Repository();$local_day=(new DateTimeImmutable('now',new DateTimeZone(Config::timezone(get_current_user_id()))))->format('Y-m-d');$next_send=$notification_repo->user_has_daily_message(get_current_user_id(),$local_day)?$notification_repo->next_local_nine_utc(get_current_user_id(),1):null; ?>
+	<?php do_action( 'mmaf_account_nav', 'notifications' ); ?>
 	<h1>Your notifications</h1><p>Manage followed fighters, reminders, timezone and sports email delivery.</p>
 	<p class="mmaf-account-session"><span>Signed in as <?php echo esc_html(wp_get_current_user()->user_email);?></span> · <a href="<?php echo esc_url(wp_logout_url(home_url('/')));?>">Sign out</a></p>
 	<?php if($next_send):?><div class="mmaf-alert">Today’s email slot has been used. New updates can be sent from <?php echo esc_html(wp_date('M j, H:i',strtotime($next_send.' UTC')));?> UTC.</div><?php endif;?>

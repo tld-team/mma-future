@@ -61,6 +61,8 @@ final class Plugin {
 		Services\Notifications\Module::register();
 		Admin\NotificationsPage::register();
 		Admin\FollowersPage::register();
+		Services\Community\Module::register();
+		Admin\CommunityPage::register();
         Services\Scoring\Admin::register();
         Services\Scoring\Command::register();
         Services\Operations\Module::register();

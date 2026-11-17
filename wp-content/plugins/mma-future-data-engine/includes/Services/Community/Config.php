@@ -1,0 +1,49 @@
+<?php
+namespace MMAF\DataEngine\Services\Community;
+
+use MMAF\DataEngine\Services\Notifications\Config as Accounts;
+
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+final class Config {
+	/** The schema the profile and fan-list code reads and writes. */
+	public const SCHEMA_VERSION = '1.20.0';
+
+	/** Every area this release knows. Each one is switched on separately, after its release has been checked on staging. */
+	public const AREAS = array( 'profiles' );
+
+	/** Areas that are on when the `mmaf_community_areas` option has never been saved. */
+	private const DEFAULT_AREAS = array( 'profiles' );
+
+	/** Releases deploy code before they migrate. Until the migration has run, the feature stays off rather than querying tables that do not exist yet. */
+	public static function schema_ready(): bool {
+		return version_compare( (string) get_option( 'mmaf_db_version', '0' ), self::SCHEMA_VERSION, '>=' );
+	}
+
+	/** Community is built on reader accounts, so it is never on without them. */
+	public static function feature_enabled(): bool {
+		$enabled = self::schema_ready() && defined( 'MMAF_COMMUNITY_ENABLED' ) && true === MMAF_COMMUNITY_ENABLED && Accounts::feature_enabled();
+		return (bool) apply_filters( 'mmaf_community_feature_enabled', $enabled );
+	}
+
+	public static function area_enabled( string $area ): bool {
+		if ( ! in_array( $area, self::AREAS, true ) || ! self::feature_enabled() ) { return false; }
+		$enabled = in_array( $area, (array) get_option( 'mmaf_community_areas', self::DEFAULT_AREAS ), true );
+		return (bool) apply_filters( 'mmaf_community_area_enabled', $enabled, $area );
+	}
+
+	/** A reader is a subscriber without editorial rights; staff accounts keep their WordPress identity. */
+	public static function is_reader( int $user_id ): bool {
+		$user = $user_id > 0 ? get_userdata( $user_id ) : false;
+		return $user && in_array( 'subscriber', (array) $user->roles, true ) && ! user_can( $user, 'edit_posts' );
+	}
+
+	/** Days a reader waits between handle changes, so a handle cannot be passed around or used to dodge moderation. */
+	public static function handle_change_days(): int {
+		return max( 0, (int) apply_filters( 'mmaf_community_handle_change_days', 90 ) );
+	}
+
+	public static function avatar_max_bytes(): int {
+		return max( 1, (int) apply_filters( 'mmaf_community_avatar_max_bytes', 2 * 1024 * 1024 ) );
+	}
+}

@@ -1,0 +1,86 @@
+<?php
+namespace MMAF\DataEngine\REST;
+
+use MMAF\DataEngine\Services\Community\Avatars;
+use MMAF\DataEngine\Services\Community\Config;
+use MMAF\DataEngine\Services\Community\Profiles;
+use MMAF\DataEngine\Services\Community\RateLimit;
+use MMAF\DataEngine\Services\Community\ValidationFailed;
+
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+/** The signed-in reader's own profile. Every route acts on the current user only; none takes a user id. */
+final class CommunityController extends \WP_REST_Controller {
+	public function __construct() { $this->namespace = RestServiceProvider::NAMESPACE; $this->rest_base = 'community'; }
+
+	public function register_routes(): void {
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/profile', array(
+			array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $this, 'profile' ), 'permission_callback' => array( $this, 'profile_permission' ) ),
+			array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $this, 'save_profile' ), 'permission_callback' => array( $this, 'profile_permission' ) ),
+		) );
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/profile/handle', array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $this, 'check_handle' ), 'permission_callback' => array( $this, 'profile_permission' ) ) );
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/profile/avatar', array(
+			array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $this, 'upload_avatar' ), 'permission_callback' => array( $this, 'profile_permission' ) ),
+			array( 'methods' => \WP_REST_Server::DELETABLE, 'callback' => array( $this, 'remove_avatar' ), 'permission_callback' => array( $this, 'profile_permission' ) ),
+		) );
+	}
+
+	public function profile_permission(): bool { return is_user_logged_in() && Config::area_enabled( 'profiles' ); }
+
+	public function profile(): \WP_REST_Response { return $this->response( ( new Profiles() )->editable( get_current_user_id() ) ); }
+
+	public function save_profile( \WP_REST_Request $request ) {
+		$user_id = get_current_user_id();
+		if ( ! RateLimit::allow( 'profile', $user_id, 20, 10 * MINUTE_IN_SECONDS ) ) { return $this->slow_down(); }
+		$input = array();
+		foreach ( array( 'handle', 'display_name', 'bio', 'socials' ) as $field ) { if ( $request->has_param( $field ) ) { $input[ $field ] = $request->get_param( $field ); } }
+		try { ( new Profiles() )->save( $user_id, $input ); }
+		catch ( ValidationFailed $e ) { return $this->invalid( $e ); }
+		catch ( \Throwable $e ) { return new \WP_Error( 'mmafc_profile_failed', 'Your profile couldn’t be saved. Try again.', array( 'status' => 500 ) ); }
+		return $this->profile();
+	}
+
+	public function check_handle( \WP_REST_Request $request ) {
+		$user_id = get_current_user_id();
+		if ( ! RateLimit::allow( 'handle', $user_id, 40, MINUTE_IN_SECONDS ) ) { return $this->slow_down(); }
+		$problem = ( new Profiles() )->handle_problem( (string) $request->get_param( 'value' ), $user_id );
+		return $this->response( array( 'available' => '' === $problem, 'message' => $problem ) );
+	}
+
+	public function upload_avatar( \WP_REST_Request $request ) {
+		$user_id  = get_current_user_id();
+		$profiles = new Profiles();
+		if ( ! RateLimit::allow( 'avatar', $user_id, 10, HOUR_IN_SECONDS ) ) { return $this->slow_down(); }
+		$file = $request->get_file_params()['avatar'] ?? array();
+		try {
+			if ( ! $profiles->find_by_user( $user_id ) ) { throw new ValidationFailed( array( 'handle' => 'Choose a handle and save your profile before adding a photo.' ) ); }
+			$stored   = ( new Avatars() )->store_upload( is_array( $file ) ? $file : array() );
+			$previous = $profiles->set_avatar( $user_id, $stored );
+			Avatars::delete( $previous );
+		}
+		catch ( ValidationFailed $e ) { return $this->invalid( $e ); }
+		catch ( \Throwable $e ) { return new \WP_Error( 'mmafc_avatar_failed', 'The photo couldn’t be stored. Try again.', array( 'status' => 500 ) ); }
+		return $this->profile();
+	}
+
+	public function remove_avatar() {
+		$user_id  = get_current_user_id();
+		$profiles = new Profiles();
+		if ( $profiles->find_by_user( $user_id ) ) { Avatars::delete( $profiles->set_avatar( $user_id, '' ) ); }
+		return $this->profile();
+	}
+
+	private function invalid( ValidationFailed $e ): \WP_Error {
+		return new \WP_Error( 'mmafc_invalid', $e->getMessage(), array( 'status' => 400, 'fields' => $e->fields() ) );
+	}
+
+	private function slow_down(): \WP_Error {
+		return new \WP_Error( 'mmafc_rate_limited', 'That’s a lot of changes in a short time. Try again in a few minutes.', array( 'status' => 429 ) );
+	}
+
+	private function response( $data ): \WP_REST_Response {
+		$response = new \WP_REST_Response( $data, 200 );
+		$response->header( 'Cache-Control', 'no-store, private, max-age=0' );
+		return $response;
+	}
+}
