@@ -70,6 +70,17 @@ final class PublicReadRepository {
 		return array( 'total'=>$total, 'rows'=>$rows ?: array() );
 	}
 
+	/** Display names by fighter id, for naming opponents in a score explanation. */
+	public function fighter_names( array $ids ): array {
+		global $wpdb;
+		$ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+		$out = array();
+		foreach ( array_chunk( $ids, 500 ) as $chunk ) {
+			$rows = $wpdb->get_results( $wpdb->prepare( "SELECT id,display_name FROM {$this->tables['fighters']} WHERE id IN (" . implode( ',', array_fill( 0, count( $chunk ), '%d' ) ) . ')', $chunk ), ARRAY_A ) ?: array();
+			foreach ( $rows as $row ) { $out[ (int) $row['id'] ] = (string) $row['display_name']; }
+		}
+		return $out;
+	}
 	public function coverage( int $fighter_id ): ?array {
 		global $wpdb;
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$this->tables['fighter_career_coverage']} WHERE fighter_id=%d", $fighter_id ), ARRAY_A );

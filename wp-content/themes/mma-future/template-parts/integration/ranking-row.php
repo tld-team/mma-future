@@ -17,11 +17,13 @@
 </div>
 </td>
 <td class="rk-td-division px-4 py-3 text-xs font-medium" style="color:#94a3b8"><?php echo esc_html( ucwords( str_replace( '_', ' ', $r['weight_class'] ) ) ); ?></td>
-<td class="px-4 py-3 text-right"><span class="tabular-nums" style="font-size:1.1rem;font-weight:900;color:#0047A8"><?php echo esc_html( mmaf_display_number( $r['score']??$r['known_points']??null, 2 ) ); ?></span><?php if(null===($r['score']??null) && null!==($r['known_points']??null)): ?><span class="block text-xs" style="color:#94a3b8">privremeno</span><?php endif; ?></td>
-<td class="rk-finishes-cell px-4 py-3 text-right"><?php mmaf_view( 'scoring-finishes', compact( 'r' ) ); ?></td>
-<td class="rk-impact-cell px-4 py-3 text-right"><?php mmaf_view( 'opponent-impact', compact( 'r' ) ); ?></td>
-<td class="rk-td-record px-4 py-3 text-sm font-mono tabular-nums" style="color:#475569"><?php echo esc_html( mmaf_record( mmaf_display_record($r) ) ); ?></td>
-<td class="px-4 py-3"><span class="rk-streak" data-streak="<?php echo esc_attr( substr( $r['streak'] ?? '', 0, 1 ) ); ?>"><?php echo esc_html( $r['streak'] ?: '—' ); ?></span></td>
+<td class="rk-score-col px-4 py-3"><span class="tabular-nums" style="font-size:1.1rem;font-weight:900;color:#0047A8"><?php echo esc_html( mmaf_display_number( $r['score']??$r['known_points']??null, 2 ) ); ?></span><?php if(null===($r['score']??null) && null!==($r['known_points']??null)): ?><span class="block text-xs" style="color:#94a3b8">privremeno</span><?php endif; ?></td>
+<?php $parts = mmaf_score_parts( $r ); ?>
+<td class="rk-part-col rk-part-col--first px-4 py-3 text-right"><?php mmaf_render_score_part( $parts['record'], 'Record points' ); ?></td>
+<td class="rk-part-col rk-finishes-cell px-4 py-3 text-right"><?php mmaf_view( 'scoring-finishes', compact( 'r' ) ); ?></td>
+<td class="rk-part-col rk-impact-cell px-4 py-3 text-right"><?php mmaf_view( 'opponent-impact', compact( 'r' ) ); ?></td>
+<td class="rk-part-col rk-part-col--last px-4 py-3 text-right"><?php mmaf_render_score_part( $parts['age'], 'Age points' ); ?></td>
+<td class="rk-streak-col px-4 py-3"><span class="rk-streak" data-streak="<?php echo esc_attr( substr( $r['streak'] ?? '', 0, 1 ) ); ?>"><?php echo esc_html( $r['streak'] ?: '—' ); ?></span></td>
 <td class="px-4 py-3 text-sm whitespace-nowrap"><?php echo esc_html( mmaf_display_date( $r['last_fight_date'] ) ); ?></td>
 <td class="px-4 py-3">
 <button aria-controls="<?php echo esc_attr( $prefix . '_detail_' . $r['fighter_id'] ); ?>" aria-expanded="false" aria-label="<?php echo esc_attr( 'Details for ' . $r['display_name'] ); ?>" class="rk-expand flex items-center justify-center w-9 h-9 rounded-lg" data-rk-expand="" style="border:1px solid #e2e8f0;background:#fff;color:#64748b" type="button">
@@ -30,7 +32,7 @@
 </td>
 </tr>
 <tr class="rk-detail-row" data-rk-detail="" id="<?php echo esc_attr( $prefix . '_detail_' . $r['fighter_id'] ); ?>">
-<td colspan="10">
+<td colspan="11">
 <div class="rk-detail-content flex flex-wrap items-center gap-8 px-5 py-5"><?php mmaf_view( 'ranking-detail', compact( 'r', 'breakdown' ) ); ?></div>
 </td>
 </tr>

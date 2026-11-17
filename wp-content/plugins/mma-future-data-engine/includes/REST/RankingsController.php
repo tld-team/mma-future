@@ -17,6 +17,7 @@ final class RankingsController extends AbstractRestController {
                 'order'=>array('type'=>'string','default'=>'asc','enum'=>array('asc','desc')),
                 'top15'=>array('type'=>'boolean','default'=>false),
                 'include_breakdown'=>array('type'=>'boolean','default'=>false),
+                'include_scoring_fights'=>array('type'=>'boolean','default'=>false),
             ),
         ));
         register_rest_route(RestServiceProvider::NAMESPACE,'/rankings/movers',array(
