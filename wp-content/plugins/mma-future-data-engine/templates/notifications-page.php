@@ -10,16 +10,23 @@ use MMAF\DataEngine\Services\Notifications\Tokens;
 $mmaf_view=(string)get_query_var('mmaf_notification_page');$intent=(new Auth())->sanitize_intent(array('fighter_id'=>absint($_GET['fighter_id']??0),'return_to'=>(string)($_GET['return_to']??'')));if(!$intent['fighter_id']){$remembered=Module::read_intent_cookie();if($remembered){$intent=(new Auth())->sanitize_intent($remembered);}}
 status_header(200);get_header();
 ?>
-<main id="primary" class="mmaf-notification-page"><div class="mmaf-notification-card">
+<main id="primary" class="mmaf-notification-page"><div class="mmaf-notification-card<?php echo 'account'===$mmaf_view?'':' mmaf-notification-card--narrow';?>">
 <?php if(!Config::feature_enabled()): ?><h1>Notifications are coming soon</h1><p>This feature is currently available only to the staging test group.</p>
 <?php elseif(in_array($mmaf_view,array('login','register'),true)): ?>
 	<h1><?php echo 'register'===$mmaf_view?'Create your account':'Sign in'; ?></h1>
-	<p><?php echo $intent['fighter_id']?'Sign in to follow this fighter and receive event updates.':'Use Google or a secure email link. No password is required.'; ?></p>
-	<?php if(!empty($_GET['mmaf_error'])):?><div class="mmaf-alert mmaf-alert--error"><?php echo esc_html(wp_unslash($_GET['mmaf_error']));?></div><?php endif;?>
+	<p class="mmaf-auth__lead"><?php echo $intent['fighter_id']?'Sign in to follow this fighter and get an email when their next fight is announced.':('register'===$mmaf_view?'Follow fighters and get an email when their next fight is announced. No password needed.':'Use Google or a secure email link. No password is required.'); ?></p>
+	<?php if(!empty($_GET['mmaf_error'])):?><div class="mmaf-alert mmaf-alert--error" role="alert"><?php echo esc_html(wp_unslash($_GET['mmaf_error']));?></div><?php endif;?>
 	<div class="mmaf-google-login"><?php echo shortcode_exists('nextend_social_login')?do_shortcode('[nextend_social_login provider="google" redirect="'.str_replace(array('"',"'",'[',']'),array('%22','%27','%5B','%5D'),$intent['return_to']).'"]'):'<p class="mmaf-muted">Google sign-in will appear after Nextend Social Login is configured.</p>'; ?></div>
-	<div class="mmaf-separator"><span>or</span></div>
-	<form data-mmaf-email-login><label for="mmaf-login-email">Email address</label><input id="mmaf-login-email" type="email" name="email" autocomplete="email" required><input type="hidden" name="fighter_id" value="<?php echo esc_attr((string)$intent['fighter_id']);?>"><input type="hidden" name="return_to" value="<?php echo esc_attr($intent['return_to']);?>"><button type="submit">Send sign-in link</button><p data-mmaf-auth-message aria-live="polite"></p></form>
-	<p><a href="<?php echo esc_url(home_url('register'===$mmaf_view?'/login/':'/register/'));?>"><?php echo 'register'===$mmaf_view?'Already have an account? Sign in':'New here? Create an account';?></a></p>
+	<div class="mmaf-separator" role="separator"><span>or</span></div>
+	<form data-mmaf-email-login class="mmaf-auth__form">
+		<label for="mmaf-login-email">Email address</label>
+		<input id="mmaf-login-email" type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="you@example.com" required>
+		<input type="hidden" name="fighter_id" value="<?php echo esc_attr((string)$intent['fighter_id']);?>"><input type="hidden" name="return_to" value="<?php echo esc_attr($intent['return_to']);?>">
+		<button type="submit">Send sign-in link</button>
+		<p class="mmaf-auth__hint">We will email you a one-time link. It works for 15 minutes.</p>
+		<p class="mmaf-auth__status" data-mmaf-auth-message aria-live="polite"></p>
+	</form>
+	<p class="mmaf-auth__switch"><?php echo 'register'===$mmaf_view?'Already have an account?':'New here?';?> <a href="<?php echo esc_url(home_url('register'===$mmaf_view?'/login/':'/register/'));?>"><?php echo 'register'===$mmaf_view?'Sign in':'Create an account';?></a></p>
 <?php elseif('account'===$mmaf_view): $subscriptions_service=new Subscriptions();$subs=$subscriptions_service->listing(get_current_user_id());$upcoming=$subscriptions_service->upcoming(get_current_user_id());$rem=(new Reminders())->listing(get_current_user_id());$notification_repo=new \MMAF\DataEngine\Services\Notifications\Repository();$local_day=(new DateTimeImmutable('now',new DateTimeZone(Config::timezone(get_current_user_id()))))->format('Y-m-d');$next_send=$notification_repo->user_has_daily_message(get_current_user_id(),$local_day)?$notification_repo->next_local_nine_utc(get_current_user_id(),1):null; ?>
 	<h1>Your notifications</h1><p>Manage followed fighters, reminders, timezone and sports email delivery.</p>
 	<p class="mmaf-account-session"><span>Signed in as <?php echo esc_html(wp_get_current_user()->user_email);?></span> · <a href="<?php echo esc_url(wp_logout_url(home_url('/')));?>">Sign out</a></p>
