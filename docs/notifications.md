@@ -54,6 +54,12 @@ The server supervisor invokes `wp mmaf notifications work --limit=25` before the
 
 After a calendar import, the confirmation message states how many new and changed fights were recorded for linked fighters, how many readers follow them, and whether sending is paused.
 
+## Followers overview
+
+**MMA Future → Followers** shows who follows whom. The default tab lists followed fighters with their follower count, most followed first; the count opens the readers behind it. The second tab lists readers with the fighters they follow, their reminders, last delivered email, and whether they actually receive email (a reader who unsubscribed, switched notifications off or never verified their address is labelled as such). Both tabs can be searched and sorted.
+
+Three CSV exports follow the current search: fighters, readers, and one row per reader–fighter pair. The files carry a UTF-8 byte order mark for Excel, and cells that a spreadsheet would run as a formula are neutralised. The page shows email addresses and is limited to `manage_options`.
+
 ## Announcements and reminders
 
 **Announcements** (new fight, schedule or opponent change, cancellation, postponement) are batched into at most one email per reader per local day. The first one goes out right after the calendar import that produced it; anything later the same day waits for 09:00 local the next morning.

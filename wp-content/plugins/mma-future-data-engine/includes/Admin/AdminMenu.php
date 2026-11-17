@@ -66,6 +66,7 @@ final class AdminMenu {
 		);
 
 		add_submenu_page( 'mmaf', 'Sports notifications', 'Notifications', Capabilities::MANAGE, 'mmaf-notifications', array( NotificationsPage::class, 'render' ) );
+		add_submenu_page( 'mmaf', 'Pratioci boraca', 'Followers', Capabilities::MANAGE, 'mmaf-followers', array( FollowersPage::class, 'render' ) );
 
 		add_submenu_page(
 			'mmaf',
