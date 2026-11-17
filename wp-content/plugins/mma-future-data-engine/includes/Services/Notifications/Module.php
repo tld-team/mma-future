@@ -30,6 +30,10 @@ final class Module {
 		add_filter( 'nsl_autolink_error_redirect_url', array( self::class, 'social_error_url' ) );
 		add_filter( 'nsl_disabled_login_error_message', static fn(): string => 'Google sign-in is available only for reader accounts. Staff accounts must use the WordPress login.' );
 		add_filter( 'document_title_parts', array( self::class, 'title' ) );
+		// Yoast SEO short-circuits the title before document_title_parts runs and describes these routes as the blog; they have no post of their own.
+		foreach ( array( 'pre_get_document_title', 'wpseo_title', 'wpseo_opengraph_title' ) as $title_filter ) { add_filter( $title_filter, array( self::class, 'document_title' ), 99 ); }
+		add_filter( 'wp_robots', array( self::class, 'robots' ) );
+		add_filter( 'wpseo_robots', static fn( $robots ) => '' !== self::view_title() ? 'noindex, nofollow' : $robots, 99 );
 		add_action( 'nsl_google_register_new_user', static function( $user_id ): void { $user = get_userdata( (int) $user_id ); if ( $user ) { $user->set_role( 'subscriber' ); update_user_meta( (int) $user_id, '_mmaf_email_verified', '1' ); } } );
 		add_filter( 'nsl_google_is_login_allowed', static function( $allowed, $provider, $user_id ): bool { return (bool) $allowed && self::is_reader( (int) $user_id ); }, 10, 3 );
 		add_action( 'nsl_google_login', static function( $user_id ): void { if ( self::is_reader( (int) $user_id ) ) { update_user_meta( (int) $user_id, '_mmaf_email_verified', '1' ); } }, 10, 1 );
@@ -50,6 +54,10 @@ final class Module {
 	public static function no_cache(): void {
 		if ( ! get_query_var( 'mmaf_notification_page' ) ) { return; }
 		nocache_headers(); header( 'Cache-Control: no-store, private, max-age=0' );
+		// Headers alone do not stop page caches that buffer output: a cached copy of these per-visitor pages would be served to everyone.
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) { define( 'DONOTCACHEPAGE', true ); }
+		if ( function_exists( 'wpfc_exclude_current_page' ) ) { wpfc_exclude_current_page(); }
+		header( 'X-LiteSpeed-Cache-Control: no-cache' ); do_action( 'litespeed_control_set_nocache', 'MMA Future account page' );
 		if ( 'notification-action' === get_query_var( 'mmaf_notification_page' ) && 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) && 'One-Click' === ( $_POST['List-Unsubscribe'] ?? '' ) ) {
 			$token = sanitize_text_field( wp_unslash( $_GET['token'] ?? '' ) ); $row = ( new Tokens() )->consume( 'unsubscribe', $token );
 			if ( $row ) { self::unsubscribe_user( (int) $row['user_id'] ); status_header( 200 ); echo 'Unsubscribed'; } else { status_header( 400 ); echo 'Invalid or expired token'; }
@@ -64,10 +72,25 @@ final class Module {
 	}
 
 	public static function title( array $parts ): array {
-		$titles = array( 'login'=>'Sign in', 'register'=>'Create your account', 'account'=>'Your notifications', 'notification-action'=>'Confirm notification action' );
-		$view = (string) get_query_var( 'mmaf_notification_page' );
-		if ( isset( $titles[ $view ] ) ) { $parts['title'] = $titles[ $view ]; unset( $parts['page'] ); }
+		$title = self::view_title();
+		if ( '' !== $title ) { $parts['title'] = $title; unset( $parts['page'] ); }
 		return $parts;
+	}
+
+	/** @param string $title */
+	public static function document_title( $title ): string {
+		$view = self::view_title();
+		return '' !== $view ? $view . ' - ' . wp_strip_all_tags( get_bloginfo( 'name', 'display' ) ) : (string) $title;
+	}
+
+	public static function robots( array $robots ): array {
+		if ( '' !== self::view_title() ) { $robots['noindex'] = true; $robots['nofollow'] = true; unset( $robots['max-image-preview'] ); }
+		return $robots;
+	}
+
+	private static function view_title(): string {
+		$titles = array( 'login'=>'Sign in', 'register'=>'Create your account', 'account'=>'Your notifications', 'notification-action'=>'Confirm notification action' );
+		return $titles[ (string) get_query_var( 'mmaf_notification_page' ) ] ?? '';
 	}
 
 	public static function social_error_url(): string {
