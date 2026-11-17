@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Every accepted professional MMA bout supplies its base, known finish and
  * reliable pre-fight quality; the aggregate is only a completeness control.
  */
-final class FormulaV18 {
+class FormulaV18 {
 	public const VERSION = 'v1.8';
 	public const PERIOD_START = null;
 	public const SCOPE = 'professional_mma_career_v1';
@@ -78,7 +78,7 @@ final class FormulaV18 {
 	}
 
 	public function base_record_points( string $result ): float {
-		return (float) ( self::config()['base_record'][ $result ] ?? 0.0 );
+		return (float) ( static::config()['base_record'][ $result ] ?? 0.0 );
 	}
 
 	public function finish_points( string $result, ?string $method_category ): float {
@@ -86,20 +86,20 @@ final class FormulaV18 {
 			return 0.0;
 		}
 
-		return (float) ( self::config()['finishes'][ $method_category ?: 'unknown' ] ?? 0.0 );
+		return (float) ( static::config()['finishes'][ $method_category ?: 'unknown' ] ?? 0.0 );
 	}
 
 	public function age_adjustment_points( ?int $age ): float {
 		if ( null === $age ) {
 			return 0.0;
 		}
-		$config = self::config()['age_adjustment'];
+		$config = static::config()['age_adjustment'];
 
 		return (float) ( $age < 25 ? $config['under_25'] : ( $age <= 30 ? $config['25_to_30'] : $config['31_plus'] ) );
 	}
 
 	public function opponent_differential_points_for_win( ?int $diff ): float {
-		$config = self::config()['opponent_differential_for_wins'];
+		$config = static::config()['opponent_differential_for_wins'];
 		if ( null === $diff ) {
 			return (float) $config['missing'];
 		}
@@ -126,7 +126,7 @@ final class FormulaV18 {
 	}
 
 	public function loss_quality_penalty_points( ?int $diff ): float {
-		$config = self::config()['loss_quality_penalty'];
+		$config = static::config()['loss_quality_penalty'];
 		if ( null === $diff ) {
 			return (float) $config['missing'];
 		}

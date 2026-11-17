@@ -53,11 +53,16 @@ $ranking = new ReflectionMethod($service, 'ranking');
 $ranking->setAccessible(true);
 $row = ['board_key' => 'overall', 'rank_position' => 1, 'total_score' => '9.500', 'raw_score' => '9.500', 'sample_size' => 4, 'ranking_run_id' => 123,
     'breakdown_json' => json_encode($breakdown), 'quality_flags_json' => '[]', 'warnings_json' => '[]', 'finish_wins' => 99];
-foreach (['v1.5', 'v1.6', 'v1.7'] as $version) {
+foreach (['v1.5', 'v1.6', 'v1.7', 'v1.8'] as $version) {
     $dto = $ranking->invoke($service, $row, ['formula_version' => $version]);
     unset($dto['breakdown']);
     finishes_check($dto['scoring_finishes'] === $summary && $dto['score'] === 9.5 && $dto['active_ranking_run_id'] === 123, "$version exposes frozen finish counts independently of newer statistics and optional full details");
 }
+$quarterRow = array_merge($row, ['total_score' => '8.000', 'raw_score' => '8.000', 'breakdown_json' => json_encode(array_merge($breakdown, ['finishes_points' => 0.5]))]);
+$quarter = $ranking->invoke($service, $quarterRow, ['formula_version' => 'v1.9']);
+finishes_check($quarter['scoring_finishes']['count'] === 2 && $quarter['scoring_finishes']['points'] === 0.5 && $quarter['scoring_finishes']['points_per_finish'] === 0.25, 'v1.9 explains its finish points at 0.25 per finish');
+$stale = $ranking->invoke($service, $row, ['formula_version' => 'v1.9']);
+finishes_check($stale['scoring_finishes'] === null, 'v1.9 does not present a one-point finish total as its own');
 $legacy = $ranking->invoke($service, $row, ['formula_version' => 'v1.4']);
 finishes_check($legacy['scoring_finishes'] === null, 'historical normalized scores do not imply a direct one-point finish bonus');
 echo "Scoring finishes checks completed.\n";

@@ -51,6 +51,7 @@ jobs:
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v15.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v17.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v18.php
+          php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v19.php
   scraper:
     runs-on: ubuntu-latest
     steps:

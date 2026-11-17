@@ -3,7 +3,7 @@ namespace MMAF\DataEngine\Services\Scoring;
 
 /** Count finish wins from the exact fights frozen with the displayed score. */
 final class FinishSummary {
-    public static function from_breakdown(?array $breakdown): ?array {
+    public static function from_breakdown(?array $breakdown, float $points_per_finish = 1.0): ?array {
         $items = $breakdown['per_fight_items'] ?? null;
         $sample = $breakdown['sample_size'] ?? null;
         $points = $breakdown['finishes_points'] ?? null;
@@ -22,13 +22,14 @@ final class FinishSummary {
                 default: ++$unknown;
             }
         }
-        // Direct formulas award one point per recent scored finish. Do not show contradictory inputs.
-        if (abs((float)$points - ($ko + $submissions)) > 0.000001) { return null; }
+        // Direct formulas award a fixed value per scored finish (1.0 up to v1.8, 0.25 in v1.9). Do not show contradictory inputs.
+        if (!is_finite($points_per_finish) || $points_per_finish <= 0 || abs((float)$points - ($ko + $submissions) * $points_per_finish) > 0.000001) { return null; }
         return [
             'count' => $ko + $submissions,
             'ko_tko' => $ko,
             'submission' => $submissions,
             'points' => (float)$points,
+            'points_per_finish' => $points_per_finish,
             'unknown_win_methods' => $unknown,
             'scoring_bouts' => (int)$sample,
         ];

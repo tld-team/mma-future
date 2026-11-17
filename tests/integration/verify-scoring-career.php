@@ -4,6 +4,7 @@ require __DIR__.'/synthetic-fixtures.php';
 
 use MMAF\DataEngine\Services\DataPipeline\ProfileStore;
 use MMAF\DataEngine\Services\Formula\FormulaV18;
+use MMAF\DataEngine\Services\Formula\FormulaV19;
 use MMAF\DataEngine\Services\RegularImport\{CareerHistory,Transaction,WriteGuard};
 use MMAF\DataEngine\Services\Scoring\{CareerAssessment,PublicAssessments,Schema as ScoringSchema};
 use MMAF\DataEngine\Services\{RankingActivationService,RankingCalculatorService,StatsRebuildService};
@@ -59,7 +60,7 @@ try{
     $public=(new PublicAssessments())->for_fighters([$a['fighter_id']],$runs->find($run))[$a['fighter_id']]['scoring_assessment'];
     career_v18_check(isset($public['career_stats'],$public['detail_coverage'],$public['breakdown']) && !isset($public['input_hash']),'public DTO exposes frozen career metrics without private input hash');
     $methodology=PublicAssessments::methodology($runs->find($run));
-    career_v18_check($methodology['scoring_scope']===FormulaV18::SCOPE && $methodology['score_label']==='Osnovni poeni, poznate završnice i kvalitet protivnika za celu profesionalnu MMA karijeru.','public methodology uses the exact whole-career label');
+    career_v18_check($methodology['scoring_scope']===FormulaV18::SCOPE && $methodology['score_label']==='Base points, known finishes and opponent quality across the whole professional MMA career.' && abs($methodology['points_per_finish']-1.0)<0.000001,'public methodology uses the exact whole-career label and the v1.8 finish value');
 
     (new RankingCurrentRepository())->insert_draft_snapshots($run,[$calculator->snapshot_row_for_item($row,'overall',1)]);$runs->update($run,['status'=>'completed']);
     $activated=(new RankingActivationService())->activate($run,1);
@@ -80,6 +81,41 @@ try{
     $tampered=$inputs;$tampered['scoring_bouts'][0]['opponent_prefight_wins']=999;
     try{CareerAssessment::validate_frozen(json_decode($frozen['assessment_json'],true),$tampered,$active_before,$runs->find($run));$rejected=false;}catch(Throwable $e){$rejected=true;}
     career_v18_check($rejected,'activation validator rejects tampered frozen input');
+
+    // v1.9: same frozen career inputs, 0.25 per finish, loss limit below five wins.
+    $calculator19=new RankingCalculatorService('v1.9');
+    $run19=$runs->create('v1.9',FormulaV19::config(),'2026-11-05','2026-11-05 11:00:00','draft','Synthetic whole-career v1.9 fixture');
+    $batch19=$calculator19->score_batch($fighters,'2026-11-05','2026-11-05 11:00:00',$run19);
+    $row19=$batch19['rows'][0]??null;$assessment19=$batch19['assessments'][$a['fighter_id']]??null;
+    career_v18_check($row19 && $assessment19['status']==='main' && $runs->find($run19)['data_scope_version']===FormulaV18::SCOPE,'a 2–1 career is still a main v1.9 row with the shared whole-career scope');
+    $same18=$calculator->score_batch($fighters,'2026-11-05','2026-11-05 11:00:01');
+    $finish19=(float)$assessment19['breakdown']['finishes_points'];$finish18=(float)$same18['assessments'][$a['fighter_id']]['breakdown']['finishes_points'];
+    career_v18_check($finish18>=2.0 && abs($finish19-$finish18*0.25)<0.000001,'v1.9 counts each known finish as a quarter of the v1.8 finish points');
+    career_v18_check(abs((float)$row19['total_score']-((float)$same18['rows'][0]['total_score']-$finish18*0.75))<0.000001,'only the finish component differs between v1.8 and v1.9 on the same inputs');
+    (new RankingCurrentRepository())->insert_draft_snapshots($run19,[$calculator19->snapshot_row_for_item($row19,'overall',1)]);$runs->update($run19,['status'=>'completed']);
+    $activated19=(new RankingActivationService())->activate($run19,1);
+    career_v18_check($activated19['formula_version']==='v1.9' && $activated19['current_rows_written']===1,'independent frozen-input validation permits a valid manual v1.9 activation');
+    $methodology19=PublicAssessments::methodology($runs->find($run19));
+    career_v18_check($methodology19['scoring_scope']===FormulaV18::SCOPE && abs($methodology19['points_per_finish']-0.25)<0.000001,'public v1.9 methodology reports 0.25 points per finish');
+    $frozen19=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$s['assessments']} WHERE ranking_run_id=%d AND fighter_id=%d",$run19,$a['fighter_id']),ARRAY_A);
+    $snapshot19=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$t['ranking_snapshots']} WHERE ranking_run_id=%d AND fighter_id=%d",$run19,$a['fighter_id']),ARRAY_A);
+    try{CareerAssessment::validate_frozen(json_decode($frozen19['assessment_json'],true),json_decode($frozen19['inputs_json'],true),$snapshot19,$runs->find($run));$cross=false;}catch(Throwable $e){$cross=true;}
+    career_v18_check($cross,'a v1.9 assessment is never accepted as a v1.8 run');
+
+    $c=fixture_fighter(97981103,'Career V19 Two Losses',$flags);
+    $loss_rows=[
+        fixture_fight(97981511,$b,'win',['fight_date'=>'2026-03-01','method_category'=>'decision','prefight_record_raw'=>'0-0-0','opponent_record_raw'=>'0-0-0']),
+        fixture_fight(97981512,$b,'loss',['fight_date'=>'2026-06-01','method_category'=>'decision','prefight_record_raw'=>'1-0-0','opponent_record_raw'=>'0-0-0']),
+        fixture_fight(97981513,$b,'loss',['fight_date'=>'2026-09-01','method_category'=>'decision','prefight_record_raw'=>'1-1-0','opponent_record_raw'=>'0-0-0']),
+    ];
+    foreach($loss_rows as &$row){$row['record_evidence']=['fighter'=>['status'=>'unknown','reason'=>'prefight_semantics_unproven'],'opponent'=>['status'=>'unknown','reason'=>'prefight_semantics_unproven']];}unset($row);
+    $loss_profile=fixture_profile($c,array_reverse($loss_rows),['wins'=>1,'losses'=>2,'draws'=>0,'no_contests'=>0],['scraped_at'=>'2026-11-04T10:00:00Z','parser_version'=>'profile_dom_v4','career_history_evidence'=>array_replace_recursive($profile['career_history_evidence'],['loading'=>['cards_count'=>3]])]);
+    $history->process(ProfileStore::career_profile($loss_profile,$c['fighter_id']),0,1,true);$store->put($loss_profile,'tapology_fighter_profiles_v0_1');
+    (new StatsRebuildService())->rebuild_all();
+    $two=$runs->list_fighters_with_stats([$c['fighter_id']]);
+    $blocked19=$calculator19->score_batch($two,'2026-11-05','2026-11-05 11:00:02');$allowed18=$calculator->score_batch($two,'2026-11-05','2026-11-05 11:00:03');
+    career_v18_check(empty($blocked19['rows']) && in_array('ineligible_loss_limit',$blocked19['assessments'][$c['fighter_id']]['reasons']??[],true),'v1.9 excludes a 1–2 career by the loss limit below five wins');
+    career_v18_check(!in_array('ineligible_loss_limit',$allowed18['assessments'][$c['fighter_id']]['reasons']??[],true),'v1.8 keeps its original loss table for reproducibility');
 }finally{
     Transaction::rollback();WriteGuard::$worker=false;
 }
