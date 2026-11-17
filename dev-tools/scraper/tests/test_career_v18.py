@@ -114,3 +114,13 @@ def test_method_stats_are_independent_control():
     s=complete_snapshot();s['record_stats']={'id':'fighterRecordStats','professional_mma':True,'lines':['KO/TKO','1 wins','0 losses','SUB','0 wins','0 losses','DEC','1 wins','1 losses']}
     p=parse(s);assert p['record_summary']['method_statistics']['counts']['ko_tko']['wins']==1
     assert p['fight_history'][0]['method_category']=='decision'
+
+def test_queue_builder_keeps_career_evidence_so_fresh_profiles_are_not_requeued(tmp_path):
+    from mma_future_scraper.fighter_profile_queue import _existing_profiles
+    s=complete_snapshot();s['body_text']='Synthetic A Pro MMA Record: 2-1-0'
+    p=parse(s);now=datetime(2026,10,10,10,tzinfo=timezone.utc)
+    assert not needs_refresh(p,now=now)
+    path=tmp_path/'fighter_profiles.json';path.write_text(json.dumps({'profiles':[p]}))
+    existing=_existing_profiles(path)['by_url'][p['source_url']]
+    assert existing['career_history_evidence']==p['career_history_evidence']
+    assert not needs_refresh(existing,now=now)

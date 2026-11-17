@@ -96,6 +96,21 @@ python -m mma_future_scraper.cli build-fighter-index
 
 `--limit-events` is an alias for `--max-events`.
 
+### Pre-scrape listing plan
+
+```bash
+python -m mma_future_scraper.cli run --results-only --cumulative-results --headed --plan-only
+python -m mma_future_scraper.cli run --results-only --cumulative-results --headed --plan-listing
+python -m mma_future_scraper.cli run --results-only --cumulative-results --skip-settled-events --max-pages 8
+```
+
+`--plan-only` walks FightCenter listing pages without opening event pages, classifies every listed event against local state (`state/`, every run's `event_coverage.json`, recent checkpoints) and writes `data/plans/latest_listing_plan.json` with the recommended `--max-pages`, the events that still need a fetch and why, and an estimate. It does not change `latest/` or `state/`.
+
+`--plan-listing` runs the same analysis inside a normal run, prints it, waits for ENTER (`q` stops; `--no-plan-confirm` skips the prompt), then fetches only planned work from the already loaded listing. `--skip-settled-events` applies the same per-event decisions without the up-front analysis.
+
+Events are work when new, previously failed, missing a cached card, or incomplete in a way a re-fetch can fill. Complete events, remembered exclusions and events incomplete only through structural warnings (amateur/non-MMA bouts, pre-fight records with `--no-scrape-matchup-pages`) are settled. The walk does not stop at the first known event: it continues past a date horizon (`--plan-lookback-days`, default 30, the newest known event, and the oldest open known event in that window) until `--plan-settle-pages` (default 2) consecutive pages hold no work, capped by `--plan-max-pages` (default 25). Incomplete events older than `--plan-stale-after-days` (default 30) after three rechecks are reported as stale and not fetched.
+
+
 `--browser-engine` selects the Playwright browser engine. Allowed values are `chromium`, `firefox`, and `webkit`; the default is `chromium`, preserving existing behavior. If the selected engine is not installed locally, install it with a command such as `.\.venv\Scripts\python.exe -m playwright install firefox`.
 
 `--browser-channel` selects an installed Chromium-family browser channel. Allowed values are `chrome`, `chrome-beta`, `chrome-dev`, `msedge`, `msedge-beta`, and `msedge-dev`. Use it with `--browser-engine chromium` only. For local Cloudflare/manual verification, prefer a separate persistent profile per channel, for example `.\data\browser_profile\tapology-msedge` for Edge and `.\data\browser_profile\tapology-chrome` for Chrome.

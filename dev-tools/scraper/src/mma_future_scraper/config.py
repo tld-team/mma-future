@@ -84,3 +84,12 @@ class ScraperConfig:
     browser_profile_dir: Path | None = None
     operator_navigates_to_fightcenter: bool = False
     use_current_page: bool = False
+    # Pre-scrape listing analysis (see listing_plan.py).
+    plan_listing: bool = False
+    skip_settled_events: bool = False
+    plan_confirm: bool = True
+    plan_max_pages: int | None = None
+    plan_settle_pages: int = 2
+    plan_lookback_days: int = 30
+    plan_stale_after_days: int = 30
+    plan_include_backfill: bool = False

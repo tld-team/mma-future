@@ -618,6 +618,9 @@ def _existing_profiles(path: Path) -> dict[str, dict[str, dict[str, Any]]]:
             "career_record_evidence": profile.get('career_record_evidence') or {},
             "period_evidence": profile.get('period_evidence') or {},
             "fight_history": profile.get('fight_history') or [],
+            # needs_refresh() requires the saved career evidence; without it every
+            # fresh profile looked unverified and was queued again.
+            "career_history_evidence": profile.get('career_history_evidence') or {},
         }
         if url:
             by_url[url] = normalized

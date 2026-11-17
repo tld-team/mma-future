@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import random
+import sys
 import time
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
@@ -259,6 +260,9 @@ class TapologyScraper:
         self._results_resume_excluded: dict[str, dict[str, Any]] = {}
         self._results_empty_until: dict[str, datetime] = {}
         self._results_live_fetches = 0
+        self._listing_classifier: Any | None = None
+        self._listing_plan: dict[str, Any] | None = None
+        self._listing_plan_pages: dict[str, int] = {}
 
     def inspect_filters(self) -> list[dict[str, Any]]:
         self._store.ensure_dirs()
@@ -304,6 +308,8 @@ class TapologyScraper:
         try:
             if results and self.config.resume_results_checkpoints:
                 self._load_results_resume(summary, run_dir)
+            if results and (self.config.skip_settled_events or self.config.plan_listing):
+                self._listing_classifier = self._build_listing_classifier()
             direct_event_items = self._resolve_direct_forced_event_items(state_bundle)
             playwright, browser, context = launch_browser(self.config)
             log(
@@ -1110,26 +1116,12 @@ class TapologyScraper:
         page = self._new_fightcenter_page(context)
         close_page_on_exit = not (self.config.operator_navigates_to_fightcenter and self.config.use_current_page)
         try:
-            if self.config.operator_navigates_to_fightcenter:
-                log("info", "fightcenter_operator_navigation_wait", kind=kind)
-                page = self._wait_for_operator_current_fightcenter_page(page, kind, run_dir, summary, context=context)
-            else:
-                log("info", "fightcenter_open", kind=kind, url=FIGHTCENTER_URL)
-                page.goto(FIGHTCENTER_URL, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
-                self._dismiss_overlays(page, summary, max_rounds=2, context=f"fightcenter_open:{kind}")
-                self._ensure_fightcenter_ready(page, kind, run_dir, summary, FIGHTCENTER_URL)
-                if self.config.use_current_page:
-                    self._print_and_validate_prescrape_confirmation(page, kind, run_dir, summary)
-
-            if self.config.use_current_page:
-                filters_used = self._current_filter_values(page, kind)
-                summary.setdefault("selectors_used", []).append("current_fightcenter_page")
-                log("info", "fightcenter_use_current_page", kind=kind, url=getattr(page, "url", None))
-            else:
-                filters_used = self._apply_filters(page, kind, summary, run_dir=run_dir)
-            summary.setdefault("filters_used", {})[kind] = filters_used
+            page = self._open_listing_page(page, context, kind, run_dir, summary)
             events: list[dict[str, Any]] = []
             try:
+                if kind == "results" and self.config.plan_listing:
+                    self._walk_listing_plan(page, run_dir, summary)
+                    self._confirm_listing_plan()
                 events = self._traverse_event_list(page, kind, context, run_dir, summary)
             except FatalScrapeError as exc:
                 events = list(getattr(exc, "partial_events", events) or [])
@@ -1271,6 +1263,185 @@ class TapologyScraper:
         self._write_results_checkpoint("results", str(summary["run_id"]), str(summary["started_at"]),
                                        run_dir, summary, self._results_resume_events)
         log("info", "results_resume_loaded", complete=len(self._results_resume_events), excluded=len(recovered.excluded), deferred=len(recovered.deferred))
+
+    def _open_listing_page(self, page: Any, context: Any, kind: str, run_dir: Path, summary: dict[str, Any]) -> Any:
+        """Reach a ready FightCenter listing with the run's filters; returns the page to use."""
+        if self.config.operator_navigates_to_fightcenter:
+            log("info", "fightcenter_operator_navigation_wait", kind=kind)
+            page = self._wait_for_operator_current_fightcenter_page(page, kind, run_dir, summary, context=context)
+        else:
+            log("info", "fightcenter_open", kind=kind, url=FIGHTCENTER_URL)
+            page.goto(FIGHTCENTER_URL, wait_until="domcontentloaded", timeout=self.config.page_timeout_ms)
+            self._dismiss_overlays(page, summary, max_rounds=2, context=f"fightcenter_open:{kind}")
+            self._ensure_fightcenter_ready(page, kind, run_dir, summary, FIGHTCENTER_URL)
+            if self.config.use_current_page:
+                self._print_and_validate_prescrape_confirmation(page, kind, run_dir, summary)
+
+        if self.config.use_current_page:
+            filters_used = self._current_filter_values(page, kind)
+            summary.setdefault("selectors_used", []).append("current_fightcenter_page")
+            log("info", "fightcenter_use_current_page", kind=kind, url=getattr(page, "url", None))
+        else:
+            filters_used = self._apply_filters(page, kind, summary, run_dir=run_dir)
+        summary.setdefault("filters_used", {})[kind] = filters_used
+        return page
+
+    # -- pre-scrape listing plan -------------------------------------------
+    def _build_listing_classifier(self) -> Any:
+        from .listing_plan import ListingClassifier, load_coverage_history
+
+        return ListingClassifier(
+            bundle=self._state_bundle or self._store.load_state_bundle(),
+            coverage_history=load_coverage_history(self._store.data_dir),
+            scrape_matchup_pages=self.config.scrape_matchup_pages,
+            recheck_complete_days=self.config.recheck_complete_days,
+            stale_after_days=self.config.plan_stale_after_days,
+            include_backfill=self.config.plan_include_backfill,
+            force_ids=self._force_recheck_events,
+            checkpoint_complete_ids=self._results_resume_ids,
+            checkpoint_excluded_ids=set(self._results_resume_excluded),
+            empty_results_until=self._results_empty_until,
+            is_excluded_promotion=self._list_item_matches_excluded_ufc,
+        )
+
+    def _record_settled_listing_skip(self, summary: dict[str, Any], item: dict[str, Any], decision: Any) -> None:
+        summary["events_skipped_settled"] = int(summary.get("events_skipped_settled") or 0) + 1
+        by_reason = summary.setdefault("events_skipped_settled_by_reason", {})
+        by_reason[decision.reason] = int(by_reason.get(decision.reason) or 0) + 1
+        source_event_id = item.get("source_event_id") or source_event_id_from_url(item.get("event_url"))
+        if decision.reason in {"known_excluded", "checkpoint_excluded"} or self._known_event_is_cumulative_excluded(source_event_id):
+            self._record_cumulative_excluded_item(summary, item)
+        elif decision.reason in {"known_complete", "structural_parser_warnings"}:
+            self._cache_counts["events_skipped_known_cache"] += 1
+        log("info", "event_skipped_settled", source_event_id=source_event_id, reason=decision.reason, action=decision.action)
+
+    def _listing_plan_stop_reason(self) -> str:
+        plan = self._listing_plan or {}
+        if plan.get("stop_reason") == "listing_exhausted":
+            return "natural_end_no_load_more_button"
+        if plan.get("complete"):
+            return "listing_plan_settled"
+        return "max_pages"
+
+    def _walk_listing_plan(self, page: Any, run_dir: Path, summary: dict[str, Any]) -> dict[str, Any]:
+        """Load listing pages only, decide how deep the run must go, and write the plan."""
+        from .listing_plan import DEFAULT_PLAN_MAX_PAGES, ListingPlanner
+
+        if self._listing_classifier is None:
+            self._listing_classifier = self._build_listing_classifier()
+        planner = ListingPlanner(
+            self._listing_classifier,
+            max_pages=self.config.plan_max_pages or self.config.max_pages or DEFAULT_PLAN_MAX_PAGES,
+            settle_pages=self.config.plan_settle_pages,
+            lookback_days=self.config.plan_lookback_days,
+        )
+        log("info", "listing_plan_start", horizon=str(planner.horizon), open_targets=len(planner.targets))
+        seen_urls: set[str] = set()
+        page_number = 1
+        try:
+            while True:
+                self._dismiss_overlays(page, summary, max_rounds=2, context=f"listing_plan:{page_number}")
+                fresh = []
+                for item in self._extract_event_list_items(page, page_number):
+                    url = item.get("event_url")
+                    if url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+                    fresh.append(item)
+                planner.add_page(page_number, fresh)
+                log("info", "listing_plan_page", **planner.pages[-1])
+                if planner.should_stop():
+                    break
+                self._pause("page", self.config.page_pause_seconds, kind="listing_plan", page_number=page_number)
+                if not self._advance_list_page(page, summary, seen_urls, run_dir=run_dir, page_number=page_number):
+                    if summary.get("pagination_stop_reason") == "load_more_timeout":
+                        planner.mark_interrupted("load_more_timeout")
+                    else:
+                        planner.mark_exhausted()
+                    break
+                page_number += 1
+                self._raise_if_blocked(page, run_dir, f"listing_plan_page_{page_number}")
+        except FatalScrapeError as exc:
+            planner.mark_interrupted(str(exc))
+            self._finish_listing_plan(planner, run_dir, summary)
+            raise
+        return self._finish_listing_plan(planner, run_dir, summary)
+
+    def _finish_listing_plan(self, planner: Any, run_dir: Path, summary: dict[str, Any]) -> dict[str, Any]:
+        from .listing_plan import format_plan_summary
+
+        plan_id = str(summary.get("run_id") or run_dir.name)
+        plans_dir = self._store.data_dir / "plans"
+        plan = planner.report(
+            plan_id=plan_id,
+            generated_at=utc_now(),
+            data_dir=self._store.data_dir,
+            event_pause_seconds=float(self.config.event_pause_seconds or 0),
+            page_pause_seconds=float(self.config.page_pause_seconds or 0),
+            extra={"plan_path": str(plans_dir / f"listing_plan_{plan_id}.json")},
+        )
+        plans_dir.mkdir(parents=True, exist_ok=True)
+        write_json(plans_dir / f"listing_plan_{plan_id}.json", plan)
+        write_json(plans_dir / "latest_listing_plan.json", plan)
+        write_json(run_dir / "listing_plan.json", plan)
+        self._listing_plan = plan
+        self._listing_plan_pages = {
+            entry["source_event_id"]: entry["list_page_number"]
+            for entry in planner.entries
+            if entry.get("source_event_id")
+        }
+        summary["listing_plan"] = {
+            key: plan.get(key)
+            for key in (
+                "plan_id", "complete", "stop_reason", "pages_walked", "last_work_page",
+                "recommended_max_pages", "work_events_count", "estimated_minutes", "horizon_date", "plan_path",
+            )
+        }
+        print(format_plan_summary(plan), flush=True)
+        return plan
+
+    def _confirm_listing_plan(self) -> None:
+        plan = self._listing_plan or {}
+        if not self.config.plan_confirm or not sys.stdin or not sys.stdin.isatty():
+            return
+        try:
+            response = input(
+                f"[listing-plan] ENTER fetches {plan.get('work_events_count')} event page(s); "
+                "type q then ENTER to stop without fetching: "
+            )
+        except EOFError:
+            return
+        if response.strip().lower() in {"q", "quit", "stop", "n", "no"}:
+            raise FatalScrapeError("operator_stopped_after_listing_plan")
+
+    def plan_listing(self) -> dict[str, Any]:
+        """Plan-only mode: walk the listing headed, write the plan, touch no state."""
+        self._store.ensure_dirs()
+        plan_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        plan_dir = self._store.data_dir / "plans" / plan_id
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        self._state_bundle = self._store.load_state_bundle()
+        summary = self._empty_summary(plan_id, utc_now())
+        self._active_summary = summary
+        playwright = browser = context = None
+        try:
+            if self.config.resume_results_checkpoints:
+                self._load_results_resume(summary, plan_dir)
+            self._listing_classifier = self._build_listing_classifier()
+            playwright, browser, context = launch_browser(self.config)
+            page = self._open_listing_page(self._new_fightcenter_page(context), context, "results", plan_dir, summary)
+            return self._walk_listing_plan(page, plan_dir, summary)
+        except FatalScrapeError as exc:
+            log("error", "listing_plan_failed", reason=str(exc))
+            return self._listing_plan or {"complete": False, "stop_reason": "failed", "interrupted_reason": str(exc)}
+        finally:
+            self._active_summary = None
+            if context:
+                context.close()
+            if browser:
+                browser.close()
+            if playwright:
+                playwright.stop()
 
     def _new_fightcenter_page(self, context: Any) -> Any:
         if self.config.operator_navigates_to_fightcenter and self.config.use_current_page:
@@ -2535,6 +2706,9 @@ class TapologyScraper:
                         promotion_name=event.get("promotion_name"),
                     )
                     continue
+                if kind == "results" and self._listing_plan_pages:
+                    planned_sid = item.get("source_event_id") or source_event_id_from_url(item.get("event_url"))
+                    item["list_page_number"] = self._listing_plan_pages.get(planned_sid, item.get("list_page_number"))
                 if kind == "results" and self.config.cumulative_results:
                     self._record_cumulative_scope_item(summary, item)
                 if kind == "results":
@@ -2550,7 +2724,14 @@ class TapologyScraper:
                     if sid in self._results_empty_until and datetime.now(timezone.utc) < self._results_empty_until[sid]:
                         summary["results_empty_events_skipped"] = int(summary.get("results_empty_events_skipped") or 0) + 1
                         continue
-                if kind == "results" and self._state_bundle is not None:
+                if kind == "results" and self._listing_classifier is not None:
+                    decision = self._listing_classifier.classify(item)
+                    if decision.action != "work":
+                        self._record_settled_listing_skip(summary, item, decision)
+                        continue
+                    item["recheck_reason"] = decision.reason
+                    summary["events_planned_work"] = int(summary.get("events_planned_work") or 0) + 1
+                elif kind == "results" and self._state_bundle is not None:
                     should_scrape, reason = should_recheck_event(
                         list_item=item,
                         bundle=self._state_bundle,
@@ -2708,6 +2889,12 @@ class TapologyScraper:
                 break
             if stop_requested:
                 summary["pagination_stop_reason"] = summary.get("early_stop_reason") or "requested_stop"
+                break
+            if kind == "results" and self._listing_plan is not None:
+                # The plan walk already loaded every analysed listing page into
+                # this DOM, so one pass covers the whole planned scope.
+                summary["pages_scanned"] = int(self._listing_plan.get("pages_walked") or 1)
+                summary["pagination_stop_reason"] = self._listing_plan_stop_reason()
                 break
             if self.config.max_pages and page_number >= self.config.max_pages:
                 # This can legitimately fire on the last available batch when the

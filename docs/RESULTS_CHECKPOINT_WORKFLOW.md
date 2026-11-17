@@ -26,6 +26,50 @@ Events režim ne otvara stranice pojedinačnih borbi. Koristi potvrđene rezulta
 sa event kartice; podaci koji tamo nisu dostupni, uključujući pre-fight rekord,
 ostaju nepoznati. Time jedna event obrada ne pokreće dodatne zahteve po borbi.
 
+## Pre-scrape plan (preporučeni tok)
+
+Planer prvo prolazi samo FightCenter listing stranice (bez event stranica),
+za svaki event odlučuje da li run još ima posla i kaže do koje stranice treba ići:
+
+```bash
+zsh "/Users/lukamutic/Local Sites/mma-future/output/safe-scrape/plan-events.command"
+```
+
+Analiza ne menja `latest/` ni `state/`; plan se upisuje u
+`data/plans/latest_listing_plan.json`. Run sa planom radi analizu i scrape u
+istoj headed sesiji (jedan Cloudflare prolaz), ispiše plan i čeka ENTER
+(`q` + ENTER prekida bez otvaranja evenata):
+
+```bash
+zsh "/Users/lukamutic/Local Sites/mma-future/output/safe-scrape/run-events-planned.command"
+```
+
+Za manju turu zbog Cloudflare-a dodaj `--max-events 10`; sledeće pokretanje
+nastavlja od preostalog posla.
+
+Odluke po eventu:
+
+| Ishod | Kada |
+| --- | --- |
+| posao | nov event; ranije neuspelo otvaranje; nepotpun event čiji rezultati još mogu da stignu (`in_progress`, nedostaju rezultati/metod, neslaganje broja borbi); nedostaje keširana kartica |
+| rešen | kompletan; isključen (amaterski/ne-MMA, pamti se iz svih run-ova); nepotpun samo zbog strukturnih upozorenja (amaterske/ne-MMA borbe, pre-fight rekord koji event kartica nema) |
+| čeka | nepotpun event kome rok za proveru još nije prošao; prazna kartica u 24h cooldown-u |
+| zastareo | nepotpun duže od 30 dana posle 3 provere; navodi se u planu, ne otvara se |
+| preskočen | UFC (posebna provera roster-a); nepoznat event stariji od najstarijeg poznatog (`--plan-include-backfill` ga uključuje) |
+
+Planer ne staje kod prvog poznatog eventa. Granica (horizon) je najstariji od:
+danas minus 30 dana (`--plan-lookback-days`), poslednji poznati event, i
+najstariji otvoreni poznati event u tom prozoru. Analiza staje tek kada je prošla
+granicu i posle nje vidi 2 uzastopne stranice bez posla (`--plan-settle-pages`);
+posao nađen iza granice (event koji je Tapology naknadno dodao) resetuje brojač.
+Gornja granica je 25 stranica. Preporučeni `--max-pages` je poslednja stranica
+sa poslom + 1 rezervna stranica.
+
+Plan navodi i otvorene poznate evente koji se nisu pojavili u listingu
+(`open_targets_not_in_listing`, za `--force-recheck-event`), starije otvorene
+evente izvan prozora i zastarele evente. Ako Cloudflare prekine analizu, delimičan
+plan ostaje sačuvan sa `stop_reason: interrupted`.
+
 ## Šta se ponovo koristi
 
 Launcher automatski pronalazi results checkpoint-e u lokalnim run folderima iz
