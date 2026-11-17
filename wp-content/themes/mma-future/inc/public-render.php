@@ -188,6 +188,8 @@ function mmaf_render_rankings_table( $data, $breakdown = false, $prefix = 'mmaf'
 
 function mmaf_render_rankings( $full = false, $block_id = '' ) {
  $service = mmaf_public_service(); if ( ! $service ) { return; }
+ // The fan ranking replaces the official section only when it is asked for and the plugin has it switched on.
+ if ( $full && class_exists( '\MMAF\DataEngine\Services\Community\FanBoard' ) && \MMAF\DataEngine\Services\Community\FanBoard::requested() ) { \MMAF\DataEngine\Services\Community\FanBoard::render(); return; }
  $prefix = mmaf_instance_prefix( 'mmaf_rankings_' . sanitize_key( $block_id ?: wp_unique_id() ) );
  $options = array( 'board' => mmaf_site_field( $full ? 'default_board' : 'ranking_board' ) ?: ( $full ? 'male' : 'overall' ), 'per_page' => max( 1, (int) ( mmaf_site_field( $full ? 'rows_per_page' : 'top_five_count' ) ?: ( $full ? 25 : 5 ) ) ), 'include_breakdown' => $full && mmaf_site_field( 'show_score_breakdown' ) );
  if ( $full ) { foreach ( array( 'board', 'q', 'sort', 'order', 'top15', 'page' ) as $key ) { if ( isset( $_GET[$prefix . '_' . $key] ) && is_scalar( $_GET[$prefix . '_' . $key] ) ) { $options[$key] = sanitize_text_field( wp_unslash( $_GET[$prefix . '_' . $key] ) ); } } }

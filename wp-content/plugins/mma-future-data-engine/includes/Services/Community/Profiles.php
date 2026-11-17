@@ -133,6 +133,7 @@ final class Profiles {
 		$wpdb->delete( $tables['fan_lists'], array( 'user_id' => $user_id ) );
 		$wpdb->delete( $tables['profiles'], array( 'user_id' => $user_id ) );
 		unset( self::$by_user[ $user_id ] );
+		if ( $list_ids ) { FanRanking::changed(); }
 		return (bool) $row || (bool) $list_ids;
 	}
 

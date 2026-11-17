@@ -16,16 +16,23 @@ final class Privacy {
 
 	public static function export( string $email, int $page = 1 ): array {
 		$user = get_user_by( 'email', $email );
-		$row  = $user && Config::schema_ready() ? ( new Profiles() )->find_by_user( (int) $user->ID ) : null;
-		if ( ! $row ) { return array( 'data' => array(), 'done' => true ); }
-		$view = ( new Profiles() )->present( $row );
-		$data = array(
-			array( 'name' => 'Handle', 'value' => '@' . $view['handle'] ),
-			array( 'name' => 'Display name', 'value' => $view['display_name'] ),
-			array( 'name' => 'Bio', 'value' => $view['bio'] ),
-			array( 'name' => 'Social links', 'value' => implode( ', ', wp_list_pluck( $view['socials'], 'url' ) ) ),
-			array( 'name' => 'Photo', 'value' => $view['has_avatar'] ? $view['avatar_url'] : '' ),
-		);
+		if ( ! $user || ! Config::schema_ready() ) { return array( 'data' => array(), 'done' => true ); }
+		$row  = ( new Profiles() )->find_by_user( (int) $user->ID );
+		$data = array();
+		if ( $row ) {
+			$view = ( new Profiles() )->present( $row );
+			$data = array(
+				array( 'name' => 'Handle', 'value' => '@' . $view['handle'] ),
+				array( 'name' => 'Display name', 'value' => $view['display_name'] ),
+				array( 'name' => 'Bio', 'value' => $view['bio'] ),
+				array( 'name' => 'Social links', 'value' => implode( ', ', wp_list_pluck( $view['socials'], 'url' ) ) ),
+				array( 'name' => 'Photo', 'value' => $view['has_avatar'] ? $view['avatar_url'] : '' ),
+			);
+		}
+		// A reader can keep a Top 10 without ever creating a profile.
+		$picks = array_map( static fn( array $item ): string => $item['position'] . '. ' . ( '' !== $item['display_name'] ? $item['display_name'] : 'Fighter ' . $item['fighter_id'] ), ( new FanLists() )->items( (int) $user->ID ) );
+		if ( $picks ) { $data[] = array( 'name' => 'Top 10', 'value' => implode( ', ', $picks ) ); }
+		if ( ! $data ) { return array( 'data' => array(), 'done' => true ); }
 		return array( 'data' => array( array( 'group_id' => 'mmaf-community', 'group_label' => 'MMA Future community profile', 'item_id' => 'mmaf-community-' . $user->ID, 'data' => $data ) ), 'done' => true );
 	}
 

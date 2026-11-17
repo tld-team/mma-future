@@ -28,6 +28,7 @@
             if (r.status === 403 && data && data.code === 'rest_cookie_invalid_nonce' && !retried) return api(path, options, true);
             var error = new Error(data && data.message ? data.message : (r.status === 503 ? PAUSED : 'Something went wrong. Try again.'));
             error.fields = (data && data.data && data.data.fields) || {};
+            error.status = r.status;
             throw error;
           });
         });
@@ -167,6 +168,9 @@
     if (!owner) return;
     sessionInfo().then(function (s) { if (s.loggedIn && s.handle && s.handle === node.getAttribute('data-mmafc-public-profile')) owner.hidden = false; });
   }
+
+  // Shared with the Top 10 editor, which loads after this file.
+  window.mmafCommunityApi = { session: sessionInfo, api: api };
 
   function start() {
     var form = document.querySelector('[data-mmafc-profile]');

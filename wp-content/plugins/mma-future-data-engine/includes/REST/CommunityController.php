@@ -3,13 +3,16 @@ namespace MMAF\DataEngine\REST;
 
 use MMAF\DataEngine\Services\Community\Avatars;
 use MMAF\DataEngine\Services\Community\Config;
+use MMAF\DataEngine\Services\Community\Conflict;
+use MMAF\DataEngine\Services\Community\FanLists;
+use MMAF\DataEngine\Services\Community\FanRanking;
 use MMAF\DataEngine\Services\Community\Profiles;
 use MMAF\DataEngine\Services\Community\RateLimit;
 use MMAF\DataEngine\Services\Community\ValidationFailed;
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-/** The signed-in reader's own profile. Every route acts on the current user only; none takes a user id. */
+/** The signed-in reader's own profile and Top 10, plus the public fan scores. No route takes a user id. */
 final class CommunityController extends \WP_REST_Controller {
 	public function __construct() { $this->namespace = RestServiceProvider::NAMESPACE; $this->rest_base = 'community'; }
 
@@ -23,6 +26,11 @@ final class CommunityController extends \WP_REST_Controller {
 			array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $this, 'upload_avatar' ), 'permission_callback' => array( $this, 'profile_permission' ) ),
 			array( 'methods' => \WP_REST_Server::DELETABLE, 'callback' => array( $this, 'remove_avatar' ), 'permission_callback' => array( $this, 'profile_permission' ) ),
 		) );
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/top-10', array(
+			array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $this, 'top_10' ), 'permission_callback' => array( $this, 'fan_permission' ) ),
+			array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $this, 'save_top_10' ), 'permission_callback' => array( $this, 'fan_permission' ) ),
+		) );
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/fan-scores', array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $this, 'fan_scores' ), 'permission_callback' => static fn(): bool => Config::area_enabled( 'fan' ) ) );
 	}
 
 	public function profile_permission(): bool { return is_user_logged_in() && Config::area_enabled( 'profiles' ); }
@@ -68,6 +76,29 @@ final class CommunityController extends \WP_REST_Controller {
 		$profiles = new Profiles();
 		if ( $profiles->find_by_user( $user_id ) ) { Avatars::delete( $profiles->set_avatar( $user_id, '' ) ); }
 		return $this->profile();
+	}
+
+	public function fan_permission(): bool { return is_user_logged_in() && Config::area_enabled( 'fan' ); }
+
+	public function top_10(): \WP_REST_Response { return $this->response( ( new FanLists() )->editable( get_current_user_id() ) ); }
+
+	public function save_top_10( \WP_REST_Request $request ) {
+		$user_id = get_current_user_id();
+		if ( ! RateLimit::allow( 'top10', $user_id, 30, 10 * MINUTE_IN_SECONDS ) ) { return $this->slow_down(); }
+		try { ( new FanLists() )->save( $user_id, $request->get_param( 'fighter_ids' ), absint( $request->get_param( 'revision' ) ) ); }
+		catch ( ValidationFailed $e ) { return $this->invalid( $e ); }
+		catch ( Conflict $e ) { return new \WP_Error( 'mmafc_conflict', 'Your Top 10 was changed in another tab or on another device. Reload to see the latest version.', array( 'status' => 409 ) ); }
+		catch ( \Throwable $e ) { return new \WP_Error( 'mmafc_top10_failed', 'Your Top 10 couldn’t be saved. Try again.', array( 'status' => 500 ) ); }
+		return $this->top_10();
+	}
+
+	/** Public and the same for everyone, so it may be cached briefly; fighter pages call it once per view. */
+	public function fan_scores( \WP_REST_Request $request ): \WP_REST_Response {
+		$ids      = array_slice( array_values( array_unique( array_filter( array_map( 'absint', explode( ',', (string) $request->get_param( 'fighter_ids' ) ) ) ) ) ), 0, 100 );
+		$ranking  = new FanRanking();
+		$response = new \WP_REST_Response( array( 'lists' => $ranking->standings()['lists'], 'scores' => (object) $ranking->scores( $ids ) ), 200 );
+		$response->header( 'Cache-Control', 'public, max-age=60' );
+		return $response;
 	}
 
 	private function invalid( ValidationFailed $e ): \WP_Error {

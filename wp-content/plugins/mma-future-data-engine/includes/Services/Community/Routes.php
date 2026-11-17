@@ -6,14 +6,16 @@ use MMAF\DataEngine\Services\Notifications\Module as Accounts;
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /**
- * /account/profile/ (the reader's own form) and /fan/{handle}/ (the public profile).
+ * /account/profile/ and /account/top-10/ (the reader's own pages) and /fan/{handle}/ (the public profile).
  * Neither has a post behind it, so this class also owns their status, caching, title and robots.
  */
 final class Routes {
 	/** Bump when the rules below change, so they are flushed once on the next request. */
-	public const REWRITE_VERSION = '1';
+	public const REWRITE_VERSION = '2';
 
-	private const VIEWS = array( 'account-profile', 'profile' );
+	/** View => the area that must be on for it to exist. */
+	private const VIEWS = array( 'account-profile' => 'profiles', 'account-top-10' => 'fan', 'profile' => 'profiles' );
+	private const TEMPLATES = array( 'account-profile' => 'community-account.php', 'account-top-10' => 'community-top10.php', 'profile' => 'community-profile.php' );
 
 	private static bool $missing = false;
 	/** @var array<string,mixed>|null|false False until looked up. */
@@ -25,6 +27,7 @@ final class Routes {
 	 */
 	public static function rewrites(): void {
 		add_rewrite_rule( '^account/profile/?$', 'index.php?mmaf_community_page=account-profile', 'top' );
+		add_rewrite_rule( '^account/top-10/?$', 'index.php?mmaf_community_page=account-top-10', 'top' );
 		add_rewrite_rule( '^fan/([A-Za-z0-9_]{' . Handles::MIN . ',' . Handles::MAX . '})/?$', 'index.php?mmaf_community_page=profile&mmaf_community_handle=$matches[1]', 'top' );
 	}
 
@@ -42,7 +45,7 @@ final class Routes {
 
 	public static function view(): string {
 		$view = (string) get_query_var( 'mmaf_community_page' );
-		return in_array( $view, self::VIEWS, true ) ? $view : '';
+		return isset( self::VIEWS[ $view ] ) ? $view : '';
 	}
 
 	/** The profile behind /fan/{handle}/ when it may be shown, otherwise null. */
@@ -58,9 +61,10 @@ final class Routes {
 		$view = self::view();
 		if ( '' === $view ) { return; }
 		self::no_cache();
-		if ( ! Config::area_enabled( 'profiles' ) ) { self::not_found(); return; }
-		if ( 'account-profile' === $view ) {
-			if ( ! is_user_logged_in() ) { wp_safe_redirect( Accounts::login_url( array( 'return_to' => home_url( '/account/profile/' ) ) ) ); exit; }
+		if ( ! Config::area_enabled( self::VIEWS[ $view ] ) ) { self::not_found(); return; }
+		if ( 'profile' !== $view ) {
+			$own = 'account-top-10' === $view ? '/account/top-10/' : '/account/profile/';
+			if ( ! is_user_logged_in() ) { wp_safe_redirect( Accounts::login_url( array( 'return_to' => home_url( $own ) ) ) ); exit; }
 			return;
 		}
 		$row = self::public_profile();
@@ -72,7 +76,7 @@ final class Routes {
 		$view = self::view();
 		if ( '' === $view ) { return $template; }
 		if ( self::$missing ) { return get_404_template() ?: $template; }
-		return MMAF_PLUGIN_DIR . 'templates/' . ( 'profile' === $view ? 'community-profile.php' : 'community-account.php' );
+		return MMAF_PLUGIN_DIR . 'templates/' . self::TEMPLATES[ $view ];
 	}
 
 	public static function title( array $parts ): array {
@@ -96,6 +100,7 @@ final class Routes {
 		$view = self::view();
 		if ( '' === $view || self::$missing ) { return ''; }
 		if ( 'account-profile' === $view ) { return 'Your profile'; }
+		if ( 'account-top-10' === $view ) { return 'My Top 10'; }
 		$row = self::public_profile();
 		if ( ! $row ) { return ''; }
 		$name = '' !== (string) $row['display_name'] ? (string) $row['display_name'] : (string) $row['handle'];
