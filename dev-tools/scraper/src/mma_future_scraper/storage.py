@@ -249,6 +249,8 @@ class DataStore:
             counts=manifest_counts,
         )
         stop_reason = manifest_counts.get("pagination_stop_reason")
+        # "listing_plan_settled" is complete scope: the pre-scrape plan walked
+        # until every further listed event was settled.
         incomplete_scope_reasons = {
             "max_event_fetches", "max_events", "max_pages", "requested_stop",
             "access_degraded", "load_more_timeout",
@@ -1155,6 +1157,10 @@ def _manifest_counts(summary: dict[str, Any], counts: dict[str, int], changes: d
         "events_skipped_known_cache": int(summary.get("events_skipped_known_cache") or 0),
         "events_rechecked_lookback": int(summary.get("events_rechecked_lookback") or 0),
         "events_rechecked_incomplete": int(summary.get("events_rechecked_incomplete") or 0),
+        "events_skipped_settled": int(summary.get("events_skipped_settled") or 0),
+        "events_skipped_settled_by_reason": dict(summary.get("events_skipped_settled_by_reason") or {}),
+        "events_planned_work": int(summary.get("events_planned_work") or 0),
+        "listing_plan": summary.get("listing_plan"),
         "early_stop_triggered": bool(summary.get("early_stop_triggered") or False),
         "early_stop_reason": summary.get("early_stop_reason"),
         "pages_scanned": int(summary.get("pages_scanned") or 0),

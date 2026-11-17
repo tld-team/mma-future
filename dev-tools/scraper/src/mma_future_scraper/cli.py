@@ -339,6 +339,42 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    plan = run.add_argument_group("pre-scrape listing plan (results only)")
+    plan.add_argument(
+        "--plan-listing",
+        action="store_true",
+        help=(
+            "Before fetching events, walk listing pages only, decide how deep the run must go and which events "
+            "still need work, print the plan, then fetch only that work in the same browser session. "
+            "Implies --skip-settled-events."
+        ),
+    )
+    plan.add_argument(
+        "--plan-only",
+        action="store_true",
+        help="Walk and analyse the listing, write data/plans/latest_listing_plan.json, and stop. No state is changed.",
+    )
+    plan.add_argument(
+        "--skip-settled-events",
+        action="store_true",
+        help=(
+            "Fetch only listed events that can still change: new, failed, incomplete-and-fillable. Skips complete, "
+            "excluded and structurally incomplete events (e.g. amateur bouts or event-card-only pre-fight records)."
+        ),
+    )
+    plan.add_argument("--plan-max-pages", type=positive_int, default=None,
+                      help="Hard cap on analysed listing pages (default: --max-pages, else 25).")
+    plan.add_argument("--plan-settle-pages", type=positive_int, default=2,
+                      help="Consecutive listing pages without work, past the date horizon, before the plan stops.")
+    plan.add_argument("--plan-lookback-days", type=non_negative_int, default=30,
+                      help="Known incomplete events newer than this many days pull the date horizon down.")
+    plan.add_argument("--plan-stale-after-days", type=non_negative_int, default=30,
+                      help="Stop rechecking incomplete events older than this after 3 rechecks (0 disables).")
+    plan.add_argument("--plan-include-backfill", action="store_true",
+                      help="Treat unknown events older than the oldest known event as work (default: skip them).")
+    plan.add_argument("--no-plan-confirm", dest="plan_confirm", action="store_false", default=True,
+                      help="Do not wait for ENTER after printing the plan.")
+
     auth = subparsers.add_parser(
         "tapology-auth",
         help="Open a headed persistent Tapology browser profile for manual local session preparation",
@@ -992,6 +1028,18 @@ def _dispatch(args) -> int:
                 flush=True,
             )
             return 2
+        planning = args.plan_listing or args.plan_only or args.skip_settled_events
+        if planning and (not args.results_only or args.fresh_results or args.force_full_scan or args.mode == "backfill" and not args.skip_known_complete):
+            print(
+                "error: --plan-listing/--plan-only/--skip-settled-events require --results-only and cannot be "
+                "combined with --fresh-results, --force-full-scan or a full backfill",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 2
+        if args.plan_listing and args.plan_only:
+            print("error: choose either --plan-listing or --plan-only", file=sys.stderr, flush=True)
+            return 2
         wait_seconds = args.wait_for_manual_challenge
         pause_on_manual_challenge = bool(args.pause_on_manual_challenge)
         if wait_seconds and not args.headed:
@@ -1102,8 +1150,19 @@ def _dispatch(args) -> int:
                 browser_profile_dir=browser_profile_dir,
                 operator_navigates_to_fightcenter=operator_navigates_to_fightcenter,
                 use_current_page=bool(args.use_current_page),
+                plan_listing=bool(args.plan_listing),
+                skip_settled_events=bool(args.skip_settled_events or args.plan_listing or args.plan_only),
+                plan_confirm=bool(args.plan_confirm),
+                plan_max_pages=args.plan_max_pages,
+                plan_settle_pages=args.plan_settle_pages,
+                plan_lookback_days=args.plan_lookback_days,
+                plan_stale_after_days=args.plan_stale_after_days,
+                plan_include_backfill=bool(args.plan_include_backfill),
             )
         )
+        if args.plan_only:
+            plan = scraper.plan_listing()
+            return 0 if plan.get("complete") else 2
         summary = scraper.run(results=not args.upcoming_only, upcoming=not args.results_only)
         return 0 if summary.get("successful") else 2
 
