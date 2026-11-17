@@ -1,6 +1,8 @@
 <?php
 namespace MMAF\DataEngine\Services\RegularImport;
 final class Mutex {
+    /** Seconds a human POST waits for the unit that is currently running. */
+    private const INTERACTIVE_WAIT = 15.0;
     private static $handle = null;
     public static function acquire(): void {
         if(self::$handle){return;}
@@ -29,12 +31,31 @@ final class Mutex {
     private static function lock($handle): bool {
         // System workers yield immediately. A human POST may wait briefly for
         // the current atomic unit, without weakening the shared write lock.
+        // While it waits it holds a shared "intent" lock; system workers check
+        // that first and step aside. Otherwise a worker with a backlog re-takes
+        // the write lock within milliseconds of releasing it and a polling
+        // save never gets a turn.
         $interactive=($_SERVER['REQUEST_METHOD']??'')==='POST' && !(defined('WP_CLI') && WP_CLI);
-        $deadline=microtime(true)+($interactive?5.0:0.0);
-        do {
-            if(flock($handle,LOCK_EX|LOCK_NB)){return true;}
-            if(microtime(true)>=$deadline){return false;}
-            usleep(25000);
-        } while(true);
+        $intent=@fopen(self::path().'.interactive','c');
+        if(!$interactive){
+            if($intent){
+                $free=flock($intent,LOCK_EX|LOCK_NB);
+                if($free){flock($intent,LOCK_UN);}
+                fclose($intent);
+                if(!$free){return false;}
+            }
+            return flock($handle,LOCK_EX|LOCK_NB);
+        }
+        if($intent){flock($intent,LOCK_SH);}
+        $deadline=microtime(true)+self::INTERACTIVE_WAIT;
+        try {
+            do {
+                if(flock($handle,LOCK_EX|LOCK_NB)){return true;}
+                if(microtime(true)>=$deadline){return false;}
+                usleep(5000);
+            } while(true);
+        } finally {
+            if($intent){flock($intent,LOCK_UN);fclose($intent);}
+        }
     }
 }
