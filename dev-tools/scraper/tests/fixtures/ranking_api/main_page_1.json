@@ -1,0 +1,61 @@
+{
+ "active_ranking_run_id": 41,
+ "view": "main",
+ "board": "overall",
+ "page": 1,
+ "per_page": 2,
+ "total": 4,
+ "total_pages": 2,
+ "items": [
+  {
+   "board": "overall",
+   "rank": 1,
+   "fighter_id": 101,
+   "display_name": "Fresh Main",
+   "scoring_assessment": {
+    "contract_version": 2,
+    "status": "main",
+    "verified_at": "2026-11-06T09:00:00Z",
+    "reasons": []
+   },
+   "career_record": {
+    "status": "accepted",
+    "record": {
+     "wins": 8,
+     "losses": 1,
+     "draws": 0,
+     "nc": 0,
+     "pro_fights_count": 9
+    },
+    "source_type": "tapology",
+    "source_url": "https://www.tapology.com/fightcenter/fighters/1001-fresh-main",
+    "verified_at": "2026-11-06T09:00:00Z"
+   }
+  },
+  {
+   "board": "overall",
+   "rank": 2,
+   "fighter_id": 102,
+   "display_name": "Ageing Main",
+   "scoring_assessment": {
+    "contract_version": 2,
+    "status": "main",
+    "verified_at": "2026-10-20T09:00:00Z",
+    "reasons": []
+   },
+   "career_record": {
+    "status": "accepted",
+    "record": {
+     "wins": 8,
+     "losses": 1,
+     "draws": 0,
+     "nc": 0,
+     "pro_fights_count": 9
+    },
+    "source_type": "tapology",
+    "source_url": "https://www.tapology.com/fightcenter/fighters/1002-ageing-main",
+    "verified_at": "2026-10-20T09:00:00Z"
+   }
+  }
+ ]
+}

@@ -13,6 +13,7 @@ from .fighter_profile_queue import (
 )
 from .fighter_profile_report import write_profile_enrichment_report
 from .fighter_profiles import FighterProfileEnricher
+from .ranking_refresh_queue import DEFAULT_LIMIT, DEFAULT_MIN_AGE_DAYS, build_ranking_refresh_queue
 from .recovery_profile_queue import build_recovery_profile_queue
 from .fighters import build_fighter_index_from_latest, format_processor_summary
 from .logging_utils import log
@@ -478,6 +479,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exact numeric identity already confirmed for profile fetch; repeat as needed",
     )
 
+    ranking_refresh = subparsers.add_parser(
+        "build-ranking-refresh-queue",
+        help="Queue ranked fighters whose career evidence is ageing, read from the site's public rankings API",
+    )
+    ranking_refresh.add_argument("--site-url", required=True, help="WordPress site address, e.g. https://example.com")
+    ranking_refresh.add_argument(
+        "--min-age-days", type=non_negative_float, default=DEFAULT_MIN_AGE_DAYS,
+        help=f"Select fighters whose verified_at is older than this many days or missing (default {DEFAULT_MIN_AGE_DAYS})",
+    )
+    ranking_refresh.add_argument(
+        "--limit", type=positive_int, default=DEFAULT_LIMIT,
+        help=f"Maximum queued fighters, oldest evidence first (default {DEFAULT_LIMIT})",
+    )
+    ranking_refresh.add_argument("--output", type=Path, required=True, help="mmaf_source_enrichment_v1 output")
+    ranking_refresh.add_argument(
+        "--tracking-decisions", type=Path, default=None,
+        help="Optional private JSON exported by `wp mmaf fighter tracking-export`; skips opponent_only and paused fighters.",
+    )
     enrich = subparsers.add_parser(
         "enrich-fighter-profiles",
         help="Prototype optional Tapology fighter profile enrichment from existing latest results",
@@ -949,6 +968,17 @@ def _dispatch(args) -> int:
             raise ValueError("Every --confirmed-source-id must also be selected with --source-id")
         document = build_recovery_profile_queue(args.results, args.output, only_source_ids=requested, confirmed_source_ids=confirmed)
         print(json.dumps({"candidate_count": document["candidate_count"], "fetchable_count": document["fetchable_count"], "coverage_review_count": document["coverage_review_count"], "identity_review_count": document["identity_review_count"], "output": str(args.output)}, ensure_ascii=False))
+        return 0
+
+    if args.command == "build-ranking-refresh-queue":
+        document = build_ranking_refresh_queue(
+            site_url=args.site_url,
+            output_path=args.output,
+            min_age_days=args.min_age_days,
+            limit=args.limit,
+            tracking_decisions_path=args.tracking_decisions,
+        )
+        print(json.dumps({**document["summary"], "active_ranking_run_id": document["source"]["active_ranking_run_id"], "output": str(args.output)}, ensure_ascii=False, indent=2))
         return 0
 
     if args.command == "run":

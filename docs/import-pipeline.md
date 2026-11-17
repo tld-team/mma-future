@@ -195,6 +195,39 @@ The synthetic recovery cohort demonstrates preserved observations and complete
 evidence through the actual Python-to-PHP import, but is not a claim that the
 legacy careers have been repaired.
 
+## Refresh ageing ranking evidence daily
+
+The formula keeps a fighter in the main ranking only while their whole-career
+profile evidence is at most 30 days old at calculation time
+(`FormulaV18::MAX_VERIFICATION_AGE_DAYS`); otherwise they move to the
+provisional list with `career_verification_stale`. The strict daily queue only
+follows new or changed events, so a ranked fighter who does not fight for a
+month would never be re-scraped. Before preparing the daily fighter queue, build
+a refresh queue from the site's public rankings API and pass it to
+`prepare_fighters.py`:
+
+```sh
+python -m mma_future_scraper.cli build-ranking-refresh-queue \
+  --site-url https://mma-future-dev.tldteam.com \
+  --min-age-days 20 --limit 60 \
+  --output "$MMAF_SCRAPER_DATA_DIR/latest/ranking_refresh_queue.json"
+python output/safe-scrape/prepare_fighters.py \
+  --enrichment-queue "$MMAF_SCRAPER_DATA_DIR/latest/ranking_refresh_queue.json"
+```
+
+The command only sends GET requests to
+`/wp-json/mma-future/v1/rankings` (main and `view=provisional`, 50 per page).
+It selects fighters whose `scoring_assessment.verified_at` is older than
+`--min-age-days` or missing, oldest first, up to `--limit`, and writes an
+`mmaf_source_enrichment_v1` document with `refresh_source_evidence` /
+`professional_mma_career` items. Fighters without a numeric Tapology URL are
+skipped and listed under `invalid_source_urls`. `--tracking-decisions` applies
+the same `opponent_only`/`paused` policy as the regular queue. A failed page,
+a changed ranking run or a short page aborts without writing a partial queue.
+With daily runs, the 20-day threshold and 60-per-day limit leave ten days, up
+to 600 profiles, to refresh fighters verified on the same day before they reach
+the 30-day limit; raise `--limit` for a larger cohort.
+
 ## Import on staging
 
 1. Open **MMA Future → Import → Setup**. Check schema, extensions, private
