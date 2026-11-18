@@ -195,7 +195,9 @@ final class Comments {
 		$comment = get_comment( $comment_id );
 		if ( ! $comment || '1' !== (string) $comment->comment_approved || ! self::author( $user_id ) ) { throw new ValidationFailed( array( 'report' => 'That comment can’t be reported.' ) ); }
 		if ( (int) $comment->user_id === $user_id ) { throw new ValidationFailed( array( 'report' => 'You can’t report your own comment.' ) ); }
-		$reporters = array_map( 'intval', (array) get_comment_meta( $comment_id, '_mmafc_reports', true ) );
+		// An absent meta value reads as '', which (array) would turn into one phantom report.
+		$stored    = get_comment_meta( $comment_id, '_mmafc_reports', true );
+		$reporters = array_values( array_filter( array_map( 'intval', is_array( $stored ) ? $stored : array() ) ) );
 		if ( ! in_array( $user_id, $reporters, true ) ) { $reporters[] = $user_id; update_comment_meta( $comment_id, '_mmafc_reports', $reporters ); }
 		if ( count( $reporters ) >= self::HOLD_REPORTS ) { wp_set_comment_status( $comment_id, 'hold' ); return true; }
 		return false;
