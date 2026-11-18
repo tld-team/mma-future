@@ -13,6 +13,7 @@ const PAGE=`<div data-mmafc-editor data-size="10">
   <p data-mmafc-total></p><ol data-mmafc-picks></ol><button type="button" data-mmafc-prefill hidden>Start from the official top 10</button>
   <section data-mmafc-field-zone><input type="search" data-mmafc-field-search><ul data-mmafc-field></ul><p data-mmafc-field-status></p><button type="button" data-mmafc-field-more hidden>Show more fighters</button></section>
   <p data-mmafc-live></p>
+  <div data-mmafc-share hidden><p data-mmafc-share-text></p><a data-mmafc-share-link href=""></a><button type="button" data-mmafc-share-copy hidden>Copy link</button><p data-mmafc-share-status></p></div>
   <p data-mmafc-save-status></p><button type="button" data-mmafc-reset hidden>Reset</button><button type="button" data-mmafc-save>Save Top 10</button>
 </div>`;
 const POINTS=[25,18,15,12,10,8,6,4,2,1];
@@ -24,7 +25,7 @@ const field=(page=1,count=15,pages=1)=>reply(200,{items:Array.from({length:count
 
 function setup(handler,before){
   const dom=new JSDOM(PAGE,{url:'https://site.test/account/top-10/',runScripts:'outside-only',pretendToBeVisual:true});const win=dom.window;const calls=[];
-  win.mmafCommunity={ajaxUrl:'https://site.test/wp-admin/admin-ajax.php',restUrl:'https://site.test/wp-json/mma-future/v1/community/',rankingsUrl:'https://site.test/wp-json/mma-future/v1/rankings'};
+  win.mmafCommunity={ajaxUrl:'https://site.test/wp-admin/admin-ajax.php',restUrl:'https://site.test/wp-json/mma-future/v1/community/',rankingsUrl:'https://site.test/wp-json/mma-future/v1/rankings',profileBase:'https://site.test/fan/',profileFormUrl:'https://site.test/account/profile/'};
   win.fetch=async(url,options={})=>{calls.push({url:String(url),options});return handler(String(url),options,calls);};
   if(before)before(win);
   scripts.forEach(script=>win.eval(script));
@@ -106,6 +107,8 @@ test('saving sends the order with the revision it started from',async()=>{
     t.doc.querySelector('[data-mmafc-save]').click();await flush();
     const save=t.calls.find(c=>c.options.method==='POST');assert.deepEqual(JSON.parse(save.options.body),{fighter_ids:[1,3,7],revision:4});assert.equal(save.options.headers['X-WP-Nonce'],'nonce-1');
     assert.equal(t.status(),'Top 10 saved');assert.equal(t.win.localStorage.getItem('mmafc-top10:reader-key'),null);assert.equal(t.doc.querySelector('[data-mmafc-reset]').hidden,true);
+    const share=t.doc.querySelector('[data-mmafc-share]');assert.equal(share.hidden,false,'a saved list offers the profile it shows on');
+    assert.equal(t.doc.querySelector('[data-mmafc-share-link]').getAttribute('href'),'https://site.test/fan/nikola/');assert.match(t.doc.querySelector('[data-mmafc-share-text]').textContent,/https:\/\/site\.test\/fan\/nikola\/$/);
     t.click(7,'up');t.doc.querySelector('[data-mmafc-save]').click();await flush();
     assert.equal(JSON.parse(t.calls.filter(c=>c.options.method==='POST')[1].options.body).revision,5,'the next save starts from the new revision');
   }finally{t.dom.window.close();}
@@ -146,6 +149,21 @@ test('an empty list can start from the official top 10, and a pick that no longe
     const row=signed.doc.querySelector('[data-id="2"]');assert.equal(row.querySelector('.mmafc-row__note').textContent,'Signed with the UFC');assert.equal(row.querySelector('.mmafc-row__points'),null);assert.ok(row.classList.contains('mmafc-row--muted'));
     assert.equal(signed.doc.querySelector('[data-mmafc-total]').textContent,'2 of 10 picked');assert.equal(signed.doc.querySelector('[data-mmafc-editor-note]').hidden,false);
   }finally{empty.dom.window.close();signed.dom.window.close();}
+});
+
+test('a reader without a profile is sent to set one up after saving, since there is no page to share yet',async()=>{
+  const t=setup((url,options,calls)=>{
+    if(url.includes('admin-ajax'))return reply(200,{success:true,data:{loggedIn:true,nonce:'nonce-1',handle:null,key:'reader-key'}});
+    if(url.endsWith('/top-10')&&options.method==='POST')return reply(200,list([1],1));
+    return routes(list([],0))(url,options,calls);
+  });
+  try{
+    await flush();
+    t.click(1,'add');t.doc.querySelector('[data-mmafc-save]').click();await flush();
+    assert.equal(t.doc.querySelector('[data-mmafc-share]').hidden,false);
+    const link=t.doc.querySelector('[data-mmafc-share-link]');assert.equal(link.getAttribute('href'),'https://site.test/account/profile/');assert.equal(link.textContent,'Set up profile');
+    assert.equal(t.doc.querySelector('[data-mmafc-share-copy]').hidden,true);
+  }finally{t.dom.window.close();}
 });
 
 test('a new account is told when its picks start to count, and an older one sees no note',async()=>{

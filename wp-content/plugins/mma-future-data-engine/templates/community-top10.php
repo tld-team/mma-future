@@ -45,6 +45,16 @@ get_header();
 
 			<p class="mmafc-visually-hidden" data-mmafc-live aria-live="assertive"></p>
 
+			<div class="mmafc-share" data-mmafc-share hidden>
+				<p class="mmafc-share__title" data-mmafc-share-title>Your Top 10 is saved.</p>
+				<p class="mmafc-share__text" data-mmafc-share-text></p>
+				<div class="mmafc-share__actions">
+					<a class="mmafc-button mmafc-button--secondary" data-mmafc-share-link href="">View your profile</a>
+					<button type="button" class="mmafc-button mmafc-button--quiet" data-mmafc-share-copy hidden>Copy link</button>
+				</div>
+				<p class="mmafc-status" data-mmafc-share-status role="status" aria-live="polite"></p>
+			</div>
+
 			<div class="mmafc-savebar">
 				<p class="mmafc-savebar__status" data-mmafc-save-status role="status" aria-live="polite"></p>
 				<button type="button" class="mmafc-button mmafc-button--quiet" data-mmafc-reset hidden>Reset</button>
