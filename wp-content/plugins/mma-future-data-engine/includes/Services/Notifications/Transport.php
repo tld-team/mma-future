@@ -50,6 +50,30 @@ final class SenderTransport implements Transport {
 	}
 }
 
+/**
+ * Account email: confirm an address, reset a password. The outcome of each send is kept (the last 30, with the address
+ * masked) so an administrator can see why a reader did not get a message instead of guessing.
+ */
 final class ServiceMailer {
-	public static function send( string $to, string $subject, string $html, string $text ): array { return TransportFactory::make()->send( $to, $subject, $html, $text ); }
+	private const LOG = 'mmaf_service_mail_log';
+
+	public static function send( string $to, string $subject, string $html, string $text, string $kind = 'service' ): array {
+		$result = TransportFactory::make()->send( $to, $subject, $html, $text );
+		$log    = self::log();
+		$log[]  = array( 'at' => gmdate( 'Y-m-d H:i:s' ), 'kind' => sanitize_key( $kind ), 'to' => self::mask( $to ), 'status' => (string) ( $result['status'] ?? 'unknown' ), 'error' => (string) ( $result['error'] ?? '' ), 'http_code' => (int) ( $result['http_code'] ?? 0 ) );
+		update_option( self::LOG, array_slice( $log, -30 ), false );
+		if ( 'accepted' !== ( $result['status'] ?? '' ) ) { error_log( 'MMAF account email (' . sanitize_key( $kind ) . ') not accepted: ' . ( $result['error'] ?? 'unknown' ) ); }
+		return $result;
+	}
+
+	/** @return array<int,array{at:string,kind:string,to:string,status:string,error:string,http_code:int}> Oldest first. */
+	public static function log(): array {
+		return array_values( array_filter( (array) get_option( self::LOG, array() ), 'is_array' ) );
+	}
+
+	/** j***@example.com: enough to recognise a test address, not enough to list readers. */
+	public static function mask( string $email ): string {
+		$parts = explode( '@', $email, 2 );
+		return 2 === count( $parts ) && '' !== $parts[0] ? substr( $parts[0], 0, 1 ) . '***@' . $parts[1] : '***';
+	}
 }

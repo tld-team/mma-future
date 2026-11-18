@@ -21,9 +21,31 @@ define('MMAF_NOTIFICATION_STAGING_ALLOWLIST', 'qa-gmail@example.com,qa-outlook@e
 
 Local and development environments always use the fake mailbox stored in the `mmaf_notification_fake_mailbox` option. They never call Sender directly. Sender domain verification, SPF, DKIM and the visible From address must be complete before production is enabled.
 
-Install and configure Nextend Social Login Free separately. Create distinct Google OAuth clients or authorized callback URLs for staging and production, request only identity/email scopes, and complete Google brand verification. The custom login page displays the Google button only when Nextend's shortcode is available. Email-link login remains available without Nextend.
+Install and configure Nextend Social Login Free separately. Create distinct Google OAuth clients or authorized callback URLs for staging and production, request only identity/email scopes, and complete Google brand verification. The custom login page displays the Google button only when Nextend's shortcode is available. Registration and sign-in with email and password work without Nextend.
 
-While the feature is enabled, the module allows new Google registrations even when WordPress **Anyone can register** is off, so keep that setting off: `wp-login.php` registration stays closed. New Google users get the `subscriber` role. Google sign-in and email-based account linking work only for reader accounts (subscriber without `edit_posts`); a reader who first signed in by email link is linked to the Google account with the same verified address. Staff accounts are never linked and are refused with a message. Nextend errors return to `/login/`, keeping the pending follow.
+While the feature is enabled, the module allows new Google registrations even when WordPress **Anyone can register** is off, so keep that setting off: `wp-login.php` registration stays closed. New Google users get the `subscriber` role. Google sign-in and email-based account linking work only for reader accounts (subscriber without `edit_posts`); a reader who registered with email and password is linked to the Google account with the same address, which was confirmed before the account was created. Staff accounts are never linked and are refused with a message. Nextend errors return to `/login/`, keeping the pending follow.
+
+## Reader accounts
+
+Readers sign in at `/login/` and register at `/register/` with Google or with **email and password**. The earlier sign-in by emailed link is gone; a reader who only ever used it sets a password through "Forgot password?".
+
+- **Registration is confirmed before the account exists.** The form stores the password as a hash against a one-time link (24 hours) and emails that link. Opening it shows a button; pressing the button creates the reader, already verified, and signs them in. So there is never an account whose mailbox nobody has proved they own, and a Google sign-in can safely be linked to an existing account with the same address.
+- **Answers do not reveal who has an account.** Registering an address that already has one answers the same way; the owner gets an email saying so instead. "Forgot password?" answers the same way for any address.
+- **Password reset**: `/login/?forgot=1` emails a link (one hour, single use) to `/notification-action/?purpose=password_reset…`. A password that is refused leaves the link usable. A successful reset signs the reader in and ends every other session. A signed-in reader can ask for the same link from the account page, which is also how a Google account gets a password.
+- **Passwords**: 8 to 128 characters, not the address and not one of a few trivial passwords. They are never trimmed or sanitised.
+- **Limits** (per 15 minutes): 3 emails per address and 12 per network for registration and for reset; 5 failed sign-ins per address and 30 per network.
+- **Staff** are refused on these forms and keep the WordPress login.
+
+REST, for signed-out visitors: `POST notifications/auth/register`, `auth/login`, `auth/password/forgot`. For the signed-in reader: `POST notifications/password-link`. The two confirmation forms post to `admin-post.php` as `mmafc_register_confirm` and `mmafc_password_reset`. They are deliberately not named `mmaf_…`: admin POSTs with that prefix pass through the canonical write guard and are refused while an import or calculation runs.
+
+### When an account email does not arrive
+
+**MMA Future → Notifications → Account emails** lists the last 30 account emails (confirmation, "already registered", password link) with the masked recipient and what the transport answered.
+
+- `staging_recipient_blocked`: on **staging**, email goes only to the addresses in `MMAF_NOTIFICATION_STAGING_ALLOWLIST`; every other recipient is refused before anything is sent. This is by design and is the usual reason a tester gets nothing. Add the address to the constant in `wp-config.php`. The form also says so on staging, naming the address.
+- `wp_mail_failed`: no `MMAF_SENDER_API_TOKEN` is set, so the host's mailer was used and refused the message.
+- A Sender error text or `provider_4xx`: the API refused it, typically an unverified sending domain or From address.
+- Nothing listed: the request was stopped before sending (a staff address, or the 15-minute limit).
 
 ## Release sequence
 

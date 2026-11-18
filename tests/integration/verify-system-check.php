@@ -21,7 +21,7 @@ try{
                 if(!$enabled || in_array($method,['GET','HEAD','OPTIONS'],true)){continue;}
                 $request=new WP_REST_Request($method,$route);$request->set_header('X-WP-Nonce',wp_create_nonce('wp_rest'));
                 $result=call_user_func($handler['permission_callback'],$request);
-                $is_user_notification_write=str_starts_with($route,'/mma-future/v1/notifications/') && $route!=='/mma-future/v1/notifications/auth/email';
+                $is_user_notification_write=str_starts_with($route,'/mma-future/v1/notifications/') && !str_starts_with($route,'/mma-future/v1/notifications/auth/'); // auth/* is for signed-out visitors only.
                 if($is_user_notification_write){
                     diagnostic_check($result===true,'subscriber can manage only their own notification data via '.$method.' '.$route);++$user_writes;continue;
                 }

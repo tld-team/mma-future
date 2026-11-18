@@ -2,6 +2,7 @@
 namespace MMAF\DataEngine\REST;
 
 use MMAF\DataEngine\Services\Notifications\Auth;
+use MMAF\DataEngine\Services\Notifications\AuthError;
 use MMAF\DataEngine\Services\Notifications\Config;
 use MMAF\DataEngine\Services\Notifications\Module;
 use MMAF\DataEngine\Services\Notifications\Reminders;
@@ -28,7 +29,11 @@ final class NotificationsController extends \WP_REST_Controller {
 			array( 'methods'=>\WP_REST_Server::READABLE, 'callback'=>array($this,'settings'), 'permission_callback'=>array($this,'private_permission') ),
 			array( 'methods'=>\WP_REST_Server::EDITABLE, 'callback'=>array($this,'update_settings'), 'permission_callback'=>array($this,'private_permission') ),
 		) );
-		register_rest_route( $this->namespace, '/' . $this->rest_base . '/auth/email', array( 'methods'=>\WP_REST_Server::CREATABLE, 'callback'=>array($this,'request_login'), 'permission_callback'=>array($this,'public_auth_permission') ) );
+		// Everything under auth/ is for signed-out visitors. password-link is the signed-in reader's own request.
+		foreach ( array( 'auth/register' => 'register', 'auth/login' => 'login', 'auth/password/forgot' => 'forgot_password' ) as $route => $callback ) {
+			register_rest_route( $this->namespace, '/' . $this->rest_base . '/' . $route, array( 'methods'=>\WP_REST_Server::CREATABLE, 'callback'=>array($this,$callback), 'permission_callback'=>array($this,'public_auth_permission') ) );
+		}
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/password-link', array( 'methods'=>\WP_REST_Server::CREATABLE, 'callback'=>array($this,'password_link'), 'permission_callback'=>array($this,'private_permission') ) );
 	}
 
 	public function private_permission(): bool { return is_user_logged_in() && Config::feature_enabled(); }
@@ -45,11 +50,27 @@ final class NotificationsController extends \WP_REST_Controller {
 		$id=get_current_user_id();$zone=sanitize_text_field((string)$r->get_param('timezone'));try{new \DateTimeZone($zone);}catch(\Throwable $e){return new \WP_Error('invalid_timezone','Use a valid IANA timezone.',array('status'=>400));}
 		$enabled=(bool)$r->get_param('enabled');update_user_meta($id,'_mmaf_notification_timezone',$zone);update_user_meta($id,'_mmaf_notifications_enabled',$enabled?'1':'0');if($enabled){delete_user_meta($id,'_mmaf_notifications_unsubscribed_at');}else{Module::cancel_queued($id);}return $this->settings();
 	}
-	public function request_login( \WP_REST_Request $r ): \WP_REST_Response {
-		if(!Config::feature_enabled()){return $this->response(array('message'=>'Sign-in by email is not available yet.'));}
-		$email=(string)$r->get_param('email');$intent=array('fighter_id'=>absint($r->get_param('fighter_id')),'return_to'=>(string)$r->get_param('return_to'));$ip=(string)($_SERVER['REMOTE_ADDR']??'');
-		(new Auth())->request_link($email,$intent,$ip);return $this->response(array('message'=>'If the address can use this sign-in method, a secure link is on its way.'));
+	public function register( \WP_REST_Request $r ) {
+		return $this->auth( fn() => ( new Auth() )->request_registration( $this->text( $r, 'email' ), $this->text( $r, 'password' ), $this->intent( $r ), $this->ip() ) );
 	}
+	public function login( \WP_REST_Request $r ) {
+		return $this->auth( function() use ( $r ) { $done = ( new Auth() )->sign_in( $this->text( $r, 'email' ), $this->text( $r, 'password' ), $this->intent( $r ), $this->ip() ); return array( 'redirect' => $done['return_to'] ); } );
+	}
+	public function forgot_password( \WP_REST_Request $r ) {
+		return $this->auth( fn() => ( new Auth() )->request_reset( $this->text( $r, 'email' ), $this->ip() ) );
+	}
+	public function password_link() {
+		return $this->auth( fn() => ( new Auth() )->request_reset_for( get_current_user_id() ) );
+	}
+	private function auth( callable $action ) {
+		try { return $this->response( $action() ); }
+		catch ( AuthError $e ) { return new \WP_Error( 'mmaf_auth', $e->getMessage(), array( 'status' => $e->status, 'field' => $e->field ) ); }
+		catch ( \Throwable $e ) { return new \WP_Error( 'mmaf_auth_failed', 'Something went wrong. Try again in a moment.', array( 'status' => 500 ) ); }
+	}
+	/** Passwords are passed through untouched: trimming or sanitising would change what the reader chose. */
+	private function text( \WP_REST_Request $r, string $name ): string { $value = $r->get_param( $name ); return is_scalar( $value ) ? (string) $value : ''; }
+	private function intent( \WP_REST_Request $r ): array { return array( 'fighter_id' => absint( $r->get_param( 'fighter_id' ) ), 'return_to' => $this->text( $r, 'return_to' ) ); }
+	private function ip(): string { return (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ); }
 	private function next_send(int $id): ?string { $day=(new \DateTimeImmutable('now',new \DateTimeZone(Config::timezone($id))))->format('Y-m-d');return (new Repository())->user_has_daily_message($id,$day)?(new Repository())->next_local_nine_utc($id,1):null; }
 	private function response($data): \WP_REST_Response { $response=new \WP_REST_Response($data,200);$response->header('Cache-Control','no-store, private, max-age=0');return $response; }
 }
