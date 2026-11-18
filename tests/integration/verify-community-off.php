@@ -31,6 +31,7 @@ try {
 	wp_set_current_user( (int) $mmafc_off_user );
 	ob_start(); Module::account_nav( 'notifications' ); do_action( 'mmaf_account_nav', 'notifications' ); $mmafc_off_nav = (string) ob_get_clean();
 	assert_community_off( '' === $mmafc_off_nav, 'The account tabs print while profiles are off.' );
+	assert_community_off( home_url( '/account/' ) === apply_filters( 'mmaf_account_registered_return_to', home_url( '/account/' ), (int) $mmafc_off_user ), 'A new reader is sent to the profile form while profiles are off.' );
 
 	$_GET = array();
 	set_query_var( 'mmaf_notification_page', 'account' );

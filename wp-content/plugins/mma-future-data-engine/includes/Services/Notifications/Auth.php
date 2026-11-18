@@ -71,7 +71,13 @@ final class Auth {
 		$this->tokens->forget_payload( (int) $row['id'] );
 		if ( get_user_by( 'email', (string) $row['email'] ) ) { throw new \RuntimeException( 'An account with this email already exists. Sign in instead.' ); }
 		$user = $this->create_reader( (string) $row['email'], (string) ( $row['payload']['hash'] ?? '' ) );
-		return $this->complete( $user, $row['payload'] );
+		$done = $this->complete( $user, $row['payload'] );
+		/**
+		 * Where a brand-new reader lands. Community sends a reader who came with no destination of their own to set up a
+		 * profile; a destination the reader brought (a fighter they followed, an article) is kept.
+		 */
+		$done['return_to'] = $this->safe_return( (string) apply_filters( 'mmaf_account_registered_return_to', $done['return_to'], $done['user_id'] ) );
+		return $done;
 	}
 
 	/**

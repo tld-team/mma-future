@@ -1,7 +1,8 @@
 (function(){
   'use strict';
   var cfg=window.mmafNotifications||{};var session=null;
-  function sessionInfo(){if(session)return Promise.resolve(session);var body=new URLSearchParams({action:'mmaf_notification_session'});return fetch(cfg.ajaxUrl,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body}).then(function(r){return r.json();}).then(function(r){session=r.data||{loggedIn:false};return session;});}
+  // A GET on purpose: admin-ajax POSTs whose action starts with "mmaf_" wait for the canonical write lock, which a running import holds.
+  function sessionInfo(){if(session)return Promise.resolve(session);var url=String(cfg.ajaxUrl||'');url+=(url.indexOf('?')<0?'?':'&')+'action=mmaf_notification_session';return fetch(url,{credentials:'same-origin',cache:'no-store'}).then(function(r){return r.json();}).then(function(r){session=r.data||{loggedIn:false};return session;});}
   function api(path,options){options=options||{};return sessionInfo().then(function(s){options.credentials='same-origin';options.headers=Object.assign({'Content-Type':'application/json','X-WP-Nonce':s.nonce||''},options.headers||{});return fetch(cfg.restUrl+path,options).then(function(r){return r.json().then(function(data){if(!r.ok)throw new Error(data.message||'Request failed.');return data;});});});}
   function buttons(){return Array.prototype.slice.call(document.querySelectorAll('[data-mmaf-follow]'));}
   function apply(button,on){button.setAttribute('aria-pressed',on?'true':'false');button.classList.toggle('is-following',on);var label=button.querySelector('[data-mmaf-follow-label]');if(label)label.textContent=on?'Following':(button.getAttribute('data-mmaf-label-off')||'Follow fighter');button.disabled=false;}

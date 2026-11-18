@@ -120,8 +120,10 @@ final class Module {
 		wp_localize_script( 'mmaf-notifications', 'mmafNotifications', array( 'ajaxUrl'=>admin_url( 'admin-ajax.php' ), 'restUrl'=>rest_url( 'mma-future/v1/notifications/' ), 'loginUrl'=>home_url( '/login/' ), 'accountUrl'=>home_url( '/account/' ), 'featureEnabled'=>Config::feature_enabled() ) );
 	}
 
+	/** Read with a GET (see assets/notifications.js), so a running import cannot hold it up behind the write guard. */
 	public static function session(): void {
 		nocache_headers();
+		header( 'Cache-Control: no-store, private, max-age=0' );
 		wp_send_json_success( array( 'loggedIn'=>is_user_logged_in(), 'nonce'=>is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : null, 'userId'=>get_current_user_id() ) );
 	}
 

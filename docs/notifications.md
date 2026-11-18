@@ -52,6 +52,8 @@ Readers sign in at `/login/` and register at `/register/` with Google or with **
 - **Limits** (per 15 minutes): 3 emails per address and 12 per network for registration and for reset; 5 failed sign-ins per address and 30 per network.
 - **Staff** are refused on these forms and keep the WordPress login.
 
+The scripts read the session (`admin-ajax.php?action=mmaf_notification_session`) with a **GET**, so a running import, which holds the write guard for admin POSTs whose action starts with `mmaf_`, cannot hold it up.
+
 REST, for signed-out visitors: `POST notifications/auth/register`, `auth/login`, `auth/password/forgot`. For the signed-in reader: `POST notifications/password-link`. The two confirmation forms post to `admin-post.php` as `mmafc_register_confirm` and `mmafc_password_reset`. They are deliberately not named `mmaf_…`: admin POSTs with that prefix pass through the canonical write guard and are refused while an import or calculation runs.
 
 ### When an account email does not arrive

@@ -148,6 +148,18 @@ test('an empty list can start from the official top 10, and a pick that no longe
   }finally{empty.dom.window.close();signed.dom.window.close();}
 });
 
+test('a new account is told when its picks start to count, and an older one sees no note',async()=>{
+  const fresh=setup(routes(list([1,2],1,{counts_from:'2030-01-02T10:00:00+00:00'})));
+  const settled=setup(routes(list([1,2],1,{counts_from:null})));
+  try{
+    await flush();
+    const note=fresh.doc.querySelector('[data-mmafc-editor-note]');
+    assert.equal(note.hidden,false);assert.match(note.textContent,/^Your picks join the fan ranking on .*2030.*You can build and save your Top 10 now\.$/);
+    assert.equal(fresh.doc.querySelector('[data-mmafc-total]').textContent,'Adds 43 points to the fan ranking');
+    assert.equal(settled.doc.querySelector('[data-mmafc-editor-note]').hidden,true);
+  }finally{fresh.dom.window.close();settled.dom.window.close();}
+});
+
 test('the field searches after a pause and loads further pages on request',async()=>{
   const handler=(url)=>url.includes('q=won')?reply(200,{items:[ranked(40)],page:1,total_pages:1}):(url.includes('page=2')?field(2,15,2):field(1,15,2));
   const paged=setup((url,options,calls)=>url.includes('/rankings?')?handler(url):routes(list([1]))(url,options,calls));

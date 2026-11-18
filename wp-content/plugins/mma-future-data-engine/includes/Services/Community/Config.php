@@ -28,8 +28,27 @@ final class Config {
 
 	public static function area_enabled( string $area ): bool {
 		if ( ! in_array( $area, self::AREAS, true ) || ! self::feature_enabled() ) { return false; }
-		$enabled = in_array( $area, (array) get_option( 'mmaf_community_areas', self::DEFAULT_AREAS ), true );
+		$enabled = in_array( $area, self::areas(), true );
 		return (bool) apply_filters( 'mmaf_community_area_enabled', $enabled, $area );
+	}
+
+	/** @return string[] The areas the `mmaf_community_areas` option lists, before the feature switch and the filter. */
+	public static function areas(): array {
+		return array_values( array_intersect( self::AREAS, (array) get_option( 'mmaf_community_areas', self::DEFAULT_AREAS ) ) );
+	}
+
+	/**
+	 * Store which areas are on. Unknown names are dropped, and every later area needs profiles: a Top 10 belongs to a
+	 * profile, so choosing it switches profiles on too.
+	 *
+	 * @param string[] $areas
+	 * @return string[] What was stored.
+	 */
+	public static function save_areas( array $areas ): array {
+		$areas = array_values( array_intersect( self::AREAS, $areas ) );
+		if ( $areas && ! in_array( 'profiles', $areas, true ) ) { array_unshift( $areas, 'profiles' ); }
+		update_option( 'mmaf_community_areas', $areas, false );
+		return $areas;
 	}
 
 	/** A reader is a subscriber without editorial rights; staff accounts keep their WordPress identity. */

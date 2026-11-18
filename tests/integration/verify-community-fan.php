@@ -119,6 +119,7 @@ try {
 	// Lists that do not count: an account registered a moment ago, staff, and a reader a moderator has excluded.
 	assert_fan( '' === fan_save( $u['fresh'], array( $f[11] ), 0 ) && '' === fan_save( $u['staff'], array( $f[11] ), 0 ), 'A new account or a staff account cannot keep a list.' );
 	assert_fan( 'unlisted' === $lists->find( $u['staff'] )['status'] && false === $lists->editable( $u['staff'] )['counts'] && true === $lists->editable( $u['fresh'] )['counts'], 'A staff list is not marked as uncounted.' );
+	assert_fan( null === $lists->editable( $u['a'] )['counts_from'] && strtotime( (string) $lists->editable( $u['fresh'] )['counts_from'] ) > time() + 23 * HOUR_IN_SECONDS, 'A fresh account is not told when its picks start to count, or an established one is.' );
 	assert_fan( array( 1, 1, 0 ) === fan_table()[ $f[11] ], 'A brand-new account or a staff account moved the fan ranking.' );
 	add_filter( 'mmaf_community_fan_min_account_hours', '__return_zero' );
 	assert_fan( array( 26, 2, 1 ) === fan_table()[ $f[11] ], 'The account-age rule cannot be changed, or still blocks an account that is old enough.' );
@@ -127,8 +128,12 @@ try {
 	$wpdb->update( $mmafc_f_tables['profiles'], array( 'status' => 'shadow' ), array( 'user_id' => $u['b'] ) );
 	FanRanking::changed();
 	assert_fan( ! isset( fan_table()[ $f[10] ] ) && 18 === fan_table()[ $f[0] ][0], 'An excluded reader’s picks still count.' );
+	$wpdb->update( $mmafc_f_tables['profiles'], array( 'status' => 'hidden' ), array( 'user_id' => $u['b'] ) );
+	FanRanking::changed();
+	assert_fan( ! isset( fan_table()[ $f[10] ] ) && 18 === fan_table()[ $f[0] ][0], 'A hidden reader’s picks still count.' );
 	$wpdb->update( $mmafc_f_tables['profiles'], array( 'status' => 'active' ), array( 'user_id' => $u['b'] ) );
 	FanRanking::changed();
+	assert_fan( isset( fan_table()[ $f[10] ] ), 'A reader shown again does not count again.' );
 
 	// Boards: a fighter has one fan score; a division board is the same standings narrowed and renumbered.
 	$mmafc_f_overall = ( new FanRanking() )->board( 'overall', 1, 100 );
