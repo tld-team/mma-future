@@ -218,6 +218,45 @@
 .mmafc-page .mmafc-props__choice:disabled { opacity: .6; cursor: progress; }
 .mmafc-page .mmafc-props__dots { color: var(--mmafc-brand); letter-spacing: .1em; font-size: .75rem; }
 .mmafc-page .mmafc-props__choice.is-on .mmafc-props__dots { color: inherit; }
+
+/* The discussion under an article: it sits inside the theme's column, so it brings no page padding or canvas. */
+.mmafc-page.mmafc-comments { min-height: 0; margin: 2.5rem 0 0; padding: 1.5rem 0 0; border-top: 1px solid var(--mmafc-border); background: transparent; }
+.mmafc-comments__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin: 0 0 1rem; }
+.mmafc-page .mmafc-comments__title { margin: 0; color: var(--mmafc-text); font-family: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif; font-size: 1.25rem; font-weight: 700; }
+.mmafc-comments__sort { display: inline-flex; padding: .1875rem; border-radius: 10px; background: var(--mmafc-raised); border: 1px solid var(--mmafc-border); }
+.mmafc-page .mmafc-comments__sort-btn { min-height: 2.25rem; padding: .25rem .875rem; border: 0; border-radius: 8px; background: transparent; color: var(--mmafc-secondary); font: inherit; font-size: .875rem; font-weight: 600; cursor: pointer; }
+.mmafc-page .mmafc-comments__sort-btn.is-current { background: var(--mmafc-surface); color: var(--mmafc-brand); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+.mmafc-page .mmafc-comments__sort-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mmafc-ring); }
+.mmafc-page .mmafc-compose { margin: 0 0 1.25rem; }
+.mmafc-page .mmafc-compose__input { min-height: 6rem; resize: vertical; }
+.mmafc-page .mmafc-compose__foot { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: .5rem 0 0; }
+.mmafc-page .mmafc-thread { margin: 0; padding: 0; list-style: none; }
+.mmafc-page .mmafc-thread--replies { margin: .75rem 0 0; padding-left: 1rem; border-left: 2px solid var(--mmafc-border); }
+.mmafc-page .mmafc-comment { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); gap: 0 .75rem; padding: .875rem 0; border-bottom: 1px solid var(--mmafc-border); }
+.mmafc-page .mmafc-thread--replies .mmafc-comment { border-bottom: 0; padding-bottom: 0; }
+.mmafc-page .mmafc-comment > .mmafc-thread--replies { grid-column: 1 / -1; margin-left: 1.25rem; }
+.mmafc-page .mmafc-vote { display: flex; flex-direction: column; align-items: center; gap: .125rem; }
+.mmafc-page .mmafc-vote__btn { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.25rem; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--mmafc-muted); cursor: pointer; }
+.mmafc-page .mmafc-vote__btn:hover { background: var(--mmafc-tint); color: var(--mmafc-brand); }
+.mmafc-page .mmafc-vote__btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mmafc-ring); }
+.mmafc-page .mmafc-vote__btn--up[aria-pressed="true"] { color: var(--mmafc-brand); background: var(--mmafc-tint); }
+.mmafc-page .mmafc-vote__btn--down[aria-pressed="true"] { color: var(--mmafc-danger); background: var(--mmafc-raised); }
+.mmafc-page .mmafc-vote__score { color: var(--mmafc-text); font-size: .875rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mmafc-page .mmafc-comment__head { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem .5rem; }
+.mmafc-page .mmafc-comment__avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--mmafc-raised); }
+.mmafc-page .mmafc-comment__name { color: var(--mmafc-text); font-size: .9375rem; font-weight: 600; text-decoration: none; }
+.mmafc-page a.mmafc-comment__name:hover { color: var(--mmafc-brand); text-decoration: underline; }
+.mmafc-page .mmafc-comment__badge { display: inline-flex; }
+.mmafc-page .mmafc-comment__staff { padding: .0625rem .4375rem; border-radius: 6px; background: var(--mmafc-tint); color: var(--mmafc-brand); font-size: .6875rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.mmafc-page .mmafc-comment__time { color: var(--mmafc-muted); font-size: .8125rem; }
+.mmafc-page .mmafc-comment__text { margin: .375rem 0 0; color: var(--mmafc-text); font-size: .9375rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mmafc-page .mmafc-comment__actions { display: flex; gap: .25rem; margin: .25rem 0 0 -.5rem; }
+.mmafc-page .mmafc-comment__action, .mmafc-page .mmafc-comment__collapsed { min-height: 2.25rem; padding: .25rem .5rem; border: 0; border-radius: 8px; background: transparent; color: var(--mmafc-muted); font: inherit; font-size: .8125rem; font-weight: 600; cursor: pointer; }
+.mmafc-page .mmafc-comment__action:hover, .mmafc-page .mmafc-comment__collapsed:hover { background: var(--mmafc-raised); color: var(--mmafc-text); }
+.mmafc-page .mmafc-comment__action:focus-visible, .mmafc-page .mmafc-comment__collapsed:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mmafc-ring); }
+.mmafc-page .mmafc-comment__action:disabled { cursor: default; opacity: .7; }
+.mmafc-page .mmafc-comment__collapsed { display: block; margin: .375rem 0 0 -.5rem; font-style: italic; }
+.mmafc-page .mmafc-comment__reply:not(:empty) { margin: .5rem 0 0; }
 .mmafc-page .mmafc-profile__bio { margin: 1rem 0 0; color: var(--mmafc-text); overflow-wrap: anywhere; }
 .mmafc-profile__socials { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0 0; padding: 0; list-style: none; }
 .mmafc-page .mmafc-chip { display: inline-flex; align-items: center; gap: .375rem; min-height: 2.25rem; padding: .375rem .75rem; border: 1px solid var(--mmafc-border); border-radius: 999px; background: var(--mmafc-raised); color: var(--mmafc-text); font-size: .875rem; font-weight: 500; text-decoration: none; transition: border-color .15s ease, background-color .15s ease; }

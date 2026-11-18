@@ -30,6 +30,10 @@ final class Module {
 		add_action( 'mmafc_profile_changed', array( Reputation::class, 'sync' ) );
 		add_action( 'mmafc_top10_saved', array( Reputation::class, 'sync' ) );
 		add_action( 'mmafc_profile_status_changed', array( Reputation::class, 'rater_changed' ) );
+		add_action( 'mmafc_profile_status_changed', array( CommentVotes::class, 'voter_changed' ) );
+		add_action( 'transition_comment_status', array( Comments::class, 'status_changed' ), 10, 3 );
+		add_action( 'pre_comment_on_post', array( Comments::class, 'refuse_core_form' ) );
+		add_filter( 'rest_pre_dispatch', array( Comments::class, 'refuse_core_rest' ), 10, 3 );
 		add_filter( 'pre_get_avatar_data', array( Avatars::class, 'avatar_data' ), 10, 2 );
 		add_action( 'deleted_user', array( Privacy::class, 'forget_deleted_user' ) );
 		add_filter( 'wp_privacy_personal_data_exporters', array( Privacy::class, 'exporters' ) );
@@ -50,6 +54,13 @@ final class Module {
 			// Only the small script: the fan tag on a fighter page reuses the hero's own tag styles.
 			wp_enqueue_script( 'mmaf-community-fan', plugins_url( 'assets/community-fan.js', MMAF_PLUGIN_FILE ), array(), $version( 'community-fan.js' ), true );
 			wp_localize_script( 'mmaf-community-fan', 'mmafCommunityFan', array( 'scoresUrl' => rest_url( 'mma-future/v1/community/fan-scores' ) ) );
+		}
+		if ( Config::area_enabled( 'comments' ) && is_singular( 'post' ) ) {
+			// The discussion under an article: the shared script for the session and REST calls, then the thread.
+			wp_enqueue_style( 'mmaf-community' );
+			wp_enqueue_script( 'mmaf-community' );
+			wp_enqueue_script( 'mmaf-community-comments', plugins_url( 'assets/community-comments.js', MMAF_PLUGIN_FILE ), array( 'mmaf-community' ), $version( 'community-comments.js' ), true );
+			return;
 		}
 		$rankings_page = $fan && ( FanBoard::requested() || ( is_singular() && has_block( 'acf/all-rankings-table-section' ) ) );
 		if ( '' === $view && ! $rankings_page && ! ( Config::area_enabled( 'profiles' ) && 'account' === (string) get_query_var( 'mmaf_notification_page' ) ) ) { return; }

@@ -24,6 +24,7 @@ final class CommunityPage {
 		'profiles' => array( 'Profili', 'Profil čitaoca, javna strana /fan/{handle}/ i tabovi naloga.' ),
 		'fan'        => array( 'Fan Top 10', 'My Top 10, prikaz Fans na rang listi i fan rang na strani borca. Traži profile.' ),
 		'reputation' => array( 'Kredibilitet i nivoi', 'XP, Scout nivoi i bedž na profilu; uz Fan Top 10 i props na liste. Traži šemu 1.21.0.' ),
+		'comments'   => array( 'Komentari', 'Diskusija ispod članaka, sa glasovima gore/dole i prijavom. Pišu samo čitaoci sa profilom; stari WordPress obrazac je tada zatvoren za sve osim moderatora.' ),
 	);
 	private const EXPORT_ACTION = 'mmafc_community_export';
 

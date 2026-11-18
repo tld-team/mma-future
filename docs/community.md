@@ -21,6 +21,7 @@ wp option update mmaf_community_areas '["profiles","fan"]' --format=json
 | `profiles` | Profile form, public profile, account tabs. On by default once the feature is on. |
 | `fan` | My Top 10, the Fans view of the rankings page, the fan-rank tag on fighter pages. Off until listed in the option. |
 | `reputation` | XP, Scout levels and the octagon badge on profiles; with `fan`, props on Top 10 lists. Needs schema `1.21.0`; off until listed. |
+| `comments` | The discussion under each article, with up and down votes and reports. Needs schema `1.21.0`; off until listed. |
 
 ## Release sequence
 
@@ -128,6 +129,8 @@ The Fans view is rendered by the plugin with plain links for division and page, 
 | Complete profile: photo, bio and a display name other than the handle | +10, once |
 | First full Top 10 | +15, once |
 | Props on your Top 10: Solid / Sharp / Elite | +1 / +2 / +3 per reader; they can change or withdraw it |
+| A comment (with the `comments` area) | +1, at most three a day |
+| Votes on your comments | the comment's score, between −5 and +25 per comment |
 | Tenure | +10 for every full three months since registration, at most 80 |
 
 Levels: 1 Spectator 0 · 2 Spotter 25 · 3 Scout 100 · 4 Senior Scout 300 · 5 Head Scout 750 · 6 Matchmaker 2000 · 7 Oracle 5000. Earned points never go below zero. Tenure alone cannot reach Scout.
@@ -139,6 +142,23 @@ Levels: 1 Spectator 0 · 2 Spotter 25 · 3 Scout 100 · 4 Senior Scout 300 · 5 
 **Awards that existed before levels** are granted the next time the reader saves, opens their profile form or the `reputation` route.
 
 REST (`mma-future/v1/community/…`): `GET reputation` (the signed-in reader's level and breakdown); `GET props?handle=` (public totals, plus the viewer's rating and whether they may rate); `POST props` (`handle`, `value` 1–3); `DELETE props?handle=`. A refused rating answers 400 with the reason in `data.fields.props`.
+
+## Comments
+
+The discussion under an article is ordinary WordPress comments, so **Comments** in wp-admin moderates them as before and `comment_count` (used by Trending) keeps counting. The article prints only an empty section (`Comments::shell()`, one guarded call in the theme's `single.php`, an empty string while the area is off); `community-comments.js` loads the thread from REST, so nothing per-reader is in the cached article.
+
+- **Who writes.** Readers with a profile, and staff. Other fans see the handle, display name, mini level badge and a link to the profile; staff show their WordPress name with an "MMA Future" tag. Plain text, up to 2,000 characters. Older anonymous comments are not shown in the discussion; they stay in wp-admin.
+- **Visible at once.** WordPress's own disallowed-words check still applies. Replies nest two levels; an answer to the deepest level joins that conversation.
+- **Votes.** Up for anyone who can comment, down from level 2. One vote per account per comment, changeable; none on one's own comments. A comment's score is cached in comment meta `_mmafc_score`, counting only votes from accounts that are not hidden or excluded.
+- **Holding for a moderator.** Three reports from different accounts, or a score of −5, set the comment to pending. A score of −3 or lower starts folded.
+- **XP.** +1 per comment, at most three a day; each comment's votes count toward its author between −5 and +25. A comment that leaves the discussion takes its +1 with it, and its votes stop counting.
+- **The core form is closed.** While the area is on, `wp-comments-post.php` and `POST /wp/v2/comments` refuse everyone who cannot moderate comments.
+- **Sorting.** Best (score, then newest) or New. Replies always read oldest first.
+- **Limits.** 5 comments per 10 minutes and 40 a day per account, 120 votes an hour, 20 reports a day.
+
+REST (`mma-future/v1/community/…`): `GET comments?post_id=&sort=best|new` (public); `POST comments` (`post_id`, `content`, `parent`); `POST comments/{id}/vote` (`value` 1, −1 or 0); `POST comments/{id}/report`.
+
+Before switching the area on in production, count the existing comments by signed-out visitors (`user_id = 0`): they disappear from the article, though they stay in wp-admin.
 
 ## Moderation
 
@@ -154,5 +174,6 @@ The profile is part of the WordPress personal-data export and erasure tools. Era
 
 - `tests/unit/community-handles.php`: handle and social-link rules. `tests/unit/community-fan-points.php`: the points schedule and the order of the standings. `tests/unit/community-levels.php`: levels, tenure and the badge.
 - `tests/integration/verify-community-reputation.php`: awards, who may give props, moderation, tenure, REST and erasure.
+- `tests/integration/verify-community-comments.php`: posting, nesting, votes, reports, XP, the closed core form and REST. `tests/frontend/community-comments.test.cjs`: the discussion in jsdom.
 - `tests/integration/verify-community-schema.php`, `verify-community-profiles.php`, `verify-community-fan.php`, `verify-community-off.php`: need the CI database.
 - `tests/frontend/community.test.cjs` and `community-editor.test.cjs`: the profile form and the Top 10 editor in jsdom. Dragging itself is not covered there (jsdom has no layout); check it by hand on a phone and a desktop.
