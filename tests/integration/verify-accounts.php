@@ -70,7 +70,7 @@ try {
 	$answer = $auth->request_registration( $new_email, $password, array( 'return_to' => 'https://outside.example/steal' ), $ip );
 	$row    = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$tokens} WHERE email=%s AND purpose='register'", $new_email ), ARRAY_A );
 	$stored = json_decode( (string) $row['payload_json'], true );
-	assert_accounts( str_contains( $answer['message'], $new_email ) && '' === $answer['delivery'], 'The answer to a registration request is not the neutral one.' );
+	assert_accounts( str_contains( $answer['message'], $new_email ) && array( 'message' ) === array_keys( $answer ), 'The answer to a registration request is not the neutral one.' );
 	assert_accounts( $row && null === $row['user_id'] && ! str_contains( (string) $row['payload_json'], $password ) && wp_check_password( $password, (string) $stored['hash'] ) && home_url( '/account/' ) === $stored['return_to'], 'The pending registration holds the password in the clear, or an outside return address.' );
 	assert_accounts( false === get_user_by( 'email', $new_email ), 'An account exists before the address was confirmed.' );
 	$mail = accounts_mailbox();
@@ -145,14 +145,14 @@ try {
 	// Every account email leaves a record an administrator can read, with the address masked; a refused send is visible.
 	$log = ServiceMailer::log();
 	assert_accounts( count( $log ) === count( accounts_mailbox() ) && 'register' === $log[0]['kind'] && 'accepted' === $log[0]['status'] && 'a***@example.test' === $log[0]['to'] && ! str_contains( wp_json_encode( $log ), $new_email ), 'Account emails are not recorded, or the record names the reader.' );
-	$refuse = static fn() => new class() implements Transport { public function send( string $to, string $subject, string $html, string $text, array $headers = array() ): array { return array( 'status' => 'rejected', 'error' => 'staging_recipient_blocked', 'http_code' => 0 ); } };
+	$refuse = static fn() => new class() implements Transport { public function send( string $to, string $subject, string $html, string $text, array $headers = array() ): array { return array( 'status' => 'rejected', 'error' => 'provider_403', 'http_code' => 403 ); } };
 	add_filter( 'mmaf_notifications_transport', $refuse );
 	accounts_reset_limits( array( $new_email, $ip ) );
 	$auth->request_reset( $new_email, $ip );
 	remove_filter( 'mmaf_notifications_transport', $refuse );
 	$last = ServiceMailer::log();
 	$last = end( $last );
-	assert_accounts( 'password_reset' === $last['kind'] && 'rejected' === $last['status'] && 'staging_recipient_blocked' === $last['error'], 'A refused account email leaves no trace of why.' );
+	assert_accounts( 'password_reset' === $last['kind'] && 'rejected' === $last['status'] && 'provider_403' === $last['error'], 'A refused account email leaves no trace of why.' );
 
 	// REST: the forms' endpoints are for signed-out visitors; errors name the field they belong to.
 	wp_set_current_user( 0 );

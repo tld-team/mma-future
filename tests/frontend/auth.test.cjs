@@ -49,11 +49,11 @@ test('a wrong password is explained without clearing the form or naming which pa
   }finally{t.dom.window.close();}
 });
 
-test('registration shows a field problem beside the field, then the neutral answer with any delivery note',async()=>{
+test('registration shows a field problem beside the field, then the neutral answer',async()=>{
   let attempt=0;
   const t=setup(form('register'),(url)=>{
     if(url.includes('admin-ajax'))return session();
-    return ++attempt===1?reply(400,{code:'mmaf_auth',message:'Use at least 8 characters.',data:{status:400,field:'password'}}):reply(200,{message:'Check your inbox. We sent a link to reader@example.test to finish creating your account.',delivery:'This is the staging site, which only emails addresses on its allowlist.'});
+    return ++attempt===1?reply(400,{code:'mmaf_auth',message:'Use at least 8 characters.',data:{status:400,field:'password'}}):reply(200,{message:'Check your inbox. We sent a link to reader@example.test to finish creating your account.'});
   });
   try{
     await flush();t.fill('email','reader@example.test');t.fill('password','short');t.submit();await flush();
@@ -61,12 +61,12 @@ test('registration shows a field problem beside the field, then the neutral answ
     assert.equal(t.doc.querySelector('[name=password]').getAttribute('aria-invalid'),'true');assert.equal(t.doc.activeElement,t.doc.querySelector('[name=password]'));assert.equal(t.message(),'');
     t.fill('password','long enough now');t.submit();await flush();
     assert.match(t.posts()[1].url,/\/auth\/register$/);assert.equal(t.error('password').hidden,true);assert.equal(t.doc.querySelector('[name=password]').hasAttribute('aria-invalid'),false);
-    assert.match(t.message(),/^Check your inbox\..* staging site/);assert.equal(t.doc.querySelector('[name=password]').value,'','the password does not stay in the page');assert.equal(t.doc.querySelector('[name=email]').value,'reader@example.test');
+    assert.equal(t.message(),'Check your inbox. We sent a link to reader@example.test to finish creating your account.');assert.equal(t.doc.querySelector('[name=password]').value,'','the password does not stay in the page');assert.equal(t.doc.querySelector('[name=email]').value,'reader@example.test');
   }finally{t.dom.window.close();}
 });
 
 test('asking for a password link needs only an address',async()=>{
-  const t=setup(form('forgot'),(url)=>url.includes('admin-ajax')?session():reply(200,{message:'If an account exists for reader@example.test, a link to set a new password is on its way.',delivery:''}));
+  const t=setup(form('forgot'),(url)=>url.includes('admin-ajax')?session():reply(200,{message:'If an account exists for reader@example.test, a link to set a new password is on its way.'}));
   try{
     await flush();t.fill('email','reader@example.test');t.submit();await flush();
     assert.match(t.posts()[0].url,/\/auth\/password\/forgot$/);assert.equal(JSON.parse(t.posts()[0].options.body).password,'');assert.match(t.message(),/on its way\.$/);
@@ -97,7 +97,7 @@ test('the password can be shown and hidden again',async()=>{
 test('a signed-in reader can ask for a password link from the account page',async()=>{
   const t=setup('<button type="button" data-mmaf-password-link>Email me a password link</button><p data-mmaf-password-message></p>',(url,options)=>{
     if(url.includes('admin-ajax'))return {ok:true,json:async()=>({success:true,data:{loggedIn:true,nonce:'nonce-9'}})};
-    if(url.endsWith('/password-link'))return {ok:true,status:200,json:async()=>({message:'We sent a link to reader@example.test. It works for one hour.',delivery:''})};
+    if(url.endsWith('/password-link'))return {ok:true,status:200,json:async()=>({message:'We sent a link to reader@example.test. It works for one hour.'})};
     throw Error('Unexpected request '+url);
   });
   try{
