@@ -52,7 +52,7 @@ final class Routes {
 	public static function public_profile(): ?array {
 		if ( false === self::$profile ) {
 			$row           = 'profile' === self::view() ? ( new Profiles() )->find_by_handle( (string) get_query_var( 'mmaf_community_handle' ) ) : null;
-			self::$profile = $row && 'active' === $row['status'] ? $row : null;
+			self::$profile = $row && 'hidden' !== $row['status'] ? $row : null; // A shadowed profile stays public; only its influence is gone.
 		}
 		return self::$profile;
 	}

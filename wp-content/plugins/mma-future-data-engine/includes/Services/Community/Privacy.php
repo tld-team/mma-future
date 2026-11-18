@@ -32,6 +32,15 @@ final class Privacy {
 		// A reader can keep a Top 10 without ever creating a profile.
 		$picks = array_map( static fn( array $item ): string => $item['position'] . '. ' . ( '' !== $item['display_name'] ? $item['display_name'] : 'Fighter ' . $item['fighter_id'] ), ( new FanLists() )->items( (int) $user->ID ) );
 		if ( $picks ) { $data[] = array( 'name' => 'Top 10', 'value' => implode( ', ', $picks ) ); }
+		if ( $row && Config::reputation_schema_ready() ) {
+			global $wpdb;
+			$level = Reputation::summary( (int) $user->ID, $row );
+			$data[] = array( 'name' => 'Level', 'value' => $level['level']['level'] . ' (' . $level['level']['name'] . '), ' . $level['xp'] . ' XP' );
+			$table  = Schema::tables()['ratings'];
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name only.
+			$given  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE rater_user_id=%d", (int) $user->ID ) );
+			if ( $given ) { $data[] = array( 'name' => 'Props given', 'value' => (string) $given ); }
+		}
 		if ( ! $data ) { return array( 'data' => array(), 'done' => true ); }
 		return array( 'data' => array( array( 'group_id' => 'mmaf-community', 'group_label' => 'MMA Future community profile', 'item_id' => 'mmaf-community-' . $user->ID, 'data' => $data ) ), 'done' => true );
 	}

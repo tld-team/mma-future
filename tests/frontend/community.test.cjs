@@ -147,3 +147,41 @@ test('only the owner of a public profile is shown the edit link',async()=>{
     assert.ok([own,other,guest].every(t=>t.calls.length===1&&t.calls[0].options.method==='GET'));
   }finally{own.dom.window.close();other.dom.window.close();guest.dom.window.close();}
 });
+
+const PROPS=`<article data-mmafc-public-profile="ana"><p data-mmafc-owner hidden><a href="#">Edit profile</a></p></article>
+<div data-mmafc-props="ana"><p data-mmafc-props-totals>No props yet.</p>
+  <div data-mmafc-props-give hidden><button type="button" data-mmafc-props-value="1" aria-pressed="false">Solid</button><button type="button" data-mmafc-props-value="2" aria-pressed="false">Sharp</button><button type="button" data-mmafc-props-value="3" aria-pressed="false">Elite</button></div>
+  <p data-mmafc-props-reason hidden></p><p data-mmafc-props-status></p></div>`;
+const LABELS={1:'Solid',2:'Sharp',3:'Elite'};
+const propsState=(extra={})=>({totals:{1:0,2:1,3:0,count:1},mine:null,can_rate:true,reason:'',labels:LABELS,...extra});
+
+test('props show the viewer’s own rating, can be changed, and pressing the chosen one withdraws it',async()=>{
+  const t=setup(PROPS,(url,options)=>{
+    if(url.includes('admin-ajax'))return sessionReply('nonce-1','nikola');
+    if(url.includes('/props?handle=ana')&&options.method==='DELETE')return reply(200,propsState());
+    if(url.includes('/props?handle=ana'))return reply(200,propsState({mine:2}));
+    if(url.endsWith('/props')&&options.method==='POST')return reply(200,propsState({totals:{1:0,2:0,3:1,count:1},mine:JSON.parse(options.body).value}));
+    throw Error('Unexpected request '+url);
+  });
+  try{
+    await flush();
+    const give=t.doc.querySelector('[data-mmafc-props-give]'),pressed=()=>[...t.doc.querySelectorAll('[data-mmafc-props-value]')].filter(b=>b.getAttribute('aria-pressed')==='true').map(b=>b.textContent);
+    assert.equal(give.hidden,false);assert.deepEqual(pressed(),['Sharp']);assert.equal(t.doc.querySelector('[data-mmafc-props-totals]').textContent,'Solid 0 · Sharp 1 · Elite 0');
+    t.doc.querySelector('[data-mmafc-props-value="3"]').click();await flush();
+    const post=t.calls.find(c=>c.options.method==='POST');assert.deepEqual(JSON.parse(post.options.body),{handle:'ana',value:3});assert.equal(post.options.headers['X-WP-Nonce'],'nonce-1');
+    assert.deepEqual(pressed(),['Elite']);assert.equal(t.doc.querySelector('[data-mmafc-props-status]').textContent,'Props given.');
+    t.doc.querySelector('[data-mmafc-props-value="3"]').click();await flush();
+    assert.ok(t.calls.some(c=>c.options.method==='DELETE'));assert.deepEqual(pressed(),[]);assert.equal(t.doc.querySelector('[data-mmafc-props-status]').textContent,'Props withdrawn.');
+  }finally{t.dom.window.close();}
+});
+
+test('a reader who cannot give props is told why, and the owner of the list is not',async()=>{
+  const visitor=setup(PROPS,url=>url.includes('admin-ajax')?reply(200,{success:true,data:{loggedIn:false,nonce:null,handle:null}}):reply(200,propsState({can_rate:false,reason:'Sign in to give props.'})));
+  const owner=setup(PROPS,url=>url.includes('admin-ajax')?sessionReply('nonce-1','ana'):reply(200,propsState({can_rate:false,reason:'You can’t give props to your own Top 10.'})));
+  try{
+    await flush();
+    assert.equal(visitor.doc.querySelector('[data-mmafc-props-give]').hidden,true);
+    const reason=visitor.doc.querySelector('[data-mmafc-props-reason]');assert.equal(reason.hidden,false);assert.equal(reason.textContent,'Sign in to give props.');
+    assert.equal(owner.doc.querySelector('[data-mmafc-props-give]').hidden,true);assert.equal(owner.doc.querySelector('[data-mmafc-props-reason]').hidden,true);assert.equal(owner.doc.querySelector('[data-mmafc-owner]').hidden,false);
+  }finally{visitor.dom.window.close();owner.dom.window.close();}
+});

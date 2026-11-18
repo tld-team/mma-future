@@ -84,7 +84,7 @@ final class Avatars {
 		$user_id = self::user_id( $id_or_email );
 		if ( ! Config::is_reader( $user_id ) ) { return $args; }
 		$row  = ( new Profiles() )->find_by_user( $user_id );
-		$path = $row && 'active' === $row['status'] ? (string) $row['avatar_path'] : '';
+		$path = $row && 'hidden' !== $row['status'] ? (string) $row['avatar_path'] : ''; // shadow is silent: the reader's page looks the same.
 		$args['url']          = self::url( $path );
 		$args['found_avatar'] = true;
 		return $args;

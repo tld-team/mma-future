@@ -27,6 +27,9 @@ final class Module {
 		add_action( 'wp_ajax_nopriv_mmafc_session', array( self::class, 'session' ) );
 		add_action( 'mmaf_account_nav', array( self::class, 'account_nav' ) );
 		add_filter( 'mmaf_account_registered_return_to', array( self::class, 'registered_return_to' ), 10, 2 );
+		add_action( 'mmafc_profile_changed', array( Reputation::class, 'sync' ) );
+		add_action( 'mmafc_top10_saved', array( Reputation::class, 'sync' ) );
+		add_action( 'mmafc_profile_status_changed', array( Reputation::class, 'rater_changed' ) );
 		add_filter( 'pre_get_avatar_data', array( Avatars::class, 'avatar_data' ), 10, 2 );
 		add_action( 'deleted_user', array( Privacy::class, 'forget_deleted_user' ) );
 		add_filter( 'wp_privacy_personal_data_exporters', array( Privacy::class, 'exporters' ) );

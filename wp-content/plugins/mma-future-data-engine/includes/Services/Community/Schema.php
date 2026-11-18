@@ -14,6 +14,10 @@ final class Schema {
 			'profiles'       => $wpdb->prefix . 'mmaf_profiles',
 			'fan_lists'      => $wpdb->prefix . 'mmaf_fan_lists',
 			'fan_list_items' => $wpdb->prefix . 'mmaf_fan_list_items',
+			// 1.21.0
+			'ratings'        => $wpdb->prefix . 'mmaf_fan_list_ratings',
+			'rep_events'     => $wpdb->prefix . 'mmaf_rep_events',
+			'comment_votes'  => $wpdb->prefix . 'mmaf_comment_votes',
 		);
 	}
 
@@ -63,6 +67,46 @@ final class Schema {
 				UNIQUE KEY item_list_position (list_id, position),
 				UNIQUE KEY item_list_fighter (list_id, fighter_id),
 				KEY item_board_fighter (board_key, fighter_id, position)
+			) $c;",
+			// Props: one rating per reader per list, which the reader may change. value is 1 (Solid), 2 (Sharp) or 3 (Elite).
+			"CREATE TABLE {$t['ratings']} (
+				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				list_id BIGINT UNSIGNED NOT NULL,
+				owner_user_id BIGINT UNSIGNED NOT NULL,
+				rater_user_id BIGINT UNSIGNED NOT NULL,
+				value TINYINT UNSIGNED NOT NULL,
+				list_revision INT UNSIGNED NOT NULL DEFAULT 0,
+				created_at DATETIME NOT NULL,
+				updated_at DATETIME NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY rating_list_rater (list_id, rater_user_id),
+				KEY rating_owner (owner_user_id),
+				KEY rating_rater_time (rater_user_id, updated_at)
+			) $c;",
+			// One-off XP awards. dedupe_key makes each award happen once, however often the trigger fires.
+			"CREATE TABLE {$t['rep_events']} (
+				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id BIGINT UNSIGNED NOT NULL,
+				kind VARCHAR(32) NOT NULL,
+				dedupe_key VARCHAR(64) NOT NULL,
+				points INT NOT NULL,
+				created_at DATETIME NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY event_user_dedupe (user_id, dedupe_key),
+				KEY event_kind (kind)
+			) $c;",
+			// Comment votes arrive with comments in the next release; the table exists now so that release needs no migration.
+			"CREATE TABLE {$t['comment_votes']} (
+				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				comment_id BIGINT UNSIGNED NOT NULL,
+				user_id BIGINT UNSIGNED NOT NULL,
+				author_user_id BIGINT UNSIGNED NOT NULL,
+				value TINYINT NOT NULL,
+				created_at DATETIME NOT NULL,
+				updated_at DATETIME NOT NULL,
+				PRIMARY KEY  (id),
+				UNIQUE KEY vote_comment_user (comment_id, user_id),
+				KEY vote_author (author_user_id)
 			) $c;",
 		);
 	}

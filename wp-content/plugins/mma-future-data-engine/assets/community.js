@@ -97,7 +97,7 @@
       setStatus('Saving…', '');
       return api('profile', { method: 'POST', json: payload() }).then(function (data) {
         applyProfile(data); dirty = false; handleStatus.textContent = ''; handleStatus.className = 'mmafc-status';
-        setStatus('Profile saved', 'saved');
+        setStatus('Profile saved', 'saved'); refreshLevel();
         return data;
       }).catch(function (error) {
         showErrors(error.fields);
@@ -134,7 +134,7 @@
       }).then(function (data) {
         if (avatar && data.avatar_url) avatar.src = data.avatar_url;
         if (avatarRemove) avatarRemove.hidden = !data.has_avatar;
-        if (!dirty) setStatus('Photo updated', 'saved');
+        if (!dirty) setStatus('Photo updated', 'saved'); refreshLevel();
       }).catch(function (error) {
         if (avatar && previous) avatar.src = previous;
         if (error.fields && error.fields.avatar) showError('avatar', error.fields.avatar);
@@ -154,12 +154,60 @@
     if (avatarInput) avatarInput.addEventListener('change', function () { if (avatarInput.files && avatarInput.files[0]) uploadAvatar(avatarInput.files[0]); });
     if (avatarRemove) avatarRemove.addEventListener('click', function () {
       showError('avatar', ''); setAvatarBusy(true);
-      api('profile/avatar', { method: 'DELETE' }).then(function (data) { if (avatar && data.avatar_url) avatar.src = data.avatar_url; avatarRemove.hidden = true; if (!dirty) setStatus('Photo removed', 'saved'); })
+      api('profile/avatar', { method: 'DELETE' }).then(function (data) { if (avatar && data.avatar_url) avatar.src = data.avatar_url; avatarRemove.hidden = true; if (!dirty) setStatus('Photo removed', 'saved'); refreshLevel(); })
         .catch(function (error) { showError('avatar', error.message); })
         .finally(function () { setAvatarBusy(false); });
     });
     window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
     updateCount();
+  }
+
+  // The level card on the reader's own profile form follows each save: a photo, a name and a bio together earn XP.
+  function refreshLevel() {
+    var card = document.querySelector('[data-mmafc-level]');
+    if (!card) return Promise.resolve();
+    return api('reputation').then(function (data) {
+      var level = data.level || {}, part = data.breakdown || {};
+      var set = function (selector, text) { var node = card.querySelector(selector); if (node) node.textContent = text; };
+      var badge = card.querySelector('[data-mmafc-level-badge]');
+      if (badge && data.badge) badge.innerHTML = data.badge;
+      set('[data-mmafc-level-name]', 'Level ' + level.level + ' · ' + level.name);
+      set('[data-mmafc-level-xp]', level.xp + ' XP');
+      set('[data-mmafc-level-next]', level.next == null ? 'Top level' : level.to_next + ' XP to ' + level.next_name);
+      ['profile', 'top10'].forEach(function (key) { var node = card.querySelector('[data-mmafc-level-part="' + key + '"]'); if (node) node.textContent = node.textContent.replace(/^\d+/, String(part[key] || 0)); });
+      ['props', 'tenure'].forEach(function (key) { set('[data-mmafc-level-part="' + key + '"]', String(part[key] || 0)); });
+      var meter = card.querySelector('[data-mmafc-level-meter]'), percent = Math.round((Number(level.progress) || 0) * 1000) / 10;
+      if (meter) { meter.setAttribute('aria-valuenow', String(Math.round(percent))); var fill = meter.querySelector('.mmafc-meter__fill'); if (fill) fill.style.width = percent + '%'; }
+    }).catch(function () {});
+  }
+
+  // Props under a public Top 10. The totals are in the page for everyone; the viewer's own rating comes from here.
+  function propsControl(node, handle) {
+    var give = node.querySelector('[data-mmafc-props-give]'), reason = node.querySelector('[data-mmafc-props-reason]');
+    var totals = node.querySelector('[data-mmafc-props-totals]'), status = node.querySelector('[data-mmafc-props-status]');
+    var choices = Array.prototype.slice.call(node.querySelectorAll('[data-mmafc-props-value]'));
+    var busy = false, own = false;
+    function render(state) {
+      var labels = state.labels || {}, t = state.totals || {};
+      totals.textContent = t.count ? [1, 2, 3].map(function (v) { return labels[v] + ' ' + (t[v] || 0); }).join(' · ') : 'No props yet.';
+      give.hidden = !state.can_rate;
+      choices.forEach(function (button) { var on = Number(button.getAttribute('data-mmafc-props-value')) === state.mine; button.setAttribute('aria-pressed', on ? 'true' : 'false'); button.classList.toggle('is-on', on); button.disabled = false; });
+      reason.hidden = state.can_rate || own || !state.reason;
+      reason.textContent = state.reason || '';
+    }
+    function send(value) {
+      if (busy) return;
+      busy = true; status.textContent = 'Saving…';
+      choices.forEach(function (button) { button.disabled = true; });
+      var request = value ? api('props', { method: 'POST', json: { handle: handle, value: value } }) : api('props?handle=' + encodeURIComponent(handle), { method: 'DELETE' });
+      request.then(function (state) { render(state); status.textContent = value ? 'Props given.' : 'Props withdrawn.'; })
+        .catch(function (error) { status.textContent = (error.fields && error.fields.props) || error.message; choices.forEach(function (button) { button.disabled = false; }); })
+        .then(function () { busy = false; });
+    }
+    choices.forEach(function (button) {
+      button.addEventListener('click', function () { send(button.getAttribute('aria-pressed') === 'true' ? 0 : Number(button.getAttribute('data-mmafc-props-value'))); });
+    });
+    sessionInfo().then(function (s) { own = !!(s.loggedIn && s.handle === handle); return api('props?handle=' + encodeURIComponent(handle)); }).then(render).catch(function () {});
   }
 
   // The public profile is the same HTML for everyone; only its owner is shown the way back to the edit form.
@@ -177,6 +225,8 @@
     if (form) profileForm(form);
     var profile = document.querySelector('[data-mmafc-public-profile]');
     if (profile) publicProfile(profile);
+    var props = document.querySelector('[data-mmafc-props]');
+    if (props) propsControl(props, props.getAttribute('data-mmafc-props'));
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

@@ -54,6 +54,7 @@ jobs:
           php tests/unit/public-cache.php
           php tests/unit/community-handles.php
           php tests/unit/community-fan-points.php
+          php tests/unit/community-levels.php
           php tests/unit/account-passwords.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v14.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v15.php
@@ -173,6 +174,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-community-off.php
           php -d memory_limit=256M tests/integration/verify-community-profiles.php
           php -d memory_limit=256M tests/integration/verify-community-fan.php
+          php -d memory_limit=256M tests/integration/verify-community-reputation.php
       - name: Actual synthetic staging-to-local transfer
         env:
           MMAF_SYNC_WP_CORE: /tmp/mmaf-wp

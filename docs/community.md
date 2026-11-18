@@ -20,6 +20,7 @@ wp option update mmaf_community_areas '["profiles","fan"]' --format=json
 | --- | --- |
 | `profiles` | Profile form, public profile, account tabs. On by default once the feature is on. |
 | `fan` | My Top 10, the Fans view of the rankings page, the fan-rank tag on fighter pages. Off until listed in the option. |
+| `reputation` | XP, Scout levels and the octagon badge on profiles; with `fan`, props on Top 10 lists. Needs schema `1.21.0`; off until listed. |
 
 ## Release sequence
 
@@ -29,6 +30,16 @@ wp option update mmaf_community_areas '["profiles","fan"]' --format=json
 4. Enable production separately.
 
 To turn everything off again, remove the constant. Data stays in place.
+
+## Schema 1.21.0
+
+| Table | Purpose |
+| --- | --- |
+| `mmaf_fan_list_ratings` | Props: one rating (1 Solid, 2 Sharp, 3 Elite) per reader per list, unique on `(list_id, rater_user_id)`. |
+| `mmaf_rep_events` | One-off XP awards, unique on `(user_id, dedupe_key)`, so an award is stored once however often its trigger fires. |
+| `mmaf_comment_votes` | Empty until comments arrive; created now so that release needs no migration. |
+
+Only the `reputation` area waits for this schema (`Config::REPUTATION_SCHEMA_VERSION`). Profiles and the Top 10 keep working between the deploy and the migration. **The next scraper import after this migration must be a full package.**
 
 ## Schema 1.20.0
 
@@ -108,16 +119,40 @@ Three guarded calls, each a no-op while the `fan` area is off, so the official r
 
 The Fans view is rendered by the plugin with plain links for division and page, and is never page-cached. The theme's own ranking templates, script and stylesheet are unchanged, so the theme needs no rebuild. Fighter pages stay cached: the tag is filled from the public `fan-scores` route.
 
+## Credibility: XP, levels and props
+
+`XP = earned points + tenure`. Earned points are cached in `mmaf_profiles.rep_points` and recalculated from the stored facts whenever they change, so the cache cannot drift; tenure is added when read.
+
+| Source | XP |
+| --- | --- |
+| Complete profile: photo, bio and a display name other than the handle | +10, once |
+| First full Top 10 | +15, once |
+| Props on your Top 10: Solid / Sharp / Elite | +1 / +2 / +3 per reader; they can change or withdraw it |
+| Tenure | +10 for every full three months since registration, at most 80 |
+
+Levels: 1 Spectator 0 · 2 Spotter 25 · 3 Scout 100 · 4 Senior Scout 300 · 5 Head Scout 750 · 6 Matchmaker 2000 · 7 Oracle 5000. Earned points never go below zero. Tenure alone cannot reach Scout.
+
+**Badge.** An inline SVG octagon (`Badge::svg()`): the level number in the middle, and one side lit for every eighth of the way to the next level. Steel for levels 1–2, brand blue for 3–6, gold for Oracle. It shows on the public profile (with the XP bar) and on the reader's own profile form, with where the XP came from.
+
+**Props.** A reader gives props to another reader's Top 10 from their public profile. Only readers at level 2 or above may give them (a complete profile and a full Top 10 are enough), never to their own list, at most 30 changes an hour. Staff accounts neither give nor receive props. The totals are printed in the page; the viewer's own rating and the controls are loaded by the script.
+
+**Awards that existed before levels** are granted the next time the reader saves, opens their profile form or the `reputation` route.
+
+REST (`mma-future/v1/community/…`): `GET reputation` (the signed-in reader's level and breakdown); `GET props?handle=` (public totals, plus the viewer's rating and whether they may rate); `POST props` (`handle`, `value` 1–3); `DELETE props?handle=`. A refused rating answers 400 with the reason in `data.fields.props`.
+
 ## Moderation
 
-**MMA Future → Community** lists profiles with search. A moderator can hide a profile (its public page answers 404, its photo is replaced by the placeholder and its Top 10 stops counting; the owner can still edit it), show it again, or remove its photo.
+**MMA Future → Community** lists profiles with search, their level and XP, and exports them as CSV. Below the list: the top of the fan ranking, the readers with the most XP, and who gave the most props in the last seven days (where accounts rating each other show up).
+
+A moderator can **exclude a profile from ranking** (status `shadow`): the page stays public and its owner notices nothing, but their Top 10 and the props they give stop counting. A moderator can also hide a profile (its public page answers 404, its photo is replaced by the placeholder and its Top 10 stops counting; the owner can still edit it), show it again, or remove its photo.
 
 ## Privacy
 
-The profile is part of the WordPress personal-data export and erasure tools. Erasing a reader, or deleting the account, removes the profile, the photo file and the reader's fan list.
+The profile is part of the WordPress personal-data export and erasure tools. Erasing a reader, or deleting the account, removes the profile, the photo file, the reader's fan list, their XP awards and the props they gave or received; the lists they rated lose those props. The export includes the level and how many props the reader gave.
 
 ## Tests
 
-- `tests/unit/community-handles.php`: handle and social-link rules. `tests/unit/community-fan-points.php`: the points schedule and the order of the standings.
+- `tests/unit/community-handles.php`: handle and social-link rules. `tests/unit/community-fan-points.php`: the points schedule and the order of the standings. `tests/unit/community-levels.php`: levels, tenure and the badge.
+- `tests/integration/verify-community-reputation.php`: awards, who may give props, moderation, tenure, REST and erasure.
 - `tests/integration/verify-community-schema.php`, `verify-community-profiles.php`, `verify-community-fan.php`, `verify-community-off.php`: need the CI database.
 - `tests/frontend/community.test.cjs` and `community-editor.test.cjs`: the profile form and the Top 10 editor in jsdom. Dragging itself is not covered there (jsdom has no layout); check it by hand on a phone and a desktop.

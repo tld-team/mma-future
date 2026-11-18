@@ -1,10 +1,13 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
+use MMAF\DataEngine\Services\Community\Badge;
 use MMAF\DataEngine\Services\Community\Config;
 use MMAF\DataEngine\Services\Community\FanBoard;
 use MMAF\DataEngine\Services\Community\FanLists;
 use MMAF\DataEngine\Services\Community\Profiles;
+use MMAF\DataEngine\Services\Community\Ratings;
+use MMAF\DataEngine\Services\Community\Reputation;
 use MMAF\DataEngine\Services\Community\Routes;
 
 // Template-scope variables are WordPress globals here. Never use names such as $page, $s or $post: get_header() resets them.
@@ -13,6 +16,9 @@ $mmafc_row   = (array) Routes::public_profile();
 $mmafc_view  = ( new Profiles() )->present( $mmafc_row );
 $mmafc_fan   = Config::area_enabled( 'fan' );
 $mmafc_picks = $mmafc_fan ? ( new FanLists() )->items( (int) $mmafc_row['user_id'] ) : array();
+$mmafc_rep   = Config::area_enabled( 'reputation' ) && Config::is_reader( (int) $mmafc_row['user_id'] ) ? Reputation::summary( (int) $mmafc_row['user_id'], $mmafc_row )['level'] : null;
+// Totals are the same for every visitor; the visitor's own rating and the controls are filled in by the script.
+$mmafc_props = $mmafc_rep && $mmafc_picks ? ( new Ratings() )->totals( (int) $mmafc_row['user_id'] ) : null;
 status_header( 200 );
 get_header();
 ?>
@@ -23,6 +29,16 @@ get_header();
 			<div class="mmafc-profile__body">
 				<h1 class="mmafc-profile__name"><?php echo esc_html( $mmafc_view['display_name'] ); ?></h1>
 				<p class="mmafc-profile__handle">@<?php echo esc_html( $mmafc_view['handle'] ); ?></p>
+				<?php if ( $mmafc_rep ) : ?>
+					<div class="mmafc-profile__level">
+						<?php echo Badge::svg( $mmafc_rep, 'lg' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from integers and an escaped label. ?>
+						<div class="mmafc-profile__level-body">
+							<p class="mmafc-profile__level-name">Level <?php echo (int) $mmafc_rep['level']; ?> · <?php echo esc_html( $mmafc_rep['name'] ); ?></p>
+							<p class="mmafc-profile__meta"><?php echo (int) $mmafc_rep['xp']; ?> XP<?php echo null === $mmafc_rep['next'] ? '' : ' · ' . (int) $mmafc_rep['to_next'] . ' to ' . esc_html( (string) $mmafc_rep['next_name'] ); ?></p>
+							<div class="mmafc-meter" role="progressbar" aria-label="Progress to the next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<?php echo (int) round( $mmafc_rep['progress'] * 100 ); ?>"><span class="mmafc-meter__fill" style="width:<?php echo esc_attr( (string) round( $mmafc_rep['progress'] * 100, 1 ) ); ?>%"></span></div>
+						</div>
+					</div>
+				<?php endif; ?>
 				<?php if ( '' !== $mmafc_view['member_since'] ) : ?>
 					<p class="mmafc-profile__meta">Member since <?php echo esc_html( $mmafc_view['member_since'] ); ?></p>
 				<?php endif; ?>
@@ -62,6 +78,25 @@ get_header();
 						</li>
 					<?php endforeach; ?>
 				</ol>
+				<?php if ( null !== $mmafc_props ) : ?>
+					<div class="mmafc-props" data-mmafc-props="<?php echo esc_attr( $mmafc_view['handle'] ); ?>">
+						<p class="mmafc-props__totals" data-mmafc-props-totals>
+							<?php if ( $mmafc_props['count'] ) : ?>
+								<?php echo esc_html( implode( ' · ', array_map( static fn( int $value, string $label ): string => $label . ' ' . (int) $mmafc_props[ $value ], array_keys( Ratings::VALUES ), Ratings::VALUES ) ) ); ?>
+							<?php else : ?>No props yet.<?php endif; ?>
+						</p>
+						<div class="mmafc-props__give" data-mmafc-props-give hidden>
+							<p class="mmafc-props__label" id="mmafc-props-label">Give props to this Top 10</p>
+							<div class="mmafc-props__choices" role="group" aria-labelledby="mmafc-props-label">
+								<?php foreach ( Ratings::VALUES as $mmafc_value => $mmafc_label ) : ?>
+									<button type="button" class="mmafc-props__choice" data-mmafc-props-value="<?php echo (int) $mmafc_value; ?>" aria-pressed="false"><span class="mmafc-props__dots" aria-hidden="true"><?php echo esc_html( str_repeat( '●', $mmafc_value ) ); ?></span> <?php echo esc_html( $mmafc_label ); ?></button>
+								<?php endforeach; ?>
+							</div>
+						</div>
+						<p class="mmafc-hint" data-mmafc-props-reason hidden></p>
+						<p class="mmafc-status" data-mmafc-props-status role="status" aria-live="polite"></p>
+					</div>
+				<?php endif; ?>
 			</section>
 		<?php endif; ?>
 	</div>
