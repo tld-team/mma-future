@@ -342,6 +342,8 @@ if (is_singular('post')):
 							</div>
 						<?php endif; ?>
 
+						<?php if ( class_exists( '\MMAF\DataEngine\Services\Community\Comments' ) ) { echo \MMAF\DataEngine\Services\Community\Comments::shell( (int) $post_id ); } ?>
+
 					</div><!-- /middle column -->
 
 					<!-- ========== RIGHT: SIDEBAR (desktop) ========== -->

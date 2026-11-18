@@ -55,7 +55,7 @@ try {
 	$_GET = array();
 	assert_community_off( 401 === rest_do_request( new WP_REST_Request( 'GET', '/mma-future/v1/community/fan-scores' ) )->get_status() || 403 === rest_do_request( new WP_REST_Request( 'GET', '/mma-future/v1/community/fan-scores' ) )->get_status(), 'Fan scores are public while the fan ranking is off.' );
 
-	foreach ( array( array( 'GET', '/mma-future/v1/community/top-10' ), array( 'POST', '/mma-future/v1/community/top-10' ), array( 'GET', '/mma-future/v1/community/profile' ), array( 'POST', '/mma-future/v1/community/profile' ), array( 'POST', '/mma-future/v1/community/profile/avatar' ), array( 'GET', '/mma-future/v1/community/reputation' ), array( 'GET', '/mma-future/v1/community/props' ), array( 'POST', '/mma-future/v1/community/props' ), array( 'DELETE', '/mma-future/v1/community/props' ), array( 'DELETE', '/mma-future/v1/community/profile/avatar' ) ) as $route ) {
+	foreach ( array( array( 'GET', '/mma-future/v1/community/top-10' ), array( 'POST', '/mma-future/v1/community/top-10' ), array( 'GET', '/mma-future/v1/community/profile' ), array( 'POST', '/mma-future/v1/community/profile' ), array( 'POST', '/mma-future/v1/community/profile/avatar' ), array( 'GET', '/mma-future/v1/community/reputation' ), array( 'GET', '/mma-future/v1/community/props' ), array( 'POST', '/mma-future/v1/community/props' ), array( 'DELETE', '/mma-future/v1/community/props' ), array( 'GET', '/mma-future/v1/community/comments' ), array( 'POST', '/mma-future/v1/community/comments' ), array( 'POST', '/mma-future/v1/community/comments/1/vote' ), array( 'POST', '/mma-future/v1/community/comments/1/report' ), array( 'DELETE', '/mma-future/v1/community/profile/avatar' ) ) as $route ) {
 		$status = rest_do_request( new WP_REST_Request( $route[0], $route[1] ) )->get_status();
 		assert_community_off( 403 === $status, "{$route[0]} {$route[1]} answered $status while profiles are off." );
 	}
@@ -69,6 +69,7 @@ try {
 	assert_community_off( Config::area_enabled( 'profiles' ) && ! Config::area_enabled( 'unknown' ), 'A known area does not follow the feature switch, or an unknown one is on.' );
 	assert_community_off( ! Config::area_enabled( 'fan' ), 'The fan ranking is on by default once profiles are; it must be switched on separately.' );
 	assert_community_off( ! Config::area_enabled( 'reputation' ), 'Levels and props are on by default once profiles are; they must be switched on separately.' );
+	assert_community_off( ! Config::area_enabled( 'comments' ) && '' === \MMAF\DataEngine\Services\Community\Comments::shell( 1 ), 'The discussion shows by default once profiles are; it must be switched on separately.' );
 
 	echo wp_json_encode( array( 'ok' => true ), JSON_PRETTY_PRINT ) . PHP_EOL;
 } finally {

@@ -80,7 +80,7 @@ try {
 	do_action( 'mmafc_top10_saved', $u['owner'] );
 	assert_rep( 25 === rep_points( $u['owner'] ) && 2 === Reputation::summary( $u['owner'] )['level']['level'], 'A complete profile and a full Top 10 do not reach level 2.' );
 	$mmafr_breakdown = Reputation::breakdown( $u['owner'] )['breakdown'];
-	assert_rep( array( 'profile' => 10, 'top10' => 15, 'props' => 0, 'tenure' => 0 ) === $mmafr_breakdown, 'The breakdown does not add up: ' . wp_json_encode( $mmafr_breakdown ) );
+	assert_rep( array( 'profile' => 10, 'top10' => 15, 'props' => 0, 'comments' => 0, 'tenure' => 0 ) === $mmafr_breakdown, 'The breakdown does not add up: ' . wp_json_encode( $mmafr_breakdown ) );
 
 	foreach ( array( 'rater' => 'Rater Fan', 'mole' => 'Mole Fan' ) as $mmafr_label => $mmafr_name ) { $mmafr_complete( $u[ $mmafr_label ], $mmafr_name ); $mmafr_list( $u[ $mmafr_label ] ); Reputation::sync( $u[ $mmafr_label ] ); }
 	$profiles->save( $u['newcomer'], array( 'display_name' => 'New Fan' ) );

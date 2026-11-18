@@ -48,7 +48,7 @@ final class Reputation {
 		$awards = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(points),0) FROM {$t['rep_events']} WHERE user_id=%d", $user_id ) );
 		$props  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(r.value),0) FROM {$t['ratings']} r LEFT JOIN {$t['profiles']} p ON p.user_id=r.rater_user_id WHERE r.owner_user_id=%d AND r.rater_user_id<>r.owner_user_id AND (p.status IS NULL OR p.status NOT IN ('hidden','shadow'))", $user_id ) );
 		// phpcs:enable
-		return max( 0, $awards + $props );
+		return max( 0, $awards + $props + CommentVotes::points( $user_id ) );
 	}
 
 	public static function recalculate( int $user_id ): int {
@@ -94,9 +94,10 @@ final class Reputation {
 		$awards = array();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name only.
 		foreach ( $wpdb->get_results( $wpdb->prepare( "SELECT kind, SUM(points) AS points FROM {$t['rep_events']} WHERE user_id=%d GROUP BY kind", $user_id ), ARRAY_A ) ?: array() as $award ) { $awards[ (string) $award['kind'] ] = (int) $award['points']; }
-		$summary = self::summary( $user_id );
-		$props   = max( 0, $summary['points'] - array_sum( $awards ) );
-		return $summary + array( 'breakdown' => array( 'profile' => $awards['profile'] ?? 0, 'top10' => $awards['top10'] ?? 0, 'props' => $props, 'tenure' => $summary['tenure'] ) );
+		$summary  = self::summary( $user_id );
+		$comments = ( $awards['comment'] ?? 0 ) + CommentVotes::points( $user_id );
+		$props    = max( 0, $summary['points'] - ( $awards['profile'] ?? 0 ) - ( $awards['top10'] ?? 0 ) - $comments );
+		return $summary + array( 'breakdown' => array( 'profile' => $awards['profile'] ?? 0, 'top10' => $awards['top10'] ?? 0, 'props' => $props, 'comments' => $comments, 'tenure' => $summary['tenure'] ) );
 	}
 
 	/** Remove a reader's awards, the props they gave (refreshing those lists' owners) and the props their list got. */
@@ -106,10 +107,13 @@ final class Reputation {
 		$t      = Schema::tables();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name only.
 		$owners = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT owner_user_id FROM {$t['ratings']} WHERE rater_user_id=%d", $user_id ) ) ?: array() );
+		$voted  = $wpdb->get_results( $wpdb->prepare( "SELECT DISTINCT comment_id, author_user_id FROM {$t['comment_votes']} WHERE user_id=%d", $user_id ), ARRAY_A ) ?: array(); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->delete( $t['ratings'], array( 'rater_user_id' => $user_id ) );
 		$wpdb->delete( $t['ratings'], array( 'owner_user_id' => $user_id ) );
 		$wpdb->delete( $t['rep_events'], array( 'user_id' => $user_id ) );
 		$wpdb->delete( $t['comment_votes'], array( 'user_id' => $user_id ) );
+		foreach ( $voted as $vote ) { CommentVotes::refresh( (int) $vote['comment_id'] ); }
+		$owners = array_unique( array_merge( $owners, array_map( 'intval', array_column( $voted, 'author_user_id' ) ) ) );
 		foreach ( $owners as $owner ) { if ( $owner !== $user_id ) { self::recalculate( $owner ); } }
 	}
 }

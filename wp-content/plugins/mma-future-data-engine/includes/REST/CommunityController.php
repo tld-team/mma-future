@@ -3,6 +3,8 @@ namespace MMAF\DataEngine\REST;
 
 use MMAF\DataEngine\Services\Community\Avatars;
 use MMAF\DataEngine\Services\Community\Badge;
+use MMAF\DataEngine\Services\Community\Comments;
+use MMAF\DataEngine\Services\Community\CommentVotes;
 use MMAF\DataEngine\Services\Community\Config;
 use MMAF\DataEngine\Services\Community\Conflict;
 use MMAF\DataEngine\Services\Community\FanLists;
@@ -40,6 +42,14 @@ final class CommunityController extends \WP_REST_Controller {
 			array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $this, 'give_props' ), 'permission_callback' => array( $this, 'props_write_permission' ) ),
 			array( 'methods' => \WP_REST_Server::DELETABLE, 'callback' => array( $this, 'withdraw_props' ), 'permission_callback' => array( $this, 'props_write_permission' ) ),
 		) );
+		$comments_on = static fn(): bool => Config::area_enabled( 'comments' );
+		$signed_in   = static fn(): bool => is_user_logged_in() && Config::area_enabled( 'comments' );
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/comments', array(
+			array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $this, 'comments' ), 'permission_callback' => $comments_on ),
+			array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $this, 'post_comment' ), 'permission_callback' => $signed_in ),
+		) );
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/comments/(?P<id>\d+)/vote', array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $this, 'vote_comment' ), 'permission_callback' => $signed_in ) );
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/comments/(?P<id>\d+)/report', array( 'methods' => \WP_REST_Server::CREATABLE, 'callback' => array( $this, 'report_comment' ), 'permission_callback' => $signed_in ) );
 		register_rest_route( $this->namespace, '/' . $this->rest_base . '/fan-scores', array( 'methods' => \WP_REST_Server::READABLE, 'callback' => array( $this, 'fan_scores' ), 'permission_callback' => static fn(): bool => Config::area_enabled( 'fan' ) ) );
 	}
 
@@ -108,6 +118,39 @@ final class CommunityController extends \WP_REST_Controller {
 		Reputation::sync( $user_id );
 		$data = Reputation::breakdown( $user_id );
 		return $this->response( $data + array( 'badge' => Badge::svg( $data['level'], 'lg' ) ) );
+	}
+
+	/** The discussion under an article, the same for everyone except the viewer's own votes and controls. */
+	public function comments( \WP_REST_Request $request ) {
+		$post_id = absint( $request->get_param( 'post_id' ) );
+		if ( 'post' !== get_post_type( $post_id ) || 'publish' !== get_post_status( $post_id ) ) { return new \WP_Error( 'mmafc_not_found', 'That article doesn’t exist.', array( 'status' => 404 ) ); }
+		return $this->response( ( new Comments() )->thread( $post_id, 'new' === $request->get_param( 'sort' ) ? 'new' : 'best', get_current_user_id() ) );
+	}
+
+	public function post_comment( \WP_REST_Request $request ) {
+		$user_id = get_current_user_id();
+		if ( ! RateLimit::allow( 'comment', $user_id, 5, 10 * MINUTE_IN_SECONDS ) || ! RateLimit::allow( 'comment_day', $user_id, 40, DAY_IN_SECONDS ) ) { return $this->slow_down(); }
+		$post_id = absint( $request->get_param( 'post_id' ) );
+		try { ( new Comments() )->post( $user_id, $post_id, (string) $request->get_param( 'content' ), absint( $request->get_param( 'parent' ) ) ); }
+		catch ( ValidationFailed $e ) { return $this->invalid( $e ); }
+		catch ( \Throwable $e ) { return new \WP_Error( 'mmafc_comment_failed', 'Your comment couldn’t be posted. Try again.', array( 'status' => 500 ) ); }
+		return $this->response( ( new Comments() )->thread( $post_id, 'new', $user_id ) );
+	}
+
+	public function vote_comment( \WP_REST_Request $request ) {
+		$user_id = get_current_user_id();
+		if ( ! RateLimit::allow( 'vote', $user_id, 120, HOUR_IN_SECONDS ) ) { return $this->slow_down(); }
+		try { return $this->response( ( new CommentVotes() )->vote( $user_id, absint( $request['id'] ), (int) $request->get_param( 'value' ) ) ); }
+		catch ( ValidationFailed $e ) { return $this->invalid( $e ); }
+		catch ( \Throwable $e ) { return new \WP_Error( 'mmafc_vote_failed', 'Your vote couldn’t be saved. Try again.', array( 'status' => 500 ) ); }
+	}
+
+	public function report_comment( \WP_REST_Request $request ) {
+		$user_id = get_current_user_id();
+		if ( ! RateLimit::allow( 'report', $user_id, 20, DAY_IN_SECONDS ) ) { return $this->slow_down(); }
+		try { $held = ( new Comments() )->report( $user_id, absint( $request['id'] ) ); }
+		catch ( ValidationFailed $e ) { return $this->invalid( $e ); }
+		return $this->response( array( 'reported' => true, 'held' => $held ) );
 	}
 
 	public function props_permission(): bool { return Config::area_enabled( 'reputation' ) && Config::area_enabled( 'fan' ); }

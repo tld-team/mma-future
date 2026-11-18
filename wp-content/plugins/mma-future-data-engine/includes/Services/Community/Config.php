@@ -16,7 +16,7 @@ final class Config {
 	public const REPUTATION_SCHEMA_VERSION = '1.21.0';
 
 	/** Every area this release knows. Each one is switched on separately, after its release has been checked on staging. */
-	public const AREAS = array( 'profiles', 'fan', 'reputation' );
+	public const AREAS = array( 'profiles', 'fan', 'reputation', 'comments' );
 
 	/** Areas that are on when the `mmaf_community_areas` option has never been saved. */
 	private const DEFAULT_AREAS = array( 'profiles' );
@@ -50,7 +50,8 @@ final class Config {
 
 	public static function area_enabled( string $area ): bool {
 		if ( ! in_array( $area, self::AREAS, true ) || ! self::feature_enabled() ) { return false; }
-		if ( 'reputation' === $area && ! self::reputation_schema_ready() ) { return false; }
+		// Votes on comments live in a 1.21.0 table too.
+		if ( in_array( $area, array( 'reputation', 'comments' ), true ) && ! self::reputation_schema_ready() ) { return false; }
 		$enabled = in_array( $area, self::areas(), true );
 		return (bool) apply_filters( 'mmaf_community_area_enabled', $enabled, $area );
 	}

@@ -175,7 +175,7 @@
       set('[data-mmafc-level-xp]', level.xp + ' XP');
       set('[data-mmafc-level-next]', level.next == null ? 'Top level' : level.to_next + ' XP to ' + level.next_name);
       ['profile', 'top10'].forEach(function (key) { var node = card.querySelector('[data-mmafc-level-part="' + key + '"]'); if (node) node.textContent = node.textContent.replace(/^\d+/, String(part[key] || 0)); });
-      ['props', 'tenure'].forEach(function (key) { set('[data-mmafc-level-part="' + key + '"]', String(part[key] || 0)); });
+      ['props', 'comments', 'tenure'].forEach(function (key) { set('[data-mmafc-level-part="' + key + '"]', String(part[key] || 0)); });
       var meter = card.querySelector('[data-mmafc-level-meter]'), percent = Math.round((Number(level.progress) || 0) * 1000) / 10;
       if (meter) { meter.setAttribute('aria-valuenow', String(Math.round(percent))); var fill = meter.querySelector('.mmafc-meter__fill'); if (fill) fill.style.width = percent + '%'; }
     }).catch(function () {});

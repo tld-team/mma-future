@@ -25,6 +25,7 @@ $mmafc_part = $mmafc_level['breakdown'];
 		<div><dt>Complete profile</dt><dd data-mmafc-level-part="profile"><?php echo (int) $mmafc_part['profile']; ?> / <?php echo (int) Reputation::PROFILE_POINTS; ?></dd></div>
 		<div><dt>Full Top 10</dt><dd data-mmafc-level-part="top10"><?php echo (int) $mmafc_part['top10']; ?> / <?php echo (int) Reputation::TOP10_POINTS; ?></dd></div>
 		<div><dt>Props on your Top 10</dt><dd data-mmafc-level-part="props"><?php echo (int) $mmafc_part['props']; ?></dd></div>
+		<?php if ( \MMAF\DataEngine\Services\Community\Config::area_enabled( 'comments' ) || $mmafc_part['comments'] ) : ?><div><dt>Comments and votes</dt><dd data-mmafc-level-part="comments"><?php echo (int) $mmafc_part['comments']; ?></dd></div><?php endif; ?>
 		<div><dt>Time on MMA Future</dt><dd data-mmafc-level-part="tenure"><?php echo (int) $mmafc_part['tenure']; ?></dd></div>
 	</dl>
 	<p class="mmafc-hint">A photo, a name and a bio earn <?php echo (int) Reputation::PROFILE_POINTS; ?> XP, a full Top 10 earns <?php echo (int) Reputation::TOP10_POINTS; ?>. Other fans give props to your Top 10: Solid, Sharp or Elite for 1, 2 or 3 XP. Every three months on the site adds 10, up to 80. From level <?php echo (int) Ratings::MIN_LEVEL; ?> you can give props yourself.</p>
