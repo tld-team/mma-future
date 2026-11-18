@@ -61,8 +61,8 @@ final class FanRanking {
 			$tables = Schema::tables();
 			$cases  = '';
 			foreach ( $points as $position => $value ) { $cases .= ' WHEN ' . (int) $position . ' THEN ' . (int) $value; }
-			// Counted: active lists of accounts old enough to count, unless a moderator has excluded the reader.
-			$from = "FROM {$tables['fan_list_items']} i JOIN {$tables['fan_lists']} l ON l.id=i.list_id JOIN {$wpdb->users} u ON u.ID=l.user_id LEFT JOIN {$tables['profiles']} p ON p.user_id=l.user_id WHERE i.board_key=%s AND l.status='active' AND u.user_registered<=%s AND (p.status IS NULL OR p.status<>'shadow')";
+			// Counted: active lists of accounts old enough to count, unless a moderator has hidden or excluded the reader.
+			$from = "FROM {$tables['fan_list_items']} i JOIN {$tables['fan_lists']} l ON l.id=i.list_id JOIN {$wpdb->users} u ON u.ID=l.user_id LEFT JOIN {$tables['profiles']} p ON p.user_id=l.user_id WHERE i.board_key=%s AND l.status='active' AND u.user_registered<=%s AND (p.status IS NULL OR p.status NOT IN ('hidden','shadow'))";
 			$args = array( self::BOARD, gmdate( 'Y-m-d H:i:s', time() - Config::fan_min_account_hours() * HOUR_IN_SECONDS ) );
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names and integer CASE arms built above.
 			$raw   = $wpdb->get_results( $wpdb->prepare( "SELECT i.fighter_id, SUM(CASE i.position{$cases} ELSE 0 END) AS points, COUNT(*) AS picks, SUM(CASE WHEN i.position=1 THEN 1 ELSE 0 END) AS firsts {$from} GROUP BY i.fighter_id", $args ), ARRAY_A ) ?: array();

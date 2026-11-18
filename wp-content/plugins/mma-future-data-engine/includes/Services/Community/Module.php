@@ -26,6 +26,7 @@ final class Module {
 		add_action( 'wp_ajax_mmafc_session', array( self::class, 'session' ) );
 		add_action( 'wp_ajax_nopriv_mmafc_session', array( self::class, 'session' ) );
 		add_action( 'mmaf_account_nav', array( self::class, 'account_nav' ) );
+		add_filter( 'mmaf_account_registered_return_to', array( self::class, 'registered_return_to' ), 10, 2 );
 		add_filter( 'pre_get_avatar_data', array( Avatars::class, 'avatar_data' ), 10, 2 );
 		add_action( 'deleted_user', array( Privacy::class, 'forget_deleted_user' ) );
 		add_filter( 'wp_privacy_personal_data_exporters', array( Privacy::class, 'exporters' ) );
@@ -80,5 +81,22 @@ final class Module {
 			echo '<a class="mmafc-tabs__link' . ( $active ? ' is-current' : '' ) . '" href="' . esc_url( $tab[1] ) . '"' . ( $active ? ' aria-current="page"' : '' ) . '>' . esc_html( $tab[0] ) . '</a>';
 		}
 		echo '</nav>';
+		// The notifications page is where every sign-in lands by default, including Google's, so it carries the invitation.
+		if ( 'notifications' === $current && ! ( new Profiles() )->find_by_user( get_current_user_id() ) ) {
+			echo '<div class="mmafc-callout"><p class="mmafc-callout__text"><strong>Set up your profile.</strong> Pick a handle and a photo' . ( Config::area_enabled( 'fan' ) ? ', then rank your Top 10 prospects for the fan ranking' : ' for your public fan page' ) . '.</p><a class="mmafc-callout__button" href="' . esc_url( home_url( '/account/profile/' ) ) . '">Set up profile</a></div>';
+		}
+	}
+
+	/**
+	 * A reader who registered without a destination of their own would land on the notification settings, which say
+	 * nothing about the profile. Send them to set one up instead.
+	 *
+	 * @param mixed $return_to Where the reader is about to be sent.
+	 * @param mixed $user_id   The new reader.
+	 */
+	public static function registered_return_to( $return_to, $user_id ): string {
+		$return_to = (string) $return_to;
+		if ( ! Config::area_enabled( 'profiles' ) || untrailingslashit( $return_to ) !== untrailingslashit( home_url( '/account/' ) ) ) { return $return_to; }
+		return ( new Profiles() )->find_by_user( (int) $user_id ) ? $return_to : home_url( '/account/profile/' );
 	}
 }

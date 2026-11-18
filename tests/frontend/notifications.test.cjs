@@ -20,7 +20,7 @@ test('loads grouped follow state and keeps duplicate fighter buttons synchronize
     if(options.method==='DELETE')return json({fighter_id:17,following:false});
     throw Error('Unexpected request '+url);
   });
-  try{await flush();const buttons=[...t.doc.querySelectorAll('[data-mmaf-follow]')];assert.ok(buttons.every(b=>b.getAttribute('aria-pressed')==='true'));buttons[0].click();await flush();assert.ok(buttons.every(b=>b.getAttribute('aria-pressed')==='false'));assert.equal(t.calls.filter(c=>c.url.includes('/state')).length,1);assert.equal(t.calls.filter(c=>c.options.method==='DELETE').length,1);}finally{t.dom.window.close();}
+  try{await flush();const buttons=[...t.doc.querySelectorAll('[data-mmaf-follow]')];assert.ok(buttons.every(b=>b.getAttribute('aria-pressed')==='true'));buttons[0].click();await flush();assert.ok(buttons.every(b=>b.getAttribute('aria-pressed')==='false'));assert.equal(t.calls.filter(c=>c.url.includes('/state')).length,1);assert.equal(t.calls.filter(c=>c.options.method==='DELETE').length,1);const session=t.calls.find(c=>c.url.includes('admin-ajax'));assert.equal(session.url,'https://site.test/wp-admin/admin-ajax.php?action=mmaf_notification_session');assert.ok(!session.options.method||session.options.method==='GET','the session is read with a GET, so the write guard never holds it up');assert.equal(session.options.body,undefined);}finally{t.dom.window.close();}
 });
 
 test('reminder activation is idempotent in the UI',async()=>{

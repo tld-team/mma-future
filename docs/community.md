@@ -10,7 +10,7 @@ define('MMAF_COMMUNITY_ENABLED', true);
 
 Community is on only when all of these hold: the constant is `true`, the schema has reached `1.20.0`, and reader accounts (`MMAF_NOTIFICATIONS_ENABLED`) are on. The filter `mmaf_community_feature_enabled` can override the result.
 
-Each area is switched separately through the `mmaf_community_areas` option (default `["profiles"]`) or the `mmaf_community_area_enabled` filter, so a later area can be deployed dark and enabled after it has been checked on staging:
+Each area is switched separately, so a later area can be deployed dark and enabled after it has been checked on staging. Use the checkboxes under **MMA Future → Community → Oblasti**; they store the `mmaf_community_areas` option (default `["profiles"]`), which WP-CLI can set too. Choosing an area that needs profiles switches profiles on with it. The `mmaf_community_area_enabled` filter still has the last word.
 
 ```bash
 wp option update mmaf_community_areas '["profiles","fan"]' --format=json
@@ -56,6 +56,14 @@ The uploaded file is never kept. It must be a JPG, PNG or WebP of at most 2 MB (
 
 Wherever WordPress prints an avatar for a reader, it uses this photo or a local placeholder, so no Gravatar request (a hash of the reader's email) is made. Staff avatars are untouched.
 
+## Getting a new reader to a profile
+
+Every sign-in lands on `/account/` by default, which is about email notifications. So:
+
+- **After registering** with email and password, a reader who came with no destination of their own is sent to `/account/profile/` instead (`mmaf_account_registered_return_to`). A destination they brought, such as the fighter they wanted to follow, is kept.
+- **On `/account/`**, a reader without a profile sees a "Set up your profile" invitation under the tabs. This also reaches readers who registered with Google.
+- **On `/account/top-10/`**, a new account is told when its picks start to count (see "Which lists count" below), so a first save that does not move the fan ranking yet does not look broken.
+
 ## Routes and caching
 
 | URL | What it is |
@@ -82,7 +90,7 @@ A reader ranks up to ten fighters on `/account/top-10/`. Only those ten position
 
 **No stored totals.** The standings are one `GROUP BY` over `mmaf_fan_list_items`, cached through `PublicCacheService` under the `mmaf_fan_revision` option, which every save rotates. So the standings follow each save, cannot drift from the lists, and need no recalculation when an account is removed, a reader is excluded or a fighter leaves the ranking. Saving a list does **not** rotate `mmaf_public_data_revision`: that would purge the whole page cache on every save.
 
-**Which lists count.** A list counts when its owner is a reader with a confirmed email (staff can keep a list; it is stored as `unlisted`), the account is at least 24 hours old (`mmaf_community_fan_min_account_hours`), and the reader's profile is not marked `shadow`. A fighter is ranked only while the official ranking would list them.
+**Which lists count.** A list counts when its owner is a reader with a confirmed email (staff can keep a list; it is stored as `unlisted`), the account is at least 24 hours old (`mmaf_community_fan_min_account_hours`), and the reader's profile is neither hidden by a moderator nor marked `shadow`. A fighter is ranked only while the official ranking would list them.
 
 **Boards.** A fighter has one fan score. The division, gender and age views are the overall standings narrowed to the fighters on that official board and renumbered.
 
@@ -102,7 +110,7 @@ The Fans view is rendered by the plugin with plain links for division and page, 
 
 ## Moderation
 
-**MMA Future → Community** lists profiles with search. A moderator can hide a profile (its public page answers 404 and its photo is replaced by the placeholder; the owner can still edit it), show it again, or remove its photo.
+**MMA Future → Community** lists profiles with search. A moderator can hide a profile (its public page answers 404, its photo is replaced by the placeholder and its Top 10 stops counting; the owner can still edit it), show it again, or remove its photo.
 
 ## Privacy
 

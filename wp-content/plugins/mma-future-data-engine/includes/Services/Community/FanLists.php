@@ -67,7 +67,21 @@ final class FanLists {
 			'points'   => array_values( FanRanking::points() ),
 			'items'    => $this->items( $user_id ),
 			'counts'   => $this->counts( $user_id ),
+			'counts_from' => $this->counts_from( $user_id ),
 		);
+	}
+
+	/**
+	 * When a new account's picks start to count (ISO 8601, UTC), or null when they already do. A fresh account waits
+	 * `fan_min_account_hours()`; saying so keeps a new reader from thinking their save did nothing.
+	 */
+	public function counts_from( int $user_id ): ?string {
+		$user = $user_id > 0 ? get_userdata( $user_id ) : false;
+		if ( ! $user ) { return null; }
+		$registered = strtotime( (string) $user->user_registered . ' UTC' );
+		if ( false === $registered ) { return null; }
+		$from = $registered + Config::fan_min_account_hours() * HOUR_IN_SECONDS;
+		return $from > time() ? gmdate( 'c', $from ) : null;
 	}
 
 	/**

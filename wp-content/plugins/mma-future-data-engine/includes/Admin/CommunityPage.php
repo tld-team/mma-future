@@ -15,17 +15,26 @@ final class CommunityPage {
 	private const PER_PAGE  = 50;
 	/** Not "mmaf_": admin POSTs with that prefix take the canonical write guard, which has nothing to do with profiles. */
 	private const ACTION = 'mmafc_profile_moderate';
+	private const AREAS_ACTION = 'mmafc_community_areas';
+	/** What each area turns on, in the order they build on each other. */
+	private const AREA_LABELS = array(
+		'profiles' => array( 'Profili', 'Profil čitaoca, javna strana /fan/{handle}/ i tabovi naloga.' ),
+		'fan'      => array( 'Fan Top 10', 'My Top 10, prikaz Fans na rang listi i fan rang na strani borca. Traži profile.' ),
+	);
 
 	public static function register(): void {
 		add_action( 'admin_post_' . self::ACTION, array( self::class, 'moderate' ) );
+		add_action( 'admin_post_' . self::AREAS_ACTION, array( self::class, 'save_areas' ) );
 	}
 
 	public static function render(): void {
 		if ( ! current_user_can( Capabilities::MANAGE ) ) { wp_die( 'Forbidden', '', array( 'response' => 403 ) ); }
 		echo '<div class="wrap"><h1>Zajednica</h1>';
 		if ( ! Config::schema_ready() ) { echo '<div class="notice notice-warning"><p>Tabele zajednice još ne postoje. Pokrenite migraciju baze na šemu ' . esc_html( Config::SCHEMA_VERSION ) . '.</p></div></div>'; return; }
-		if ( ! Config::area_enabled( 'profiles' ) ) { echo '<div class="notice notice-info"><p>Profili su trenutno isključeni. Uključuju se konstantom <code>MMAF_COMMUNITY_ENABLED</code> u <code>wp-config.php</code>.</p></div>'; }
+		if ( ! Config::feature_enabled() ) { echo '<div class="notice notice-info"><p>Zajednica je trenutno isključena. Uključuje se konstantom <code>MMAF_COMMUNITY_ENABLED</code> u <code>wp-config.php</code>; prekidači ispod važe tek tada.</p></div>'; }
+		elseif ( ! Config::area_enabled( 'profiles' ) ) { echo '<div class="notice notice-info"><p>Profili su isključeni prekidačem ispod.</p></div>'; }
 		if ( ! empty( $_GET['mmafc_done'] ) ) { echo '<div class="notice notice-success is-dismissible"><p>Izmena je sačuvana.</p></div>'; }
+		self::render_areas();
 
 		global $wpdb;
 		$table  = Schema::tables()['profiles'];
@@ -86,6 +95,30 @@ final class CommunityPage {
 			echo '<div class="tablenav"><div class="tablenav-pages">' . wp_kses_post( (string) paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', self::page_url( array( 's' => $search ) ) ), 'format' => '', 'current' => $paged, 'total' => $pages ) ) ) . '</div></div>';
 		}
 		echo '</div>';
+	}
+
+	/** One checkbox per area. Saved to the `mmaf_community_areas` option, which the `mmaf_community_area_enabled` filter can still override. */
+	private static function render_areas(): void {
+		$on = Config::areas();
+		echo '<h2>Oblasti</h2><form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="' . esc_attr( self::AREAS_ACTION ) . '">';
+		wp_nonce_field( self::AREAS_ACTION );
+		echo '<fieldset><legend class="screen-reader-text">Uključene oblasti</legend>';
+		foreach ( Config::AREAS as $area ) {
+			$label = self::AREA_LABELS[ $area ] ?? array( $area, '' );
+			echo '<p><label><input type="checkbox" name="areas[]" value="' . esc_attr( $area ) . '"' . checked( in_array( $area, $on, true ), true, false ) . '> <strong>' . esc_html( $label[0] ) . '</strong></label>' . ( '' !== $label[1] ? ' <span class="description">' . esc_html( $label[1] ) . '</span>' : '' ) . '</p>';
+		}
+		echo '</fieldset>';
+		submit_button( 'Sačuvaj oblasti', 'secondary', 'submit', false );
+		echo '</form>';
+	}
+
+	public static function save_areas(): void {
+		if ( ! current_user_can( Capabilities::MANAGE ) ) { wp_die( 'Forbidden', '', array( 'response' => 403 ) ); }
+		check_admin_referer( self::AREAS_ACTION );
+		$picked = array_map( 'sanitize_key', (array) wp_unslash( $_POST['areas'] ?? array() ) );
+		Config::save_areas( $picked );
+		wp_safe_redirect( self::page_url( array( 'mmafc_done' => 1 ) ) );
+		exit;
 	}
 
 	public static function moderate(): void {

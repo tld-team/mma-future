@@ -2,6 +2,8 @@
 require __DIR__ . '/bootstrap.php';
 
 use MMAF\DataEngine\Services\Community\Avatars;
+use MMAF\DataEngine\Services\Community\Config;
+use MMAF\DataEngine\Services\Community\Module;
 use MMAF\DataEngine\Services\Community\Privacy;
 use MMAF\DataEngine\Services\Community\Profiles;
 use MMAF\DataEngine\Services\Community\Routes;
@@ -43,9 +45,10 @@ $mmafc_t_get    = $_GET;
 $mmafc_t_tables = Schema::tables();
 $mmafc_t_post   = 0;
 $mmafc_t_done   = false;
+$mmafc_t_areas  = get_option( 'mmaf_community_areas', null );
 
 try {
-	foreach ( array( 'one' => 'subscriber', 'two' => 'subscriber', 'staff' => 'administrator' ) as $mmafc_t_label => $mmafc_t_role ) {
+	foreach ( array( 'one' => 'subscriber', 'two' => 'subscriber', 'staff' => 'administrator', 'newcomer' => 'subscriber' ) as $mmafc_t_label => $mmafc_t_role ) {
 		$mmafc_t_id = wp_create_user( 'community_' . $mmafc_t_label . '_' . $mmafc_t_suffix, wp_generate_password( 24, true, true ), 'community-' . $mmafc_t_label . '-' . $mmafc_t_suffix . '@example.test' );
 		if ( is_wp_error( $mmafc_t_id ) ) { throw new RuntimeException( $mmafc_t_id->get_error_message() ); }
 		get_userdata( $mmafc_t_id )->set_role( $mmafc_t_role );
@@ -197,6 +200,27 @@ try {
 	set_query_var( 'mmaf_notification_page', '' );
 	assert_community( str_contains( $mmafc_t_notifications, 'class="mmafc-tabs"' ) && str_contains( $mmafc_t_notifications, 'aria-current="page">Notifications</a>' ) && str_contains( $mmafc_t_notifications, 'data-mmaf-settings' ), 'The notifications page lost its content or did not gain the account tabs.' );
 
+	// A reader without a profile is invited to make one, on the page every sign-in lands on and right after registering.
+	$mmafc_t_newcomer = $mmafc_t_users['newcomer'];
+	assert_community( null !== $profiles->find_by_user( $mmafc_t_one ) && null === $profiles->find_by_user( $mmafc_t_newcomer ), 'The fixture readers do not start as expected.' );
+	assert_community( ! str_contains( $mmafc_t_notifications, 'mmafc-callout' ), 'A reader who has a profile is still asked to set one up.' );
+	wp_set_current_user( $mmafc_t_newcomer );
+	ob_start(); do_action( 'mmaf_account_nav', 'notifications' ); $mmafc_t_invite = (string) ob_get_clean();
+	ob_start(); do_action( 'mmaf_account_nav', 'profile' ); $mmafc_t_on_form = (string) ob_get_clean();
+	wp_set_current_user( $mmafc_t_one );
+	assert_community( str_contains( $mmafc_t_invite, 'class="mmafc-callout"' ) && str_contains( $mmafc_t_invite, 'href="' . esc_url( home_url( '/account/profile/' ) ) . '"' ) && ! str_contains( $mmafc_t_on_form, 'mmafc-callout' ), 'A reader without a profile is not invited to set one up, or is invited on the form itself.' );
+	$mmafc_t_return = static fn( string $url, int $user ): string => (string) apply_filters( 'mmaf_account_registered_return_to', $url, $user );
+	assert_community( home_url( '/account/profile/' ) === $mmafc_t_return( home_url( '/account/' ), $mmafc_t_newcomer ), 'A new reader with no destination is not sent to set up a profile.' );
+	assert_community( home_url( '/fighters/example/' ) === $mmafc_t_return( home_url( '/fighters/example/' ), $mmafc_t_newcomer ), 'A destination the reader brought was replaced.' );
+	assert_community( home_url( '/account/' ) === $mmafc_t_return( home_url( '/account/' ), $mmafc_t_one ), 'A reader who already has a profile is sent to the form.' );
+
+	// Area switches: unknown names are dropped and a later area brings profiles with it.
+	assert_community( array( 'profiles', 'fan' ) === Config::save_areas( array( 'fan', 'nonsense' ) ) && array( 'profiles', 'fan' ) === Config::areas() && Config::area_enabled( 'fan' ), 'Choosing the fan area did not switch profiles on with it.' );
+	assert_community( array() === Config::save_areas( array() ) && ! Config::area_enabled( 'profiles' ), 'Every area could not be switched off.' );
+	ob_start(); Module::account_nav( 'notifications' ); $mmafc_t_off_nav = (string) ob_get_clean();
+	assert_community( '' === $mmafc_t_off_nav, 'The account tabs print with every area switched off.' );
+	Config::save_areas( array( 'profiles' ) );
+
 	// Moderation and removal.
 	$mmafc_t_avatar  = $avatars->store_from_path( $mmafc_t_source );
 	$mmafc_t_files[] = $mmafc_t_basedir . '/' . $mmafc_t_avatar;
@@ -227,6 +251,7 @@ try {
 	foreach ( $mmafc_t_users as $mmafc_t_id ) { ( new Profiles() )->forget( $mmafc_t_id ); wp_delete_user( $mmafc_t_id ); delete_transient( 'mmafc_rl_profile_' . $mmafc_t_id ); delete_transient( 'mmafc_rl_handle_' . $mmafc_t_id ); delete_transient( 'mmafc_rl_avatar_' . $mmafc_t_id ); }
 	foreach ( $mmafc_t_files as $mmafc_t_file ) { if ( is_file( $mmafc_t_file ) ) { unlink( $mmafc_t_file ); } }
 	if ( $mmafc_t_post ) { wp_delete_post( $mmafc_t_post, true ); }
+	if ( null === $mmafc_t_areas ) { delete_option( 'mmaf_community_areas' ); } else { update_option( 'mmaf_community_areas', $mmafc_t_areas, false ); }
 	remove_filter( 'mmaf_community_feature_enabled', '__return_true' );
 	remove_filter( 'mmaf_notifications_feature_enabled', '__return_true' );
 }

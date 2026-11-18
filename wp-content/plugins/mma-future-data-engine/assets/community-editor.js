@@ -156,7 +156,11 @@
   function applyServer(data) {
     state.revision = Number(data.revision) || 0; state.points = data.points || []; state.counts = data.counts !== false;
     state.saved = (data.items || []).map(fromList); state.picks = state.saved.slice(); state.dirty = false;
-    noteEl.hidden = state.counts; if (!state.counts) noteEl.textContent = 'You can keep a Top 10 with this account, but only reader accounts with a confirmed email count toward the fan ranking.';
+    var from = state.counts && data.counts_from ? new Date(data.counts_from) : null;
+    if (from && isNaN(from.getTime())) from = null;
+    noteEl.hidden = state.counts && !from;
+    if (!state.counts) noteEl.textContent = 'You can keep a Top 10 with this account, but only reader accounts with a confirmed email count toward the fan ranking.';
+    else if (from) noteEl.textContent = 'Your picks join the fan ranking on ' + from.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) + '. New accounts wait a short while, so a batch of fresh accounts cannot move the ranking at once. You can build and save your Top 10 now.';
   }
   function load(discard) {
     setStatus('Loading your Top 10…', '');
