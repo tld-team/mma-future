@@ -23,15 +23,14 @@ test('loads grouped follow state and keeps duplicate fighter buttons synchronize
   try{await flush();const buttons=[...t.doc.querySelectorAll('[data-mmaf-follow]')];assert.ok(buttons.every(b=>b.getAttribute('aria-pressed')==='true'));buttons[0].click();await flush();assert.ok(buttons.every(b=>b.getAttribute('aria-pressed')==='false'));assert.equal(t.calls.filter(c=>c.url.includes('/state')).length,1);assert.equal(t.calls.filter(c=>c.options.method==='DELETE').length,1);}finally{t.dom.window.close();}
 });
 
-test('email login uses a neutral response and reminder activation is idempotent in the UI',async()=>{
-  const t=setup('<form data-mmaf-email-login><input name="email" value="reader@example.test"><input name="fighter_id" value="8"><input name="return_to" value="https://site.test/fighters/a"><p data-mmaf-auth-message></p></form><button data-mmaf-reminder="44">Remind me</button>',(url,options)=>{
+test('reminder activation is idempotent in the UI',async()=>{
+  const t=setup('<button data-mmaf-reminder="44">Remind me</button>',(url)=>{
     if(url.includes('admin-ajax'))return json({success:true,data:{loggedIn:true,nonce:'nonce'}});
-    if(url.endsWith('/auth/email'))return json({message:'If the address can use this sign-in method, a secure link is on its way.'});
     if(url.endsWith('/reminders'))return json({bout_id:44,active:true});
     if(url.includes('/state'))return json({following:{}});
     throw Error('Unexpected request '+url);
   });
-  try{await flush();t.doc.querySelector('form').dispatchEvent(new t.win.Event('submit',{bubbles:true,cancelable:true}));await flush();assert.match(t.doc.querySelector('[data-mmaf-auth-message]').textContent,/secure link/i);t.doc.querySelector('[data-mmaf-reminder]').click();await flush();assert.equal(t.doc.querySelector('[data-mmaf-reminder]').textContent,'Reminder set');}finally{t.dom.window.close();}
+  try{await flush();t.doc.querySelector('[data-mmaf-reminder]').click();await flush();assert.equal(t.doc.querySelector('[data-mmaf-reminder]').textContent,'Reminder set');}finally{t.dom.window.close();}
 });
 
 test('new AJAX-rendered fighter buttons receive state without embedding a cached user value',async()=>{

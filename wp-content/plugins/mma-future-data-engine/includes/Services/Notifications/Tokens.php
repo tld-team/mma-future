@@ -36,6 +36,12 @@ final class Tokens {
 		return 1 === (int) $changed ? $row : null;
 	}
 
+	/** A used link no longer needs what it carried; a registration link carries a password hash. */
+	public function forget_payload( int $id ): void {
+		global $wpdb;
+		$wpdb->update( $this->t['tokens'], array( 'payload_json' => null ), array( 'id' => $id ) );
+	}
+
 	public function action_url( string $purpose, string $token ): string {
 		return add_query_arg( array( 'purpose' => $purpose, 'token' => $token ), home_url( '/notification-action/' ) );
 	}

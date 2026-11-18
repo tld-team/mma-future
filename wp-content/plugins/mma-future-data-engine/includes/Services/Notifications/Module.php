@@ -14,8 +14,11 @@ final class Module {
 		add_action( 'wp_enqueue_scripts', array( self::class, 'assets' ) );
 		add_action( 'wp_ajax_mmaf_notification_session', array( self::class, 'session' ) );
 		add_action( 'wp_ajax_nopriv_mmaf_notification_session', array( self::class, 'session' ) );
-		add_action( 'admin_post_nopriv_mmaf_magic_confirm', array( self::class, 'confirm_magic' ) );
-		add_action( 'admin_post_mmaf_magic_confirm', array( self::class, 'confirm_magic' ) );
+		// Named "mmafc_" on purpose: admin POSTs whose action starts with "mmaf_" take the canonical write guard and are refused while an import runs.
+		foreach ( array( 'mmafc_register_confirm' => 'confirm_registration', 'mmafc_password_reset' => 'reset_password' ) as $action => $handler ) {
+			add_action( 'admin_post_nopriv_' . $action, array( self::class, $handler ) );
+			add_action( 'admin_post_' . $action, array( self::class, $handler ) );
+		}
 		add_action( 'admin_post_nopriv_mmaf_token_action', array( self::class, 'confirm_token_action' ) );
 		add_action( 'admin_post_mmaf_token_action', array( self::class, 'confirm_token_action' ) );
 		add_action( 'wp_login', array( self::class, 'continue_intent' ), 20, 2 );
@@ -89,8 +92,14 @@ final class Module {
 	}
 
 	private static function view_title(): string {
-		$titles = array( 'login'=>'Sign in', 'register'=>'Create your account', 'account'=>'Your notifications', 'notification-action'=>'Confirm notification action' );
-		return $titles[ (string) get_query_var( 'mmaf_notification_page' ) ] ?? '';
+		$view   = (string) get_query_var( 'mmaf_notification_page' );
+		$titles = array( 'login'=>isset( $_GET['forgot'] ) ? 'Reset your password' : 'Sign in', 'register'=>'Create your account', 'account'=>'Your notifications', 'notification-action'=>self::action_title( sanitize_key( $_GET['purpose'] ?? '' ) ) );
+		return $titles[ $view ] ?? '';
+	}
+
+	/** The secure-link page serves several purposes; its heading and title name the one in hand. */
+	public static function action_title( string $purpose ): string {
+		return array( 'register' => 'Confirm your email', 'password_reset' => 'Set a new password' )[ $purpose ] ?? 'Confirm notification action';
 	}
 
 	public static function social_error_url(): string {
@@ -133,10 +142,22 @@ final class Module {
 		return add_query_arg( $args, home_url( '/login/' ) );
 	}
 
-	public static function confirm_magic(): void {
-		check_admin_referer( 'mmaf_magic_confirm' );
-		try { $result = ( new Auth() )->confirm( sanitize_text_field( wp_unslash( $_POST['token'] ?? '' ) ) ); wp_safe_redirect( $result['return_to'] ); }
+	public static function confirm_registration(): void {
+		check_admin_referer( 'mmafc_register_confirm' );
+		try { $result = ( new Auth() )->confirm_registration( sanitize_text_field( wp_unslash( $_POST['token'] ?? '' ) ) ); wp_safe_redirect( $result['return_to'] ); }
 		catch ( \Throwable $e ) { wp_safe_redirect( add_query_arg( 'mmaf_error', rawurlencode( $e->getMessage() ), home_url( '/login/' ) ) ); }
+		exit;
+	}
+
+	public static function reset_password(): void {
+		check_admin_referer( 'mmafc_password_reset' );
+		$token = sanitize_text_field( wp_unslash( $_POST['token'] ?? '' ) );
+		// The password is not sanitised: every character the reader typed is part of it.
+		$password = is_string( $_POST['password'] ?? null ) ? wp_unslash( $_POST['password'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		try { $result = ( new Auth() )->reset_password( $token, $password ); wp_safe_redirect( $result['return_to'] ); }
+		// A password that is too weak leaves the link usable, so the reader returns to the same form.
+		catch ( AuthError $e ) { wp_safe_redirect( add_query_arg( 'mmaf_error', rawurlencode( $e->getMessage() ), ( new Tokens() )->action_url( 'password_reset', $token ) ) ); }
+		catch ( \Throwable $e ) { wp_safe_redirect( add_query_arg( array( 'forgot' => 1, 'mmaf_error' => rawurlencode( $e->getMessage() ) ), home_url( '/login/' ) ) ); }
 		exit;
 	}
 

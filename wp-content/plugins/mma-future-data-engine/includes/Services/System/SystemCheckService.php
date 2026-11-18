@@ -832,7 +832,13 @@ final class SystemCheckService {
 	}
 
 	private function is_intentional_public_write_route( string $route, string $method, array $handler ): bool {
-		if ( '/mma-future/v1/notifications/auth/email' !== $route || 'POST' !== strtoupper( $method ) ) {
+		// The reader sign-in forms: open to signed-out visitors by design, each tied to its own handler below.
+		$public = array(
+			'/mma-future/v1/notifications/auth/register'        => 'register',
+			'/mma-future/v1/notifications/auth/login'           => 'login',
+			'/mma-future/v1/notifications/auth/password/forgot' => 'forgot_password',
+		);
+		if ( ! isset( $public[ $route ] ) || 'POST' !== strtoupper( $method ) ) {
 			return false;
 		}
 
@@ -843,7 +849,7 @@ final class SystemCheckService {
 			&& isset( $callback[0], $callback[1], $permission[0], $permission[1] )
 			&& $callback[0] instanceof NotificationsController
 			&& $permission[0] === $callback[0]
-			&& 'request_login' === $callback[1]
+			&& $public[ $route ] === $callback[1]
 			&& 'public_auth_permission' === $permission[1];
 	}
 }

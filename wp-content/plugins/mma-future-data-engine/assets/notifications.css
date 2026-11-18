@@ -164,7 +164,7 @@
 .mmaf-notification-card h1 { font-size: 1.75rem; line-height: 1.2; letter-spacing: -.01em; margin: 0 0 .5rem; }
 .mmaf-notification-card section { border-top: 1px solid #e2e8f0; margin-top: 2rem; padding-top: 1.5rem; }
 .mmaf-notification-card label { display: block; font-size: .875rem; font-weight: 600; margin: .8rem 0 .4rem; }
-.mmaf-notification-card input[type=email], .mmaf-notification-card input[name=timezone] {
+.mmaf-notification-card input[type=email], .mmaf-notification-card input[name=timezone], .mmaf-notification-card input[name=password] {
   display: block;
   width: 100%;
   height: 48px;
@@ -178,7 +178,7 @@
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .mmaf-notification-card input[type=email]::placeholder { color: #94a3b8; }
-.mmaf-notification-card input[type=email]:focus, .mmaf-notification-card input[name=timezone]:focus { border-color: #0047a8; box-shadow: 0 0 0 3px rgba(0,71,168,.18); outline: 0; }
+.mmaf-notification-card input[type=email]:focus, .mmaf-notification-card input[name=timezone]:focus, .mmaf-notification-card input[name=password]:focus { border-color: #0047a8; box-shadow: 0 0 0 3px rgba(0,71,168,.18); outline: 0; }
 .mmaf-notification-card button {
   border: 0;
   border-radius: 10px;
@@ -201,6 +201,20 @@
 .mmaf-notification-card .mmaf-auth__lead + .mmaf-alert { margin: -.5rem 0 1.25rem; }
 .mmaf-auth__form label { margin-top: 0; }
 .mmaf-auth__form button[type=submit] { display: block; width: 100%; height: 48px; margin-top: .875rem; }
+/* Password row: the label and "Forgot password?" share a line; the Show control sits inside the field. */
+.mmaf-auth__row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-top: 1rem; }
+.mmaf-auth__form .mmaf-auth__row label { margin: 0 0 .4rem; }
+.mmaf-auth__form > label[for=mmaf-auth-password] { margin-top: 1rem; }
+.mmaf-notification-card .mmaf-auth__forgot { font-size: .8125rem; font-weight: 600; text-decoration: none; }
+.mmaf-notification-card .mmaf-auth__forgot:hover { text-decoration: underline; }
+.mmaf-auth__password { position: relative; }
+.mmaf-notification-card .mmaf-auth__password input { padding-right: 4.25rem; }
+.mmaf-notification-card .mmaf-auth__toggle { position: absolute; top: 4px; right: 4px; height: 40px; min-height: 0; padding: 0 .75rem; border-radius: 8px; background: transparent; color: #0047a8; font-size: .8125rem; font-weight: 600; }
+.mmaf-notification-card .mmaf-auth__toggle:hover { background: rgba(0,71,168,.08); }
+.mmaf-notification-card input[aria-invalid=true] { border-color: #b91c1c; }
+.mmaf-auth__error { margin: .375rem 0 0; color: #b91c1c; font-size: .8125rem; font-weight: 500; line-height: 1.4; }
+.mmaf-auth__error[hidden] { display: none; }
+.mmaf-notification-card .mmaf-auth__hint--start { margin-top: .375rem; text-align: left; }
 .mmaf-auth__hint { margin: .75rem 0 0; font-size: .8125rem; line-height: 1.4; color: #64748b; text-align: center; }
 .mmaf-auth__status { margin: 1rem 0 0; padding: .75rem 1rem; border-radius: 10px; background: #eff6ff; color: #1e3a8a; font-size: .875rem; line-height: 1.4; }
 .mmaf-auth__status:empty { display: none; }
@@ -240,8 +254,12 @@
 :root[data-theme="dark"] .mmaf-notification-card :is(.mmaf-muted, .mmaf-account-session, .mmaf-separator, .mmaf-auth__hint) { color: #94a3b8; }
 :root[data-theme="dark"] .mmaf-notification-card :is(.mmaf-auth__lead, .mmaf-auth__switch) { color: #cbd5e1; }
 :root[data-theme="dark"] .mmaf-notification-card .mmaf-auth__status { background: rgba(96,165,250,.14); color: #bfdbfe; }
-:root[data-theme="dark"] .mmaf-notification-card :is(input[type=email], input[name=timezone]) { border-color: #475569; }
-:root[data-theme="dark"] .mmaf-notification-card :is(input[type=email], input[name=timezone]):focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.28); }
+:root[data-theme="dark"] .mmaf-notification-card :is(input[type=email], input[name=timezone], input[name=password]) { border-color: #475569; }
+:root[data-theme="dark"] .mmaf-notification-card .mmaf-auth__toggle { color: #93c5fd; }
+:root[data-theme="dark"] .mmaf-notification-card .mmaf-auth__toggle:hover { background: rgba(96,165,250,.14); }
+:root[data-theme="dark"] .mmaf-notification-card :is(.mmaf-auth__error) { color: #fca5a5; }
+:root[data-theme="dark"] .mmaf-notification-card input[aria-invalid=true] { border-color: #f87171; }
+:root[data-theme="dark"] .mmaf-notification-card :is(input[type=email], input[name=timezone], input[name=password]):focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.28); }
 :root[data-theme="dark"] .mmaf-notification-card a { color: #93c5fd; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) .mmaf-notification-page { background: #020617; }
@@ -252,10 +270,14 @@
   :root:not([data-theme]) .mmaf-notification-card :is(.mmaf-muted, .mmaf-account-session, .mmaf-separator, .mmaf-auth__hint) { color: #94a3b8; }
   :root:not([data-theme]) .mmaf-notification-card :is(.mmaf-auth__lead, .mmaf-auth__switch) { color: #cbd5e1; }
   :root:not([data-theme]) .mmaf-notification-card .mmaf-auth__status { background: rgba(96,165,250,.14); color: #bfdbfe; }
-  :root:not([data-theme]) .mmaf-notification-card :is(input[type=email], input[name=timezone]) { border-color: #475569; }
-  :root:not([data-theme]) .mmaf-notification-card :is(input[type=email], input[name=timezone]):focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.28); }
+  :root:not([data-theme]) .mmaf-notification-card :is(input[type=email], input[name=timezone], input[name=password]) { border-color: #475569; }
+  :root:not([data-theme]) .mmaf-notification-card .mmaf-auth__toggle { color: #93c5fd; }
+  :root:not([data-theme]) .mmaf-notification-card .mmaf-auth__toggle:hover { background: rgba(96,165,250,.14); }
+  :root:not([data-theme]) .mmaf-notification-card .mmaf-auth__error { color: #fca5a5; }
+  :root:not([data-theme]) .mmaf-notification-card input[aria-invalid=true] { border-color: #f87171; }
+  :root:not([data-theme]) .mmaf-notification-card :is(input[type=email], input[name=timezone], input[name=password]):focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,.28); }
   :root:not([data-theme]) .mmaf-notification-card a { color: #93c5fd; }
 }
 /* Light card: state the text and field colours so the theme's dark-mode element rules cannot bleed in. */
 :root[data-theme="light"] .mmaf-notification-card :is(h1, h2, label) { color: #0f172a; }
-:root[data-theme="light"] .mmaf-notification-card :is(input[type=email], input[name=timezone]) { background: #fff; color: #0f172a; border-color: #cbd5e1; }
+:root[data-theme="light"] .mmaf-notification-card :is(input[type=email], input[name=timezone], input[name=password]) { background: #fff; color: #0f172a; border-color: #cbd5e1; }

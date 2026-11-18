@@ -54,6 +54,7 @@ jobs:
           php tests/unit/public-cache.php
           php tests/unit/community-handles.php
           php tests/unit/community-fan-points.php
+          php tests/unit/account-passwords.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v14.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v15.php
           php wp-content/plugins/mma-future-data-engine/tests/verify-formula-v17.php
@@ -166,6 +167,7 @@ jobs:
           php -d memory_limit=256M tests/integration/verify-upcoming-calendar.php
           php -d memory_limit=256M tests/integration/verify-notifications.php
           php -d memory_limit=256M tests/integration/verify-notification-pages.php
+          php -d memory_limit=256M tests/integration/verify-accounts.php
           php -d memory_limit=256M tests/integration/verify-followers-report.php
           php -d memory_limit=256M tests/integration/verify-community-schema.php
           php -d memory_limit=256M tests/integration/verify-community-off.php
