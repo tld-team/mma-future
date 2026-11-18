@@ -209,6 +209,7 @@ try {
 	set_query_var( 'mmaf_community_page', '' );
 	set_query_var( 'mmaf_community_handle', '' );
 	assert_fan( str_contains( $mmafc_f_profile, 'id="mmafc-top10-title"' ) && strpos( $mmafc_f_profile, 'Fan Fixture 10 ' ) < strpos( $mmafc_f_profile, 'Fan Fixture 01 ' ) && str_contains( $mmafc_f_profile, 'Official #10' ), 'The public profile does not show the reader’s Top 10 in their order.' );
+	assert_fan( 1 === substr_count( $mmafc_f_profile, 'mmafc-fightcard__pick--main' ) && 2 === substr_count( $mmafc_f_profile, 'mmafc-fightcard__pick--co' ) && str_contains( $mmafc_f_profile, '▲9' ) && str_contains( $mmafc_f_profile, '9 places higher than official' ) && str_contains( $mmafc_f_profile, 'mmafc-avatar-frame' ), 'The public Top 10 is not laid out as a fight card with its distance from the official ranking.' );
 	ob_start(); Module::account_nav( 'top-10' ); $mmafc_f_nav = (string) ob_get_clean();
 	assert_fan( 3 === substr_count( $mmafc_f_nav, 'mmafc-tabs__link' ), 'The account tabs do not include My Top 10.' );
 

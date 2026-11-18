@@ -43,7 +43,7 @@ final class Module {
 		wp_register_style( 'mmaf-community', plugins_url( 'assets/community.css', MMAF_PLUGIN_FILE ), array(), $version( 'community.css' ) );
 		wp_register_script( 'mmaf-community', plugins_url( 'assets/community.js', MMAF_PLUGIN_FILE ), array(), $version( 'community.js' ), true );
 		// No nonce here: the script asks for one at runtime, so nothing per-reader is printed into HTML a cache might keep.
-		wp_localize_script( 'mmaf-community', 'mmafCommunity', array( 'ajaxUrl' => admin_url( 'admin-ajax.php' ), 'restUrl' => rest_url( 'mma-future/v1/community/' ), 'rankingsUrl' => rest_url( 'mma-future/v1/rankings' ), 'maxAvatarBytes' => Config::avatar_max_bytes() ) );
+		wp_localize_script( 'mmaf-community', 'mmafCommunity', array( 'ajaxUrl' => admin_url( 'admin-ajax.php' ), 'restUrl' => rest_url( 'mma-future/v1/community/' ), 'rankingsUrl' => rest_url( 'mma-future/v1/rankings' ), 'maxAvatarBytes' => Config::avatar_max_bytes(), 'profileBase' => home_url( '/fan/' ), 'profileFormUrl' => home_url( '/account/profile/' ) ) );
 		$view = Routes::view();
 		$fan  = Config::area_enabled( 'fan' );
 		if ( $fan && is_singular( 'mmaf_fighter' ) ) {

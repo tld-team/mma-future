@@ -178,9 +178,30 @@
     lib.api('top-10', { method: 'POST', json: { fighter_ids: ids(state.picks), revision: state.revision } }).then(function (data) {
       applyServer(data); storeDraft(); render();
       setStatus(state.picks.length ? 'Top 10 saved' : 'Top 10 cleared', 'saved');
+      if (state.picks.length) showShare();
     }).catch(function (error) {
       setStatus(error.fields && error.fields.fighters ? error.fields.fighters : error.message, 'error'); resetBtn.hidden = false;
     }).finally(function () { state.saving = false; saveBtn.removeAttribute('aria-busy'); });
+  }
+  // After a save: where the list now shows, and a link to pass around. Without a profile there is no page to share yet.
+  function showShare() {
+    var box = part('share');
+    if (!box) return;
+    var link = part('share-link'), copy = part('share-copy'), text = part('share-text'), status = part('share-status');
+    lib.session().then(function (s) {
+      var url = s && s.handle && cfg.profileBase ? cfg.profileBase + encodeURIComponent(s.handle) + '/' : '';
+      if (url) {
+        text.textContent = 'It’s on your public profile for other fans to see: ' + url;
+        link.textContent = 'View your profile'; link.href = url;
+        copy.hidden = !(window.navigator && window.navigator.clipboard);
+        copy.onclick = function () { window.navigator.clipboard.writeText(url).then(function () { status.textContent = 'Link copied.'; }, function () { status.textContent = 'Copy the link from the line above.'; }); };
+      } else {
+        text.textContent = 'Set up your profile to show your Top 10 on a public page you can share.';
+        link.textContent = 'Set up profile'; link.href = cfg.profileFormUrl || '/account/profile/';
+        copy.hidden = true;
+      }
+      status.textContent = ''; box.hidden = false;
+    });
   }
   function loadField(page) {
     var run = ++fieldRequest, url = cfg.rankingsUrl + (cfg.rankingsUrl.indexOf('?') < 0 ? '?' : '&') + 'board=overall&per_page=' + PER_PAGE + '&page=' + page + (state.query ? '&q=' + encodeURIComponent(state.query) : '');

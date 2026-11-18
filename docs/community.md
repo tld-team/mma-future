@@ -97,7 +97,7 @@ During a backup or release, writes answer a plain-text 503. The form explains th
 
 ## Fan Top 10 and the fan ranking
 
-A reader ranks up to ten fighters on `/account/top-10/`. Only those ten positions are stored; the rest of the field is the official order. A fighter can be added only while the official ranking lists them, and stays on the list afterwards (a fighter who signs with the UFC keeps their place, marked "Signed with the UFC", and stops scoring). The reader's Top 10 is shown on their public profile.
+A reader ranks up to ten fighters on `/account/top-10/`. Only those ten positions are stored; the rest of the field is the official order. A fighter can be added only while the official ranking lists them, and stays on the list afterwards (a fighter who signs with the UFC keeps their place, marked "Signed with the UFC", and stops scoring). The reader's Top 10 is shown on their public profile as a fight card: #1 as the main event, #2 and #3 as co-main events, then the rest, each with its distance from the official rank (▲ higher, ▼ lower, = the same). The profile photo sits in an octagon coloured like the reader's level. After saving, the editor shows the profile link with a copy button, or invites a reader without a profile to set one up.
 
 **Points.** Positions 1 to 10 are worth 25, 18, 15, 12, 10, 8, 6, 4, 2 and 1 (`mmaf_community_fan_points` takes a list of ten). A fighter's fan score is the sum over every counted list; ties fall to more first places, then more lists, then the better official rank.
 
