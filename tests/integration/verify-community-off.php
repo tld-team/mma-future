@@ -21,6 +21,7 @@ $mmafc_off_get = $_GET;
 try {
 	assert_community_off( ! defined( 'MMAF_COMMUNITY_ENABLED' ), 'This check needs an install where the community switch is not set.' );
 	assert_community_off( ! Config::feature_enabled() && ! Config::area_enabled( 'profiles' ), 'Community is on without its switch.' );
+	assert_community_off( in_array( 'constant_missing', Config::disabled_reasons(), true ), 'The admin page cannot say that the switch is missing.' );
 
 	global $wp_rewrite;
 	$rules = array_keys( (array) $wp_rewrite->extra_rules_top );
@@ -63,6 +64,7 @@ try {
 	add_filter( 'mmaf_community_feature_enabled', '__return_true' );
 	add_filter( 'mmaf_community_area_enabled', '__return_false' );
 	assert_community_off( Config::feature_enabled() && ! Config::area_enabled( 'profiles' ), 'An area cannot be switched off on its own.' );
+	assert_community_off( array() === Config::disabled_reasons(), 'A reason is reported while the feature is on.' );
 	remove_filter( 'mmaf_community_area_enabled', '__return_false' );
 	assert_community_off( Config::area_enabled( 'profiles' ) && ! Config::area_enabled( 'unknown' ), 'A known area does not follow the feature switch, or an unknown one is on.' );
 	assert_community_off( ! Config::area_enabled( 'fan' ), 'The fan ranking is on by default once profiles are; it must be switched on separately.' );

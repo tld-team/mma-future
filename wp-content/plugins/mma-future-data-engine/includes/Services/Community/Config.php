@@ -32,6 +32,22 @@ final class Config {
 		return (bool) apply_filters( 'mmaf_community_feature_enabled', $enabled );
 	}
 
+	/**
+	 * Why the feature is off, as codes an admin page can explain: `schema`, `constant_missing`, `constant_value`
+	 * (defined, but not the boolean true), `accounts` (reader accounts are off), `filter`. Empty when it is on.
+	 *
+	 * @return string[]
+	 */
+	public static function disabled_reasons(): array {
+		if ( self::feature_enabled() ) { return array(); }
+		$reasons = array();
+		if ( ! self::schema_ready() ) { $reasons[] = 'schema'; }
+		if ( ! defined( 'MMAF_COMMUNITY_ENABLED' ) ) { $reasons[] = 'constant_missing'; }
+		elseif ( true !== MMAF_COMMUNITY_ENABLED ) { $reasons[] = 'constant_value'; }
+		if ( ! Accounts::feature_enabled() ) { $reasons[] = 'accounts'; }
+		return $reasons ?: array( 'filter' );
+	}
+
 	public static function area_enabled( string $area ): bool {
 		if ( ! in_array( $area, self::AREAS, true ) || ! self::feature_enabled() ) { return false; }
 		if ( 'reputation' === $area && ! self::reputation_schema_ready() ) { return false; }
