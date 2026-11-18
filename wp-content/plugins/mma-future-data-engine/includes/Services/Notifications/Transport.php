@@ -6,12 +6,17 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 interface Transport { public function send( string $to, string $subject, string $html, string $text, array $headers = array() ): array; }
 
 final class TransportFactory {
-	public static function make(): Transport {
+	/**
+	 * Sports email on staging goes only to the allowlist, so test data never reaches real readers. Account email is
+	 * different: it goes to the one address its recipient just typed, and without it nobody outside the allowlist could
+	 * register on staging at all. So account email is not held to the allowlist.
+	 */
+	public static function make( bool $account_mail = false ): Transport {
 		$override = apply_filters( 'mmaf_notifications_transport', null );
 		if ( $override instanceof Transport ) { return $override; }
 		if ( in_array( Config::environment(), array( 'local','development' ), true ) ) { return new FakeTransport(); }
-		if ( Config::sender_token() ) { return new SenderTransport(); }
-		return new WpMailTransport();
+		if ( Config::sender_token() ) { return new SenderTransport( $account_mail ); }
+		return new WpMailTransport( $account_mail );
 	}
 }
 
@@ -25,16 +30,20 @@ final class FakeTransport implements Transport {
 }
 
 final class WpMailTransport implements Transport {
+	private bool $account_mail;
+	public function __construct( bool $account_mail = false ) { $this->account_mail = $account_mail; }
 	public function send( string $to, string $subject, string $html, string $text, array $headers = array() ): array {
-		if ( ! Config::recipient_allowed( $to ) ) { return array( 'status' => 'rejected', 'error' => 'staging_recipient_blocked', 'http_code' => 0 ); }
+		if ( ! $this->account_mail && ! Config::recipient_allowed( $to ) ) { return array( 'status' => 'rejected', 'error' => 'staging_recipient_blocked', 'http_code' => 0 ); }
 		$headers[] = 'Content-Type: text/html; charset=UTF-8';
 		return wp_mail( $to, $subject, $html, $headers ) ? array( 'status' => 'accepted', 'provider_id' => null, 'http_code' => 200 ) : array( 'status' => 'rejected', 'error' => 'wp_mail_failed', 'http_code' => 500 );
 	}
 }
 
 final class SenderTransport implements Transport {
+	private bool $account_mail;
+	public function __construct( bool $account_mail = false ) { $this->account_mail = $account_mail; }
 	public function send( string $to, string $subject, string $html, string $text, array $headers = array() ): array {
-		if ( ! Config::recipient_allowed( $to ) ) { return array( 'status' => 'rejected', 'error' => 'staging_recipient_blocked', 'http_code' => 0 ); }
+		if ( ! $this->account_mail && ! Config::recipient_allowed( $to ) ) { return array( 'status' => 'rejected', 'error' => 'staging_recipient_blocked', 'http_code' => 0 ); }
 		$custom_headers=array();foreach($headers as $header){$parts=explode(':',(string)$header,2);if(2===count($parts)){$custom_headers[trim($parts[0])]=trim($parts[1]);}}
 		$body = array( 'from' => array( 'email' => Config::from_email(), 'name' => Config::from_name() ), 'to' => array( 'email' => $to ), 'subject' => $subject, 'html' => $html, 'text' => $text );
 		if($custom_headers){$body['headers']=$custom_headers;}
@@ -51,14 +60,14 @@ final class SenderTransport implements Transport {
 }
 
 /**
- * Account email: confirm an address, reset a password. The outcome of each send is kept (the last 30, with the address
+ * Account email: confirm an address, reset a password. It is sent to any address, on staging too. The outcome of each send is kept (the last 30, with the address
  * masked) so an administrator can see why a reader did not get a message instead of guessing.
  */
 final class ServiceMailer {
 	private const LOG = 'mmaf_service_mail_log';
 
 	public static function send( string $to, string $subject, string $html, string $text, string $kind = 'service' ): array {
-		$result = TransportFactory::make()->send( $to, $subject, $html, $text );
+		$result = TransportFactory::make( true )->send( $to, $subject, $html, $text );
 		$log    = self::log();
 		$log[]  = array( 'at' => gmdate( 'Y-m-d H:i:s' ), 'kind' => sanitize_key( $kind ), 'to' => self::mask( $to ), 'status' => (string) ( $result['status'] ?? 'unknown' ), 'error' => (string) ( $result['error'] ?? '' ), 'http_code' => (int) ( $result['http_code'] ?? 0 ) );
 		update_option( self::LOG, array_slice( $log, -30 ), false );

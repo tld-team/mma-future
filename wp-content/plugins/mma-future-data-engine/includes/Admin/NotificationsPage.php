@@ -39,7 +39,7 @@ final class NotificationsPage {
 		$allowlist = Config::staging_allowlist();
 		$labels    = array( 'register' => 'Confirm registration', 'account_exists' => 'Already registered', 'password_reset' => 'Password link' );
 		echo '<h2>Account emails</h2>';
-		if ( 'staging' === Config::environment() ) { echo '<div class="notice notice-info inline"><p>Staging sends email only to the ' . count( $allowlist ) . ' address' . ( 1 === count( $allowlist ) ? '' : 'es' ) . ' in <code>MMAF_NOTIFICATION_STAGING_ALLOWLIST</code>. Every other recipient is refused before anything is sent, which shows below as <code>staging_recipient_blocked</code>.</p></div>'; }
+		if ( 'staging' === Config::environment() ) { echo '<div class="notice notice-info inline"><p>Staging sends account emails to any address, so anyone can register and reset a password here. Sports notifications and test sends still go only to the ' . count( $allowlist ) . ' address' . ( 1 === count( $allowlist ) ? '' : 'es' ) . ' in <code>MMAF_NOTIFICATION_STAGING_ALLOWLIST</code>.</p></div>'; }
 		echo '<table class="widefat striped"><thead><tr><th>Sent (UTC)</th><th>Email</th><th>To</th><th>Result</th><th>Reason</th></tr></thead><tbody>';
 		if ( ! $log ) { echo '<tr><td colspan="5">No account email has been sent yet.</td></tr>'; }
 		foreach ( $log as $entry ) {

@@ -38,7 +38,7 @@ final class Auth {
 	 * Step one of registration: remember the password (hashed) against a one-time link and email that link.
 	 * Nothing is created yet. An address that already has an account gets a different email and the same answer.
 	 *
-	 * @return array{message:string,delivery:string}
+	 * @return array{message:string}
 	 * @throws AuthError
 	 */
 	public function request_registration( string $email, string $password, array $intent = array(), string $ip = '' ): array {
@@ -57,7 +57,7 @@ final class Auth {
 			$body  = "Confirm your email address to finish creating your $site account. The link works for 24 hours.\n\n" . $this->tokens->action_url( 'register', $token ) . "\n\nIf you did not ask for an account, you can ignore this message and nothing will be created.";
 			$this->mail( 'register', $email, sprintf( '[%s] Confirm your email to create your account', $site ), $body );
 		}
-		return array( 'message' => 'Check your inbox. We sent a link to ' . $email . ' to finish creating your account.', 'delivery' => self::delivery_note( $email ) );
+		return array( 'message' => 'Check your inbox. We sent a link to ' . $email . ' to finish creating your account.' );
 	}
 
 	/**
@@ -97,7 +97,7 @@ final class Auth {
 	/**
 	 * Email a link to set a new password. Answers the same way whether or not the address has an account.
 	 *
-	 * @return array{message:string,delivery:string}
+	 * @return array{message:string}
 	 * @throws AuthError
 	 */
 	public function request_reset( string $email, string $ip = '' ): array {
@@ -105,13 +105,13 @@ final class Auth {
 		$this->throttle( 'reset', $email, $ip, 3, 12 );
 		$user = get_user_by( 'email', $email );
 		if ( $user && self::is_reader( $user ) ) { $this->send_reset_link( $user ); }
-		return array( 'message' => 'If an account exists for ' . $email . ', a link to set a new password is on its way.', 'delivery' => self::delivery_note( $email ) );
+		return array( 'message' => 'If an account exists for ' . $email . ', a link to set a new password is on its way.' );
 	}
 
 	/**
 	 * The same link for a signed-in reader, who may have signed up with Google and never had a password.
 	 *
-	 * @return array{message:string,delivery:string}
+	 * @return array{message:string}
 	 * @throws AuthError
 	 */
 	public function request_reset_for( int $user_id ): array {
@@ -120,7 +120,7 @@ final class Auth {
 		if ( $this->count( 'reset_u', (string) $user_id ) >= 3 ) { throw new AuthError( 'You asked for several links already. Try again in 15 minutes.', '', 429 ); }
 		$this->hit( 'reset_u', (string) $user_id );
 		$this->send_reset_link( $user );
-		return array( 'message' => 'We sent a link to ' . $user->user_email . '. It works for one hour.', 'delivery' => self::delivery_note( (string) $user->user_email ) );
+		return array( 'message' => 'We sent a link to ' . $user->user_email . '. It works for one hour.' );
 	}
 
 	/**
@@ -153,14 +153,6 @@ final class Auth {
 
 	public static function is_reader( \WP_User $user ): bool {
 		return in_array( 'subscriber', (array) $user->roles, true ) && ! user_can( $user, 'edit_posts' );
-	}
-
-	/**
-	 * Staging emails only allow-listed addresses, by design. Saying so on staging saves a tester from waiting for a
-	 * message that was never sent. It depends on the address alone, so it says nothing about whether an account exists.
-	 */
-	public static function delivery_note( string $email ): string {
-		return Config::recipient_allowed( $email ) ? '' : 'This is the staging site, which only emails addresses on its allowlist. ' . $email . ' is not on it, so no message was sent.';
 	}
 
 	private function send_reset_link( \WP_User $user ): void {

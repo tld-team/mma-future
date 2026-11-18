@@ -13,11 +13,13 @@ define('MMAF_SENDER_FROM_EMAIL', 'notifications@example.com');
 define('MMAF_SENDER_FROM_NAME', 'MMA Future');
 ```
 
-On staging, also define a comma-separated recipient allowlist. The transport rejects every other address before making an external API request:
+On staging, also define a comma-separated recipient allowlist for sports email (announcements, reminders and admin test sends). The transport rejects every other address before making an external API request:
 
 ```php
 define('MMAF_NOTIFICATION_STAGING_ALLOWLIST', 'qa-gmail@example.com,qa-outlook@example.com');
 ```
+
+The allowlist does not apply to account email. A confirmation or password link goes to the one address its recipient typed, on staging too; otherwise nobody outside the allowlist could register there. The per-address and per-network limits below still apply.
 
 Local and development environments always use the fake mailbox stored in the `mmaf_notification_fake_mailbox` option. They never call Sender directly. Sender domain verification, SPF, DKIM and the visible From address must be complete before production is enabled.
 
@@ -42,10 +44,12 @@ REST, for signed-out visitors: `POST notifications/auth/register`, `auth/login`,
 
 **MMA Future → Notifications → Account emails** lists the last 30 account emails (confirmation, "already registered", password link) with the masked recipient and what the transport answered.
 
-- `staging_recipient_blocked`: on **staging**, email goes only to the addresses in `MMAF_NOTIFICATION_STAGING_ALLOWLIST`; every other recipient is refused before anything is sent. This is by design and is the usual reason a tester gets nothing. Add the address to the constant in `wp-config.php`. The form also says so on staging, naming the address.
 - `wp_mail_failed`: no `MMAF_SENDER_API_TOKEN` is set, so the host's mailer was used and refused the message.
 - A Sender error text or `provider_4xx`: the API refused it, typically an unverified sending domain or From address.
 - Nothing listed: the request was stopped before sending (a staff address, or the 15-minute limit).
+- `Accepted` but nothing in the inbox: the provider took the message; check spam and the provider's own log.
+
+The staging allowlist is never the reason: account email is not held to it. `staging_recipient_blocked` appears only for sports email and admin test sends.
 
 ## Release sequence
 
