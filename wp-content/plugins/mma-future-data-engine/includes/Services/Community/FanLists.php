@@ -104,6 +104,7 @@ final class FanLists {
 		try { $this->write( $user_id, $ids, $revision ); }
 		catch ( Deadlocked $e ) { $this->write( $user_id, $ids, $revision ); }
 		FanRanking::changed();
+		do_action( 'mmafc_top10_saved', $user_id );
 	}
 
 	/** One transaction: lock the list row, check the revision, replace the positions. */

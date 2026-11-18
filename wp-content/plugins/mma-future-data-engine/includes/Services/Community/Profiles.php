@@ -102,7 +102,13 @@ final class Profiles {
 			if ( false !== stripos( $failure, 'duplicate' ) ) { throw new ValidationFailed( array( 'handle' => 'That handle’s already taken. Try another.' ) ); }
 			throw new \RuntimeException( 'Your profile could not be saved. Try again.' );
 		}
+		do_action( 'mmafc_profile_changed', $user_id );
 		return (array) $this->find_by_user( $user_id );
+	}
+
+	/** Drop the per-request copy of a reader's row after it was written elsewhere. */
+	public static function forget_cached( int $user_id ): void {
+		unset( self::$by_user[ $user_id ] );
 	}
 
 	/** Record a stored avatar (or '' to clear it) and return the file it replaced so the caller can delete it. */
@@ -112,14 +118,22 @@ final class Profiles {
 		if ( ! $row ) { throw new ValidationFailed( array( 'handle' => 'Choose a handle and save your profile before adding a photo.' ) ); }
 		$wpdb->update( Schema::tables()['profiles'], array( 'avatar_path' => $relative_path, 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ), array( 'id' => (int) $row['id'] ) );
 		unset( self::$by_user[ $user_id ] );
+		do_action( 'mmafc_profile_changed', $user_id );
 		return (string) $row['avatar_path'];
 	}
 
+	/**
+	 * active: shown and counted. hidden: the public page is gone and nothing the reader does counts. shadow: the page
+	 * stays, but the reader's Top 10 and props no longer count (for a reader gaming the rankings).
+	 */
 	public function set_status( int $user_id, string $status ): void {
 		global $wpdb;
-		if ( ! in_array( $status, array( 'active', 'hidden' ), true ) ) { throw new \InvalidArgumentException( 'Unknown profile status.' ); }
+		if ( ! in_array( $status, array( 'active', 'hidden', 'shadow' ), true ) ) { throw new \InvalidArgumentException( 'Unknown profile status.' ); }
 		$wpdb->update( Schema::tables()['profiles'], array( 'status' => $status, 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ), array( 'user_id' => $user_id ) );
 		unset( self::$by_user[ $user_id ] );
+		// Both moderated statuses take the reader out of the fan standings, which are cached until a change.
+		FanRanking::changed();
+		do_action( 'mmafc_profile_status_changed', $user_id, $status );
 	}
 
 	/** Remove everything Community holds about a reader: the avatar file, the profile and their fan list. */
@@ -128,6 +142,7 @@ final class Profiles {
 		$tables = Schema::tables();
 		$row    = $this->find_by_user( $user_id );
 		if ( $row && '' !== (string) $row['avatar_path'] ) { Avatars::delete( (string) $row['avatar_path'] ); }
+		Reputation::forget( $user_id );
 		$list_ids = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$tables['fan_lists']} WHERE user_id=%d", $user_id ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		foreach ( $list_ids as $list_id ) { $wpdb->delete( $tables['fan_list_items'], array( 'list_id' => $list_id ) ); }
 		$wpdb->delete( $tables['fan_lists'], array( 'user_id' => $user_id ) );

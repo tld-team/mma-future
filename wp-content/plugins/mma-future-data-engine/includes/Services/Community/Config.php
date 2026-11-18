@@ -9,8 +9,14 @@ final class Config {
 	/** The schema the profile and fan-list code reads and writes. */
 	public const SCHEMA_VERSION = '1.20.0';
 
+	/**
+	 * Props and levels read tables added in 1.21.0. Only that area waits for them, so profiles and the Top 10 keep
+	 * working between a release's deploy and its migration.
+	 */
+	public const REPUTATION_SCHEMA_VERSION = '1.21.0';
+
 	/** Every area this release knows. Each one is switched on separately, after its release has been checked on staging. */
-	public const AREAS = array( 'profiles', 'fan' );
+	public const AREAS = array( 'profiles', 'fan', 'reputation' );
 
 	/** Areas that are on when the `mmaf_community_areas` option has never been saved. */
 	private const DEFAULT_AREAS = array( 'profiles' );
@@ -28,8 +34,13 @@ final class Config {
 
 	public static function area_enabled( string $area ): bool {
 		if ( ! in_array( $area, self::AREAS, true ) || ! self::feature_enabled() ) { return false; }
+		if ( 'reputation' === $area && ! self::reputation_schema_ready() ) { return false; }
 		$enabled = in_array( $area, self::areas(), true );
 		return (bool) apply_filters( 'mmaf_community_area_enabled', $enabled, $area );
+	}
+
+	public static function reputation_schema_ready(): bool {
+		return version_compare( (string) get_option( 'mmaf_db_version', '0' ), self::REPUTATION_SCHEMA_VERSION, '>=' );
 	}
 
 	/** @return string[] The areas the `mmaf_community_areas` option lists, before the feature switch and the filter. */
@@ -38,8 +49,8 @@ final class Config {
 	}
 
 	/**
-	 * Store which areas are on. Unknown names are dropped, and every later area needs profiles: a Top 10 belongs to a
-	 * profile, so choosing it switches profiles on too.
+	 * Store which areas are on. Unknown names are dropped, and every later area needs profiles: a Top 10 and a level
+	 * belong to a profile, so choosing either switches profiles on too.
 	 *
 	 * @param string[] $areas
 	 * @return string[] What was stored.

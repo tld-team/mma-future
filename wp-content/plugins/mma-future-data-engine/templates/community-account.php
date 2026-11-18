@@ -5,12 +5,16 @@ use MMAF\DataEngine\Services\Community\Config;
 use MMAF\DataEngine\Services\Community\Handles;
 use MMAF\DataEngine\Services\Community\Module;
 use MMAF\DataEngine\Services\Community\Profiles;
+use MMAF\DataEngine\Services\Community\Reputation;
 use MMAF\DataEngine\Services\Community\Socials;
 
 // Template-scope variables are WordPress globals here. Never use names such as $page, $s or $post: get_header() resets them.
 $mmafc_form   = ( new Profiles() )->editable( get_current_user_id() );
 $mmafc_handle = '' !== $mmafc_form['handle'] ? $mmafc_form['handle'] : $mmafc_form['handle_suggestion'];
 $mmafc_locked = (string) ( $mmafc_form['handle_locked_until'] ?? '' );
+// Opening the page also grants anything earned before levels existed. The account pages are never page-cached.
+$mmafc_level  = null;
+if ( $mmafc_form['has_profile'] && Config::area_enabled( 'reputation' ) ) { Reputation::sync( get_current_user_id() ); $mmafc_level = Reputation::breakdown( get_current_user_id() ); }
 status_header( 200 );
 get_header();
 ?>
@@ -25,6 +29,8 @@ get_header();
 		<?php if ( 'hidden' === $mmafc_form['status'] ) : ?>
 			<p class="mmafc-note mmafc-note--warning" role="status">Your public profile is hidden by a moderator. You can still edit it.</p>
 		<?php endif; ?>
+
+		<?php if ( $mmafc_level ) { include __DIR__ . '/community-level.php'; } ?>
 
 		<form class="mmafc-card mmafc-form" data-mmafc-profile data-has-profile="<?php echo $mmafc_form['has_profile'] ? '1' : '0'; ?>" novalidate>
 			<div class="mmafc-photo">
