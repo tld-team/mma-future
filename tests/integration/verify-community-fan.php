@@ -4,6 +4,7 @@ require __DIR__ . '/bootstrap.php';
 use MMAF\DataEngine\Migrations\Schema as CanonicalSchema;
 use MMAF\DataEngine\Repositories\FighterRepository;
 use MMAF\DataEngine\Repositories\RankingRunRepository;
+use MMAF\DataEngine\Services\Community\Config;
 use MMAF\DataEngine\Services\Community\Conflict;
 use MMAF\DataEngine\Services\Community\FanBoard;
 use MMAF\DataEngine\Services\Community\FanLists;
@@ -43,6 +44,7 @@ $mmafc_f_tables   = Schema::tables();
 $mmafc_f_runs     = new RankingRunRepository();
 $mmafc_f_original = $mmafc_f_runs->get_active_ranking_run_id();
 $mmafc_f_revision = get_option( 'mmaf_fan_revision', null );
+$mmafc_f_hours    = get_option( Config::FAN_HOURS_OPTION, null );
 $mmafc_f_get      = $_GET;
 $mmafc_f_users    = array();
 $mmafc_f_posts    = array();
@@ -121,9 +123,39 @@ try {
 	assert_fan( 'unlisted' === $lists->find( $u['staff'] )['status'] && false === $lists->editable( $u['staff'] )['counts'] && true === $lists->editable( $u['fresh'] )['counts'], 'A staff list is not marked as uncounted.' );
 	assert_fan( null === $lists->editable( $u['a'] )['counts_from'] && strtotime( (string) $lists->editable( $u['fresh'] )['counts_from'] ) > time() + 23 * HOUR_IN_SECONDS, 'A fresh account is not told when its picks start to count, or an established one is.' );
 	assert_fan( array( 1, 1, 0 ) === fan_table()[ $f[11] ], 'A brand-new account or a staff account moved the fan ranking.' );
+	$mmafc_f_standings = ( new FanRanking() )->standings();
+	assert_fan( $mmafc_f_standings['waiting'] >= 1 && strtotime( (string) $mmafc_f_standings['next_counts_at'] ) > time() + 23 * HOUR_IN_SECONDS, 'The standings do not say that a new account’s list is waiting, or when it starts to count.' );
+	assert_fan( 'counts' === $lists->standing( $u['a'] )['reason'] && 'staff' === $lists->standing( $u['staff'] )['reason'] && 'no_list' === $lists->standing( $u['c'] )['reason'], 'The reason a list does or does not count is wrong.' );
+	$mmafc_f_fresh = $lists->standing( $u['fresh'] );
+	assert_fan( 'waiting' === $mmafc_f_fresh['reason'] && false === $mmafc_f_fresh['counts'] && null !== $mmafc_f_fresh['from'], 'A new account’s list is not reported as waiting.' );
+	assert_fan( 'staff' === $lists->editable( $u['staff'] )['reason'] && '' === $lists->editable( $u['a'] )['reason'], 'The editor is not told why a list does not count.' );
 	add_filter( 'mmaf_community_fan_min_account_hours', '__return_zero' );
 	assert_fan( array( 26, 2, 1 ) === fan_table()[ $f[11] ], 'The account-age rule cannot be changed, or still blocks an account that is old enough.' );
 	remove_filter( 'mmaf_community_fan_min_account_hours', '__return_zero' );
+	// The admin setting moves the rule; the filter keeps the last word.
+	assert_fan( 0 === Config::save_fan_min_account_hours( -5 ) && 0 === Config::fan_min_account_hours() && 720 === Config::save_fan_min_account_hours( 99999 ), 'The account-age setting is not stored within 0 to 720 hours.' );
+	Config::save_fan_min_account_hours( 0 );
+	assert_fan( array( 26, 2, 1 ) === fan_table()[ $f[11] ] && 0 === ( new FanRanking() )->standings()['waiting'], 'The stored account-age setting is not used.' );
+	add_filter( 'mmaf_community_fan_min_account_hours', static fn(): int => 48 );
+	assert_fan( 48 === Config::fan_min_account_hours(), 'The filter does not override the stored setting.' );
+	remove_all_filters( 'mmaf_community_fan_min_account_hours' );
+	delete_option( Config::FAN_HOURS_OPTION );
+	assert_fan( 24 === Config::fan_min_account_hours(), 'Without a stored setting the rule is not 24 hours.' );
+
+	// Whether a list counts follows the account, without a new save: an email confirmed later, a role changed later.
+	delete_user_meta( $u['a'], '_mmaf_email_verified' );
+	assert_fan( 'unlisted' === $lists->find( $u['a'] )['status'] && 'email' === $lists->standing( $u['a'] )['reason'] && ! isset( fan_table()[ $f[9] ] ), 'A list still counts after its owner’s email stopped being confirmed.' );
+	update_user_meta( $u['a'], '_mmaf_email_verified', '1' );
+	assert_fan( 'active' === $lists->find( $u['a'] )['status'] && array( 25, 1, 1 ) === fan_table()[ $f[9] ], 'Confirming the email later does not make the saved list count.' );
+	get_userdata( $u['a'] )->set_role( 'editor' );
+	assert_fan( 'unlisted' === $lists->find( $u['a'] )['status'] && ! isset( fan_table()[ $f[9] ] ), 'A list still counts after its owner became staff.' );
+	get_userdata( $u['a'] )->set_role( 'subscriber' );
+	assert_fan( 'active' === $lists->find( $u['a'] )['status'] && isset( fan_table()[ $f[9] ] ), 'A list does not count again once its owner is a reader again.' );
+	// Lists stored before the status followed the account are repaired by the admin recheck.
+	$wpdb->update( $mmafc_f_tables['fan_lists'], array( 'status' => 'unlisted' ), array( 'user_id' => $u['a'] ) );
+	assert_fan( 'recheck' === $lists->standing( $u['a'] )['reason'], 'A list stored as uncounted for an eligible reader is not flagged for a recheck.' );
+	assert_fan( $lists->restamp_all() >= 1 && 'active' === $lists->find( $u['a'] )['status'] && 0 === $lists->restamp_all(), 'The recheck does not repair a stale list, or changes lists that were right.' );
+	assert_fan( 'unlisted' === $lists->find( $u['staff'] )['status'], 'The recheck counted a staff list.' );
 	( new Profiles() )->save( $u['b'], array( 'handle' => 'fanb_' . $mmafc_f_suffix ) );
 	$wpdb->update( $mmafc_f_tables['profiles'], array( 'status' => 'shadow' ), array( 'user_id' => $u['b'] ) );
 	FanRanking::changed();
@@ -189,6 +221,15 @@ try {
 	$mmafc_f_board = (string) ob_get_clean();
 	assert_fan( str_contains( $mmafc_f_board, 'Fan Fixture 01 ' . $mmafc_f_suffix ) && ! str_contains( $mmafc_f_board, 'Fan Fixture 10 ' . $mmafc_f_suffix ) && str_contains( $mmafc_f_board, 'aria-current="page">Fans</a>' ), 'The fan board does not show the chosen division, or its switch.' );
 	assert_fan( strpos( $mmafc_f_board, 'Fan Fixture 01 ' ) < strpos( $mmafc_f_board, 'Fan Fixture 03 ' ) && str_contains( $mmafc_f_board, 'fan Top 10' ), 'The fan board is out of order or does not say how many lists it rests on.' );
+	// The overall board leads with the Top 10 as a fight card, then 11 onwards as rows.
+	$_GET = array( FanBoard::QUERY_VAR => 'fans' );
+	ob_start();
+	FanBoard::render();
+	$mmafc_f_board = (string) ob_get_clean();
+	$mmafc_f_total = ( new FanRanking() )->board( 'overall' )['total'];
+	assert_fan( 1 === substr_count( $mmafc_f_board, 'mmafc-fightcard__pick--main' ) && 2 === substr_count( $mmafc_f_board, 'mmafc-fightcard__pick--co' ) && 7 === substr_count( $mmafc_f_board, 'mmafc-fightcard__pick--card' ), 'The fans’ Top 10 is not shown as a fight card.' );
+	assert_fan( $mmafc_f_total > 10 && str_contains( $mmafc_f_board, 'The chasing pack' ) && str_contains( $mmafc_f_board, '<span>11–' . min( 30, $mmafc_f_total ) . '</span>' ), 'Places 11 to 30 are not listed below the Top 10.' );
+	assert_fan( min( 30, $mmafc_f_total ) === count( ( new FanRanking() )->board( 'overall' )['items'] ), 'A page of the fan board does not hold 30 fighters.' );
 	$_GET = array();
 
 	wp_set_current_user( $u['a'] );
@@ -231,6 +272,7 @@ try {
 	if ( $mmafc_f_run ) { $wpdb->delete( $mmafc_f_canon['ranking_snapshots'], array( 'ranking_run_id' => $mmafc_f_run ) ); $wpdb->delete( $mmafc_f_canon['ranking_runs'], array( 'id' => $mmafc_f_run ) ); }
 	foreach ( $mmafc_f_ids as $mmafc_f_id ) { $wpdb->delete( $mmafc_f_canon['fighters'], array( 'id' => $mmafc_f_id ) ); }
 	foreach ( $mmafc_f_posts as $mmafc_f_post ) { wp_delete_post( $mmafc_f_post, true ); }
+	if ( null === $mmafc_f_hours ) { delete_option( Config::FAN_HOURS_OPTION ); } else { update_option( Config::FAN_HOURS_OPTION, $mmafc_f_hours, false ); }
 	if ( null === $mmafc_f_revision ) { delete_option( 'mmaf_fan_revision' ); } else { update_option( 'mmaf_fan_revision', $mmafc_f_revision, false ); }
 	remove_filter( 'mmaf_community_fan_min_account_hours', '__return_zero' );
 	remove_filter( 'mmaf_community_area_enabled', '__return_true' );

@@ -47,6 +47,9 @@ try {
 		if ( is_wp_error( $mmafr_id ) ) { throw new RuntimeException( $mmafr_id->get_error_message() ); }
 		get_userdata( $mmafr_id )->set_role( $mmafr_role );
 		update_user_meta( $mmafr_id, '_mmaf_email_verified', '1' );
+		// Established accounts: props, like a Top 10, wait for the account-age rule. Too recent to earn any tenure.
+		$wpdb->update( $wpdb->users, array( 'user_registered' => gmdate( 'Y-m-d H:i:s', time() - 3 * DAY_IN_SECONDS ) ), array( 'ID' => $mmafr_id ) );
+		clean_user_cache( $mmafr_id );
 		$mmafr_users[ $mmafr_label ] = (int) $mmafr_id;
 		( new Profiles() )->save( (int) $mmafr_id, array( 'handle' => 'rep' . substr( $mmafr_label, 0, 4 ) . '_' . $mmafr_suffix ) );
 	}
@@ -93,6 +96,10 @@ try {
 	assert_rep( str_contains( rep_rate( $u['rater'], $h( 'staff' ), 3 ), 'can’t receive' ), 'A staff list could receive props.' );
 	assert_rep( str_contains( rep_rate( $u['rater'], $h( 'newcomer' ), 3 ), 'no Top 10' ), 'An empty list could receive props.' );
 	assert_rep( '' !== rep_rate( $u['rater'], $h( 'owner' ), 5 ) && '' !== rep_rate( $u['rater'], 'nobody_' . $mmafr_suffix, 2 ), 'An unknown value or profile was accepted.' );
+	$mmafr_age = static fn(): int => 24 * 30;
+	add_filter( 'mmaf_community_fan_min_account_hours', $mmafr_age );
+	assert_rep( str_contains( rep_rate( $u['rater'], $h( 'owner' ), 3 ), 'New accounts can give props from' ), 'An account younger than the account-age rule could give props.' );
+	remove_filter( 'mmaf_community_fan_min_account_hours', $mmafr_age );
 	assert_rep( 25 === rep_points( $u['owner'] ), 'A refused rating changed the owner’s points.' );
 
 	// Giving, changing and withdrawing props.

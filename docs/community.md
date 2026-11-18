@@ -104,7 +104,14 @@ A reader ranks up to ten fighters on `/account/top-10/`. Only those ten position
 
 **No stored totals.** The standings are one `GROUP BY` over `mmaf_fan_list_items`, cached through `PublicCacheService` under the `mmaf_fan_revision` option, which every save rotates. So the standings follow each save, cannot drift from the lists, and need no recalculation when an account is removed, a reader is excluded or a fighter leaves the ranking. Saving a list does **not** rotate `mmaf_public_data_revision`: that would purge the whole page cache on every save.
 
-**Which lists count.** A list counts when its owner is a reader with a confirmed email (staff can keep a list; it is stored as `unlisted`), the account is at least 24 hours old (`mmaf_community_fan_min_account_hours`), and the reader's profile is neither hidden by a moderator nor marked `shadow`. A fighter is ranked only while the official ranking would list them.
+**Which lists count.** A list counts when its owner is a reader with a confirmed email (staff can keep a list; it is stored as `unlisted`), the account is old enough, and the reader's profile is neither hidden by a moderator nor marked `shadow`. A fighter is ranked only while the official ranking would list them.
+
+- **Account age.** 24 hours by default, set under **MMA Future → Community → Fan Top 10** (option `mmaf_community_fan_min_account_hours`, 0–720; the filter of the same name still has the last word). The same rule applies to giving props. Set it to 0 on staging to see a fresh test account's list at once.
+- **Waiting lists are shown.** The standings also count the lists that only wait for their account's age (`waiting`, with `next_counts_at`), so the Fans view says "2 more lists from new accounts start counting in 9 hours" instead of looking empty, and its empty state explains the wait when every list is still waiting.
+- **The stored status follows the account.** `active` / `unlisted` is written on save and again whenever the reader's `_mmaf_email_verified` meta or role changes (`FanLists::restamp()`), so a reader who confirms their email or stops being staff counts without saving again. Lists saved before 2.23.0 are repaired once with **Proveri liste ponovo** on the admin page (`FanLists::restamp_all()`).
+- **Why a list does not count** is answered in one place, `FanLists::standing()`: `counts`, `waiting`, `no_list`, `staff`, `email`, `hidden`, `shadow` or `recheck`. The admin page shows it per profile and for accounts that keep a list without a profile; the editor shows the reader only what they can act on (`email`, `staff`), never a moderator's decision.
+
+**The Fans view.** Thirty fighters a page. The first page shows the fans' Top 10 as a fight card, in the same visual language as a reader's own Top 10 (#1 large, #2 and #3 side by side, then 4–10), each with points, a bar measured against the leader, how many Top 10s and first places, and the distance from the official rank; places 11–30 follow as rows ("The chasing pack"), then "Full standings" continues page by page.
 
 **Boards.** A fighter has one fan score. The division, gender and age views are the overall standings narrowed to the fighters on that official board and renumbered.
 
@@ -139,7 +146,7 @@ Levels: 1 Spectator 0 · 2 Spotter 25 · 3 Scout 100 · 4 Senior Scout 300 · 5 
 
 **Badge.** An inline SVG octagon (`Badge::svg()`): the level number in the middle, and one side lit for every eighth of the way to the next level. Steel for levels 1–2, brand blue for 3–6, gold for Oracle. It shows on the public profile (with the XP bar) and on the reader's own profile form, with where the XP came from.
 
-**Props.** A reader gives props to another reader's Top 10 from their public profile. Only readers at level 2 or above may give them (a complete profile and a full Top 10 are enough), never to their own list, at most 30 changes an hour. Staff accounts neither give nor receive props. The totals are printed in the page; the viewer's own rating and the controls are loaded by the script.
+**Props.** A reader gives props to another reader's Top 10 from their public profile, where the control sits beside the list's title. Only readers at level 2 or above whose account is older than the account-age rule may give them (a complete profile and a full Top 10 are enough), never to their own list, at most 30 changes an hour. Staff accounts neither give nor receive props. The totals are printed in the page; the viewer's own rating and the controls are loaded by the script.
 
 **Awards that existed before levels** are granted the next time the reader saves, opens their profile form or the `reputation` route.
 
@@ -164,7 +171,7 @@ Before switching the area on in production, count the existing comments by signe
 
 ## Moderation
 
-**MMA Future → Community** lists profiles with search, their level and XP, and exports them as CSV. Below the list: the top of the fan ranking, the readers with the most XP, and who gave the most props in the last seven days (where accounts rating each other show up).
+**MMA Future → Community** lists profiles with search, their level and XP, whether their Top 10 counts and why not, and exports them as CSV. Accounts that keep a Top 10 without a profile (often staff testing the editor) are listed under the fan ranking with the same reason. Below the list: the top of the fan ranking, the readers with the most XP, and who gave the most props in the last seven days (where accounts rating each other show up).
 
 A moderator can **exclude a profile from ranking** (status `shadow`): the page stays public and its owner notices nothing, but their Top 10 and the props they give stop counting. A moderator can also hide a profile (its public page answers 404, its photo is replaced by the placeholder and its Top 10 stops counting; the owner can still edit it), show it again, or remove its photo.
 

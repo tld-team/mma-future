@@ -44,6 +44,9 @@ final class Ratings {
 		// A shadowed reader may still rate, so nothing tells them; their props simply do not count.
 		if ( ! $rater || 'hidden' === (string) $rater['status'] ) { return 'Set up your profile to give props.'; }
 		if ( Reputation::summary( $rater_user_id, $rater )['level']['level'] < self::MIN_LEVEL ) { return 'Reach level ' . self::MIN_LEVEL . ' (' . Levels::NAMES[ self::MIN_LEVEL ] . ') to give props: add a photo, a name and a bio to your profile, and fill your Top 10.'; }
+		// The same account-age rule as the fan ranking, so a batch of fresh accounts cannot rate a list to the top either.
+		$from = ( new FanLists() )->counts_from( $rater_user_id );
+		if ( null !== $from ) { return 'New accounts can give props from ' . wp_date( 'M j, H:i', (int) strtotime( $from ) ) . '.'; }
 		return '';
 	}
 

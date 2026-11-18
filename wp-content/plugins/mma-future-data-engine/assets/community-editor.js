@@ -159,7 +159,9 @@
     var from = state.counts && data.counts_from ? new Date(data.counts_from) : null;
     if (from && isNaN(from.getTime())) from = null;
     noteEl.hidden = state.counts && !from;
-    if (!state.counts) noteEl.textContent = 'You can keep a Top 10 with this account, but only reader accounts with a confirmed email count toward the fan ranking.';
+    if (!state.counts && data.reason === 'email') noteEl.textContent = 'Confirm your email address to have your Top 10 count toward the fan ranking. Your picks start counting as soon as you do, with no need to save again.';
+    else if (!state.counts && data.reason === 'staff') noteEl.textContent = 'Staff accounts can keep a Top 10, but only readers’ lists count toward the fan ranking.';
+    else if (!state.counts) noteEl.textContent = 'You can keep a Top 10 with this account, but only reader accounts with a confirmed email count toward the fan ranking.';
     else if (from) noteEl.textContent = 'Your picks join the fan ranking on ' + from.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) + '. New accounts wait a short while, so a batch of fresh accounts cannot move the ranking at once. You can build and save your Top 10 now.';
   }
   function load(discard) {

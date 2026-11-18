@@ -3,6 +3,7 @@ namespace MMAF\DataEngine\Admin;
 
 use MMAF\DataEngine\Services\Community\Avatars;
 use MMAF\DataEngine\Services\Community\Config;
+use MMAF\DataEngine\Services\Community\FanLists;
 use MMAF\DataEngine\Services\Community\FanRanking;
 use MMAF\DataEngine\Services\Community\Reputation;
 use MMAF\DataEngine\Services\Notifications\FollowersReport;
@@ -27,11 +28,26 @@ final class CommunityPage {
 		'comments'   => array( 'Komentari', 'Diskusija ispod članaka, sa glasovima gore/dole i prijavom. Pišu samo čitaoci sa profilom; stari WordPress obrazac je tada zatvoren za sve osim moderatora.' ),
 	);
 	private const EXPORT_ACTION = 'mmafc_community_export';
+	private const SETTINGS_ACTION = 'mmafc_community_settings';
+	private const RECHECK_ACTION  = 'mmafc_fan_recheck';
+	/** Why a reader's Top 10 does or does not count, as FanLists::standing() names it. */
+	private const STANDING_LABELS = array(
+		'counts'  => 'Računa se',
+		'waiting' => 'Čeka starost naloga',
+		'no_list' => 'Nema listu',
+		'staff'   => 'Nalog osoblja (ne računa se)',
+		'email'   => 'Email nije potvrđen',
+		'hidden'  => 'Skriven profil',
+		'shadow'  => 'Isključen iz rangiranja',
+		'recheck' => 'Sačuvana pre nego što je nalog ispunio uslove: pokrenite proveru lista',
+	);
 
 	public static function register(): void {
 		add_action( 'admin_post_' . self::ACTION, array( self::class, 'moderate' ) );
 		add_action( 'admin_post_' . self::AREAS_ACTION, array( self::class, 'save_areas' ) );
 		add_action( 'admin_post_' . self::EXPORT_ACTION, array( self::class, 'export' ) );
+		add_action( 'admin_post_' . self::SETTINGS_ACTION, array( self::class, 'save_settings' ) );
+		add_action( 'admin_post_' . self::RECHECK_ACTION, array( self::class, 'recheck' ) );
 	}
 
 	public static function render(): void {
@@ -41,7 +57,9 @@ final class CommunityPage {
 		if ( ! Config::feature_enabled() ) { self::render_disabled(); }
 		elseif ( ! Config::area_enabled( 'profiles' ) ) { echo '<div class="notice notice-info"><p>Profili su isključeni prekidačem ispod.</p></div>'; }
 		if ( ! empty( $_GET['mmafc_done'] ) ) { echo '<div class="notice notice-success is-dismissible"><p>Izmena je sačuvana.</p></div>'; }
+		if ( isset( $_GET['mmafc_rechecked'] ) ) { $changed = absint( $_GET['mmafc_rechecked'] ); echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $changed ? 'Provera lista je izmenila ' . $changed . ( 1 === $changed ? ' listu.' : ' lista.' ) : 'Provera lista: sve liste su već imale tačan status.' ) . '</p></div>'; }
 		self::render_areas();
+		self::render_settings();
 
 		global $wpdb;
 		$table  = Schema::tables()['profiles'];
@@ -77,18 +95,19 @@ final class CommunityPage {
 			<?php if ( '' !== $search ) : ?><a class="button-link" style="margin-left:8px" href="<?php echo esc_url( self::page_url() ); ?>">Poništi</a><?php endif; ?>
 		</form>
 		<table class="widefat striped">
-			<thead><tr><th style="width:56px">Foto</th><th>Handle</th><th>Ime</th><th>Email</th><?php if ( $levels ) : ?><th>Nivo</th><?php endif; ?><th>Status</th><th>Napravljen</th><th>Akcije</th></tr></thead>
+			<thead><tr><th style="width:56px">Foto</th><th>Handle</th><th>Ime</th><th>Email</th><?php if ( $levels ) : ?><th>Nivo</th><?php endif; ?><th>Top 10</th><th>Status</th><th>Napravljen</th><th>Akcije</th></tr></thead>
 			<tbody>
 			<?php if ( ! $rows ) : ?>
-				<tr><td colspan="<?php echo $levels ? 8 : 7; ?>"><?php echo '' !== $search ? 'Nema profila za ovu pretragu.' : 'Još nema profila.'; ?></td></tr>
+				<tr><td colspan="<?php echo $levels ? 9 : 8; ?>"><?php echo '' !== $search ? 'Nema profila za ovu pretragu.' : 'Još nema profila.'; ?></td></tr>
 			<?php endif; ?>
-			<?php foreach ( $rows as $row ) : $hidden = 'hidden' === $row['status']; $shadow = 'shadow' === $row['status']; ?>
+			<?php $fan_lists = new FanLists(); foreach ( $rows as $row ) : $hidden = 'hidden' === $row['status']; $shadow = 'shadow' === $row['status']; ?>
 				<tr>
 					<td><img src="<?php echo esc_url( Avatars::url( (string) $row['avatar_path'] ) ); ?>" alt="" width="40" height="40" style="border-radius:50%;object-fit:cover"></td>
 					<td><?php if ( $hidden ) : ?>@<?php echo esc_html( $row['handle'] ); ?><?php else : ?><a href="<?php echo esc_url( Profiles::url( (string) $row['handle'] ) ); ?>" target="_blank" rel="noopener">@<?php echo esc_html( $row['handle'] ); ?></a><?php endif; ?></td>
 					<td><?php echo esc_html( $row['display_name'] ); ?><?php if ( '' !== (string) $row['bio'] ) : ?><br><span class="description"><?php echo esc_html( wp_html_excerpt( (string) $row['bio'], 120, '…' ) ); ?></span><?php endif; ?></td>
 					<td><?php echo esc_html( (string) ( $row['user_email'] ?? '—' ) ); ?></td>
 					<?php if ( $levels ) : $lv = Reputation::summary( (int) $row['user_id'], $row ); ?><td><?php echo (int) $lv['level']['level']; ?> · <?php echo esc_html( $lv['level']['name'] ); ?><br><span class="description"><?php echo (int) $lv['xp']; ?> XP</span></td><?php endif; ?>
+					<td><?php self::standing_cell( $fan_lists->standing( (int) $row['user_id'], $row ) ); ?></td>
 					<td><?php echo $hidden ? '<strong>Skriven</strong>' : ( $shadow ? '<strong>Isključen iz rangiranja</strong>' : 'Aktivan' ); ?></td>
 					<td><?php echo esc_html( mysql2date( 'Y-m-d', (string) $row['created_at'] ) ); ?></td>
 					<td>
@@ -105,6 +124,7 @@ final class CommunityPage {
 			echo '<div class="tablenav"><div class="tablenav-pages">' . wp_kses_post( (string) paginate_links( array( 'base' => add_query_arg( 'paged', '%#%', self::page_url( array( 's' => $search ) ) ), 'format' => '', 'current' => $paged, 'total' => $pages ) ) ) . '</div></div>';
 		}
 		self::render_fan_ranking();
+		self::render_lists_without_profile();
 		if ( $levels ) { self::render_reputation(); }
 		echo '</div>';
 	}
@@ -115,7 +135,12 @@ final class CommunityPage {
 		$standings = $ranking->standings();
 		$top       = array_slice( $standings['rows'], 0, 20 );
 		$fighters  = $ranking->fighters( array_column( $top, 'fighter_id' ) );
-		echo '<h2>Fan ranking</h2><p>Na osnovu ' . (int) $standings['lists'] . ' lista koje se računaju (potvrđen email, nalog stariji od ' . (int) Config::fan_min_account_hours() . 'h, profil nije skriven ni isključen).</p>';
+		echo '<h2>Fan ranking</h2><p>Na osnovu ' . (int) $standings['lists'] . ' lista koje se računaju (čitalac, potvrđen email, nalog stariji od ' . (int) Config::fan_min_account_hours() . 'h, profil nije skriven ni isključen).';
+		if ( $standings['waiting'] > 0 ) { echo ' Još <strong>' . (int) $standings['waiting'] . '</strong> čeka starost naloga; prva počinje da se računa ' . esc_html( self::when( (string) $standings['next_counts_at'] ) ) . '.'; }
+		echo '</p>';
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="margin:0 0 12px"><input type="hidden" name="action" value="' . esc_attr( self::RECHECK_ACTION ) . '">';
+		wp_nonce_field( self::RECHECK_ACTION );
+		echo '<button class="button">Proveri liste ponovo</button> <span class="description">Ponovo utvrđuje koje se liste računaju (uloga i potvrđen email). Potrebno samo za liste sačuvane pre izdanja 2.23.0; posle toga se status menja sam.</span></form>';
 		echo '<table class="widefat striped" style="max-width:960px"><thead><tr><th>#</th><th>Borac</th><th>Poeni</th><th>Na listama</th><th>Prvo mesto</th></tr></thead><tbody>';
 		if ( ! $top ) { echo '<tr><td colspan="5">Još nema lista koje se računaju.</td></tr>'; }
 		foreach ( $top as $index => $row ) {
@@ -123,6 +148,66 @@ final class CommunityPage {
 			echo '<tr><td>' . (int) ( $index + 1 ) . '</td><td>' . esc_html( $name ) . '</td><td>' . (int) $row['points'] . '</td><td>' . (int) $row['picks'] . '</td><td>' . (int) $row['firsts'] . '</td></tr>';
 		}
 		echo '</tbody></table>';
+	}
+
+	/**
+	 * Lists kept by accounts without a profile: staff testing the editor, readers who skipped the profile. They never
+	 * show in the profile table, so without this nobody can see why they are missing from the fan ranking.
+	 */
+	private static function render_lists_without_profile(): void {
+		global $wpdb;
+		$t = Schema::tables();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names only.
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT l.user_id, l.updated_at, u.user_email FROM {$t['fan_lists']} l LEFT JOIN {$t['profiles']} p ON p.user_id=l.user_id LEFT JOIN {$wpdb->users} u ON u.ID=l.user_id WHERE l.board_key=%s AND p.id IS NULL ORDER BY l.updated_at DESC LIMIT 50", FanRanking::BOARD ), ARRAY_A ) ?: array();
+		if ( ! $rows ) { return; }
+		$lists = new FanLists();
+		echo '<h3>Top 10 liste naloga bez profila</h3><table class="widefat striped" style="max-width:960px"><thead><tr><th>Email</th><th>Top 10</th><th>Poslednja izmena</th></tr></thead><tbody>';
+		foreach ( $rows as $row ) {
+			echo '<tr><td>' . esc_html( (string) ( $row['user_email'] ?? ( 'Nalog #' . (int) $row['user_id'] ) ) ) . '</td><td>';
+			self::standing_cell( $lists->standing( (int) $row['user_id'] ) );
+			echo '</td><td>' . esc_html( mysql2date( 'Y-m-d H:i', (string) $row['updated_at'] ) ) . '</td></tr>';
+		}
+		echo '</tbody></table>';
+	}
+
+	/** @param array{counts:bool,reason:string,from:?string} $standing */
+	private static function standing_cell( array $standing ): void {
+		$label = self::STANDING_LABELS[ $standing['reason'] ] ?? $standing['reason'];
+		if ( 'waiting' === $standing['reason'] && $standing['from'] ) { $label .= ' (od ' . self::when( $standing['from'] ) . ')'; }
+		echo $standing['counts'] ? '<strong>' . esc_html( $label ) . '</strong>' : esc_html( $label );
+	}
+
+	private static function when( string $iso ): string {
+		$time = strtotime( $iso );
+		return false === $time ? '—' : wp_date( 'Y-m-d H:i', $time );
+	}
+
+	/** The account-age rule for the fan ranking and for props. */
+	private static function render_settings(): void {
+		$hours    = Config::fan_min_account_hours();
+		$filtered = has_filter( 'mmaf_community_fan_min_account_hours' );
+		echo '<h2>Fan Top 10</h2><form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="' . esc_attr( self::SETTINGS_ACTION ) . '">';
+		wp_nonce_field( self::SETTINGS_ACTION );
+		echo '<p><label for="mmafc-fan-hours"><strong>Starost naloga pre nego što se lista računa</strong></label><br><input type="number" id="mmafc-fan-hours" name="fan_min_account_hours" min="0" max="720" step="1" value="' . esc_attr( (string) $hours ) . '" style="width:6em"> sati ';
+		submit_button( 'Sačuvaj', 'secondary', 'submit', false );
+		echo '</p><p class="description">Isto pravilo važi i za davanje props. Štiti fan ranking od serije svežih naloga; podrazumevano 24. Na stagingu se može staviti 0 radi testiranja.' . ( $filtered ? ' <strong>Pažnja:</strong> filter <code>mmaf_community_fan_min_account_hours</code> menja ovu vrednost u kodu.' : '' ) . '</p></form>';
+	}
+
+	public static function save_settings(): void {
+		if ( ! current_user_can( Capabilities::MANAGE ) ) { wp_die( 'Forbidden', '', array( 'response' => 403 ) ); }
+		check_admin_referer( self::SETTINGS_ACTION );
+		Config::save_fan_min_account_hours( (int) wp_unslash( $_POST['fan_min_account_hours'] ?? 24 ) );
+		FanRanking::changed();
+		wp_safe_redirect( self::page_url( array( 'mmafc_done' => 1 ) ) );
+		exit;
+	}
+
+	public static function recheck(): void {
+		if ( ! current_user_can( Capabilities::MANAGE ) ) { wp_die( 'Forbidden', '', array( 'response' => 403 ) ); }
+		check_admin_referer( self::RECHECK_ACTION );
+		$changed = ( new FanLists() )->restamp_all();
+		wp_safe_redirect( self::page_url( array( 'mmafc_rechecked' => $changed ) ) );
+		exit;
 	}
 
 	/** Who has the most XP, and who gave the most props lately: the place a ring of accounts rating each other shows up. */
