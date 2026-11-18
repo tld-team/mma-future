@@ -37,7 +37,7 @@ final class CommunityPage {
 		if ( ! current_user_can( Capabilities::MANAGE ) ) { wp_die( 'Forbidden', '', array( 'response' => 403 ) ); }
 		echo '<div class="wrap"><h1>Zajednica</h1>';
 		if ( ! Config::schema_ready() ) { echo '<div class="notice notice-warning"><p>Tabele zajednice još ne postoje. Pokrenite migraciju baze na šemu ' . esc_html( Config::SCHEMA_VERSION ) . '.</p></div></div>'; return; }
-		if ( ! Config::feature_enabled() ) { echo '<div class="notice notice-info"><p>Zajednica je trenutno isključena. Uključuje se konstantom <code>MMAF_COMMUNITY_ENABLED</code> u <code>wp-config.php</code>; prekidači ispod važe tek tada.</p></div>'; }
+		if ( ! Config::feature_enabled() ) { self::render_disabled(); }
 		elseif ( ! Config::area_enabled( 'profiles' ) ) { echo '<div class="notice notice-info"><p>Profili su isključeni prekidačem ispod.</p></div>'; }
 		if ( ! empty( $_GET['mmafc_done'] ) ) { echo '<div class="notice notice-success is-dismissible"><p>Izmena je sačuvana.</p></div>'; }
 		self::render_areas();
@@ -170,6 +170,26 @@ final class CommunityPage {
 		header( 'Content-Disposition: attachment; filename="mma-future-profili-' . gmdate( 'Y-m-d' ) . '.csv"' );
 		echo FollowersReport::csv( $headers, $out ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSV, not HTML.
 		exit;
+	}
+
+	/**
+	 * The switches below do nothing while the feature itself is off, so say exactly what keeps it off and how to fix it.
+	 */
+	private static function render_disabled(): void {
+		$texts = array(
+			'schema'           => 'Baza još nije migrirana na šemu ' . esc_html( Config::SCHEMA_VERSION ) . '.',
+			'constant_missing' => 'Konstanta <code>MMAF_COMMUNITY_ENABLED</code> nije definisana u <code>wp-config.php</code>.',
+			'constant_value'   => 'Konstanta <code>MMAF_COMMUNITY_ENABLED</code> postoji, ali ima vrednost <code>' . esc_html( defined( 'MMAF_COMMUNITY_ENABLED' ) ? var_export( MMAF_COMMUNITY_ENABLED, true ) : '' ) . '</code>. Mora biti <code>true</code>, bez navodnika.', // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export
+			'accounts'         => 'Nalozi čitalaca su isključeni: zajednica traži i <code>MMAF_NOTIFICATIONS_ENABLED</code> = <code>true</code>.',
+			'filter'           => 'Isključuje je filter <code>mmaf_community_feature_enabled</code> (kod u nekom pluginu ili temi).',
+		);
+		echo '<div class="notice notice-warning"><p><strong>Zajednica je isključena, pa čitaoci ne vide ništa od nje</strong> (profil, Top 10, nivoi). Prekidači oblasti ispod počinju da važe tek kada se ovo reši:</p><ul style="list-style:disc;margin-left:20px">';
+		foreach ( Config::disabled_reasons() as $reason ) { echo '<li>' . ( $texts[ $reason ] ?? esc_html( $reason ) ) . '</li>'; } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- fixed markup, dynamic parts escaped above.
+		echo '</ul>';
+		if ( array_intersect( array( 'constant_missing', 'constant_value' ), Config::disabled_reasons() ) ) {
+			echo '<p>U <code>wp-config.php</code> dodajte ovu liniju <strong>iznad</strong> reda <code>/* That\'s all, stop editing! */</code> (linija ispod njega se učitava prekasno):</p><pre style="background:#f6f7f7;padding:8px 12px;display:inline-block">define( \'MMAF_COMMUNITY_ENABLED\', true );</pre>';
+		}
+		echo '</div>';
 	}
 
 	/** One checkbox per area. Saved to the `mmaf_community_areas` option, which the `mmaf_community_area_enabled` filter can still override. */

@@ -8,6 +8,8 @@ Community turns a reader account into an identity: a public profile and a Fan To
 define('MMAF_COMMUNITY_ENABLED', true);
 ```
 
+Put the line **above** `/* That's all, stop editing! */` in `wp-config.php`, as the boolean `true` (not `'true'`). The area switches in the admin do nothing until it is set; while it is missing, **MMA Future → Community** says which condition below is not met.
+
 Community is on only when all of these hold: the constant is `true`, the schema has reached `1.20.0`, and reader accounts (`MMAF_NOTIFICATIONS_ENABLED`) are on. The filter `mmaf_community_feature_enabled` can override the result.
 
 Each area is switched separately, so a later area can be deployed dark and enabled after it has been checked on staging. Use the checkboxes under **MMA Future → Community → Oblasti**; they store the `mmaf_community_areas` option (default `["profiles"]`), which WP-CLI can set too. Choosing an area that needs profiles switches profiles on with it. The `mmaf_community_area_enabled` filter still has the last word.
