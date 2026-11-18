@@ -52,6 +52,11 @@ final class Config {
 		$raw = defined( 'MMAF_NOTIFICATION_STAGING_ALLOWLIST' ) ? (string) MMAF_NOTIFICATION_STAGING_ALLOWLIST : '';
 		return array_values( array_filter( array_map( 'sanitize_email', preg_split( '/\s*,\s*/', $raw ) ?: array() ) ) );
 	}
+	/** Account emails the whole site may send per clock hour; 0 means no ceiling. Staging defaults to 30, other environments to none. */
+	public static function account_mail_hourly_limit(): int {
+		if ( defined( 'MMAF_ACCOUNT_MAIL_HOURLY_LIMIT' ) ) { return max( 0, (int) MMAF_ACCOUNT_MAIL_HOURLY_LIMIT ); }
+		return 'staging' === self::environment() ? 30 : 0;
+	}
 	public static function recipient_allowed( string $email ): bool {
 		return 'staging' !== self::environment() || in_array( strtolower( sanitize_email( $email ) ), array_map( 'strtolower', self::staging_allowlist() ), true );
 	}
