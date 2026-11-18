@@ -60,15 +60,93 @@ final class FanLists {
 
 	/** The reader's own view for the editor. */
 	public function editable( int $user_id ): array {
-		$list = $this->find( $user_id );
+		$list   = $this->find( $user_id );
+		$counts = $this->counts( $user_id );
 		return array(
 			'revision' => $list ? (int) $list['revision'] : 0,
 			'size'     => self::SIZE,
 			'points'   => array_values( FanRanking::points() ),
 			'items'    => $this->items( $user_id ),
-			'counts'   => $this->counts( $user_id ),
+			'counts'   => $counts,
 			'counts_from' => $this->counts_from( $user_id ),
+			// Only what the reader can act on. A moderator's decision (hidden, excluded) is never given away here.
+			'reason'   => $counts ? '' : ( Config::is_reader( $user_id ) ? 'email' : 'staff' ),
 		);
+	}
+
+	/**
+	 * Whether this reader's Top 10 counts in the fan ranking right now, and if not, why. The one answer the admin page
+	 * and the editor share, so neither can drift from what the standings query does.
+	 *
+	 * Reasons: `counts`, `no_list`, `staff`, `email`, `hidden`, `shadow`, `recheck` (the list was stored as uncounted
+	 * before the account qualified; rechecking the lists fixes it), `waiting` (the account is younger than the
+	 * account-age rule; `from` says when it counts).
+	 *
+	 * @param array<string,mixed>|null $profile The reader's profile row, when the caller already has it.
+	 * @return array{counts:bool,reason:string,from:?string}
+	 */
+	public function standing( int $user_id, ?array $profile = null ): array {
+		$list   = $this->find( $user_id );
+		$answer = static fn( string $reason, ?string $from = null ): array => array( 'counts' => 'counts' === $reason, 'reason' => $reason, 'from' => $from );
+		if ( ! $list || ! $this->fighter_ids( $user_id ) ) { return $answer( 'no_list' ); }
+		if ( ! Config::is_reader( $user_id ) ) { return $answer( 'staff' ); }
+		if ( ! Accounts::email_verified( $user_id ) ) { return $answer( 'email' ); }
+		$profile = $profile ?? ( new Profiles() )->find_by_user( $user_id );
+		$status  = $profile ? (string) $profile['status'] : 'active';
+		if ( in_array( $status, array( 'hidden', 'shadow' ), true ) ) { return $answer( $status ); }
+		if ( 'active' !== (string) $list['status'] ) { return $answer( 'recheck' ); }
+		$from = $this->counts_from( $user_id );
+		return null !== $from ? $answer( 'waiting', $from ) : $answer( 'counts' );
+	}
+
+	/**
+	 * Store again whether the reader's list counts. The status is written when a list is saved, so a reader who
+	 * saved before confirming their email, or while they held a staff role, would otherwise stay uncounted for good.
+	 *
+	 * @return bool Whether anything changed.
+	 */
+	public function restamp( int $user_id ): bool {
+		global $wpdb;
+		if ( $user_id < 1 || ! Config::schema_ready() ) { return false; }
+		$table  = Schema::tables()['fan_lists'];
+		$status = $this->counts( $user_id ) ? 'active' : 'unlisted';
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name only.
+		$changed = (int) $wpdb->query( $wpdb->prepare( "UPDATE {$table} SET status=%s WHERE user_id=%d AND board_key=%s AND status<>%s", $status, $user_id, FanRanking::BOARD, $status ) );
+		if ( $changed > 0 ) { FanRanking::changed(); }
+		return $changed > 0;
+	}
+
+	/** Recheck every stored list, for lists saved before the status followed the account. @return int Lists changed. */
+	public function restamp_all(): int {
+		global $wpdb;
+		if ( ! Config::schema_ready() ) { return 0; }
+		$table   = Schema::tables()['fan_lists'];
+		$changed = 0;
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name only.
+		foreach ( array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT user_id FROM {$table} WHERE board_key=%s", FanRanking::BOARD ) ) ?: array() ) as $user_id ) {
+			if ( $this->restamp( $user_id ) ) { $changed++; }
+		}
+		return $changed;
+	}
+
+	/**
+	 * Hooked on added/updated/deleted_user_meta: confirming an email is what makes a reader's list count.
+	 *
+	 * @param mixed $meta_ids
+	 * @param mixed $user_id
+	 * @param mixed $meta_key
+	 */
+	public static function verification_changed( $meta_ids, $user_id, $meta_key ): void {
+		if ( '_mmaf_email_verified' === $meta_key ) { ( new self() )->restamp( (int) $user_id ); }
+	}
+
+	/**
+	 * Hooked on set_user_role, add_user_role and remove_user_role: staff lists are kept but not counted.
+	 *
+	 * @param mixed $user_id
+	 */
+	public static function role_changed( $user_id ): void {
+		( new self() )->restamp( (int) $user_id );
 	}
 
 	/**

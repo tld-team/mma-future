@@ -29,6 +29,9 @@ final class Module {
 		add_filter( 'mmaf_account_registered_return_to', array( self::class, 'registered_return_to' ), 10, 2 );
 		add_action( 'mmafc_profile_changed', array( Reputation::class, 'sync' ) );
 		add_action( 'mmafc_top10_saved', array( Reputation::class, 'sync' ) );
+		// Whether a list counts follows the account: a confirmed email or a role change takes effect without a new save.
+		foreach ( array( 'added_user_meta', 'updated_user_meta', 'deleted_user_meta' ) as $meta_hook ) { add_action( $meta_hook, array( FanLists::class, 'verification_changed' ), 10, 3 ); }
+		foreach ( array( 'set_user_role', 'add_user_role', 'remove_user_role' ) as $role_hook ) { add_action( $role_hook, array( FanLists::class, 'role_changed' ) ); }
 		add_action( 'mmafc_profile_status_changed', array( Reputation::class, 'rater_changed' ) );
 		add_action( 'mmafc_profile_status_changed', array( CommentVotes::class, 'voter_changed' ) );
 		add_action( 'transition_comment_status', array( Comments::class, 'status_changed' ), 10, 3 );

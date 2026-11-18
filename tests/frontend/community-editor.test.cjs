@@ -178,6 +178,19 @@ test('a new account is told when its picks start to count, and an older one sees
   }finally{fresh.dom.window.close();settled.dom.window.close();}
 });
 
+test('a list that does not count says what the reader can do about it',async()=>{
+  const email=setup(routes(list([1],1,{counts:false,reason:'email'})));
+  const staff=setup(routes(list([1],1,{counts:false,reason:'staff'})));
+  const older=setup(routes(list([1],1,{counts:false})));
+  try{
+    await flush();
+    const note=t=>t.doc.querySelector('[data-mmafc-editor-note]');
+    assert.equal(note(email).hidden,false);assert.match(note(email).textContent,/^Confirm your email address .* no need to save again\.$/);
+    assert.match(note(staff).textContent,/^Staff accounts can keep a Top 10/);
+    assert.match(note(older).textContent,/only reader accounts with a confirmed email count/);
+  }finally{email.dom.window.close();staff.dom.window.close();older.dom.window.close();}
+});
+
 test('the field searches after a pause and loads further pages on request',async()=>{
   const handler=(url)=>url.includes('q=won')?reply(200,{items:[ranked(40)],page:1,total_pages:1}):(url.includes('page=2')?field(2,15,2):field(1,15,2));
   const paged=setup((url,options,calls)=>url.includes('/rankings?')?handler(url):routes(list([1]))(url,options,calls));

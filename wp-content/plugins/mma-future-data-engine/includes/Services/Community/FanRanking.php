@@ -52,34 +52,47 @@ final class FanRanking {
 	}
 
 	/**
-	 * @return array{lists:int,rows:array<int,array{fighter_id:int,points:int,picks:int,firsts:int}>} Overall standings, best first.
+	 * Overall standings, best first, with the lists that are in but wait for the account-age rule: without them a
+	 * board of brand-new readers reads as broken.
+	 *
+	 * @return array{lists:int,waiting:int,next_counts_at:?string,rows:array<int,array{fighter_id:int,points:int,picks:int,firsts:int}>}
 	 */
 	public function standings(): array {
 		$points = self::points();
-		return PublicCacheService::remember( 'fan_standings', array( self::BOARD, (string) get_option( 'mmaf_fan_revision', '0' ), $points, Config::fan_min_account_hours() ), function () use ( $points ): array {
+		$hours  = Config::fan_min_account_hours();
+		$data   = PublicCacheService::remember( 'fan_standings', array( self::BOARD, (string) get_option( 'mmaf_fan_revision', '0' ), $points, $hours ), function () use ( $points, $hours ): array {
 			global $wpdb;
 			$tables = Schema::tables();
 			$cases  = '';
 			foreach ( $points as $position => $value ) { $cases .= ' WHEN ' . (int) $position . ' THEN ' . (int) $value; }
 			// Counted: active lists of accounts old enough to count, unless a moderator has hidden or excluded the reader.
-			$from = "FROM {$tables['fan_list_items']} i JOIN {$tables['fan_lists']} l ON l.id=i.list_id JOIN {$wpdb->users} u ON u.ID=l.user_id LEFT JOIN {$tables['profiles']} p ON p.user_id=l.user_id WHERE i.board_key=%s AND l.status='active' AND u.user_registered<=%s AND (p.status IS NULL OR p.status NOT IN ('hidden','shadow'))";
-			$args = array( self::BOARD, gmdate( 'Y-m-d H:i:s', time() - Config::fan_min_account_hours() * HOUR_IN_SECONDS ) );
+			$from    = "FROM {$tables['fan_list_items']} i JOIN {$tables['fan_lists']} l ON l.id=i.list_id JOIN {$wpdb->users} u ON u.ID=l.user_id LEFT JOIN {$tables['profiles']} p ON p.user_id=l.user_id WHERE i.board_key=%s AND l.status='active' AND (p.status IS NULL OR p.status NOT IN ('hidden','shadow'))";
+			$args    = array( self::BOARD, gmdate( 'Y-m-d H:i:s', time() - $hours * HOUR_IN_SECONDS ) );
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table names and integer CASE arms built above.
-			$raw   = $wpdb->get_results( $wpdb->prepare( "SELECT i.fighter_id, SUM(CASE i.position{$cases} ELSE 0 END) AS points, COUNT(*) AS picks, SUM(CASE WHEN i.position=1 THEN 1 ELSE 0 END) AS firsts {$from} GROUP BY i.fighter_id", $args ), ARRAY_A ) ?: array();
-			$lists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(DISTINCT l.id) {$from}", $args ) );
+			$raw     = $wpdb->get_results( $wpdb->prepare( "SELECT i.fighter_id, SUM(CASE i.position{$cases} ELSE 0 END) AS points, COUNT(*) AS picks, SUM(CASE WHEN i.position=1 THEN 1 ELSE 0 END) AS firsts {$from} AND u.user_registered<=%s GROUP BY i.fighter_id", $args ), ARRAY_A ) ?: array();
+			$lists   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(DISTINCT l.id) {$from} AND u.user_registered<=%s", $args ) );
+			$waiting = $wpdb->get_row( $wpdb->prepare( "SELECT COUNT(DISTINCT l.id) AS lists, MIN(u.user_registered) AS first_registered {$from} AND u.user_registered>%s", $args ), ARRAY_A ) ?: array();
 			// phpcs:enable
-			$rows = array_map( static fn( array $row ): array => array( 'fighter_id' => (int) $row['fighter_id'], 'points' => (int) $row['points'], 'picks' => (int) $row['picks'], 'firsts' => (int) $row['firsts'] ), $raw );
-			return array( 'lists' => $lists, 'rows' => self::order( $rows, self::official( self::BOARD ) ) );
+			$first = isset( $waiting['first_registered'] ) ? strtotime( (string) $waiting['first_registered'] . ' UTC' ) : false;
+			$rows  = array_map( static fn( array $row ): array => array( 'fighter_id' => (int) $row['fighter_id'], 'points' => (int) $row['points'], 'picks' => (int) $row['picks'], 'firsts' => (int) $row['firsts'] ), $raw );
+			return array(
+				'lists'          => $lists,
+				'waiting'        => (int) ( $waiting['lists'] ?? 0 ),
+				'next_counts_at' => false !== $first ? gmdate( 'c', $first + $hours * HOUR_IN_SECONDS ) : null,
+				'rows'           => self::order( $rows, self::official( self::BOARD ) ),
+			);
 		} );
+		// A value cached by the previous release has no waiting figures.
+		return $data + array( 'waiting' => 0, 'next_counts_at' => null );
 	}
 
 	/**
 	 * One page of the fan ranking for a board. Division, gender and age boards are the overall standings narrowed to the
 	 * fighters on that official board: a fighter has one fan score, wherever it is shown.
 	 *
-	 * @return array{board:string,lists:int,total:int,page:int,per_page:int,total_pages:int,items:array<int,array<string,mixed>>}
+	 * @return array{board:string,lists:int,waiting:int,next_counts_at:?string,total:int,page:int,per_page:int,total_pages:int,items:array<int,array<string,mixed>>}
 	 */
-	public function board( string $board, int $page = 1, int $per_page = 25 ): array {
+	public function board( string $board, int $page = 1, int $per_page = 30 ): array {
 		$board     = isset( PublicReadService::board_labels()[ $board ] ) ? $board : self::BOARD;
 		$standings = $this->standings();
 		$official  = self::official( $board );
@@ -96,7 +109,7 @@ final class FanRanking {
 			$fan_rank = ( $page - 1 ) * $per_page + $index + 1;
 			$items[]  = $fighter + $row + array( 'fan_rank' => $fan_rank, 'board_rank' => $official[ $row['fighter_id'] ], 'difference' => $official[ $row['fighter_id'] ] - $fan_rank );
 		}
-		return array( 'board' => $board, 'lists' => $standings['lists'], 'total' => count( $rows ), 'page' => $page, 'per_page' => $per_page, 'total_pages' => $pages, 'items' => $items );
+		return array( 'board' => $board, 'lists' => $standings['lists'], 'waiting' => $standings['waiting'], 'next_counts_at' => $standings['next_counts_at'], 'total' => count( $rows ), 'page' => $page, 'per_page' => $per_page, 'total_pages' => $pages, 'items' => $items );
 	}
 
 	/**

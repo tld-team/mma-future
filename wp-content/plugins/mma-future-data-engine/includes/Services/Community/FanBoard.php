@@ -14,7 +14,9 @@ final class FanBoard {
 	public const QUERY_VAR  = 'mmaf_ranking';
 	public const BOARD_VAR  = 'mmaf_fan_board';
 	public const PAGE_VAR   = 'mmaf_fan_page';
-	private const PER_PAGE  = 25;
+	/** The first page is the Top 10 as cards and 11–30 as rows; later pages continue the rows. */
+	public const PER_PAGE   = 30;
+	public const FEATURED   = 10;
 	/** The same tag style as the fighter hero's own "#N Overall" tag, so no extra stylesheet loads on fighter pages. */
 	private const CHIP_CLASS = 'inline-flex items-center px-3 xs:px-4 py-1.5 xs:py-2 rounded-full bg-white/10 border border-white/20 text-white/90 text-xs xs:text-sm font-semibold uppercase tracking-wide backdrop-blur-sm';
 

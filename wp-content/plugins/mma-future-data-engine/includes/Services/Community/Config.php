@@ -90,9 +90,27 @@ final class Config {
 		return max( 0, (int) apply_filters( 'mmaf_community_handle_change_days', 90 ) );
 	}
 
-	/** Hours an account must exist before its Top 10 counts, so a batch of fresh accounts cannot move the fan ranking at once. */
+	/** Where the admin page stores the account-age rule. Absent means the default of 24 hours. */
+	public const FAN_HOURS_OPTION = 'mmaf_community_fan_min_account_hours';
+	private const FAN_HOURS_DEFAULT = 24;
+	private const FAN_HOURS_MAX     = 720;
+
+	/**
+	 * Hours an account must exist before its Top 10 counts, or before it may give props, so a batch of fresh accounts
+	 * cannot move the fan ranking at once. Set on the admin page; the `mmaf_community_fan_min_account_hours` filter
+	 * still has the last word.
+	 */
 	public static function fan_min_account_hours(): int {
-		return max( 0, (int) apply_filters( 'mmaf_community_fan_min_account_hours', 24 ) );
+		$stored = get_option( self::FAN_HOURS_OPTION, false );
+		$hours  = false === $stored || '' === $stored ? self::FAN_HOURS_DEFAULT : (int) $stored;
+		return max( 0, (int) apply_filters( 'mmaf_community_fan_min_account_hours', $hours ) );
+	}
+
+	/** Store the account-age rule (0 to 720 hours) and return what was stored. */
+	public static function save_fan_min_account_hours( int $hours ): int {
+		$hours = max( 0, min( self::FAN_HOURS_MAX, $hours ) );
+		update_option( self::FAN_HOURS_OPTION, $hours, false );
+		return $hours;
 	}
 
 	public static function avatar_max_bytes(): int {

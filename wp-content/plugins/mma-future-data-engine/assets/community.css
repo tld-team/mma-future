@@ -208,6 +208,7 @@
 .mmafc-page .mmafc-level__parts dt { color: var(--mmafc-muted); font-size: .8125rem; }
 .mmafc-page .mmafc-level__parts dd { margin: .125rem 0 0; color: var(--mmafc-text); font-weight: 600; }
 .mmafc-page .mmafc-props { margin: 1rem 0 0; padding: 1rem 0 0; border-top: 1px solid var(--mmafc-border); }
+.mmafc-page .mmafc-props--top { margin: 0; padding: 0 0 1rem; border-top: 0; border-bottom: 1px solid var(--mmafc-border); }
 .mmafc-page .mmafc-props__totals { margin: 0 0 .75rem; color: var(--mmafc-secondary); font-size: .9375rem; }
 .mmafc-page .mmafc-props__label { margin: 0 0 .5rem; color: var(--mmafc-text); font-weight: 600; font-size: .9375rem; }
 .mmafc-page .mmafc-props__choices { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 .5rem; }
@@ -381,6 +382,30 @@
 .mmafc-page .mmafc-empty__title { margin: 0 0 .375rem; color: var(--mmafc-text); font-family: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif; font-size: 1.25rem; font-weight: 700; }
 .mmafc-page .mmafc-empty p { margin: 0; color: var(--mmafc-secondary); }
 .mmafc-page .mmafc-board__how { margin: 1.25rem 0 0; color: var(--mmafc-muted); font-size: .8125rem; text-align: center; }
+.mmafc-page .mmafc-board__waiting { display: inline-flex; align-items: center; gap: .375rem; margin-top: .5rem; padding: .25rem .625rem; border-radius: 999px; background: var(--mmafc-warning-tint); color: var(--mmafc-warning-text); font-size: .8125rem; font-weight: 600; }
+/* The fans' Top 10: the profile's fight card, with each fighter's points and a bar measured against the leader. */
+.mmafc-page .mmafc-board__top { margin: 0 0 1.5rem; }
+.mmafc-page .mmafc-board__top .mmafc-row { gap: .75rem 1rem; padding-right: .875rem; }
+.mmafc-page .mmafc-board__score { flex: none; display: grid; justify-items: end; gap: .25rem; }
+.mmafc-page .mmafc-board__score .mmafc-row__points { min-width: 0; padding: .25rem .625rem; font-size: .875rem; }
+.mmafc-page .mmafc-board__score .mmafc-delta { margin-left: .25rem; }
+.mmafc-page .mmafc-fightcard .mmafc-board__score .mmafc-row__official { flex-basis: auto; padding-left: 0; }
+.mmafc-page .mmafc-board__share { display: block; height: .25rem; margin-top: .375rem; border-radius: 999px; background: var(--mmafc-raised); overflow: hidden; }
+.mmafc-page .mmafc-board__share > span { display: block; height: 100%; min-width: 2px; border-radius: inherit; background: var(--mmafc-brand); }
+.mmafc-page .mmafc-fightcard__pick--main .mmafc-row__body { flex: 1 1 14rem; }
+.mmafc-page .mmafc-fightcard__pick--main .mmafc-board__score .mmafc-row__points { font-size: 1.0625rem; }
+.mmafc-page .mmafc-fightcard__pick--co .mmafc-row__body { flex: 1 1 8rem; }
+.mmafc-page .mmafc-fightcard__pick--co .mmafc-board__score { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding-left: 2.5rem; }
+.mmafc-page .mmafc-fightcard__pick--card .mmafc-board__share { max-width: 14rem; }
+.mmafc-page .mmafc-board__section { display: flex; align-items: baseline; gap: .5rem; margin: 0 0 .75rem; color: var(--mmafc-text); font-family: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif; font-size: 1.125rem; font-weight: 700; }
+.mmafc-page .mmafc-board__section span { color: var(--mmafc-muted); font-family: "Inter", ui-sans-serif, system-ui, sans-serif; font-size: .875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  .mmafc-page .mmafc-fightcard__pick--co .mmafc-board__score { padding-left: 0; }
+  .mmafc-page .mmafc-fightcard__pick--main .mmafc-board__score { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; }
+  .mmafc-page .mmafc-fightcard__pick--card { flex-wrap: wrap; }
+  .mmafc-page .mmafc-fightcard__pick--card .mmafc-row__body { flex: 1 1 10rem; }
+  .mmafc-page .mmafc-fightcard__pick--card .mmafc-board__score { flex-basis: 100%; display: flex; justify-content: space-between; padding-left: calc(1.75rem + 40px + .75rem); }
+}
 
 /* On a phone the board becomes one block per fighter: rank and fighter on top, the numbers labelled below. */
 @media (max-width: 640px) {

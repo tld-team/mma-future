@@ -66,6 +66,26 @@ get_header();
 					<h2 class="mmafc-editor__title" id="mmafc-top10-title">Top 10</h2>
 					<a class="mmafc-link" href="<?php echo esc_url( FanBoard::url( true ) ); ?>">Fan ranking</a>
 				</div>
+				<?php // Props sit with the title, where a visitor sees them before scrolling through ten picks. ?>
+				<?php if ( null !== $mmafc_props ) : ?>
+					<div class="mmafc-props mmafc-props--top" data-mmafc-props="<?php echo esc_attr( $mmafc_view['handle'] ); ?>">
+						<p class="mmafc-props__totals" data-mmafc-props-totals>
+							<?php if ( $mmafc_props['count'] ) : ?>
+								<?php echo esc_html( implode( ' · ', array_map( static fn( int $value, string $label ): string => $label . ' ' . (int) $mmafc_props[ $value ], array_keys( Ratings::VALUES ), Ratings::VALUES ) ) ); ?>
+							<?php else : ?>No props yet.<?php endif; ?>
+						</p>
+						<div class="mmafc-props__give" data-mmafc-props-give hidden>
+							<p class="mmafc-props__label" id="mmafc-props-label">Give props to this Top 10</p>
+							<div class="mmafc-props__choices" role="group" aria-labelledby="mmafc-props-label">
+								<?php foreach ( Ratings::VALUES as $mmafc_value => $mmafc_label ) : ?>
+									<button type="button" class="mmafc-props__choice" data-mmafc-props-value="<?php echo (int) $mmafc_value; ?>" aria-pressed="false"><span class="mmafc-props__dots" aria-hidden="true"><?php echo esc_html( str_repeat( '●', $mmafc_value ) ); ?></span> <?php echo esc_html( $mmafc_label ); ?></button>
+								<?php endforeach; ?>
+							</div>
+						</div>
+						<p class="mmafc-hint" data-mmafc-props-reason hidden></p>
+						<p class="mmafc-status" data-mmafc-props-status role="status" aria-live="polite"></p>
+					</div>
+				<?php endif; ?>
 				<?php // A fight card: the reader's #1 as the main event, 2 and 3 as the co-main events, then the rest of the card. ?>
 				<ol class="mmafc-rows mmafc-rows--public mmafc-fightcard">
 					<?php foreach ( $mmafc_picks as $mmafc_pick ) : $mmafc_name = '' !== $mmafc_pick['display_name'] ? $mmafc_pick['display_name'] : 'Fighter no longer listed'; $mmafc_pos = (int) $mmafc_pick['position']; $mmafc_tier = 1 === $mmafc_pos ? 'main' : ( $mmafc_pos <= 3 ? 'co' : 'card' ); $mmafc_px = array( 'main' => 96, 'co' => 64, 'card' => 40 )[ $mmafc_tier ]; ?>
@@ -86,25 +106,6 @@ get_header();
 						</li>
 					<?php endforeach; ?>
 				</ol>
-				<?php if ( null !== $mmafc_props ) : ?>
-					<div class="mmafc-props" data-mmafc-props="<?php echo esc_attr( $mmafc_view['handle'] ); ?>">
-						<p class="mmafc-props__totals" data-mmafc-props-totals>
-							<?php if ( $mmafc_props['count'] ) : ?>
-								<?php echo esc_html( implode( ' · ', array_map( static fn( int $value, string $label ): string => $label . ' ' . (int) $mmafc_props[ $value ], array_keys( Ratings::VALUES ), Ratings::VALUES ) ) ); ?>
-							<?php else : ?>No props yet.<?php endif; ?>
-						</p>
-						<div class="mmafc-props__give" data-mmafc-props-give hidden>
-							<p class="mmafc-props__label" id="mmafc-props-label">Give props to this Top 10</p>
-							<div class="mmafc-props__choices" role="group" aria-labelledby="mmafc-props-label">
-								<?php foreach ( Ratings::VALUES as $mmafc_value => $mmafc_label ) : ?>
-									<button type="button" class="mmafc-props__choice" data-mmafc-props-value="<?php echo (int) $mmafc_value; ?>" aria-pressed="false"><span class="mmafc-props__dots" aria-hidden="true"><?php echo esc_html( str_repeat( '●', $mmafc_value ) ); ?></span> <?php echo esc_html( $mmafc_label ); ?></button>
-								<?php endforeach; ?>
-							</div>
-						</div>
-						<p class="mmafc-hint" data-mmafc-props-reason hidden></p>
-						<p class="mmafc-status" data-mmafc-props-status role="status" aria-live="polite"></p>
-					</div>
-				<?php endif; ?>
 			</section>
 		<?php endif; ?>
 	</div>
