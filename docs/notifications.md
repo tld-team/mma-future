@@ -21,6 +21,20 @@ define('MMAF_NOTIFICATION_STAGING_ALLOWLIST', 'qa-gmail@example.com,qa-outlook@e
 
 The allowlist does not apply to account email. A confirmation or password link goes to the one address its recipient typed, on staging too; otherwise nobody outside the allowlist could register there. The per-address and per-network limits below still apply.
 
+### Sending through the host's mail server
+
+Without `MMAF_SENDER_API_TOKEN` the plugin sends through `wp_mail`, which is the host's own mail server. This is enough for account email on staging and needs no outside provider:
+
+```php
+// define('MMAF_SENDER_API_TOKEN', '…');   // leave undefined to use the host's mail server
+define('MMAF_SENDER_FROM_EMAIL', 'notification@mma-future-dev.tldteam.com');
+define('MMAF_SENDER_FROM_NAME', 'MMA Future');
+```
+
+- The From line and the envelope sender are `MMAF_SENDER_FROM_EMAIL`. Use an address on the site's own (sub)domain, whose SPF and DKIM records name the host, and create that mailbox or a forwarder so bounces have somewhere to go.
+- The host's server is usually shared with other sites, so volume is kept small: the whole site sends at most `MMAF_ACCOUNT_MAIL_HOURLY_LIMIT` account emails per clock hour (default 30 on staging, no ceiling elsewhere; `0` removes it). Refused sends are logged as `hourly_limit`.
+- Keep sports sending paused in this setup. Announcements to every follower belong on a dedicated provider.
+
 Local and development environments always use the fake mailbox stored in the `mmaf_notification_fake_mailbox` option. They never call Sender directly. Sender domain verification, SPF, DKIM and the visible From address must be complete before production is enabled.
 
 Install and configure Nextend Social Login Free separately. Create distinct Google OAuth clients or authorized callback URLs for staging and production, request only identity/email scopes, and complete Google brand verification. The custom login page displays the Google button only when Nextend's shortcode is available. Registration and sign-in with email and password work without Nextend.
@@ -45,6 +59,7 @@ REST, for signed-out visitors: `POST notifications/auth/register`, `auth/login`,
 **MMA Future → Notifications → Account emails** lists the last 30 account emails (confirmation, "already registered", password link) with the masked recipient and what the transport answered.
 
 - `wp_mail_failed`: no `MMAF_SENDER_API_TOKEN` is set, so the host's mailer was used and refused the message.
+- `hourly_limit`: the site already sent its hourly allowance of account emails (`MMAF_ACCOUNT_MAIL_HOURLY_LIMIT`); the reader can try again in the next hour.
 - A Sender error text or `provider_4xx`: the API refused it, typically an unverified sending domain or From address.
 - Nothing listed: the request was stopped before sending (a staff address, or the 15-minute limit).
 - `Accepted` but nothing in the inbox: the provider took the message; check spam and the provider's own log.

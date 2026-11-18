@@ -35,7 +35,18 @@ final class WpMailTransport implements Transport {
 	public function send( string $to, string $subject, string $html, string $text, array $headers = array() ): array {
 		if ( ! $this->account_mail && ! Config::recipient_allowed( $to ) ) { return array( 'status' => 'rejected', 'error' => 'staging_recipient_blocked', 'http_code' => 0 ); }
 		$headers[] = 'Content-Type: text/html; charset=UTF-8';
-		return wp_mail( $to, $subject, $html, $headers ) ? array( 'status' => 'accepted', 'provider_id' => null, 'http_code' => 200 ) : array( 'status' => 'rejected', 'error' => 'wp_mail_failed', 'http_code' => 500 );
+		// The host's mailer would otherwise send as wordpress@<site>. The configured sender is named in the From line and
+		// as the envelope sender, so bounces return to that mailbox, and the plain text travels beside the HTML.
+		$from = Config::from_email();
+		if ( '' !== $from ) { $headers[] = 'From: ' . trim( preg_replace( '/[<>"\r\n]+/', ' ', Config::from_name() ) ) . ' <' . $from . '>'; }
+		$prepare = static function ( $mailer ) use ( $from, $text ): void {
+			if ( '' !== $from ) { $mailer->Sender = $from; }
+			if ( '' !== $text ) { $mailer->AltBody = $text; }
+		};
+		add_action( 'phpmailer_init', $prepare );
+		$sent = wp_mail( $to, $subject, $html, $headers );
+		remove_action( 'phpmailer_init', $prepare );
+		return $sent ? array( 'status' => 'accepted', 'provider_id' => null, 'http_code' => 200 ) : array( 'status' => 'rejected', 'error' => 'wp_mail_failed', 'http_code' => 500 );
 	}
 }
 
@@ -67,12 +78,27 @@ final class ServiceMailer {
 	private const LOG = 'mmaf_service_mail_log';
 
 	public static function send( string $to, string $subject, string $html, string $text, string $kind = 'service' ): array {
-		$result = TransportFactory::make( true )->send( $to, $subject, $html, $text );
+		$result = self::within_hourly_limit() ? TransportFactory::make( true )->send( $to, $subject, $html, $text ) : array( 'status' => 'rejected', 'error' => 'hourly_limit', 'http_code' => 0 );
 		$log    = self::log();
 		$log[]  = array( 'at' => gmdate( 'Y-m-d H:i:s' ), 'kind' => sanitize_key( $kind ), 'to' => self::mask( $to ), 'status' => (string) ( $result['status'] ?? 'unknown' ), 'error' => (string) ( $result['error'] ?? '' ), 'http_code' => (int) ( $result['http_code'] ?? 0 ) );
 		update_option( self::LOG, array_slice( $log, -30 ), false );
 		if ( 'accepted' !== ( $result['status'] ?? '' ) ) { error_log( 'MMAF account email (' . sanitize_key( $kind ) . ') not accepted: ' . ( $result['error'] ?? 'unknown' ) ); }
 		return $result;
+	}
+
+	/**
+	 * Account email is sent to whatever address a visitor types, and on staging it may leave through a mail server shared
+	 * with other sites. A ceiling on the whole site per clock hour keeps a flooded form from spending that server's
+	 * reputation or its own hourly allowance. The per-address and per-network limits in Auth still apply first.
+	 */
+	private static function within_hourly_limit(): bool {
+		$limit = Config::account_mail_hourly_limit();
+		if ( $limit <= 0 ) { return true; }
+		$key  = 'mmaf_account_mail_' . gmdate( 'YmdH' );
+		$sent = (int) get_transient( $key );
+		if ( $sent >= $limit ) { return false; }
+		set_transient( $key, $sent + 1, 2 * HOUR_IN_SECONDS );
+		return true;
 	}
 
 	/** @return array<int,array{at:string,kind:string,to:string,status:string,error:string,http_code:int}> Oldest first. */

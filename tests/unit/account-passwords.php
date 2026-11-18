@@ -17,10 +17,24 @@ $GLOBALS['environment'] = 'production';
 function wp_get_environment_type() { return $GLOBALS['environment']; }
 function sanitize_email($email) { return trim((string) $email); }
 function apply_filters($hook, $value) { return $value; }
-function get_option($name, $default = false) { return 'admin_email' === $name ? 'site@example.test' : $default; }
+function get_option($name, $default = false) { return 'admin_email' === $name ? 'site@example.test' : ($GLOBALS['options'][$name] ?? $default); }
 function get_bloginfo($show = '') { return 'MMA Future'; }
 function wp_json_encode($value) { return json_encode($value); }
-function wp_mail($to, $subject, $message, $headers = '') { $GLOBALS['sent'][] = array('wp_mail', $to); return true; }
+function add_action($hook, $callback) { $GLOBALS['actions'][$hook][] = $callback; }
+function remove_action($hook, $callback) { $GLOBALS['actions'][$hook] = array_values(array_filter($GLOBALS['actions'][$hook] ?? array(), static fn($kept) => $kept !== $callback)); }
+function wp_mail($to, $subject, $message, $headers = '') {
+    $mailer = new stdClass();
+    foreach ($GLOBALS['actions']['phpmailer_init'] ?? array() as $callback) { $callback($mailer); }
+    $GLOBALS['sent'][] = array('wp_mail', $to);
+    $GLOBALS['last_mail'] = array('headers' => (array) $headers, 'mailer' => $mailer);
+    return true;
+}
+function get_transient($key) { return $GLOBALS['transients'][$key] ?? false; }
+function set_transient($key, $value, $ttl = 0) { $GLOBALS['transients'][$key] = $value; return true; }
+function update_option($name, $value, $autoload = null) { $GLOBALS['options'][$name] = $value; return true; }
+function sanitize_key($key) { return strtolower(preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $key)); }
+ini_set('error_log', '/dev/null');
+$GLOBALS['actions'] = $GLOBALS['transients'] = $GLOBALS['options'] = array();
 function wp_remote_post($url, $args = array()) { $GLOBALS['sent'][] = array('sender', json_decode($args['body'], true)['to']['email']); return new class() { public function get_error_message() { return 'stubbed'; } }; }
 function is_wp_error($thing) { return is_object($thing) && method_exists($thing, 'get_error_message'); }
 $GLOBALS['sent'] = array();
@@ -64,7 +78,23 @@ foreach ([WpMailTransport::class => 'wp_mail', SenderTransport::class => 'sender
 $GLOBALS['sent'] = [];
 account_check($send(TransportFactory::make(), 'reader@example.test') === $blocked && $GLOBALS['sent'] === [], 'The default transport is the sports one and keeps the allowlist');
 account_check('accepted' === $send(TransportFactory::make(true), 'reader@example.test')['status'] && $GLOBALS['sent'] === [['wp_mail', 'reader@example.test']], 'The account transport is not held to the allowlist');
+// The host's mailer sends as the configured address, with bounces returning to it and the plain text beside the HTML.
+$mail = $GLOBALS['last_mail'];
+account_check(in_array('From: MMA Future <site@example.test>', $mail['headers'], true) && 'site@example.test' === $mail['mailer']->Sender && 'Body' === $mail['mailer']->AltBody, 'Host mail names the configured sender and carries the plain text');
+account_check(($GLOBALS['actions']['phpmailer_init'] ?? []) === [], 'The sender is set for this message only, not for other mail the site sends');
+
+// Staging may send through a mail server shared with other sites, so account email has a ceiling for the whole site.
+$GLOBALS['sent'] = [];
+for ($i = 1; $i <= 30; $i++) { ServiceMailer::send("reader$i@example.test", 'Subject', '<p>Body</p>', 'Body', 'register'); }
+$over = ServiceMailer::send('reader31@example.test', 'Subject', '<p>Body</p>', 'Body', 'register');
+$log  = ServiceMailer::log();
+account_check(30 === count($GLOBALS['sent']) && ['status' => 'rejected', 'error' => 'hourly_limit', 'http_code' => 0] === $over, 'Staging stops account email after 30 in an hour');
+account_check('hourly_limit' === end($log)['error'] && 'r***@example.test' === end($log)['to'] && 30 === count($log), 'The refused send is recorded for the administrator, and the record stays at 30 entries');
 $GLOBALS['environment'] = 'production';
+$GLOBALS['sent'] = [];
+$GLOBALS['transients'] = [];
+for ($i = 1; $i <= 40; $i++) { ServiceMailer::send("reader$i@example.test", 'Subject', '<p>Body</p>', 'Body', 'register'); }
+account_check(40 === count($GLOBALS['sent']), 'Production has no ceiling unless one is configured');
 $GLOBALS['sent'] = [];
 $send(new WpMailTransport(), 'anyone@example.test');
 account_check($GLOBALS['sent'] === [['wp_mail', 'anyone@example.test']], 'Production sends sports email to any address');
