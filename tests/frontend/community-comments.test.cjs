@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {readFileSync}=require('node:fs');
 const path=require('node:path');
-const {JSDOM}=require('jsdom');
+const {JSDOM,VirtualConsole}=require('jsdom');
 const asset=name=>readFileSync(path.join(__dirname,'../../wp-content/plugins/mma-future-data-engine/assets/'+name),'utf8');
 const scripts=[asset('community.js'),asset('community-comments.js')];
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -13,16 +13,18 @@ const SHELL=`<section data-mmafc-comments="42"><h2 id="mmafc-comments-title">Dis
   <div data-mmafc-comments-compose></div><p data-mmafc-comments-status></p><ol data-mmafc-thread></ol></section>`;
 const author=(name,extra={})=>({name,handle:name.toLowerCase(),url:'https://site.test/fan/'+name.toLowerCase()+'/',avatar:'https://site.test/a.svg',badge:'<svg class="mmafc-badge"></svg>',level:'2 · Spotter',staff:false,...extra});
 const comment=(id,extra={})=>({id,parent:0,author:author('Ana'),content:'Comment '+id,date:'2026-11-18T10:0'+(id%10)+':00+00:00',date_text:'1 hour ago',score:0,mine:0,own:false,collapsed:false,depth:0,...extra});
-const thread=(extra={})=>({post_id:42,count:4,order:[2,1],comments:[comment(1),comment(2,{score:5}),comment(3,{parent:2,depth:1,content:'Reply 3'}),comment(4,{parent:3,depth:2,content:'Reply 4',own:true})],can_post:true,reason:'',can_vote:true,can_down:true,login_url:'https://site.test/login/?return_to=x',profile_url:'https://site.test/account/profile/',max_length:2000,...extra});
+const thread=(extra={})=>({post_id:42,count:4,order:[2,1],comments:[comment(1),comment(2,{score:5}),comment(3,{parent:2,depth:1,content:'Reply 3'}),comment(4,{parent:3,depth:2,content:'Reply 4',own:true})],can_post:true,reason:'',signed_in:true,comments_open:true,can_vote:true,can_down:true,login_url:'https://site.test/login/?return_to=x',profile_url:'https://site.test/account/profile/',max_length:2000,...extra});
 const reply=(status,body)=>({ok:status>=200&&status<300,status,text:async()=>JSON.stringify(body),json:async()=>body});
 
 function setup(handler,session={loggedIn:true,nonce:'nonce-1',handle:'nikola'}){
-  const dom=new JSDOM(SHELL,{url:'https://site.test/blog/article/',runScripts:'outside-only'});const win=dom.window;const calls=[];
+  // jsdom cannot navigate; it reports each attempted navigation here instead.
+  const virtualConsole=new VirtualConsole();const errors=[];virtualConsole.on('jsdomError',e=>errors.push(e.message));
+  const dom=new JSDOM(SHELL,{url:'https://site.test/blog/article/',runScripts:'outside-only',virtualConsole});const win=dom.window;const calls=[];
   win.mmafCommunity={ajaxUrl:'https://site.test/wp-admin/admin-ajax.php',restUrl:'https://site.test/wp-json/mma-future/v1/community/'};
   win.fetch=async(url,options={})=>{calls.push({url:String(url),options});if(String(url).includes('admin-ajax'))return reply(200,{success:true,data:session});return handler(String(url),options,calls);};
   scripts.forEach(script=>win.eval(script));
   const doc=win.document;
-  return{dom,win,doc,calls,ids:()=>[...doc.querySelectorAll('[data-mmafc-thread] [data-id]')].map(n=>Number(n.getAttribute('data-id'))),
+  return{dom,win,doc,calls,errors,ids:()=>[...doc.querySelectorAll('[data-mmafc-thread] [data-id]')].map(n=>Number(n.getAttribute('data-id'))),
     top:()=>[...doc.querySelectorAll('[data-mmafc-thread] > [data-id]')].map(n=>Number(n.getAttribute('data-id'))),status:()=>doc.querySelector('[data-mmafc-comments-status]').textContent};
 }
 
@@ -100,12 +102,19 @@ test('a reply is posted under its comment, and a report is acknowledged',async()
   }finally{t.dom.window.close();}
 });
 
-test('a signed-out visitor reads the discussion and is offered sign-in; a low-scored comment starts folded',async()=>{
-  const t=setup(()=>reply(200,thread({can_post:false,can_vote:false,can_down:false,reason:'Sign in to join the discussion.',comments:[comment(1,{score:-4,collapsed:true}),comment(2)],order:[2,1],count:2})),{loggedIn:false,nonce:null,handle:null});
+test('a signed-out visitor reads the discussion; votes, replies and reports open sign-in; a low-scored comment starts folded',async()=>{
+  const t=setup(()=>reply(200,thread({signed_in:false,can_post:false,can_vote:false,can_down:false,reason:'Sign in to join the discussion.',comments:[comment(1,{score:-4,collapsed:true}),comment(2)],order:[2,1],count:2})),{loggedIn:false,nonce:null,handle:null});
   try{
     await flush();
     const note=t.doc.querySelector('[data-mmafc-comments-compose] .mmafc-note');assert.match(note.textContent,/^Sign in to join the discussion\./);assert.equal(note.querySelector('a').getAttribute('href'),'https://site.test/login/?return_to=x');
-    assert.equal(t.doc.querySelectorAll('[data-mmafc-vote]').length,0);assert.equal(t.doc.querySelectorAll('[data-mmafc-reply]').length,0);
+    assert.equal(t.doc.querySelectorAll('[data-id="2"] > .mmafc-vote [data-mmafc-vote]').length,2,'the score has both votes, visible to everyone');
+    assert.equal(t.doc.querySelectorAll('[data-id="2"] [data-mmafc-reply]').length,1);assert.equal(t.doc.querySelectorAll('[data-id="2"] [data-mmafc-report]').length,1);
+    t.doc.querySelector('[data-id="2"] > .mmafc-vote [data-mmafc-vote="1"]').click();await flush();
+    t.doc.querySelector('[data-id="2"] [data-mmafc-reply]').click();await flush();
+    t.doc.querySelector('[data-id="2"] [data-mmafc-report]').click();await flush();
+    assert.equal(t.calls.filter(c=>c.options.method&&c.options.method!=='GET').length,0,'nothing is sent while signed out');
+    assert.equal(t.doc.querySelector('[data-id="2"] .mmafc-comment__reply').childElementCount,0,'no reply box opens');
+    assert.equal(t.errors.filter(m=>/navigation/i.test(m)).length,3,'each action goes to sign-in');
     const folded=t.doc.querySelector('[data-id="1"]');assert.equal(folded.querySelector('.mmafc-comment__text').hidden,true);
     folded.querySelector('.mmafc-comment__collapsed').click();assert.equal(folded.querySelector('.mmafc-comment__text').hidden,false);
   }finally{t.dom.window.close();}

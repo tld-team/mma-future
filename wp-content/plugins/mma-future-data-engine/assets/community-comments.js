@@ -13,6 +13,9 @@
 
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
   function setStatus(text) { statusEl.textContent = text || ''; }
+  // A signed-out visitor sees the same controls; each one opens sign-in, and the page comes back to the discussion.
+  function isGuest() { return !!state.data && !state.data.signed_in; }
+  function goSignIn() { window.location.href = state.data.login_url; }
   function message(error, field) { return (error.fields && error.fields[field]) || error.message; }
 
   function composer(parent, onDone) {
@@ -62,13 +65,13 @@
   }
 
   function drawComment(c, children) {
-    var data = state.data, li = el('li', 'mmafc-comment mmafc-comment--depth-' + c.depth);
+    var data = state.data, guest = isGuest(), li = el('li', 'mmafc-comment mmafc-comment--depth-' + c.depth);
     li.setAttribute('data-id', String(c.id)); li.id = 'comment-' + c.id;
     var vote = el('div', 'mmafc-vote'), score = el('span', 'mmafc-vote__score', String(c.score));
     score.setAttribute('aria-label', 'Score ' + c.score);
-    if (data.can_vote && !c.own) vote.appendChild(voteButton(c, 1));
+    if ((data.can_vote || guest) && !c.own) vote.appendChild(voteButton(c, 1));
     vote.appendChild(score);
-    if (data.can_vote && data.can_down && !c.own) vote.appendChild(voteButton(c, -1));
+    if ((data.can_vote || guest) && (data.can_down || guest) && !c.own) vote.appendChild(voteButton(c, -1));
     var body = el('div', 'mmafc-comment__body'), head = el('div', 'mmafc-comment__head');
     var avatar = el('img', 'mmafc-comment__avatar'); avatar.src = c.author.avatar; avatar.alt = ''; avatar.width = 32; avatar.height = 32; avatar.loading = 'lazy';
     head.appendChild(avatar);
@@ -81,8 +84,8 @@
     var text = el('p', 'mmafc-comment__text', c.content);
     body.appendChild(head);
     var actions = el('div', 'mmafc-comment__actions');
-    if (data.can_post) { var reply = el('button', 'mmafc-comment__action', 'Reply'); reply.type = 'button'; reply.setAttribute('data-mmafc-reply', ''); actions.appendChild(reply); }
-    if (data.can_vote && !c.own) { var report = el('button', 'mmafc-comment__action', 'Report'); report.type = 'button'; report.setAttribute('data-mmafc-report', ''); actions.appendChild(report); }
+    if (data.can_post || (guest && data.comments_open)) { var reply = el('button', 'mmafc-comment__action', 'Reply'); reply.type = 'button'; reply.setAttribute('data-mmafc-reply', ''); actions.appendChild(reply); }
+    if ((data.can_vote || guest) && !c.own) { var report = el('button', 'mmafc-comment__action', 'Report'); report.type = 'button'; report.setAttribute('data-mmafc-report', ''); actions.appendChild(report); }
     var replySlot = el('div', 'mmafc-comment__reply');
     if (c.collapsed) {
       var toggle = el('button', 'mmafc-comment__collapsed', 'Hidden for a low score. Show comment'); toggle.type = 'button';
@@ -104,6 +107,7 @@
   function bind(li, c, score, actions, replySlot) {
     Array.prototype.slice.call(li.querySelectorAll(':scope > .mmafc-vote [data-mmafc-vote]')).forEach(function (button) {
       button.addEventListener('click', function () {
+        if (isGuest()) { goSignIn(); return; }
         var value = Number(button.getAttribute('data-mmafc-vote')), send = c.mine === value ? 0 : value;
         lib.api('comments/' + c.id + '/vote', { method: 'POST', json: { value: send } }).then(function (r) {
           c.mine = r.mine; c.score = r.score; score.textContent = String(r.score); score.setAttribute('aria-label', 'Score ' + r.score);
@@ -114,12 +118,14 @@
     });
     var reply = actions.querySelector('[data-mmafc-reply]');
     if (reply) reply.addEventListener('click', function () {
+      if (isGuest()) { goSignIn(); return; }
       if (replySlot.firstChild) { replySlot.textContent = ''; return; }
       var form = composer(c.id, function () { replySlot.textContent = ''; });
       replySlot.appendChild(form); form.querySelector('textarea').focus();
     });
     var report = actions.querySelector('[data-mmafc-report]');
     if (report) report.addEventListener('click', function () {
+      if (isGuest()) { goSignIn(); return; }
       report.disabled = true;
       lib.api('comments/' + c.id + '/report', { method: 'POST', json: {} }).then(function (r) {
         report.textContent = 'Reported';
