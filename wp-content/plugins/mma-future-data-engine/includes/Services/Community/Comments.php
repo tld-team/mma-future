@@ -88,6 +88,9 @@ final class Comments {
 			'comments'    => $items,
 			'can_post'    => '' === $problem,
 			'reason'      => $problem,
+			// Signed-out visitors still see votes, replies and reports; the script sends them to sign-in instead.
+			'signed_in'   => $viewer > 0,
+			'comments_open' => comments_open( $post_id ),
 			'can_vote'    => $viewer > 0 && null !== self::author( $viewer ),
 			'can_down'    => $down,
 			'login_url'   => Accounts::login_url( array( 'return_to' => get_permalink( $post_id ) . '#comments' ) ),

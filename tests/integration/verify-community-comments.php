@@ -126,6 +126,7 @@ try {
 	wp_set_current_user( 0 );
 	$mmafm_public = $mmafm_rest( 'GET', 'comments', array( 'post_id' => $mmafm_post ) );
 	assert_cm( 200 === $mmafm_public->get_status() && 6 === $mmafm_public->get_data()['count'] && false === $mmafm_public->get_data()['can_post'], 'Signed-out visitors cannot read the discussion, or are offered the form.' );
+	assert_cm( false === $mmafm_public->get_data()['signed_in'] && ! empty( $mmafm_public->get_data()['login_url'] ), 'Signed-out visitors are not marked signed out, or get no sign-in link for their votes and replies.' );
 	assert_cm( in_array( $mmafm_rest( 'POST', 'comments', array( 'post_id' => $mmafm_post, 'content' => 'Hi' ) )->get_status(), array( 401, 403 ), true ), 'A signed-out visitor could post.' );
 	wp_set_current_user( $u['ghost'] );
 	$mmafm_refused = $mmafm_rest( 'POST', 'comments', array( 'post_id' => $mmafm_post, 'content' => 'Hi' ) );
