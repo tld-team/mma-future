@@ -202,8 +202,7 @@ def test_cumulative_results_keep_cached_payload_even_if_current_listing_excludes
     assert manifest["counts"]["events_from_payload_cache"] == 1
 
 
-def test_cumulative_results_include_cached_pending_no_result_event(tmp_path):
-    store = DataStore(tmp_path)
+def pending_no_result_results():
     pending = fixture_results(count=1, event_date="2026-05-12")
     pending_event = pending["events"][0]
     pending_event.update(
@@ -238,7 +237,12 @@ def test_cumulative_results_include_cached_pending_no_result_event(tmp_path):
             ],
         }
     )
-    first_results, _, _ = commit_fixture(store, "20260512T194000Z", pending)
+    return pending
+
+
+def test_cumulative_results_include_cached_pending_no_result_event(tmp_path):
+    store = DataStore(tmp_path)
+    first_results, _, _ = commit_fixture(store, "20260512T194000Z", pending_no_result_results())
 
     payloads = json_at(tmp_path / "state" / "event_payloads.json")
     assert payloads["tapology_event_1"]["needs_recheck"] is True
@@ -263,6 +267,74 @@ def test_cumulative_results_include_cached_pending_no_result_event(tmp_path):
     assert second_results["events"][0]["needs_recheck"] is True
     assert second_results["run"]["events_from_payload_cache"] == 1
     assert manifest["counts"]["events_from_payload_cache"] == 1
+
+
+def _excluded_coverage(source_event_id, index):
+    from mma_future_scraper.event_coverage import PARSER_VERSION
+
+    return {
+        "source_event_id": source_event_id,
+        "event_url": f"https://www.tapology.com/fightcenter/events/{index}-fixture-fc",
+        "observed_at": FINISHED,
+        "parser_version": PARSER_VERSION,
+        "source_mma_bouts_total": 1,
+        "unique_bouts": 1,
+        "status": "excluded",
+        "reasons": [],
+        "counts": {"excluded": 1},
+        "bouts": [{
+            "source_bout_id": "tapology_bout_pending",
+            "decision": "excluded",
+            "division": "amateur",
+            "sport": "mma",
+            "reason": "amateur",
+        }],
+    }
+
+
+def _commit_with_observed_coverage(store, run_id, results_doc, coverage_entries):
+    bundle = store.begin_attempt(run_id, STARTED)
+    run_dir = store.create_run_dir(run_id)
+    storage.atomic_write_json(run_dir / "event_coverage.json", {
+        "schema_version": "mmaf_event_coverage_v1", "run_id": run_id, "events": coverage_entries,
+    })
+    return store.commit_success(
+        run_dir=run_dir, bundle=bundle, run_id=run_id, started_at=STARTED, finished_at=FINISHED,
+        results_doc=results_doc,
+        summary={"events_seen": len(results_doc["events"]), "bouts_seen": 0, "warnings": [], "errors": [],
+                 "cumulative_event_scope": [], "cumulative_excluded_event_ids": [], "failed_event_examples": []},
+        options={**OPTIONS, "cumulative_results": True},
+    )
+
+
+def test_cached_empty_payload_is_retired_when_event_is_confirmed_excluded(tmp_path):
+    store = DataStore(tmp_path)
+    commit_fixture(store, "20260512T194000Z", pending_no_result_results())
+    assert "tapology_event_1" in json_at(tmp_path / "state" / "event_payloads.json")
+
+    results, _, manifest = _commit_with_observed_coverage(
+        store, "20260512T194100Z", fixture_results(start=2, count=1),
+        [_excluded_coverage("tapology_event_1", 1)],
+    )
+
+    assert manifest["status"] == "success"
+    assert manifest["counts"]["event_payloads_retired_excluded"] == 1
+    assert [event["source_event_id"] for event in results["events"]] == ["tapology_event_2"]
+    assert "tapology_event_1" not in json_at(tmp_path / "state" / "event_payloads.json")
+    coverage = {e["source_event_id"]: e for e in json_at(tmp_path / "latest" / "event_coverage.json")["events"]}
+    assert coverage["tapology_event_1"]["status"] == "excluded"
+
+
+def test_cached_payload_with_results_still_conflicts_with_exclusion_proof(tmp_path):
+    store = DataStore(tmp_path)
+    commit_fixture(store, "20260512T194000Z", fixture_results(count=1))
+
+    with pytest.raises(ValueError, match="Event coverage"):
+        _commit_with_observed_coverage(
+            store, "20260512T194100Z", fixture_results(start=2, count=1),
+            [_excluded_coverage("tapology_event_1", 1)],
+        )
+    assert "tapology_event_1" in json_at(tmp_path / "state" / "event_payloads.json")
 
 
 def test_rechecked_event_replaces_cached_payload_in_cumulative_results(tmp_path):

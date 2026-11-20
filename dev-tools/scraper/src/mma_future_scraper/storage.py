@@ -224,6 +224,10 @@ class DataStore:
         )
         event_payloads = working_bundle.setdefault("event_payloads", {})
         _update_event_payload_store(event_payloads, results_doc.get("events", []))
+        observed_coverage = _read_json(run_dir / "event_coverage.json", {})
+        retired_payloads = _retire_excluded_empty_payloads(
+            event_payloads, observed_coverage.get("events", []), results_doc.get("events", []),
+        )
         output_results_doc, output_counts = _build_output_results_doc(
             results_doc=results_doc,
             event_payloads=event_payloads,
@@ -238,6 +242,7 @@ class DataStore:
         _sync_results_warning_counts(output_results_doc, summary)
         manifest_counts = _manifest_counts(summary, counts, changes)
         manifest_counts.update(output_counts)
+        manifest_counts["event_payloads_retired_excluded"] = retired_payloads
         _sync_manifest_counts_with_output(manifest_counts, output_results_doc)
         manifest = self.build_manifest(
             run_id=run_id,
@@ -266,7 +271,6 @@ class DataStore:
         if result_errors or state_errors:
             raise ValueError(f"validation_failed: results={result_errors}; state={state_errors}")
 
-        observed_coverage = _read_json(run_dir / "event_coverage.json", {})
         output_coverage = coverage_document(
             output_results_doc.get("events", []), observed_coverage.get("events", []), run_id,
         )
@@ -1032,6 +1036,36 @@ def _update_event_payload_store(event_payloads: dict[str, Any], events: list[dic
         payload = deepcopy(event)
         payload["source_event_id"] = source_event_id
         event_payloads[source_event_id] = payload
+
+
+def _retire_excluded_empty_payloads(
+    event_payloads: dict[str, Any],
+    observed_coverage: list[dict[str, Any]],
+    current_events: list[dict[str, Any]],
+) -> int:
+    """Drop a cached card without results once this run confirms it is excluded.
+
+    An event first stored as partial (no accepted bouts yet) can later be
+    confirmed amateur/non-MMA. It is then not part of this run's results, but
+    the old payload would still be carried into cumulative output with its old
+    partial proof, contradicting the new exclusion proof. A cached payload that
+    still holds accepted bouts is kept, so that conflict is still reported.
+    """
+    current_ids = {
+        event.get("source_event_id") or source_event_id_from_url(event.get("event_url"))
+        for event in current_events
+    }
+    retired = 0
+    for proof in observed_coverage:
+        if not isinstance(proof, dict) or proof.get("status") != "excluded":
+            continue
+        source_event_id = proof.get("source_event_id")
+        cached = event_payloads.get(source_event_id)
+        if source_event_id in current_ids or not isinstance(cached, dict) or cached.get("bouts"):
+            continue
+        del event_payloads[source_event_id]
+        retired += 1
+    return retired
 
 
 def _build_output_results_doc(
