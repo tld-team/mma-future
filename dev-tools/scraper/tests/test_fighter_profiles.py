@@ -2698,3 +2698,57 @@ def test_legacy_capitalised_slug_is_fetched_with_its_original_spelling(tmp_path)
     older.write_text(json.dumps({"queue": [{"source_url": legacy.lower(), "should_refresh": True}]}))
     assert collect_fighter_profile_urls_from_queue(older, limit=10, fetch_url_sources=[results_path])[0] == [legacy]
     assert collect_fighter_profile_urls_from_queue(older, limit=10, fetch_url_sources=[])[0] == [legacy.lower()]
+
+
+class _ChallengePage:
+    url = "https://www.tapology.com/fightcenter/fighters/21501-mark-joseph-abrillo"
+
+    def __init__(self):
+        self.closed = False
+
+    def goto(self, *args, **kwargs):
+        # Cloudflare answers the navigation itself with 429 before the challenge is solved.
+        from types import SimpleNamespace
+        return SimpleNamespace(status=429)
+
+    def close(self):
+        self.closed = True
+
+
+def _challenge_enricher(monkeypatch, tmp_path, wait_result):
+    from types import SimpleNamespace
+    import mma_future_scraper.fighter_profiles as profiles
+
+    waits = []
+    monkeypatch.setattr(profiles, "dismiss_blocking_ui", lambda *args: None)
+    monkeypatch.setattr(profiles, "detect_hard_block", lambda page: "not a bot")
+    monkeypatch.setattr(profiles, "save_debug_artifacts", lambda *args: None)
+    monkeypatch.setattr(profiles.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(profiles, "wait_for_manual_challenge", lambda page, **kwargs: waits.append(kwargs) or wait_result)
+    monkeypatch.setattr(profiles, "snapshot_complete_profile_page",
+                        lambda page, timeout: {"body_text": "Mark Joseph Abrillo Pro MMA Record"})
+    monkeypatch.setattr(profiles, "parse_profile_snapshot", lambda snapshot, url: {
+        "status": "success", "source_url": url, "career_history_evidence": {}, "period_evidence": {}})
+    monkeypatch.setattr(profiles, "aggregate_only_for_scope", lambda scope, profile: False)
+    enricher = profiles.FighterProfileEnricher(ScraperConfig(headless=False, wait_for_manual_challenge_seconds=600))
+    page = _ChallengePage()
+    context = SimpleNamespace(new_page=lambda: page)
+    return enricher, context, page, waits
+
+
+def test_profile_after_solved_manual_challenge_ignores_challenge_http_status(monkeypatch, tmp_path):
+    enricher, context, page, waits = _challenge_enricher(monkeypatch, tmp_path, wait_result=None)
+
+    profile = enricher._scrape_profile(context, page.url, tmp_path, False)
+
+    assert len(waits) == 1
+    assert profile["status"] == "success"
+    assert (tmp_path / "profile_snapshots" / "tapology_fighter_21501.json").exists()
+
+
+def test_profile_with_unsolved_manual_challenge_stays_blocked(monkeypatch, tmp_path):
+    enricher, context, page, _ = _challenge_enricher(monkeypatch, tmp_path, wait_result="not a bot")
+
+    profile = enricher._scrape_profile(context, page.url, tmp_path, False)
+
+    assert profile["status"] == "blocked"
