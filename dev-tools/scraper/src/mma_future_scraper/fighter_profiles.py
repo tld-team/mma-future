@@ -438,6 +438,12 @@ class FighterProfileEnricher:
                         initial_reason=block_reason,
                         context_name=source_url,
                     )
+                    if not block_reason:
+                        # The navigation status (often 403/429) belonged to the
+                        # challenge page; the page now shows the real profile.
+                        diagnostics["challenge_http_status"] = diagnostics.get("http_status")
+                        diagnostics["http_status"] = None
+                        diagnostics["manual_challenge_cleared"] = True
                 if block_reason:
                     save_debug_artifacts(page, run_dir, f"{diagnostic_name}_blocked_attempt_{attempt}")
                     diagnostics.update({"reason": "profile_fetch_failed:blocked_or_challenge", "block_reason": block_reason})
