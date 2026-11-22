@@ -33,6 +33,14 @@
     "last_weigh_in": null,
     "last_weigh_in_lbs": null,
     "weight_class": null,
+    "gender": null,
+    "gender_evidence": {
+      "pronoun": null,
+      "women_p4p_ranking": false,
+      "female_grouping_note": false,
+      "status": "missing_section",
+      "excerpt": null
+    },
     "image_url": null
   },
   "record_summary": {

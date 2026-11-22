@@ -382,6 +382,9 @@ final class FighterProfileEnrichmentPreviewPage {
 			'profiles_with_dob',
 			'profiles_with_birth_year',
 			'profiles_with_gender_inference',
+			'profiles_with_explicit_gender',
+			'profiles_gender_correctable',
+			'profiles_gender_conflict',
 			'profiles_gender_cannot_infer',
 			'profiles_with_weight_class',
 			'profiles_with_height',
@@ -681,6 +684,12 @@ final class FighterProfileEnrichmentPreviewPage {
 	private static function field_admin_note( string $status ): string {
 		if ( 'safe_empty_can_apply' === $status ) {
 			return __( 'Empty or unknown canonical value; admin may apply this source suggestion.', 'mma-future-data-engine' );
+		}
+		if ( 'safe_inferred_correction' === $status ) {
+			return __( 'Current value was only inferred; the Tapology profile states otherwise, so it may be corrected.', 'mma-future-data-engine' );
+		}
+		if ( 'safe_gender_alignment' === $status ) {
+			return __( 'Current weight class does not fit the gender being applied; it follows the gender.', 'mma-future-data-engine' );
 		}
 		if ( 'already_same' === $status ) {
 			return __( 'Canonical value already matches the source suggestion.', 'mma-future-data-engine' );

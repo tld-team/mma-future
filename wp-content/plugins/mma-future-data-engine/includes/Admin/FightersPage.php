@@ -631,7 +631,10 @@ final class FightersPage {
 						<?php self::select_row( 'gender', __( 'Gender', 'mma-future-data-engine' ), (string) $fighter['gender'], Sanitizer::GENDERS ); ?>
 						<tr>
 							<th scope="row"></th>
-							<td><p class="description"><?php echo esc_html__( 'Gender is required only for rankable fighters because ranking boards are split by male/female divisions.', 'mma-future-data-engine' ); ?></p></td>
+							<td>
+								<p class="description"><?php echo esc_html__( 'Gender is required only for rankable fighters because ranking boards are split by male/female divisions.', 'mma-future-data-engine' ); ?></p>
+								<?php self::render_gender_source_note( $fighter_id, (string) ( $fighter['gender'] ?? '' ) ); ?>
+							</td>
 						</tr>
 						<?php self::text_row( 'date_of_birth', __( 'Date of birth', 'mma-future-data-engine' ), $fighter['date_of_birth'], false, 'YYYY-MM-DD', 'date', __( 'Exact birth date, optional. Use YYYY-MM-DD. Ambiguous formats are rejected.', 'mma-future-data-engine' ) ); ?>
 						<?php self::text_row( 'birth_year', __( 'Birth year', 'mma-future-data-engine' ), $fighter['birth_year'], false, '', 'number', __( 'Use only if exact date of birth is unknown. If date of birth is provided, birth year is derived automatically.', 'mma-future-data-engine' ) ); ?>
@@ -1046,6 +1049,20 @@ final class FightersPage {
 		<?php
 	}
 
+	private static function render_gender_source_note( int $fighter_id, string $gender ): void {
+		if ( $fighter_id <= 0 ) {
+			return;
+		}
+
+		$source = \MMAF\DataEngine\Services\GenderSource::classify( ( new \MMAF\DataEngine\Services\FieldProvenanceService() )->sources_for_value( 'fighter', $fighter_id, 'gender', $gender ), $gender );
+		if ( \MMAF\DataEngine\Services\GenderSource::NONE !== $source['state'] ) {
+			echo '<p class="description"><strong>' . esc_html__( 'Source:', 'mma-future-data-engine' ) . '</strong> ' . esc_html( \MMAF\DataEngine\Services\GenderSource::label( $source['state'] ) ) . '</p>';
+		}
+		if ( $source['conflict'] ) {
+			echo '<p class="description" style="color:#b32d2e"><strong>' . esc_html__( 'Conflict:', 'mma-future-data-engine' ) . '</strong> ' . esc_html__( 'The Tapology profile text states the other gender. Check the profile and confirm or change this value.', 'mma-future-data-engine' ) . '</p>';
+		}
+	}
+
 	private static function select_row( string $name, string $label, string $value, array $options, string $help = '' ): void {
 		?>
 		<tr>
@@ -1219,6 +1236,7 @@ final class FightersPage {
             'coverage' => sanitize_key(wp_unslash($_GET['coverage']??'')),
 			'review_scope' => $review_scope,
             'gender' => sanitize_key(wp_unslash($_GET['gender']??'')),
+            'gender_source' => array_key_exists($gender_source=sanitize_key(wp_unslash($_GET['gender_source']??'')),\MMAF\DataEngine\Services\GenderSource::FILTERS)?$gender_source:'',
             'weight_class' => sanitize_text_field(wp_unslash($_GET['weight_class']??'')),
 			'status'             => $status,
 			'rankability_status' => $rankability_status,
@@ -1234,7 +1252,7 @@ final class FightersPage {
 		$args = array();
 		foreach (
 			array(
-				'import_job'=>'import_job','preparation'=>'preparation','reason'=>'reason','coverage'=>'coverage','review_scope'=>'review_scope','gender'=>'gender','weight_class'=>'weight_class',
+				'import_job'=>'import_job','preparation'=>'preparation','reason'=>'reason','coverage'=>'coverage','review_scope'=>'review_scope','gender'=>'gender','gender_source'=>'gender_source','weight_class'=>'weight_class',
 				'status'             => 'fighter_status',
 				'rankability_status' => 'rankability_status',
 				'public_state'       => 'public_state',
@@ -1262,6 +1280,7 @@ final class FightersPage {
             'preparation' => ['Preparation', ['ready' => 'Ready for preparation', 'preparing' => 'Preparing', 'review' => 'Needs review', 'failed' => 'Failed']],
             'import_job' => ['Import series', $imports],
             'gender' => ['Gender', ['male' => 'Men', 'female' => 'Women', 'unknown' => 'Unknown']],
+            'gender_source' => ['Gender source', \MMAF\DataEngine\Services\GenderSource::FILTERS],
             'weight_class' => ['Division', Sanitizer::WEIGHT_CLASSES],
             'coverage' => ['Career coverage', ['complete' => 'Complete', 'partial' => 'Partial', 'conflict' => 'Conflict', 'unavailable' => 'Unavailable']],
             'fighter_status' => ['Approval status', Sanitizer::FIGHTER_STATUSES],

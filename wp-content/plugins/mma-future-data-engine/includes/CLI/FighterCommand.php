@@ -57,6 +57,58 @@ final class FighterCommand {
 		if ( $apply && ! empty( $result['completed'] ) ) { \WP_CLI::success( 'Ranking disposition backfill completed.' ); }
 	}
 	/**
+	 * Reconcile fighter genders with what Tapology profiles state.
+	 *
+	 * Without --apply this is a read-only report. With --apply it, in order: re-applies stored
+	 * profiles that state a gender to fighters whose gender is empty or only inferred; gives
+	 * fighters without a gender the gender of their confirmed opponents when at least two agree;
+	 * clears the "women_strawweight" label on bouts with a confirmed male participant.
+	 * A manually set gender is never changed.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--apply]
+	 * : Write the changes. Omit for a dry run.
+	 *
+	 * @subcommand gender-reconcile
+	 */
+	public function gender_reconcile( array $args, array $assoc_args ): void {
+		global $wpdb;
+		$apply   = isset( $assoc_args['apply'] );
+		$actor   = get_current_user_id();
+		$service = new \MMAF\DataEngine\Services\Import\OpponentGenderConsensusService();
+		$tables  = \MMAF\DataEngine\Migrations\Schema::table_names();
+		$count   = static function ( string $where ) use ( $wpdb, $tables ): int {
+			return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tables['fighters']} f WHERE {$where}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		};
+		$by_source = static function () use ( $count, $tables ): array {
+			$out = array( 'no_gender' => $count( "(f.gender IS NULL OR f.gender IN ('','unknown'))" ) );
+			foreach ( array_keys( \MMAF\DataEngine\Services\GenderSource::FILTERS ) as $filter ) {
+				$out[ $filter ] = $count( (string) \MMAF\DataEngine\Services\GenderSource::filter_sql( $filter, $tables['field_provenance'] ) );
+			}
+			return $out;
+		};
+
+		$report = array( 'mode' => $apply ? 'apply' : 'dry_run', 'before' => $by_source() );
+		try {
+			$report['stored_profiles']       = $service->apply_stored_profiles( $actor, $apply );
+			$report['opponent_consensus']    = $service->apply( $actor, $apply );
+			$report['strawweight_bouts']     = $service->fix_strawweight_bout_labels( $apply );
+			$report['opponent_mismatches']   = $service->mismatches();
+		} catch ( \Throwable $error ) {
+			\WP_CLI::error( $error->getMessage() );
+		}
+		if ( $apply ) {
+			$report['after'] = $by_source();
+		}
+
+		\WP_CLI::line( wp_json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
+		if ( $apply ) {
+			\WP_CLI::success( 'Gender reconcile applied.' );
+		}
+	}
+
+	/**
 	 * Guarded placeholder for future audited fighter merges.
 	 */
 	public function merge( array $args, array $assoc_args ): void {

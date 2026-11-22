@@ -835,6 +835,9 @@ final class ImportPage {
 			'profiles_with_birth_year',
 			'profiles_with_weight_class',
 			'profiles_with_gender_inference',
+			'profiles_with_explicit_gender',
+			'profiles_gender_correctable',
+			'profiles_gender_conflict',
 			'profiles_with_height',
 			'profiles_with_height_cm',
 			'profiles_with_last_weigh_in',
@@ -1569,6 +1572,9 @@ final class ImportPage {
 	private static function profile_action_from_status( string $field, string $status ): string {
 		if ( 'canonical_empty_can_suggest' === $status || 'safe_empty_can_apply' === $status ) {
 			return 'apply';
+		}
+		if ( 'canonical_inferred_can_correct' === $status || 'safe_inferred_correction' === $status ) {
+			return 'correct_inferred_value';
 		}
 		if ( 'not_available' === $status ) {
 			return 'gender' === $field ? 'skip_cannot_infer_gender' : 'skip_missing_value';
