@@ -57,6 +57,40 @@ final class FighterCommand {
 		if ( $apply && ! empty( $result['completed'] ) ) { \WP_CLI::success( 'Ranking disposition backfill completed.' ); }
 	}
 	/**
+	 * Export the fighters whose gender only the Tapology profile can settle.
+	 *
+	 * Read-only. Lists fighters without a gender and women whose gender was only inferred, for
+	 * the scraper's `build-gender-evidence-queue --targets`. Manual decisions are not listed.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--output=<path>]
+	 * : Write the JSON document there instead of printing it.
+	 *
+	 * [--status=<statuses>]
+	 * : Comma-separated fighter statuses. Default: provisional,verified.
+	 *
+	 * [--include-untracked]
+	 * : Also list fighters whose tracking mode is paused or opponent-only.
+	 *
+	 * @subcommand gender-targets
+	 */
+	public function gender_targets( array $args, array $assoc_args ): void {
+		$statuses = isset( $assoc_args['status'] ) ? array_filter( array_map( 'sanitize_key', explode( ',', (string) $assoc_args['status'] ) ) ) : \MMAF\DataEngine\Services\GenderSource::TARGET_STATUSES;
+		$document = \MMAF\DataEngine\Services\GenderSource::export_targets( $statuses, ! isset( $assoc_args['include-untracked'] ) );
+		$json     = wp_json_encode( $document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		if ( ! empty( $assoc_args['output'] ) ) {
+			$path = (string) $assoc_args['output'];
+			if ( false === file_put_contents( $path, $json . "\n" ) ) {
+				\WP_CLI::error( 'Could not write gender targets export.' );
+			}
+			\WP_CLI::success( sprintf( 'Gender targets written to %s (%d missing, %d inferred female).', $path, $document['counts']['missing'], $document['counts']['inferred_female'] ) );
+			return;
+		}
+		\WP_CLI::line( $json );
+	}
+
+	/**
 	 * Reconcile fighter genders with what Tapology profiles state.
 	 *
 	 * Without --apply this is a read-only report. With --apply it, in order: re-applies stored

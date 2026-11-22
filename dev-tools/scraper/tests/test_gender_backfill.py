@@ -191,3 +191,61 @@ def test_queue_respects_tracking_decisions_and_is_not_overwritten(tmp_path):
     assert report["tracking_skipped_count"] == 1 and report["tracking_decisions_revision"] == "r1"
     with pytest.raises(FileExistsError):
         build_gender_evidence_queue(path, output)
+
+
+def targets_file(tmp_path, rows, schema="mmaf_gender_targets_v1"):
+    path = tmp_path / "targets.json"
+    path.write_text(json.dumps({"schema_version": schema, "fighters": rows}), encoding="utf-8")
+    return path
+
+
+def target(number, reason="missing", **extra):
+    return {"fighter_id": number, "display_name": f"Fighter {number}", "reason": reason, "source_fighter_id": f"tapology_fighter_{number}", "source_url": url(number), **extra}
+
+
+def test_targets_limit_the_queue_to_fighters_wordpress_lists(tmp_path):
+    path = queue_profiles(
+        tmp_path,
+        [
+            profile(1, "Flyweight"),
+            profile(2, "Strawweight"),
+            profile(3, "Welterweight", fights=[{"fight_date": "2026-11-01"}]),
+            profile(4, "Flyweight", summary={"gender": "male", "gender_evidence": {"status": "explicit"}}),
+            profile(5, "Flyweight", summary={"gender": None, "gender_evidence": {"status": "ineligible"}}),
+            profile(6, "Strawweight", fights=[{"fight_date": "2026-10-01"}]),
+        ],
+    )
+    targets = targets_file(
+        tmp_path,
+        [target(3), target(4), target(5), target(6, "inferred_female"), target(7), {"fighter_id": 8, "display_name": "No source", "reason": "missing", "source_fighter_id": None, "source_url": None},
+         {"fighter_id": 9, "display_name": "Url only", "reason": "missing", "source_fighter_id": None, "source_url": url(9, "url-only") + "?x=1"}],
+    )
+    output = tmp_path / "queue.json"
+
+    report = build_gender_evidence_queue(path, output, targets_path=targets)
+    queue = json.loads(output.read_text(encoding="utf-8"))["queue"]
+
+    assert [(item["source_fighter_id"], item["priority"], item["stale_reason"]) for item in queue] == [
+        ("tapology_fighter_6", 95, "gender_evidence_missing"),
+        ("tapology_fighter_3", 90, "gender_evidence_missing"),
+        ("tapology_fighter_7", 85, "never_scraped"),
+        ("tapology_fighter_9", 85, "never_scraped"),
+    ]
+    assert queue[3]["source_url"] == url(9, "url-only")
+    assert all(item["fetch_scope"] == "professional_mma_career" for item in queue)
+    assert report["queue_mode"] == "gender-evidence-targets"
+    assert report["targets_total"] == 6
+    assert report["targets_resolved_by_cached_evidence"] == 1
+    assert report["targets_without_source_url"] == 0
+    assert report["targets_without_tapology_identity"] == 1
+    assert report["targets_needing_manual_gender"] == [
+        {"source_fighter_id": "tapology_fighter_5", "display_name": "Fighter 5", "source_url": url(5), "status": "ineligible"}
+    ]
+
+
+def test_a_document_that_is_not_a_targets_export_is_rejected(tmp_path):
+    path = queue_profiles(tmp_path, [profile(1, "Flyweight")])
+
+    with pytest.raises(ValueError, match="invalid_gender_targets_document"):
+        build_gender_evidence_queue(path, tmp_path / "queue.json", targets_path=targets_file(tmp_path, [], schema="mmaf_tracking_decisions_v1"))
+    assert not (tmp_path / "queue.json").exists()

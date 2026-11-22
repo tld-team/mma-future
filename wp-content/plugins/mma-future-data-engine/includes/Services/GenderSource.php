@@ -90,6 +90,66 @@ final class GenderSource {
 			. " OR (tp.source_type = '" . GenderInferenceService::SOURCE_EXPLICIT . "' AND tp.value_hash = SHA2(LOWER(TRIM({$alias}.gender)), 256))))";
 	}
 
+	public const TARGETS_SCHEMA_VERSION = 'mmaf_gender_targets_v1';
+	public const TARGET_STATUSES        = array( 'provisional', 'verified' );
+
+	/**
+	 * Fighters whose gender only a fresh look at the Tapology profile can settle, for the scraper's
+	 * gender queue: those without a gender, and women whose gender was only inferred.
+	 * A gender an admin set or cleared is theirs, and a conflict needs a person, so neither is listed.
+	 *
+	 * @param string[] $statuses Fighter statuses to include.
+	 */
+	public static function export_targets( array $statuses = self::TARGET_STATUSES, bool $tracked_only = true ): array {
+		global $wpdb;
+
+		$tables   = \MMAF\DataEngine\Migrations\Schema::table_names();
+		$statuses = array_values( array_intersect( array_map( 'strval', $statuses ), \MMAF\DataEngine\Support\Sanitizer::FIGHTER_STATUSES ) ) ?: self::TARGET_STATUSES;
+		$manual   = "EXISTS (SELECT 1 FROM {$tables['field_provenance']} gp WHERE gp.entity_type = 'fighter' AND gp.entity_id = f.id AND gp.field_name = 'gender' AND (gp.locked = 1 OR gp.source_type IN ('" . implode( "','", self::MANUAL_SOURCE_TYPES ) . "')))";
+		$missing  = "(f.gender IS NULL OR f.gender IN ('','unknown')) AND NOT {$manual}";
+		$inferred = "f.gender = 'female' AND (" . self::filter_sql( 'inferred', $tables['field_provenance'] ) . ')';
+		$where    = "f.deleted_soft = 0 AND f.status IN ('" . implode( "','", array_map( 'esc_sql', $statuses ) ) . "')" . ( $tracked_only ? " AND f.tracking_mode = 'normal'" : '' );
+
+		$rows = $wpdb->get_results(
+			"SELECT f.id, f.display_name, f.status, f.tracking_mode, f.gender, f.weight_class, s.source_fighter_id, s.source_url,
+				CASE WHEN {$missing} THEN 'missing' ELSE 'inferred_female' END AS reason
+			FROM {$tables['fighters']} f
+			LEFT JOIN {$tables['fighter_sources']} s ON s.id = (SELECT s2.id FROM {$tables['fighter_sources']} s2 WHERE s2.fighter_id = f.id AND s2.source_type = 'tapology' ORDER BY s2.is_primary DESC, s2.is_verified DESC, s2.id ASC LIMIT 1)
+			WHERE {$where} AND (({$missing}) OR ({$inferred}))
+			ORDER BY f.id", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			ARRAY_A
+		) ?: array();
+
+		$counts = array( 'missing' => 0, 'inferred_female' => 0, 'without_tapology_source' => 0 );
+		$items  = array();
+		foreach ( $rows as $row ) {
+			++$counts[ $row['reason'] ];
+			if ( '' === (string) $row['source_url'] && '' === (string) $row['source_fighter_id'] ) {
+				++$counts['without_tapology_source'];
+			}
+			$items[] = array(
+				'fighter_id'        => (int) $row['id'],
+				'display_name'      => $row['display_name'],
+				'status'            => $row['status'],
+				'tracking_mode'     => $row['tracking_mode'],
+				'gender'            => $row['gender'],
+				'weight_class'      => $row['weight_class'],
+				'reason'            => $row['reason'],
+				'source_fighter_id' => $row['source_fighter_id'],
+				'source_url'        => $row['source_url'],
+			);
+		}
+
+		return array(
+			'schema_version' => self::TARGETS_SCHEMA_VERSION,
+			'exported_at'    => gmdate( 'c' ),
+			'statuses'       => $statuses,
+			'tracked_only'   => $tracked_only,
+			'counts'         => $counts,
+			'fighters'       => $items,
+		);
+	}
+
 	/** WHERE fragment over the fighters alias `f` for one of the FILTERS keys; null for an unknown key. */
 	public static function filter_sql( string $filter, string $provenance_table ): ?string {
 		$has_gender = "f.gender IN ('male','female')";

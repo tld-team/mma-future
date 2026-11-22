@@ -48,6 +48,14 @@ try {
 
     check($count(['gender'=>'unknown'])===3,'the Unknown gender filter finds fighters whose gender is NULL');
     check($count(['gender_source'=>'inferred'])===2,'inferred, unconfirmed genders are listed before the import');
+    $cleared_early=$fixture('clearedearly',[]);$provenance->upsert('fighter',$cleared_early['id'],'gender','',1);
+    $paused=$fixture('paused',['tracking_mode'=>'paused']);
+    $export=GenderSource::export_targets();
+    $listed=array_column(array_filter($export['fighters'],static fn($row)=>in_array($row['fighter_id'],array_merge($ids,[$cleared_early['id'],$paused['id']]),true)),'reason','fighter_id');
+    check($export['schema_version']==='mmaf_gender_targets_v1'&&$listed==[$inferred['id']=>'inferred_female',$empty_she['id']=>'missing',$empty_straw['id']=>'missing',$empty_heavy['id']=>'missing'],'the gender targets export lists fighters without a gender and inferred women, not manual, cleared, paused or inferred-male ones');
+    $row=current(array_filter($export['fighters'],static fn($row)=>$row['fighter_id']===$inferred['id']));
+    check($row['source_fighter_id']===$inferred['source']&&str_contains((string)$row['source_url'],'/fightcenter/fighters/'),'each target carries its Tapology identity');
+    check(in_array($paused['id'],array_column(GenderSource::export_targets(['provisional'],false)['fighters'],'fighter_id'),true)&&!in_array($inferred['id'],array_column(GenderSource::export_targets(['verified'])['fighters'],'fighter_id'),true),'the export honours the status and tracking options');
 
     $result=$apply([
         $profile($inferred,'Strawweight','male',$he),$profile($manual,'Strawweight','male',$he),$profile($unknown_origin,'Strawweight','male',$he),

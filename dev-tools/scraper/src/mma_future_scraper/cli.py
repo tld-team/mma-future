@@ -645,6 +645,7 @@ def build_parser() -> argparse.ArgumentParser:
     gender_queue.add_argument("--profiles", type=Path, default=LATEST_DIR / "fighter_profiles.json")
     gender_queue.add_argument("--output", type=Path, required=True)
     gender_queue.add_argument("--tracking-decisions", type=Path)
+    gender_queue.add_argument("--targets", type=Path, help="JSON from `wp mmaf fighter gender-targets`; only the listed fighters are queued")
     recovery=subparsers.add_parser('prepare-import-recovery',help='Reparse exact saved DOM snapshots and prepare targeted source enrichment')
     recovery.add_argument('--source-profiles',type=Path,required=True)
     recovery.add_argument('--snapshots-dir',type=Path,required=True)
@@ -781,7 +782,7 @@ def _dispatch(args) -> int:
 
     if args.command == "build-gender-evidence-queue":
         from .gender_backfill import build_gender_evidence_queue
-        print(json.dumps(build_gender_evidence_queue(args.profiles, args.output, tracking_decisions_path=args.tracking_decisions), ensure_ascii=False, indent=2));return 0
+        print(json.dumps(build_gender_evidence_queue(args.profiles, args.output, tracking_decisions_path=args.tracking_decisions, targets_path=args.targets), ensure_ascii=False, indent=2));return 0
 
     if args.command=='prepare-import-recovery':
         from .import_recovery import prepare_recovery
