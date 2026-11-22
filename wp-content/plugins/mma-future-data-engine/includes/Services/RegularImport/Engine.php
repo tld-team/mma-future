@@ -331,6 +331,10 @@ final class Engine {
                 $key=(string)(($profile['source_fighter_id']??'')?:($profile['source_url']??''));$saved=$store->put($profile,$data['schema_version'],$id);
                 $changeKey=['created'=>'snapshot_new','updated'=>'snapshot_changed','review'=>'snapshot_review'][$saved['status']]??'snapshots_retained';
                 $summary['profile_changes'][$changeKey]=($summary['profile_changes'][$changeKey]??0)+1;
+                if(!empty($saved['gender_evidence_added'])){
+                    $summary['profile_changes']['gender_evidence_added']=($summary['profile_changes']['gender_evidence_added']??0)+1;
+                    Review::settle('profile_snapshot',$key,\MMAF\DataEngine\Services\DataPipeline\ProfileStore::SAME_TIMESTAMP_REASON,'Stored: the profile differed only by gender evidence read from the same capture.');
+                }
                 if(($profile['last_attempt']['status']??$profile['status']??'success')!=='success'){$summary['profile_changes']['last_attempt_failed']=($summary['profile_changes']['last_attempt_failed']??0)+1;}
                 $category=$saved['status']==='review' || empty($saved['has_success'])?'review':(in_array($saved['status'],['created','updated'],true)?'updated':'unchanged');
                 if($category==='review'){++$summary['review'];Review::upsert($id,'profile_snapshot',$key,['source_fighter_id'=>$key,'reason'=>$saved['reason']??'No successful source snapshot is available.'],$actor);}

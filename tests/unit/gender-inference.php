@@ -13,6 +13,7 @@ function gender_check(bool $ok, string $label): void {
     if (!$ok) { throw new RuntimeException($label); }
     echo "PASS: $label\n";
 }
+use MMAF\DataEngine\Services\DataPipeline\ProfileStore as Store;
 use MMAF\DataEngine\Services\FieldProvenanceService as Provenance;
 use MMAF\DataEngine\Services\Import\GenderInferenceService as Inference;
 use MMAF\DataEngine\Services\Import\OpponentGenderConsensusService as Consensus;
@@ -100,3 +101,22 @@ gender_check(!$only([$row(Inference::SOURCE_WEIGHT_CLASS, 'female'), $row('tapol
 gender_check(!$only([], 'female'), 'a value of unknown origin is not correctable');
 gender_check(!$only([$row(Inference::SOURCE_WEIGHT_CLASS, 'male')], 'female'), 'an inference row for a different value does not make the current one weak');
 gender_check(Provenance::value_hash(' Female ') === Provenance::value_hash('female'), 'value hashes ignore case and surrounding space');
+
+// A stored capture may be completed with gender evidence, and with nothing else.
+if (!function_exists('wp_json_encode')) { function wp_json_encode($value) { return json_encode($value); } }
+$stored = ['source_fighter_id' => 'tapology_fighter_1', 'status' => 'success', 'profile_summary' => ['weight_class' => 'Strawweight', 'nickname' => null], 'fight_history' => [['result' => 'win']]];
+$sorted = static function ($value) use (&$sorted) { if (is_array($value)) { if (!array_is_list($value)) { ksort($value); } $value = array_map($sorted, $value); } return $value; };
+$stored_hash = hash('sha256', json_encode($sorted($stored)));
+$payload = json_encode($stored + ['scraped_at' => '2026-11-17T10:00:00Z']);
+$completed = $stored; $completed['profile_summary'] += ['gender' => 'male', 'gender_evidence' => $evidence()];
+gender_check(Store::adds_only_gender_evidence($completed, $stored_hash, $payload), 'a stored capture plus gender evidence is the same capture');
+$silent = $stored; $silent['profile_summary'] += ['gender' => null, 'gender_evidence' => $evidence(['pronoun' => null, 'status' => 'ineligible', 'excerpt' => ''])];
+gender_check(Store::adds_only_gender_evidence($silent, $stored_hash, $payload), 'so is one whose page states no gender');
+$edited = $completed; $edited['profile_summary']['weight_class'] = 'Flyweight';
+gender_check(!Store::adds_only_gender_evidence($edited, $stored_hash, $payload), 'any other changed field keeps it a different capture');
+$rows = $completed; $rows['fight_history'][] = ['result' => 'loss'];
+gender_check(!Store::adds_only_gender_evidence($rows, $stored_hash, $payload), 'so does a changed fight history');
+gender_check(!Store::adds_only_gender_evidence($stored, $stored_hash, $payload), 'a profile without gender evidence adds nothing');
+$has = $completed; $flipped = $completed; $flipped['profile_summary']['gender'] = 'female';
+gender_check(!Store::adds_only_gender_evidence($flipped, hash('sha256', json_encode($sorted($has))), json_encode($has)), 'gender evidence already stored is never replaced this way');
+gender_check(!Store::adds_only_gender_evidence($completed, $stored_hash, 'not json'), 'an unreadable stored capture is not completed');

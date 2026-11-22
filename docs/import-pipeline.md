@@ -173,6 +173,9 @@ source queue atomically. It preserves the source file and observation dates,
 binds each candidate to its original content and snapshot hash, and refuses
 ambiguous duplicate snapshots. A different reparse at the same observation time
 as stored success requires review; it is not silently treated as a new fetch.
+The one exception is gender evidence: a profile that equals the stored one except
+for `profile_summary.gender` and `gender_evidence`, where the stored one has
+neither, completes the stored capture and resolves its open review hold.
 
 For rows without recoverable DOM evidence, use a bounded targeted fetch:
 

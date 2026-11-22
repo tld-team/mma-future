@@ -19,6 +19,19 @@ final class Review {
         \MMAF\DataEngine\Services\Operations\ReviewLinks::record($existing,$context,$job);
         return $existing;
     }
+    /** Resolves the open holds of one source that were raised for $reason; returns how many. */
+    public static function settle(string $type,string $source,string $reason,string $note): int {
+        global $wpdb;$t=CanonicalSchema::table_names()['review_items'];$settled=0;
+        if($source===''){return 0;}
+        $rows=$wpdb->get_results($wpdb->prepare("SELECT id,notes FROM $t WHERE source_type='tapology' AND source_id=%s AND action_taken=%s AND status='open' ORDER BY id LIMIT 100",$source,$type),ARRAY_A);
+        foreach($rows?:[] as $row){
+            $notes=json_decode($row['notes']??'',true);
+            if(!is_array($notes) || ($notes['context']['reason']??null)!==$reason){continue;}
+            $now=gmdate('Y-m-d H:i:s');$notes['decisions'][]=['at'=>gmdate('c'),'by'=>0,'status'=>'resolved','note'=>$note];
+            Repository::check($wpdb->update($t,['status'=>'resolved','notes'=>wp_json_encode($notes),'resolved_at'=>$now,'updated_at'=>$now],['id'=>(int)$row['id']]));++$settled;
+        }
+        return $settled;
+    }
     public static function stable(array $context): array {
         foreach(['run_id','generated_at','scraped_at','import_run_id','observed_at','last_seen_at'] as $key){unset($context[$key]);}
         foreach($context as &$value){if(is_array($value)){$value=self::stable($value);}}unset($value);
