@@ -27,7 +27,7 @@ python -m mma_future_scraper.cli backfill-gender-evidence --apply
 python -m mma_future_scraper.cli build-gender-evidence-queue --output /path/to/gender-evidence-queue.json
 ```
 
-`backfill-gender-evidence` reads the evidence from the newest page capture saved under `data/runs/*/profile_snapshots/` and writes only `gender` and `gender_evidence` into `data/latest/fighter_profiles.json`. With `--apply` the previous file is kept next to it as `fighter_profiles.json.bak-gender-<time>`. A capture that landed on another fighter's page is ignored.
+`backfill-gender-evidence` reads the evidence from the newest page capture saved under `data/runs/*/profile_snapshots/` and writes only `gender` and `gender_evidence` into `data/latest/fighter_profiles.json`. With `--apply` the previous file is kept next to it as `fighter_profiles.json.bak-gender-<time>`. A capture that landed on another fighter's page is ignored. The capture time is not changed; the importer accepts a profile that differs from the stored one only by these two fields (plugin 2.25.1), and counts it as `gender_evidence_added` in the import report.
 
 `build-gender-evidence-queue` writes a standard fighter queue of the profiles that still have no evidence and whose weight class cannot settle the gender: Strawweight and Atomweight first (95), then profiles without a weight class (90), then Flyweight, Bantamweight, Featherweight and Lightweight (70); the most recently active fighters first inside each group. Every item asks for the scope the cached profile already has, so a whole-career history is never replaced by a record-only profile. `--tracking-decisions` applies the same policy as the regular queue. Feed the file to the profile run with `--queue-file`.
 

@@ -5,7 +5,8 @@ use MMAF\DataEngine\Migrations\Schema;
 use MMAF\DataEngine\Repositories\{FighterRepository,FighterSourceRepository};
 use MMAF\DataEngine\Services\{FieldProvenanceService,GenderSource};
 use MMAF\DataEngine\Services\Import\{FighterProfileEnrichmentApplyService,GenderInferenceService};
-use MMAF\DataEngine\Services\RegularImport\{Transaction,WriteGuard};
+use MMAF\DataEngine\Services\DataPipeline\ProfileStore;
+use MMAF\DataEngine\Services\RegularImport\{Review,Transaction,WriteGuard};
 function check($ok,$reason){if(!$ok){throw new RuntimeException($reason);}echo "PASS: $reason\n";}
 set_exception_handler(function($e){fwrite(STDERR,$e->getMessage().' at '.$e->getFile().':'.$e->getLine()."\n");exit(1);});
 \MMAF\DataEngine\Migrations\MigrationRunner::run();wp_set_current_user(1);
@@ -130,5 +131,22 @@ try {
     check(in_array($agreed['id'],array_column($consensus->mismatches(),'fighter_id'),true),'a fighter whose trusted opponents have the other gender is reported as a mismatch');
     $labels=$consensus->fix_strawweight_bout_labels(true);
     check(in_array($labelled,$labels['bout_ids'],true)&&$wpdb->get_var($wpdb->prepare("SELECT weight_class FROM {$t['bouts']} WHERE id=%d",$labelled))==='unknown','a Strawweight bout with a confirmed man loses its women\'s label');
+    // Gender evidence read later from an already stored capture completes it; nothing else may change at the same time.
+    $store=new ProfileStore();$schema='tapology_fighter_profiles_v0_1';$capture=$fixture('capture',[]);
+    $plain=['source_fighter_id'=>$capture['source'],'source_url'=>$capture['url'],'status'=>'success','display_name'=>$capture['name'],'scraped_at'=>gmdate('Y-m-d\TH:i:s\Z',time()-600),
+        'profile_summary'=>['weight_class'=>'Strawweight'],'record_summary'=>[],'fight_history'=>[]];
+    check($store->put($plain,$schema)['status']==='created','a capture without gender evidence is stored');
+    $hold=Review::upsert(0,'profile_snapshot',$capture['source'],['source_fighter_id'=>$capture['source'],'reason'=>ProfileStore::SAME_TIMESTAMP_REASON],1);
+    $edited=$plain;$edited['profile_summary']['weight_class']='Flyweight';
+    $with=$plain;$with['profile_summary']+=['gender'=>'male','gender_evidence'=>$he];
+    $both=$with;$both['profile_summary']['weight_class']='Flyweight';
+    check($store->put($edited,$schema)['status']==='review'&&$store->put($both,$schema)['status']==='review','different content at the same source time is still held, with or without gender evidence');
+    $saved=$store->put($with,$schema);
+    check($saved['status']==='updated'&&$saved['gender_evidence_added']===true&&$store->for_fighter($capture['id'])['profile']['profile_summary']['gender']==='male','the same capture with only gender evidence added replaces the stored one');
+    $apply([$store->for_fighter($capture['id'])['profile']]);
+    check($f->find($capture['id'])['gender']==='male'&&$f->find($capture['id'])['weight_class']==='flyweight','and its gender reaches the fighter');
+    $flipped=$with;$flipped['profile_summary']['gender']='female';$flipped['profile_summary']['gender_evidence']=$she;
+    check($store->put($flipped,$schema)['status']==='review'&&$store->put($with,$schema)['status']==='unchanged','stored gender evidence is not replaced at the same source time');
+    check(Review::settle('profile_snapshot',$capture['source'],ProfileStore::SAME_TIMESTAMP_REASON,'Fixture')===1&&$wpdb->get_var($wpdb->prepare("SELECT status FROM {$t['review_items']} WHERE id=%d",$hold))==='resolved'&&Review::settle('profile_snapshot',$capture['source'],ProfileStore::SAME_TIMESTAMP_REASON,'Fixture')===0,'the hold raised for that capture is resolved once');
 } finally {Transaction::rollback();WriteGuard::$worker=false;wp_cache_flush();}
 check(!$f->find($inferred['id']),'fixtures roll back');

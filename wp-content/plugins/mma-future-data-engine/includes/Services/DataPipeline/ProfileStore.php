@@ -33,6 +33,7 @@ final class ProfileStore {
         foreach ($value as &$item) { $item=self::stable($item); } unset($item);
         return $value;
     }
+    public const SAME_TIMESTAMP_REASON='Different profile content has the same source timestamp.';
     public function put(array $profile, string $schema, int $job=0): array {
         global $wpdb;
         $identity=TapologyFighterUrl::parse((string)($profile['source_url']??''));
@@ -47,7 +48,7 @@ final class ProfileStore {
         $payload=wp_json_encode($profile); $encoded=wp_json_encode(self::stable($content));
         if ($payload===false || $encoded===false || strlen($payload)>4*1024*1024) { return ['status'=>'review','reason'=>'Invalid or oversized profile payload.']; }
         $hash=hash('sha256',$encoded); $table=Schema::tables()['profiles']; $now=gmdate('Y-m-d H:i:s');
-        return Transaction::run(function() use($wpdb,$table,$profile,$key,$identity,$observed,$success,$payload,$hash,$schema,$job,$now) {
+        return Transaction::run(function() use($wpdb,$table,$profile,$content,$key,$identity,$observed,$success,$payload,$hash,$schema,$job,$now) {
             $old=$wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE source_type='tapology' AND source_fighter_id=%s FOR UPDATE",$key),ARRAY_A);
             $fighter=$this->resolve($identity);
             \MMAF\DataEngine\Services\Operations\Membership::record($job,$fighter,'stored_profile');
@@ -59,9 +60,13 @@ final class ProfileStore {
                 $data+=['last_attempt_at'=>$attempt,'last_attempt_status'=>$attemptStatus,'last_error'=>$attemptStatus==='success'?null:substr(sanitize_text_field($lastAttempt['error_reason']??$profile['error_reason']??'Source profile unavailable.'),0,255)];
             }
             $replace=$success && (!$old || !$old['payload_json'] || ($observed && (!$old['source_fetched_at'] || $observed>$old['source_fetched_at'])));
-            $status=$success?'unchanged':'retained_previous';
+            $status=$success?'unchanged':'retained_previous';$completed=false;
             if ($old && $success && $old['payload_json'] && $observed && $observed===$old['source_fetched_at'] && !hash_equals($old['content_hash'],$hash)) {
-                return ['status'=>'review','reason'=>'Different profile content has the same source timestamp.','fighter_id'=>$fighter];
+                // Gender evidence read later from the same capture completes the stored profile; any other difference stays ambiguous.
+                if (!self::adds_only_gender_evidence($content,(string)$old['content_hash'],(string)$old['payload_json'])) {
+                    return ['status'=>'review','reason'=>self::SAME_TIMESTAMP_REASON,'fighter_id'=>$fighter];
+                }
+                $replace=true;$completed=true;
             }
             if ($replace) { $data+=['payload_json'=>$payload,'content_hash'=>$hash,'source_fetched_at'=>$observed,'import_job_id'=>$job?:null]; $status=(!$old || !$old['payload_json'])?'created':(hash_equals($old['content_hash'],$hash)?'unchanged':'updated'); }
             elseif ($success && $old && $old['source_fetched_at'] && (!$observed || $observed<$old['source_fetched_at'])) { $status='older_ignored'; }
@@ -72,8 +77,17 @@ final class ProfileStore {
             else { $data+=['created_at'=>$now,'last_attempt_status'=>(string)($profile['status']??'unknown')]; Repository::check($wpdb->insert($table,$data)); }
             if($fighter && $replace){(new \MMAF\DataEngine\Services\Scoring\CareerRecords())->observe($fighter,$profile,$hash);}
             if($fighter && (!$old || !empty($changed))){\MMAF\DataEngine\Services\Operations\Readiness::invalidate($fighter);}
-            return ['status'=>$status,'fighter_id'=>$fighter,'source_fighter_id'=>$key,'has_success'=>$replace || !empty($old['payload_json']),'hash'=>$replace?$hash:($old['content_hash']??null)];
+            return ['status'=>$status,'fighter_id'=>$fighter,'source_fighter_id'=>$key,'has_success'=>$replace || !empty($old['payload_json']),'hash'=>$replace?$hash:($old['content_hash']??null),'gender_evidence_added'=>$completed];
         });
+    }
+    /** True when $content is exactly the stored profile plus the gender fields of its summary. */
+    public static function adds_only_gender_evidence(array $content,string $stored_hash,string $stored_payload): bool {
+        if (!is_array($content['profile_summary']['gender_evidence']??null)) { return false; }
+        $stored=json_decode($stored_payload,true);
+        if (!is_array($stored) || !is_array($stored['profile_summary']??null) || array_key_exists('gender',$stored['profile_summary']) || array_key_exists('gender_evidence',$stored['profile_summary'])) { return false; }
+        unset($content['profile_summary']['gender'],$content['profile_summary']['gender_evidence']);
+        $encoded=wp_json_encode(self::stable($content));
+        return $encoded!==false && hash_equals($stored_hash,hash('sha256',$encoded));
     }
     private function resolve(array $identity): int {
         global $wpdb; $t=Canonical::table_names();
