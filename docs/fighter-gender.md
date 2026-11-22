@@ -31,6 +31,20 @@ python -m mma_future_scraper.cli build-gender-evidence-queue --output /path/to/g
 
 `build-gender-evidence-queue` writes a standard fighter queue of the profiles that still have no evidence and whose weight class cannot settle the gender: Strawweight and Atomweight first (95), then profiles without a weight class (90), then Flyweight, Bantamweight, Featherweight and Lightweight (70); the most recently active fighters first inside each group. Every item asks for the scope the cached profile already has, so a whole-career history is never replaced by a record-only profile. `--tracking-decisions` applies the same policy as the regular queue. Feed the file to the profile run with `--queue-file`.
 
+### Queue only what WordPress still needs
+
+Fetching every cached profile is slow, operator-attended work. WordPress knows which fighters actually lack a gender:
+
+```
+wp mmaf fighter gender-targets --output=/private/path/gender-targets.json
+python -m mma_future_scraper.cli build-gender-evidence-queue \
+  --targets /private/path/gender-targets.json --output /path/to/gender-evidence-queue.json
+```
+
+The export is read-only and lists fighters without a gender (`missing`) and women whose gender was only inferred (`inferred_female`), by default for statuses `provisional,verified` and tracking mode `normal` (`--status=provisional`, `--include-untracked`). A gender an admin set or cleared is not listed, and neither is a conflict: that one needs a person.
+
+With `--targets` the queue holds only the listed fighters, whatever their weight class: inferred women first (95), then fighters without a gender (90), then listed fighters that have no cached profile yet (85). The report also says how many targets the cache already answers (`targets_resolved_by_cached_evidence`; the next import settles them) and lists the ones whose page was read and states no gender (`targets_needing_manual_gender`): another fetch would say the same, so those are for manual entry.
+
 ## What the importer does
 
 - Gender is settled before the weight class, because the division a label means depends on it: a female Flyweight is `women_flyweight`; a male Strawweight is stored as `flyweight`; a Strawweight of unknown gender gets no division.

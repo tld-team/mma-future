@@ -114,54 +114,124 @@ def _last_fight_date(profile: dict[str, Any]) -> str:
     return max(dates, default="")
 
 
-def build_gender_evidence_queue(profiles_path: Path, output_path: Path, *, tracking_decisions_path: Path | None = None) -> dict[str, Any]:
+TARGETS_SCHEMA_VERSION = "mmaf_gender_targets_v1"
+_TARGET_PRIORITY = {"inferred_female": 95, "missing": 90}
+
+
+def _load_targets(path: Path | None) -> tuple[dict[str, dict[str, Any]] | None, int]:
+    """WordPress export of the fighters whose gender is still open, keyed by source fighter id."""
+    if path is None:
+        return None, 0
+    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict) or payload.get("schema_version") != TARGETS_SCHEMA_VERSION or not isinstance(payload.get("fighters"), list):
+        raise ValueError("invalid_gender_targets_document")
+    targets: dict[str, dict[str, Any]] = {}
+    unidentified = 0
+    for row in payload["fighters"]:
+        if not isinstance(row, dict):
+            continue
+        url = normalize_tapology_fighter_url(row.get("source_url"))
+        source_fighter_id = row.get("source_fighter_id") or source_fighter_id_from_url(url)
+        if source_fighter_id:
+            targets.setdefault(str(source_fighter_id), {**row, "source_url": url})
+        else:
+            # No Tapology identity: nothing to fetch, the gender has to be entered by hand.
+            unidentified += 1
+    return targets, unidentified
+
+
+def _queue_item(source_fighter_id: str, url: str, profile: dict[str, Any] | None, priority: int, display_name: Any) -> dict[str, Any]:
+    cached = profile or {}
+    return {
+        "source_fighter_id": source_fighter_id,
+        "source_url": url,
+        "display_name": display_name,
+        "seen_in": [],
+        "already_enriched": profile is not None,
+        "existing_profile_status": cached.get("status"),
+        "last_scraped_at": cached.get("scraped_at"),
+        "latest_seen_at": _last_fight_date(cached) or None,
+        "refresh_ttl_days": 0,
+        "should_refresh": True,
+        "is_stale": True,
+        "stale_reason": STALE_REASON if profile is not None else "never_scraped",
+        "priority": priority,
+        "warnings": [],
+        # A narrower request would replace a stored whole-career history with a record-only profile.
+        "fetch_scope": "career_record" if cached.get("fetch_scope") == "career_record" else "professional_mma_career",
+    }
+
+
+def build_gender_evidence_queue(
+    profiles_path: Path,
+    output_path: Path,
+    *,
+    tracking_decisions_path: Path | None = None,
+    targets_path: Path | None = None,
+) -> dict[str, Any]:
+    """Queue the cached profiles that still lack gender evidence.
+
+    Without targets the cached weight class decides who is worth a fetch. With a WordPress
+    targets export only the listed fighters are queued, whatever their weight class.
+    """
     output_path = Path(output_path)
     if output_path.exists():
         raise FileExistsError("Queue already exists; use it without regenerating it.")
     document = json.loads(Path(profiles_path).read_text(encoding="utf-8"))
     tracking = load_tracking_decisions(tracking_decisions_path)
+    targets, targets_without_identity = _load_targets(targets_path)
     items: list[dict[str, Any]] = []
     seen: set[str] = set()
+    cached_ids: set[str] = set()
     skipped_tracking = 0
+    resolved = 0
+    needs_manual: list[dict[str, Any]] = []
     for profile in document.get("profiles", []):
-        if not isinstance(profile, dict) or not _needs_evidence(profile):
+        if not isinstance(profile, dict):
             continue
-        priority = _priority(profile)
         url = normalize_tapology_fighter_url(profile.get("source_url"))
+        source_fighter_id = str(profile.get("source_fighter_id") or source_fighter_id_from_url(url) or "")
+        target = targets.get(source_fighter_id) if targets is not None else None
+        if targets is not None and target is None:
+            continue
+        cached_ids.add(source_fighter_id)
+        if not _needs_evidence(profile):
+            summary = profile.get("profile_summary") if isinstance(profile.get("profile_summary"), dict) else {}
+            if target is not None and profile.get("status") == "success":
+                if summary.get("gender") in {"male", "female"}:
+                    resolved += 1
+                else:
+                    # The page was read and states no gender; another fetch would say the same.
+                    needs_manual.append({"source_fighter_id": source_fighter_id, "display_name": profile.get("display_name"), "source_url": url,
+                                         "status": (summary.get("gender_evidence") or {}).get("status")})
+            continue
+        priority = _TARGET_PRIORITY.get(str(target.get("reason")), 90) if target is not None else _priority(profile)
         if not priority or not url or url in seen:
             continue
-        source_fighter_id = profile.get("source_fighter_id") or source_fighter_id_from_url(url)
         if not tracking_allows_profile(tracking_decision_for(tracking, source_fighter_id, url)):
             skipped_tracking += 1
             continue
         seen.add(url)
-        items.append(
-            {
-                "source_fighter_id": source_fighter_id,
-                "source_url": url,
-                "display_name": profile.get("display_name"),
-                "seen_in": [],
-                "already_enriched": True,
-                "existing_profile_status": "success",
-                "last_scraped_at": profile.get("scraped_at"),
-                "latest_seen_at": _last_fight_date(profile) or None,
-                "refresh_ttl_days": 0,
-                "should_refresh": True,
-                "is_stale": True,
-                "stale_reason": STALE_REASON,
-                "priority": priority,
-                "warnings": [],
-                # A narrower request would replace a stored whole-career history with a record-only profile.
-                "fetch_scope": "career_record" if profile.get("fetch_scope") == "career_record" else "professional_mma_career",
-            }
-        )
-    # Least certain class first; within a class the most recently active fighters.
+        items.append(_queue_item(source_fighter_id, url, profile, priority, profile.get("display_name")))
+    without_source = 0
+    for source_fighter_id, target in (targets or {}).items():
+        if source_fighter_id in cached_ids:
+            continue
+        url = target.get("source_url")
+        if not url:
+            without_source += 1
+            continue
+        if url in seen or not tracking_allows_profile(tracking_decision_for(tracking, source_fighter_id, url)):
+            continue
+        seen.add(url)
+        items.append(_queue_item(source_fighter_id, url, None, 85, target.get("display_name")))
+    # Least certain first; within a group the most recently active fighters.
     items.sort(key=lambda item: item["latest_seen_at"] or "", reverse=True)
     items.sort(key=lambda item: -item["priority"])
     queue = {
         "schema_version": QUEUE_SCHEMA_VERSION,
         "created_at": utc_now(),
-        "queue_mode": "gender-evidence",
+        "queue_mode": "gender-evidence-targets" if targets is not None else "gender-evidence",
         "queue": items,
         "unique_profile_urls": len(items),
         "refreshable_count": len(items),
@@ -170,5 +240,13 @@ def build_gender_evidence_queue(profiles_path: Path, output_path: Path, *, track
         "tracking_decisions_revision": tracking["revision"],
         "count_by_priority": {str(key): value for key, value in sorted(Counter(item["priority"] for item in items).items(), reverse=True)},
     }
+    if targets is not None:
+        queue.update(
+            targets_total=len(targets),
+            targets_resolved_by_cached_evidence=resolved,
+            targets_without_source_url=without_source,
+            targets_without_tapology_identity=targets_without_identity,
+            targets_needing_manual_gender=needs_manual,
+        )
     atomic_write_json(output_path, queue)
     return {key: value for key, value in queue.items() if key != "queue"} | {"output": str(output_path)}
