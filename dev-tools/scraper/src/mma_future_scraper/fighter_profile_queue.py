@@ -599,6 +599,12 @@ class _QueueBuilder:
             entry.update(is_stale=True,should_refresh=True,stale_reason="career_history_evidence_refresh_required",refresh_ttl_days=7)
             entry["priority"]=max(int(entry.get("priority") or 0),90)
         if not entry["is_stale"]:
+            gender_priority = _gender_evidence_refresh_priority(existing)
+            if gender_priority:
+                # The profile was parsed before gender evidence existed; its weight class cannot settle the gender.
+                entry.update(is_stale=True, should_refresh=True, stale_reason="gender_evidence_missing", refresh_ttl_days=0)
+                entry["priority"] = max(int(entry.get("priority") or 0), gender_priority)
+        if not entry["is_stale"]:
             entry["priority"] = 0
             entry["stale_reason"] = "fresh"
 
@@ -662,6 +668,8 @@ def _existing_profiles(path: Path) -> dict[str, dict[str, dict[str, Any]]]:
             # needs_refresh() requires the saved career evidence; without it every
             # fresh profile looked unverified and was queued again.
             "career_history_evidence": profile.get('career_history_evidence') or {},
+            "weight_class": (profile.get("profile_summary") or {}).get("weight_class"),
+            "has_gender_evidence": isinstance((profile.get("profile_summary") or {}).get("gender_evidence"), dict),
         }
         if url:
             by_url[url] = normalized
@@ -705,6 +713,22 @@ def _read_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return {}
+
+
+# Weight classes that say nothing reliable about gender, so the page evidence is needed.
+_GENDER_FIRST_WEIGHT_CLASSES = {"strawweight", "straw", "atomweight", "atom"}
+_GENDER_AMBIGUOUS_WEIGHT_CLASSES = {"flyweight", "bantamweight", "featherweight", "lightweight"}
+
+
+def _gender_evidence_refresh_priority(existing: dict[str, Any]) -> int:
+    if existing.get("status") != "success" or existing.get("has_gender_evidence"):
+        return 0
+    weight_class = " ".join(str(existing.get("weight_class") or "").lower().split())
+    if weight_class in _GENDER_FIRST_WEIGHT_CLASSES:
+        return 95
+    if weight_class in _GENDER_AMBIGUOUS_WEIGHT_CLASSES:
+        return 70
+    return 0
 
 
 def _refresh_policy(

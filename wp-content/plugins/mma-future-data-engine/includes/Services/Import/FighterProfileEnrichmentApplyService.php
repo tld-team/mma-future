@@ -6,6 +6,7 @@ use MMAF\DataEngine\Services\AuditLogService;
 use MMAF\DataEngine\Services\FieldProvenanceService;
 use MMAF\DataEngine\Support\DateTime;
 use MMAF\DataEngine\Support\Sanitizer;
+use MMAF\DataEngine\Support\WeightClassResolver;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -13,7 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class FighterProfileEnrichmentApplyService {
 	private const SOURCE_TYPE = 'tapology_profile_enrichment';
-	private const GENDER_INFERENCE_SOURCE_TYPE = 'tapology_profile_inferred_weight_class';
+	private const GENDER_INFERENCE_SOURCE_TYPE = GenderInferenceService::SOURCE_WEIGHT_CLASS;
+	private const APPLYABLE_STATUSES = array( 'safe_empty_can_apply', 'safe_source_refresh', 'safe_inferred_correction', 'safe_gender_alignment' );
 
 	private const WRITABLE_FIELDS = array(
 		'nickname'      => array(
@@ -153,6 +155,7 @@ final class FighterProfileEnrichmentApplyService {
 
 			$detail = $row;
 			$detail['enrichment_file'] = $path_label;
+			$this->record_explicit_gender_evidence( $detail, $user_id );
 			$detail['safe_field_reviews'] = $this->field_reviews( $detail );
 			$detail['safe_applyable_count'] = $this->safe_applyable_count( $detail['safe_field_reviews'] );
 			$selected = array();
@@ -247,7 +250,7 @@ final class FighterProfileEnrichmentApplyService {
 		$changes = array();
 		foreach ( $selected_fields as $field ) {
 			$review = (array) ( $reviews[ $field ] ?? array() );
-			if ( !in_array((string)($review['status']??''),['safe_empty_can_apply','safe_source_refresh'],true) ) {
+			if ( ! in_array( (string) ( $review['status'] ?? '' ), self::APPLYABLE_STATUSES, true ) ) {
 				$skipped[ $field ] = $this->field_action_from_status( $field, (string) ( $review['status'] ?? 'unsupported_field' ) );
 				continue;
 			}
@@ -278,6 +281,11 @@ final class FighterProfileEnrichmentApplyService {
 			throw new \RuntimeException( 'Canonical fighter no longer exists.' );
 		}
 
+		// Gender is decided first: whether the weight class may follow depends on it.
+		if ( isset( $changes['gender'] ) ) {
+			$changes = array( 'gender' => $changes['gender'] ) + $changes;
+		}
+		$gender_corrected = false;
 		foreach ( $changes as $field => $change ) {
 			$protection_reason = $this->provenance->protected_reason( 'fighter', $fighter_id, $field );
 			if ( null !== $protection_reason ) {
@@ -287,10 +295,21 @@ final class FighterProfileEnrichmentApplyService {
 			}
 
 			$current = (string) ( $before[ $field ] ?? '' );
-			if ( ! $this->current_value_is_empty_or_unknown( $field, $current ) && !$this->can_refresh_source_field($field,$fighter_id,$current,$detail) ) {
-				$skipped[ $field ] = 'skip_existing_value';
-				unset( $changes[ $field ] );
+			if ( $this->current_value_is_empty_or_unknown( $field, $current ) || $this->can_refresh_source_field($field,$fighter_id,$current,$detail) ) {
+				continue;
 			}
+
+			$status = (string) ( $reviews[ $field ]['status'] ?? '' );
+			if ( 'gender' === $field && 'safe_inferred_correction' === $status && $this->gender_is_correctable( $fighter_id, $current, $detail ) ) {
+				$gender_corrected = true;
+				continue;
+			}
+			if ( 'weight_class' === $field && 'safe_gender_alignment' === $status && isset( $changes['gender'] ) && ! WeightClassResolver::is_compatible( (string) $changes['gender']['new'], $current ) ) {
+				continue;
+			}
+
+			$skipped[ $field ] = 'skip_existing_value';
+			unset( $changes[ $field ] );
 		}
 
 		if ( empty( $changes ) ) {
@@ -333,12 +352,12 @@ final class FighterProfileEnrichmentApplyService {
 					$fighter_id,
 					$field,
 					$change['new'],
-					$this->provenance_source_type_for_field( $field ),
+					$this->provenance_source_type_for_field( $field, $detail ),
 					$source_id,
 					$user_id
 				);
 				$observed=\MMAF\DataEngine\Services\DataPipeline\ProfileStore::date($detail['source_scraped_at']??null);
-				if ($observed) { \MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->update($this->tables['field_provenance'],['source_observed_at'=>$observed],['entity_type'=>'fighter','entity_id'=>$fighter_id,'field_name'=>$field,'source_type'=>$this->provenance_source_type_for_field($field)])); }
+				if ($observed) { \MMAF\DataEngine\Services\RegularImport\Repository::check($wpdb->update($this->tables['field_provenance'],['source_observed_at'=>$observed],['entity_type'=>'fighter','entity_id'=>$fighter_id,'field_name'=>$field,'source_type'=>$this->provenance_source_type_for_field($field,$detail)])); }
 			}
 
 			$after = $this->get_fighter( $fighter_id );
@@ -363,7 +382,7 @@ final class FighterProfileEnrichmentApplyService {
 					'new_values' => $new_values,
 					'fields_changed' => array_keys( $changes ),
 					'fields_skipped' => $skipped,
-					'field_source_types' => $this->field_source_types( array_keys( $changes ) ),
+					'field_source_types' => $this->field_source_types( array_keys( $changes ), $detail ),
 					'source_fighter_id' => (string) ( $detail['source_fighter_id'] ?? '' ),
 					'source_url' => (string) ( $detail['source_url'] ?? '' ),
 					'profile_json_file' => (string) ( $detail['enrichment_file'] ?? '' ),
@@ -372,6 +391,28 @@ final class FighterProfileEnrichmentApplyService {
 				$this->source_refresh ? 'Latest stored source profile; manual values protected.' : 'Admin-approved Tapology fighter profile enrichment applied to empty safe fields only.',
 				$user_id
 			);
+
+			if ( $gender_corrected ) {
+				$this->audit_log->write(
+					'fighter_gender_corrected',
+					'fighter',
+					$fighter_id,
+					array(
+						'gender' => $before['gender'] ?? null,
+						'weight_class' => $before['weight_class'] ?? null,
+					),
+					array(
+						'gender' => $after['gender'] ?? null,
+						'weight_class' => $after['weight_class'] ?? null,
+						'evidence' => (string) ( $detail['suggested_gender_evidence'] ?? '' ),
+						'source_weight_class' => (string) ( $detail['source_weight_class'] ?? '' ),
+						'source_fighter_id' => (string) ( $detail['source_fighter_id'] ?? '' ),
+						'source_url' => (string) ( $detail['source_url'] ?? '' ),
+					),
+					'Gender inferred earlier from a weaker signal was corrected by what the Tapology profile states.',
+					$user_id
+				);
+			}
 
 			\MMAF\DataEngine\Services\RegularImport\Transaction::commit();
 		} catch ( \Throwable $error ) {
@@ -415,6 +456,10 @@ final class FighterProfileEnrichmentApplyService {
                 $value = $this->prepare_value($field,$suggested);
                 $clean = $value === null ? null : $wpdb->strip_invalid_text_for_column($this->tables['fighters'],$field,(string)$value);
 				$status = $value !== null && !is_wp_error($clean) && $clean === (string)$value ? ('canonical_empty_can_suggest'===$status?'safe_empty_can_apply':'safe_source_refresh') : 'invalid_source_value';
+			} elseif ( 'gender' === $field && 'canonical_inferred_can_correct' === $status ) {
+				$status = null !== $this->prepare_value( $field, (string) ( $row[ $meta['suggested_key'] ] ?? '' ) ) && $this->gender_is_correctable( $fighter_id, (string) ( $row[ $meta['current_key'] ] ?? '' ), $row )
+					? 'safe_inferred_correction'
+					: 'canonical_differs_source_suggestion';
 			}
 
 			$reviews[ $field ] = array(
@@ -423,8 +468,18 @@ final class FighterProfileEnrichmentApplyService {
 				'suggested' => (string) ( $row[ $meta['suggested_key'] ] ?? '' ),
 				'status' => $status,
 				'protection_reason' => $protection_reason,
-				'can_apply' => in_array($status,['safe_empty_can_apply','safe_source_refresh'],true),
+				'can_apply' => in_array( $status, self::APPLYABLE_STATUSES, true ),
 			);
+		}
+
+		// A women's division cannot stay on a fighter who is about to become male, and the reverse.
+		if ( ! empty( $reviews['gender']['can_apply'] ) && 'canonical_differs_source_suggestion' === $reviews['weight_class']['status'] ) {
+			$aligned = $this->prepare_value( 'weight_class', $reviews['weight_class']['suggested'] );
+			$gender  = $reviews['gender']['suggested'];
+			if ( null !== $aligned && WeightClassResolver::is_compatible( $gender, (string) $aligned ) && ! WeightClassResolver::is_compatible( $gender, $reviews['weight_class']['current'] ) ) {
+				$reviews['weight_class']['status']    = 'safe_gender_alignment';
+				$reviews['weight_class']['can_apply'] = true;
+			}
 		}
 
 		return $reviews;
@@ -568,29 +623,50 @@ final class FighterProfileEnrichmentApplyService {
 		return $owned && $observed>(string)($owned['source_observed_at']?:$owned['last_seen_at']);
 	}
 
-	private function provenance_source_type_for_field( string $field ): string {
-		return 'gender' === $field ? self::GENDER_INFERENCE_SOURCE_TYPE : self::SOURCE_TYPE;
+	private function provenance_source_type_for_field( string $field, array $detail = array() ): string {
+		if ( 'gender' !== $field ) {
+			return self::SOURCE_TYPE;
+		}
+
+		return $this->has_explicit_gender( $detail ) ? GenderInferenceService::SOURCE_EXPLICIT : self::GENDER_INFERENCE_SOURCE_TYPE;
 	}
 
-	private function field_source_types( array $fields ): array {
+	private function field_source_types( array $fields, array $detail = array() ): array {
 		$sources = array();
 		foreach ( $fields as $field ) {
-			$sources[ (string) $field ] = $this->provenance_source_type_for_field( (string) $field );
+			$sources[ (string) $field ] = $this->provenance_source_type_for_field( (string) $field, $detail );
 		}
 
 		return $sources;
 	}
 
-	private function normalize_weight_class_for_storage( string $value ): string {
-		$value = strtolower( trim( $value ) );
-		$value = str_replace( array( "women's", 'womens', 'women ' ), 'women ', $value );
-		$value = preg_replace( '/[^a-z0-9]+/', '_', $value );
-		$value = trim( (string) $value, '_' );
-		$value = str_replace( 'women_', 'women_', $value );
-		if ( 'strawweight' === $value ) {
-			return 'women_strawweight';
+	private function has_explicit_gender( array $detail ): bool {
+		return GenderInferenceService::SOURCE_EXPLICIT === (string) ( $detail['suggested_gender_provenance'] ?? '' )
+			&& in_array( (string) ( $detail['suggested_gender'] ?? '' ), array( 'male', 'female' ), true );
+	}
+
+	/** Only a value that a weaker inference put there, and nothing else backs, may be corrected. */
+	private function gender_is_correctable( int $fighter_id, string $current, array $detail ): bool {
+		return $fighter_id > 0
+			&& $this->has_explicit_gender( $detail )
+			&& $this->provenance->value_is_only_from( 'fighter', $fighter_id, 'gender', $current, GenderInferenceService::INFERRED_SOURCE_TYPES );
+	}
+
+	/**
+	 * Remembers what the source page states even when nothing is written to the fighter, so a value
+	 * that agrees becomes source-confirmed and one that disagrees shows up as a conflict.
+	 */
+	private function record_explicit_gender_evidence( array $detail, int $user_id ): void {
+		$fighter_id = (int) ( $detail['matched_canonical_fighter_id'] ?? 0 );
+		if ( $fighter_id <= 0 || ! $this->has_explicit_gender( $detail ) ) {
+			return;
 		}
 
-		return $value;
+		$source_id = '' !== (string) ( $detail['source_fighter_id'] ?? '' ) ? (string) $detail['source_fighter_id'] : (string) ( $detail['source_url'] ?? '' );
+		$this->provenance->upsert_source( 'fighter', $fighter_id, 'gender', (string) $detail['suggested_gender'], GenderInferenceService::SOURCE_EXPLICIT, $source_id, $user_id );
+	}
+
+	private function normalize_weight_class_for_storage( string $value ): string {
+		return WeightClassResolver::normalize( $value );
 	}
 }

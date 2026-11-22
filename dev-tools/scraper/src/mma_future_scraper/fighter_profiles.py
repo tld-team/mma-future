@@ -1262,6 +1262,72 @@ def _clean_display_name(value: str | None) -> str | None:
     return value.title() if value.isupper() else value or None
 
 
+_GENDER_SECTION_START = "regional mma rankings"
+_GENDER_SECTION_END = re.compile(r"^MMA RECORD BY PROMOTION$|(?:FIGHT|COMBAT SPORTS) RECORD$")
+_GENDER_SECTION_MAX_LINES = 60
+_GENDER_PRONOUN = re.compile(r"\b(?:regions where|fights|since|region) (he|she) (?:has|is|fought)\b", re.I)
+_GENDER_PRE_DEBUT = re.compile(r"will become eligible for Tapology's regional MMA rankings", re.I)
+_GENDER_INELIGIBLE = re.compile(r"ineligible for Tapology's regional MMA rankings", re.I)
+
+
+def _extract_gender_evidence(lines: list[str], warnings: list[str]) -> tuple[str | None, dict[str, Any]]:
+    """Gender as Tapology states it in the fighter's own regional ranking text.
+
+    The page has no gender field, but the ranking blurb is written with he/she, and women
+    are ranked on a "Pound for Pound Women" line. Only that section is read: news headlines
+    elsewhere on the page mention other people.
+    """
+    evidence: dict[str, Any] = {
+        "pronoun": None,
+        "women_p4p_ranking": False,
+        "female_grouping_note": False,
+        "status": "missing_section",
+        "excerpt": None,
+    }
+    start = next((index for index, line in enumerate(lines) if line.strip().lower() == _GENDER_SECTION_START), None)
+    if start is None:
+        return None, evidence
+    section: list[str] = []
+    for line in lines[start + 1 : start + 1 + _GENDER_SECTION_MAX_LINES]:
+        if _GENDER_SECTION_END.search(line.strip()):
+            break
+        section.append(line.strip())
+
+    pronouns: set[str] = set()
+    for line in section:
+        found = {match.lower() for match in _GENDER_PRONOUN.findall(line)}
+        if found and evidence["excerpt"] is None:
+            evidence["excerpt"] = line[:240]
+        pronouns |= found
+        if line == "Pound for Pound Women":
+            evidence["women_p4p_ranking"] = True
+        if "all women are grouped" in line.lower():
+            evidence["female_grouping_note"] = True
+    women_markers = evidence["women_p4p_ranking"] or evidence["female_grouping_note"]
+
+    if pronouns == {"she"} or (not pronouns and women_markers):
+        evidence.update(pronoun="she" if pronouns else None, status="explicit")
+        if evidence["excerpt"] is None:
+            evidence["excerpt"] = "Pound for Pound Women"
+        return "female", evidence
+    if pronouns == {"he"} and not women_markers:
+        evidence.update(pronoun="he", status="explicit")
+        return "male", evidence
+    if pronouns:
+        evidence.update(pronoun="/".join(sorted(pronouns)), status="conflict")
+        _append_warning(warnings, "gender_evidence_conflict")
+        return None, evidence
+
+    text = " ".join(section)
+    if _GENDER_PRE_DEBUT.search(text):
+        evidence["status"] = "pre_debut"
+    elif _GENDER_INELIGIBLE.search(text):
+        evidence["status"] = "ineligible"
+    else:
+        evidence["status"] = "no_signal"
+    return None, evidence
+
+
 def _extract_profile_summary(
     snapshot: dict[str, Any],
     body_text: str,
@@ -1293,6 +1359,7 @@ def _extract_profile_summary(
     nationality, nationality_diagnostics = extract_profile_header_nationality_details(snapshot, source_url)
     for warning in nationality_diagnostics.get("warnings", []):
         _append_warning(warnings, warning)
+    gender, gender_evidence = _extract_gender_evidence(lines, warnings)
     return {
         "nickname": nickname,
         "date_of_birth_raw": _clean_optional_text(dob_raw),
@@ -1313,6 +1380,8 @@ def _extract_profile_summary(
         "last_weigh_in": last_weigh_in,
         "last_weigh_in_lbs": _normalize_lbs(last_weigh_in),
         "weight_class": _extract_weight_class(body_text, lines),
+        "gender": gender,
+        "gender_evidence": gender_evidence,
         "image_url": image_url,
     }
 

@@ -134,9 +134,12 @@ final class FighterRepository {
 
         $operations=\MMAF\DataEngine\Services\Operations\Schema::tables();
         $coverage=Schema::table_names()['fighter_career_coverage'];
-        foreach (['gender','weight_class'] as $field) {
-            if (!empty($filters[$field])) { $where[]="f.$field = %s"; $args[]=(string)$filters[$field]; }
-        }
+        // A fighter without a gender is stored as NULL, never as the word "unknown".
+        if (($filters['gender']??'')==='unknown') { $where[]="(f.gender IS NULL OR f.gender IN ('','unknown'))"; }
+        elseif (!empty($filters['gender'])) { $where[]='f.gender = %s'; $args[]=(string)$filters['gender']; }
+        if (!empty($filters['weight_class'])) { $where[]='f.weight_class = %s'; $args[]=(string)$filters['weight_class']; }
+        $gender_source=\MMAF\DataEngine\Services\GenderSource::filter_sql((string)($filters['gender_source']??''),Schema::table_names()['field_provenance']);
+        if ($gender_source) { $where[]='('.$gender_source.')'; }
         if (($filters['import_job']??'')==='legacy') {
             $where[]="NOT EXISTS (SELECT 1 FROM {$operations['membership']} m WHERE m.fighter_id=f.id)";
         } elseif (!empty($filters['import_job'])) {

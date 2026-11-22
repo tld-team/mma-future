@@ -631,6 +631,20 @@ def build_parser() -> argparse.ArgumentParser:
     prune.add_argument("--min-age-hours", type=non_negative_float, default=48.0, help="Keep runs younger than this untouched")
     prune.add_argument("--archive-dir", type=Path, default=None, help="Where the snapshot tar.gz goes (default: <data-dir>/archive)")
     prune.add_argument("--details", action="store_true", help="List every pruned run and what is removed from it")
+    gender_backfill = subparsers.add_parser(
+        "backfill-gender-evidence",
+        help="Read gender evidence for cached profiles from saved page captures; no network. Dry run unless --apply",
+    )
+    gender_backfill.add_argument("--profiles", type=Path, default=LATEST_DIR / "fighter_profiles.json")
+    gender_backfill.add_argument("--snapshots-dir", type=Path, default=DATA_DIR / "runs")
+    gender_backfill.add_argument("--apply", action="store_true", help="Write the evidence; the previous file is kept as a .bak-gender copy")
+    gender_queue = subparsers.add_parser(
+        "build-gender-evidence-queue",
+        help="Write a fighter queue of cached profiles that still lack gender evidence; no network",
+    )
+    gender_queue.add_argument("--profiles", type=Path, default=LATEST_DIR / "fighter_profiles.json")
+    gender_queue.add_argument("--output", type=Path, required=True)
+    gender_queue.add_argument("--tracking-decisions", type=Path)
     recovery=subparsers.add_parser('prepare-import-recovery',help='Reparse exact saved DOM snapshots and prepare targeted source enrichment')
     recovery.add_argument('--source-profiles',type=Path,required=True)
     recovery.add_argument('--snapshots-dir',type=Path,required=True)
@@ -760,6 +774,14 @@ def _dispatch(args) -> int:
     if args.command == 'export-ufc-roster-bundle':
         from .import_bundle import export_ufc_roster_bundle
         result=export_ufc_roster_bundle(args.output,latest_dir=args.latest_dir);print(json.dumps(result,ensure_ascii=False,indent=2));return 0
+
+    if args.command == "backfill-gender-evidence":
+        from .gender_backfill import backfill_gender_evidence
+        print(json.dumps(backfill_gender_evidence(args.profiles, args.snapshots_dir, apply=args.apply), ensure_ascii=False, indent=2));return 0
+
+    if args.command == "build-gender-evidence-queue":
+        from .gender_backfill import build_gender_evidence_queue
+        print(json.dumps(build_gender_evidence_queue(args.profiles, args.output, tracking_decisions_path=args.tracking_decisions), ensure_ascii=False, indent=2));return 0
 
     if args.command=='prepare-import-recovery':
         from .import_recovery import prepare_recovery

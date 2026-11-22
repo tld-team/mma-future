@@ -193,6 +193,69 @@ final class FieldProvenanceService {
 		return null !== $this->protected_reason( $entity_type, $entity_id, $field_name );
 	}
 
+	/** @return array<int,array{source_type:string,source_id:string,value_hash:string,locked:int,matches_current:bool}> */
+	public function sources_for_value( string $entity_type, int $entity_id, string $field_name, $current_value ): array {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT source_type, source_id, value_hash, locked FROM {$this->table} WHERE entity_type = %s AND entity_id = %d AND field_name = %s ORDER BY id ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$entity_type,
+				$entity_id,
+				$field_name
+			),
+			ARRAY_A
+		);
+
+		return self::describe_sources( (array) $rows, $current_value );
+	}
+
+	/**
+	 * True when the stored value is backed only by the given weaker source types, so a stronger
+	 * source may correct it. A value with no provenance at all has an unknown origin and is not weak.
+	 */
+	public function value_is_only_from( string $entity_type, int $entity_id, string $field_name, $current_value, array $weak_source_types ): bool {
+		return self::only_from( $this->sources_for_value( $entity_type, $entity_id, $field_name, $current_value ), $weak_source_types );
+	}
+
+	public static function describe_sources( array $rows, $current_value ): array {
+		$hash    = self::value_hash( $current_value );
+		$sources = array();
+		foreach ( $rows as $row ) {
+			$sources[] = array(
+				'source_type'     => (string) ( $row['source_type'] ?? '' ),
+				'source_id'       => (string) ( $row['source_id'] ?? '' ),
+				'value_hash'      => (string) ( $row['value_hash'] ?? '' ),
+				'locked'          => (int) ( $row['locked'] ?? 0 ),
+				'matches_current' => hash_equals( $hash, (string) ( $row['value_hash'] ?? '' ) ),
+			);
+		}
+
+		return $sources;
+	}
+
+	public static function only_from( array $sources, array $weak_source_types ): bool {
+		$backing = 0;
+		foreach ( $sources as $source ) {
+			if ( 1 === (int) $source['locked'] || isset( self::PROTECTED_SOURCE_TYPES[ $source['source_type'] ] ) ) {
+				return false;
+			}
+			if ( empty( $source['matches_current'] ) ) {
+				continue;
+			}
+			if ( ! in_array( $source['source_type'], $weak_source_types, true ) ) {
+				return false;
+			}
+			++$backing;
+		}
+
+		return $backing > 0;
+	}
+
+	public static function value_hash( $value ): string {
+		return hash( 'sha256', null === $value ? '' : ( is_bool( $value ) ? ( $value ? '1' : '0' ) : trim( strtolower( (string) $value ) ) ) );
+	}
+
 	private function normalize_value( $value ): string {
 		if ( null === $value ) {
 			return '';

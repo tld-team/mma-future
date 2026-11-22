@@ -5,6 +5,7 @@ use MMAF\DataEngine\Migrations\Schema;
 use MMAF\DataEngine\Services\FieldProvenanceService;
 use MMAF\DataEngine\Support\Sanitizer;
 use MMAF\DataEngine\Support\TapologyFighterUrl;
+use MMAF\DataEngine\Support\WeightClassResolver;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -306,9 +307,13 @@ final class FighterProfileEnrichmentPreviewService {
 		$suggested_dob = $this->valid_date( $summary['date_of_birth'] ?? null );
 		$suggested_birth_year = $this->suggested_birth_year( $summary, $suggested_dob );
 		$suggested_nickname = $this->string_or_null( $summary['nickname'] ?? null );
-		$suggested_weight_class = $this->canonical_weight_class_suggestion( $this->string_or_null( $summary['weight_class'] ?? null ) );
-		$gender_inference = $this->gender_inference->infer_from_weight_class( $suggested_weight_class );
+		$source_weight_class = $this->string_or_null( $summary['weight_class'] ?? null );
+		$gender_inference = $this->gender_inference->infer( $summary );
 		$suggested_gender = $this->string_or_null( $gender_inference['gender'] ?? null );
+		$gender_is_explicit = GenderInferenceService::SOURCE_EXPLICIT === (string) ( $gender_inference['provenance_source_type'] ?? '' );
+		$gender_status = $this->gender_field_status( $suggested_gender, $gender_is_explicit, $fighter );
+		// The division a source label means depends on the fighter's gender, so gender is settled first.
+		$suggested_weight_class = WeightClassResolver::canonical( $source_weight_class, $this->effective_gender( $suggested_gender, $gender_status, $fighter ) );
 		$suggested_country = self::nationality_suggestion( $summary );
 		$born_location = $this->string_or_null( $summary['born_location'] ?? null );
 		$fighting_out_of = $this->string_or_null( $summary['fighting_out_of'] ?? null );
@@ -325,7 +330,7 @@ final class FighterProfileEnrichmentPreviewService {
 			'nickname' => $this->field_status( 'nickname', $suggested_nickname, $fighter ),
 			'date_of_birth' => $this->field_status( 'date_of_birth', $suggested_dob, $fighter ),
 			'birth_year' => $this->field_status( 'birth_year', null === $suggested_birth_year ? null : (string) $suggested_birth_year, $fighter ),
-			'gender' => $this->field_status( 'gender', $suggested_gender, $fighter ),
+			'gender' => $gender_status,
 			'nationality' => $this->nationality_field_status( $suggested_country, $born_location, $fighting_out_of, $fighter ),
 			'born_location' => $this->field_status( 'born_location', $born_location, $fighter ),
 			'fighting_out_of' => $this->field_status( 'fighting_out_of', $fighting_out_of, $fighter ),
@@ -343,6 +348,9 @@ final class FighterProfileEnrichmentPreviewService {
 
 		if ( '' !== (string) ( $gender_inference['warning'] ?? '' ) ) {
 			$warnings[] = (string) $gender_inference['warning'];
+		}
+		if ( $gender_is_explicit && $fighter && ! in_array( (string) ( $field_statuses['gender'] ?? '' ), array( 'canonical_empty_can_suggest', 'canonical_inferred_can_correct', 'already_same' ), true ) && '' !== trim( (string) ( $fighter['gender'] ?? '' ) ) && strtolower( trim( (string) $fighter['gender'] ) ) !== $suggested_gender ) {
+			$warnings[] = 'gender_source_conflict';
 		}
 
 		foreach ( $field_statuses as $field => $status ) {
@@ -394,6 +402,9 @@ final class FighterProfileEnrichmentPreviewService {
 			'suggested_gender' => $suggested_gender ?: '',
 			'suggested_gender_source' => (string) ( $gender_inference['source'] ?? '' ),
 			'suggested_gender_confidence' => (string) ( $gender_inference['confidence'] ?? '' ),
+			'suggested_gender_provenance' => (string) ( $gender_inference['provenance_source_type'] ?? '' ),
+			'suggested_gender_evidence' => (string) ( $gender_inference['evidence_excerpt'] ?? '' ),
+			'source_weight_class' => $source_weight_class ?: '',
 			'current_weight_class' => $fighter ? (string) ( $fighter['weight_class'] ?? '' ) : '',
 			'suggested_weight_class' => $suggested_weight_class ?: '',
 			'current_nationality' => $fighter ? (string) ( $fighter['nationality'] ?? '' ) : '',
@@ -739,6 +750,41 @@ final class FighterProfileEnrichmentPreviewService {
 			: 'canonical_differs_source_suggestion';
 	}
 
+	/**
+	 * Gender status. A value that only a weaker inference put there may be corrected by what the
+	 * source page states; a manual value or one of unknown origin never is.
+	 */
+	private function gender_field_status( ?string $suggested_gender, bool $is_explicit, ?array $fighter ): string {
+		$status = $this->field_status( 'gender', $suggested_gender, $fighter );
+		if ( 'canonical_differs_source_suggestion' !== $status || ! $is_explicit || ! $fighter || empty( $fighter['id'] ) ) {
+			return $status;
+		}
+
+		return $this->provenance->value_is_only_from( 'fighter', (int) $fighter['id'], 'gender', (string) ( $fighter['gender'] ?? '' ), GenderInferenceService::INFERRED_SOURCE_TYPES )
+			? 'canonical_inferred_can_correct'
+			: $status;
+	}
+
+	/** The gender the fighter will have once this profile is applied. */
+	private function effective_gender( ?string $suggested_gender, string $gender_status, ?array $fighter ): ?string {
+		if ( ! $fighter ) {
+			return $suggested_gender;
+		}
+
+		$current = strtolower( trim( (string) ( $fighter['gender'] ?? '' ) ) );
+		$current = in_array( $current, array( 'male', 'female' ), true ) ? $current : null;
+		if ( ! in_array( $gender_status, array( 'canonical_empty_can_suggest', 'canonical_inferred_can_correct' ), true ) ) {
+			return $current;
+		}
+
+		$fighter_id = (int) ( $fighter['id'] ?? 0 );
+		if ( $fighter_id > 0 && null !== $this->provenance->protected_reason( 'fighter', $fighter_id, 'gender' ) ) {
+			return $current;
+		}
+
+		return $suggested_gender;
+	}
+
 	private function is_empty_canonical_value( string $canonical_field, string $current ): bool {
 		$current = trim( $current );
 		if ( '' === $current ) {
@@ -918,6 +964,15 @@ final class FighterProfileEnrichmentPreviewService {
 		}
 		if ( ! empty( $row['has_gender_suggestion'] ) ) {
 			++$summary['profiles_with_gender_inference'];
+		}
+		if ( GenderInferenceService::SOURCE_EXPLICIT === (string) ( $row['suggested_gender_provenance'] ?? '' ) ) {
+			++$summary['profiles_with_explicit_gender'];
+		}
+		if ( 'canonical_inferred_can_correct' === (string) ( $row['field_statuses']['gender'] ?? '' ) ) {
+			++$summary['profiles_gender_correctable'];
+		}
+		if ( in_array( 'gender_source_conflict', (array) ( $row['warnings'] ?? array() ), true ) ) {
+			++$summary['profiles_gender_conflict'];
 		}
 		if ( in_array( 'unable_to_infer_gender_from_weight_class', (array) ( $row['warnings'] ?? array() ), true ) ) {
 			++$summary['profiles_gender_cannot_infer'];
@@ -1113,6 +1168,9 @@ final class FighterProfileEnrichmentPreviewService {
 			'profiles_with_dob' => 0,
 			'profiles_with_birth_year' => 0,
 			'profiles_with_gender_inference' => 0,
+			'profiles_with_explicit_gender' => 0,
+			'profiles_gender_correctable' => 0,
+			'profiles_gender_conflict' => 0,
 			'profiles_gender_cannot_infer' => 0,
 			'profiles_with_weight_class' => 0,
 			'profiles_with_height' => 0,
@@ -1321,26 +1379,9 @@ final class FighterProfileEnrichmentPreviewService {
 		return trim( (string) $value, '_' );
 	}
 
-	private function canonical_weight_class_suggestion( ?string $value ): ?string {
-		if ( null === $value ) {
-			return null;
-		}
-
-		$normalized = $this->normalize_weight_class( $value );
-		$aliases = array(
-			'strawweight' => 'women_strawweight',
-			'light_heavy' => 'light_heavyweight',
-		);
-		if ( isset( $aliases[ $normalized ] ) ) {
-			$normalized = $aliases[ $normalized ];
-		}
-
-		return in_array( $normalized, Sanitizer::WEIGHT_CLASSES, true ) && 'unknown' !== $normalized ? $normalized : null;
-	}
-
 	private function suggested_weight_class_is_storable( string $value ): bool {
-		$suggestion = $this->canonical_weight_class_suggestion( $value );
-		return null !== $suggestion && in_array( $this->normalize_weight_class( $suggestion ), Sanitizer::WEIGHT_CLASSES, true );
+		$normalized = WeightClassResolver::normalize( $value );
+		return 'unknown' !== $normalized && in_array( $normalized, Sanitizer::WEIGHT_CLASSES, true );
 	}
 
 	private function normalize_url( string $url ): string {
