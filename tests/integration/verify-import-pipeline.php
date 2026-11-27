@@ -57,9 +57,14 @@ try{
     $meta=$current['meta'];$meta['baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::integrity();$meta['protected_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::protectedState();$meta['calculation_input_baseline']=\MMAF\DataEngine\Services\RegularImport\DatabaseState::calculationRevision();$meta['backup']=['fixture_only'=>true];
     $repo->update($job,['meta'=>$meta,'approved_by'=>1,'writes_started'=>1,'phase'=>'results','status'=>'queued']);
     \MMAF\DataEngine\Services\RegularImport\DatabaseState::$calculationRevisionScans=0;
+    // Regression for staging import #13: a statistics generation from before the canonical data changed.
+    $guarded=WriteGuard::$worker;WriteGuard::$worker=true;
+    try{$staleStats=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,1,'import:'.$job.':stats');}finally{WriteGuard::$worker=$guarded;}
     $units=Worker::run(35,256,250);
     $current=$repo->get($job);
     check(in_array($current['status'],['completed','completed_with_review'],true) && !$current['error'],'one bounded worker finishes actual import, careers, statistics and final audit');
+    $staleStatus=$wpdb->get_var($wpdb->prepare('SELECT status FROM '.\MMAF\DataEngine\Services\Operations\Schema::tables()['jobs'].' WHERE id=%d',$staleStats));
+    check((int)($current['meta']['stats_restarts']??0)===1 && $staleStatus==='cancelled' && (int)($current['meta']['stats']['generation_id']??0)>$staleStats,'a statistics generation whose inputs changed before the import reached it is replaced instead of blocking the import');
     check(isset($current['meta']['protected_baseline']['publication_rows']),'final audit still accepts a job whose meta holds the older full protected baseline');
     check((int)($current['meta']['performance']['stats']['units']??0)>1 && \MMAF\DataEngine\Services\RegularImport\DatabaseState::$calculationRevisionScans===1 && ($current['meta']['calculation_needed']??null)===true,'the whole-table calculation input scan runs once per import, not on every statistics unit');
     $career=$wpdb->get_results($wpdb->prepare("SELECT status FROM {$t['fighter_career_coverage']} WHERE fighter_id IN (%d,%d)",$a['fighter_id'],$b['fighter_id']),ARRAY_A);

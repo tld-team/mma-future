@@ -69,6 +69,19 @@ final class Engine {
         });};
         return $next && $next['phase']==='backup'?BackupGuard::run($unit):$unit();
     }
+    /** One step of this import's statistics calculation. */
+    private function statsStep(int $id,array $job,array &$meta): array {
+        $restarts=(int)($meta['stats_restarts']??0);
+        $calculation=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,(int)$job['approved_by'],'import:'.$id.':stats'.($restarts?':'.$restarts:''));
+        $result=\MMAF\DataEngine\Services\Operations\Calculation::step($calculation);
+        if($result['status']!=='failed'){return $result;}
+        if($restarts>=3 || strpos((string)$result['error_message'],'Input data changed')!==0){throw new ImportException('Statistics generation failed: '.$result['error_message'],'calculation');}
+        // Canonical data moved on while this generation waited (an import held for attention, a reconcile run).
+        // Statistics are derived from current data, so the generation is replaced instead of blocking the import for good.
+        \MMAF\DataEngine\Services\Operations\Jobs::save($calculation,['status'=>'cancelled','finished_at'=>gmdate('Y-m-d H:i:s')]);
+        $meta['stats_restarts']=$restarts+1;$this->repo->update($id,['meta'=>$meta]);
+        return ['status'=>'running'];
+    }
     private function step(array $job,callable $heartbeat): void {
         global $wpdb;$id=(int)$job['id'];$meta=$job['meta'];$phase=$job['phase'];
         if($phase==='assemble'){
@@ -164,9 +177,7 @@ final class Engine {
                 $meta['calculation_needed']=true;
                 $this->repo->update($id,['meta'=>$meta]);
             }
-            $calculation=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,(int)$job['approved_by'],'import:'.$id.':stats');
-            $result=\MMAF\DataEngine\Services\Operations\Calculation::step($calculation);
-            if($result['status']==='failed'){throw new ImportException('Statistics generation failed: '.$result['error_message'],'calculation');}
+            $result=$this->statsStep($id,$job,$meta);
             if($result['status']==='completed'){$meta['stats']=$result['summary'];$this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);}return;
         }
         if($phase==='audit'){
@@ -446,9 +457,7 @@ final class Engine {
             $this->repo->update($id,['phase'=>'stats','status'=>'queued']);return;
         }
         if($phase==='stats'){
-            $calculation=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,(int)$job['approved_by'],'import:'.$id.':stats');
-            $result=\MMAF\DataEngine\Services\Operations\Calculation::step($calculation);
-            if($result['status']==='failed'){throw new ImportException('Statistics generation failed: '.$result['error_message'],'calculation');}
+            $result=$this->statsStep($id,$job,$meta);
             if($result['status']==='completed'){$meta['stats']=$result['summary'];$this->repo->update($id,['meta'=>$meta,'phase'=>'audit','status'=>'queued']);}return;
         }
         if($phase==='audit'){

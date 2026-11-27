@@ -253,6 +253,12 @@ existing shared locks. It reports phase duration, query count and peak memory.
 It does not guarantee that an individual backup fits the loop's elapsed budget;
 backup creation retains its existing dedicated lock and consistency checks.
 
+Statistics are calculated from a frozen input revision. When canonical data
+changes before the import's generation finishes (an import held for attention,
+a reconcile run in between), the generation is cancelled and a new one starts
+from the current data, at most three times per import; `stats_restarts` in the
+job's technical details counts them.
+
 The pre-import backup is one unit and grows with the database, so the supervisor
 gives the worker 30 minutes before it treats the process as hung (notifications
 keep 120 seconds). A backup process that dies leaves `writes-paused.flag`
