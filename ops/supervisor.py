@@ -6,11 +6,25 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 from runner import Runner, Busy
 from storage import atomic
 
+# The pre-import backup is one unit that cannot be split and grows with the database.
+WORKER_TIMEOUT=1800
+
+def clear_abandoned_barrier(worker):
+    """Lift a write barrier whose owner died; a live owner always holds deployment.lock."""
+    flag=worker.root/'writes-paused.flag'
+    if not flag.exists() or (worker.root/'maintenance.flag').exists():return
+    try:
+        with worker.lock(worker.root/'deployment.lock'):
+            # A failed release keeps its barrier on purpose, together with maintenance.flag.
+            if not (worker.root/'maintenance.flag').exists():flag.unlink(missing_ok=True)
+    except Busy:pass
+
 def run(config):
     worker=Runner(config);end=time.monotonic()+50
     paused=lambda:any((worker.root/name).exists() for name in ['writes-paused.flag','maintenance.flag','recovery-readonly.flag'])
     try:
         with worker.lock(worker.root/'supervisor.lock'):
+            clear_abandoned_barrier(worker)
             if paused(): return
             worker.wp('eval','update_option("mmaf_operations_heartbeat",gmdate("Y-m-d H:i:s"),false);')
             atomic(worker.root/'supervisor-heartbeat.json',{'at':time.time(),'state':'running'})
@@ -24,7 +38,7 @@ def run(config):
                 worked=False
                 for command in commands:
                     if time.monotonic()>=end or paused():break
-                    result=json.loads(worker.wp(*command,timeout=120))
+                    result=json.loads(worker.wp(*command,timeout=120 if command[1]=='notifications' else WORKER_TIMEOUT))
                     worked=worked or bool(result.get('worked'))
                     metrics={'command':' '.join(command[:3]),'units':result.get('units'),'elapsed_seconds':result.get('elapsed_seconds'),'peak_memory_mb':result.get('peak_memory_mb'),'db_queries':result.get('db_queries'),'stop_reason':result.get('stop_reason')}
                     atomic(worker.root/'supervisor-heartbeat.json',{'at':time.time(),'state':'running',**metrics})

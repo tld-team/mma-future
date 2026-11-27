@@ -17,16 +17,21 @@ class FakeRunner:
     root = None
     fail_background = False
     stop_reason = 'idle'
+    deploying = False
+    timeouts = {}
 
     def __init__(self, config):
         self.root = Path(config).parent
 
     @contextlib.contextmanager
     def lock(self, path):
+        if self.deploying and Path(path).name == 'deployment.lock':
+            raise supervisor.Busy('deployment.lock')
         yield
 
     def wp(self, *args, **kwargs):
         self.calls.append(args)
+        self.timeouts[args[:2]] = kwargs.get('timeout')
         if args[:3] == ('option', 'get', 'mmaf_db_version'):
             return self.schema
         if args[:2] == ('mmaf', 'background'):
@@ -65,9 +70,37 @@ class ImportOperationsTests(unittest.TestCase):
             supervisor.run(Path(temp) / 'config.json')
             self.assertEqual([c[:3] for c in FakeRunner.calls if c[0] == 'mmaf'], [('mmaf', 'import-job', 'work'), ('mmaf', 'operations', 'work'), ('mmaf', 'data-process', 'work')])
             (Path(temp) / 'writes-paused.flag').write_text('fixture')
-            FakeRunner.calls = []
-            supervisor.run(Path(temp) / 'config.json')
+            FakeRunner.calls = []; FakeRunner.deploying = True
+            try:
+                supervisor.run(Path(temp) / 'config.json')
+            finally:
+                FakeRunner.deploying = False
             self.assertEqual(FakeRunner.calls, [])
+            self.assertTrue((Path(temp) / 'writes-paused.flag').exists())
+
+    def test_barrier_left_by_a_killed_backup_is_lifted_and_work_resumes(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(supervisor, 'Runner', FakeRunner):
+            FakeRunner.schema = '1.10.0'; FakeRunner.calls = []
+            flag = Path(temp) / 'writes-paused.flag'; flag.write_text('1795341807')
+            supervisor.run(Path(temp) / 'config.json')
+            self.assertFalse(flag.exists())
+            self.assertIn(('mmaf', 'background', 'work', '--seconds=35', '--memory-mb=256'), FakeRunner.calls)
+
+    def test_barrier_kept_by_a_failed_release_stays(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(supervisor, 'Runner', FakeRunner):
+            FakeRunner.schema = '1.10.0'; FakeRunner.calls = []
+            flag = Path(temp) / 'writes-paused.flag'; flag.write_text('fixture'); (Path(temp) / 'maintenance.flag').touch()
+            supervisor.run(Path(temp) / 'config.json')
+            self.assertTrue(flag.exists())
+            self.assertEqual(FakeRunner.calls, [])
+
+    def test_backup_unit_is_not_cut_off_at_the_short_command_timeout(self):
+        with tempfile.TemporaryDirectory() as temp, patch.object(supervisor, 'Runner', FakeRunner):
+            FakeRunner.schema = '1.18.0'; FakeRunner.calls = []; FakeRunner.timeouts = {}
+            supervisor.run(Path(temp) / 'config.json')
+            self.assertEqual(FakeRunner.timeouts[('mmaf', 'notifications')], 120)
+            self.assertEqual(FakeRunner.timeouts[('mmaf', 'background')], supervisor.WORKER_TIMEOUT)
+            self.assertGreaterEqual(supervisor.WORKER_TIMEOUT, 900)
 
     def test_supervisor_records_a_failed_worker_outcome(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(supervisor, 'Runner', FakeRunner):

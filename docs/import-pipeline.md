@@ -253,6 +253,13 @@ existing shared locks. It reports phase duration, query count and peak memory.
 It does not guarantee that an individual backup fits the loop's elapsed budget;
 backup creation retains its existing dedicated lock and consistency checks.
 
+The pre-import backup is one unit and grows with the database, so the supervisor
+gives the worker 30 minutes before it treats the process as hung (notifications
+keep 120 seconds). A backup process that dies leaves `writes-paused.flag`
+behind, which refuses every write, sign-in and `wp` command. The supervisor
+lifts that barrier on its next run when nobody holds `deployment.lock` and no
+`maintenance.flag` exists; a failed release keeps both and is left alone.
+
 ## Backups and restore verification
 
 Each backup verifies readable SQL, gzip CRC/size, SHA-256, table/row metadata,
