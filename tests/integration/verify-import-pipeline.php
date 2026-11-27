@@ -58,7 +58,8 @@ try{
     $repo->update($job,['meta'=>$meta,'approved_by'=>1,'writes_started'=>1,'phase'=>'results','status'=>'queued']);
     \MMAF\DataEngine\Services\RegularImport\DatabaseState::$calculationRevisionScans=0;
     // Regression for staging import #13: a statistics generation from before the canonical data changed.
-    $staleStats=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,1,'import:'.$job.':stats');
+    $guarded=WriteGuard::$worker;WriteGuard::$worker=true;
+    try{$staleStats=\MMAF\DataEngine\Services\Operations\Calculation::create('stats',0,1,'import:'.$job.':stats');}finally{WriteGuard::$worker=$guarded;}
     $units=Worker::run(35,256,250);
     $current=$repo->get($job);
     check(in_array($current['status'],['completed','completed_with_review'],true) && !$current['error'],'one bounded worker finishes actual import, careers, statistics and final audit');
